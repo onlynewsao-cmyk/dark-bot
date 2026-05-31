@@ -1,0 +1,11 @@
+<%- include('partials/head') %>
+<div class="error-page">
+  <div class="error-code">404</div>
+  <h2 style="font-family:'Orbitron',sans-serif;letter-spacing:2px;margin-bottom:.5rem">Página não encontrada</h2>
+  <p class="muted">A rota que você procura não existe no universo do <%= bot.name %>.</p>
+  <div style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;justify-content:center">
+    <a href="/dashboard" class="btn btn-primary">📊 Dashboard</a>
+    <a href="/" class="btn btn-ghost">🏠 Início</a>
+  </div>
+</div>
+<%- include('partials/footer') %>
