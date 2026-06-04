@@ -5,7 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "decrypt:url": "node scripts/decrypt-url.js"
   },
   "engines": {
     "node": ">=18.0.0"
