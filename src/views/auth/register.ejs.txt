@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || 'Criar Conta' %> • Dark Bot</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .register-container {
+      background: #1e293b;
+      padding: 40px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      font-size: 1.8rem;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+      color: #94a3b8;
+    }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-size: 1rem;
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #22c55e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .btn:hover {
+      background: #16a34a;
+    }
+    .error {
+      background: #450a0a;
+      color: #f87171;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      font-size: 0.9rem;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="register-container">
+    <h1>📝 Criar Conta</h1>
+
+    <% if (error) { %>
+      <div class="error"><%= error %></div>
+    <% } %>
+
+    <form action="/register" method="POST">
+      <div class="form-group">
+        <label>Nome de usuário</label>
+        <input type="text" name="username" value="<%= username || '' %>" required>
+      </div>
+
+      <div class="form-group">
+        <label>Nome completo</label>
+        <input type="text" name="name" value="<%= name || '' %>">
+      </div>
+
+      <div class="form-group">
+        <label>Número WhatsApp</label>
+        <input type="text" name="whatsappNumber" value="<%= whatsappNumber || '' %>" placeholder="244XXXXXXXXX">
+      </div>
+
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" name="password" required>
+      </div>
+
+      <button type="submit" class="btn">Criar Conta</button>
+    </form>
+
+    <div class="footer">
+      Já tem conta? <a href="/login" style="color:#60a5fa">Fazer login</a>
+    </div>
+  </div>
+</body>
+</html>
