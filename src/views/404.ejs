@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>404 · <%= bot.name %></title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="/img/logo.jpg" type="image/jpeg" />
+  <style>
+    .err-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: radial-gradient(ellipse at top, #1a0b2e 0%, #0f0518 60%, #000 100%);
+    }
+    .err-code {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 6rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #a78bfa, #f43f5e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .err-text {
+      color: #94a3b8;
+      margin-bottom: 2rem;
+      font-size: 1.1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="err-page">
+    <div class="err-code">404</div>
+    <p class="err-text">🌑 Página não encontrada no lado escuro.</p>
+    <a href="/" class="btn btn-primary">🏠 Voltar ao início</a>
+  </div>
+</body>
+</html>

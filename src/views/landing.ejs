@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> · <%= bot.name %></title>
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="icon" href="/img/logo.jpg" type="image/jpeg" />
+  <style>
+    .landing-hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: radial-gradient(ellipse at top, #1a0b2e 0%, #0f0518 60%, #000 100%);
+    }
+    .landing-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 40px rgba(139, 92, 246, 0.4);
+      margin-bottom: 1.5rem;
+    }
+    .landing-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, #a78bfa, #c084fc, #8b5cf6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+    .landing-subtitle {
+      color: #a78bfa;
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      opacity: 0.9;
+    }
+    .landing-desc {
+      max-width: 560px;
+      color: #94a3b8;
+      line-height: 1.7;
+      margin-bottom: 2.5rem;
+    }
+    .landing-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .landing-footer {
+      position: absolute;
+      bottom: 1.5rem;
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="landing-hero">
+    <img src="/img/logo.jpg" alt="Logo" class="landing-logo" />
+    <h1 class="landing-title">DARK BOT</h1>
+    <p class="landing-subtitle">⚡ The Ultimate WhatsApp Bot ⚡</p>
+    <p class="landing-desc">
+      Automação completa para WhatsApp com dashboard profissional,
+      comandos dinâmicos, stickers, decrypter VPN e muito mais.
+    </p>
+    <div class="landing-actions">
+      <a href="/login" class="btn btn-primary" style="padding:.9rem 2rem;font-size:1.05rem">🚀 Entrar</a>
+      <a href="/register" class="btn btn-ghost" style="padding:.9rem 2rem;font-size:1.05rem">📝 Criar Conta</a>
+    </div>
+    <div class="landing-footer">
+      © 2026 <%= owner.name %> — All Rights Reserved
+    </div>
+  </div>
+</body>
+</html>
