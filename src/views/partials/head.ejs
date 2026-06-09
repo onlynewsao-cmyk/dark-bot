@@ -6,6 +6,8 @@
   <title><%= title %> · <%= bot.name %></title>
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="icon" href="/img/logo.jpg" type="image/jpeg" />
+  <!-- Socket.IO deve carregar antes dos scripts inline das páginas do dashboard. -->
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
