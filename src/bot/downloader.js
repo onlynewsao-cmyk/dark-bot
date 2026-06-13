@@ -1,14 +1,13 @@
 /**
- * Downloader v5 — sem APIs externas para YouTube áudio/vídeo.
+ * Downloader v6 — sem APIs externas para YouTube áudio/vídeo.
  *
  * Regra principal dos comandos play/play2/play3/video/video2:
  * - baixar com yt-dlp local
  * - converter com ffmpeg-static
  * - devolver Buffer real para WhatsApp
  *
- * APIs públicas instáveis foram removidas desses comandos. Elas não são mais
- * a fonte principal de áudio/vídeo porque entregavam link/manifesto que o
- * WhatsApp não abria.
+ * FALLBACK v2: Quando yt-dlp falha, tenta Cobalt API e outras APIs
+ * funcionais (2025/2026) antes de dar erro.
  */
 const fs = require('fs');
 const os = require('os');
@@ -17,6 +16,9 @@ const { execFileSync, execSync } = require('child_process');
 const yts = require('yt-search');
 
 const mediaHandler = require('./mediaHandler');
+
+// Importar helpers de API
+const { cobaltDownload, tikwmDownload, spotifydownDownload, siputzxPinterest, siputzxPinterestSearch } = require('./dl/helpers');
 
 function safeTitle(name = 'media') {
   return String(name || 'media').replace(/[/\\?%*:|"<>]/g, '-').slice(0, 80) || 'media';
@@ -116,7 +118,6 @@ async function youtubeSearch(query) {
     return videos.find(v => v.seconds >= 30 && v.seconds <= maxSeconds) || null;
   }
 
-  // Preferir vídeos curtos para garantir arquivo real, rápido e compatível no WhatsApp.
   let v = await searchOnce(query, 12 * 60);
   if (!v) v = await searchOnce(`${query} song short`, 12 * 60);
   if (!v) v = await searchOnce(`${query} 3 minutes`, 12 * 60);
@@ -258,34 +259,156 @@ async function youtubeVideoSavefrom(query) {
   return downloadVideoFile(query, { height: 1080, label: '1080p FHD', timeoutMs: 320000 });
 }
 
-// ==================== SOCIAL VIDEO — yt-dlp local, sem APIs ====================
+// ==================== SOCIAL VIDEO — yt-dlp + API fallback ====================
+
+/**
+ * Tenta baixar vídeo social via yt-dlp primeiro, depois via APIs se falhar.
+ * Retorna { buffer, title, ... } ou { url, title, ... }
+ */
+async function socialVideoDownload(url, label = 'MP4') {
+  // 1ª tentativa: yt-dlp local
+  try {
+    return await downloadVideoFile(url, { height: 720, label: label + ' MP4' });
+  } catch (ytdlpErr) {
+    console.log(`[DL] yt-dlp falhou para ${label}: ${ytdlpErr.message}`);
+  }
+
+  // 2ª tentativa: Cobalt API
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) {
+      console.log(`[DL] Cobalt OK para ${label}`);
+      try {
+        const buffer = await mediaHandler.fetchBuffer(cobaltUrl);
+        if (buffer && buffer.length > 4096) {
+          return {
+            title: label,
+            url: '',
+            buffer,
+            mimetype: 'video/mp4',
+            quality: label,
+            fileName: `${safeTitle(label)}.mp4`,
+          };
+        }
+      } catch (bufErr) {
+        console.log(`[DL] Cobalt buffer falhou, usando URL direta`);
+      }
+      return { title: label, url: cobaltUrl };
+    }
+  } catch (e) {
+    console.log(`[DL] Cobalt falhou para ${label}: ${e.message}`);
+  }
+
+  // 3ª tentativa: API específica por plataforma
+  // (TikTok, etc. — tratados nas funções específicas abaixo)
+
+  throw new Error(`❌ Não consegui baixar ${label}. Tente novamente ou use link diferente.`);
+}
+
 async function tiktok(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do TikTok.');
-  return downloadVideoFile(url, { height: 720, label: 'TikTok MP4' });
+
+  // 1ª tentativa: TikWM (sem marca d'água)
+  const tikwmResult = await tikwmDownload(url);
+  if (tikwmResult) {
+    try {
+      const buffer = await mediaHandler.fetchBuffer(tikwmResult.noWatermark || tikwmResult.url);
+      if (buffer && buffer.length > 4096) {
+        return {
+          title: tikwmResult.title || 'TikTok',
+          url: '',
+          buffer,
+          mimetype: 'video/mp4',
+          quality: 'TikTok MP4',
+          fileName: `${safeTitle(tikwmResult.title || 'tiktok')}.mp4`,
+        };
+      }
+    } catch (e) {}
+    return { title: tikwmResult.title || 'TikTok', url: tikwmResult.noWatermark || tikwmResult.url };
+  }
+
+  // 2ª tentativa: yt-dlp + Cobalt fallback
+  return socialVideoDownload(url, 'TikTok');
 }
+
 async function facebook(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do Facebook.');
-  return downloadVideoFile(url, { height: 720, label: 'Facebook MP4' });
+  return socialVideoDownload(url, 'Facebook');
 }
+
 async function twitter(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do X/Twitter.');
-  return downloadVideoFile(url, { height: 720, label: 'X/Twitter MP4' });
+  return socialVideoDownload(url, 'X/Twitter');
 }
+
 async function instagram(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do Instagram.');
-  const r = await downloadVideoFile(url, { height: 720, label: 'Instagram MP4' });
+  const r = await socialVideoDownload(url, 'Instagram');
   return { ...r, type: 'video' };
 }
 
 // ==================== SPOTIFY / SOUNDCLOUD ====================
 async function spotify(queryOrUrl) {
-  // Sem APIs: Spotify vira busca no YouTube quando não for baixável diretamente.
+  // Se é URL do Spotify, tenta SpotifyDown primeiro
+  if (isUrl(queryOrUrl) && /spotify\.com/.test(queryOrUrl)) {
+    const spotResult = await spotifydownDownload(queryOrUrl);
+    if (spotResult && spotResult.url) {
+      try {
+        const buffer = await mediaHandler.fetchBuffer(spotResult.url);
+        if (buffer && buffer.length > 2048) {
+          return {
+            title: spotResult.title,
+            author: spotResult.author,
+            thumb: spotResult.thumbnail,
+            url: '',
+            buffer,
+            mimetype: 'audio/mpeg',
+            quality: 'Spotify 160kbps',
+            fileName: `${safeTitle(spotResult.title)}.mp3`,
+          };
+        }
+      } catch (e) {}
+      return { title: spotResult.title, url: spotResult.url, author: spotResult.author };
+    }
+
+    // Fallback Cobalt
+    try {
+      const cobaltUrl = await cobaltDownload(queryOrUrl, 'audio');
+      if (cobaltUrl) return { title: 'Spotify', url: cobaltUrl };
+    } catch (e) {}
+  }
+
+  // Fallback YouTube
   const query = isUrl(queryOrUrl) ? queryOrUrl : `${queryOrUrl} audio`;
   try { return await downloadAudioFile(query, { bitrate: '160k', label: 'Spotify fallback 160kbps' }); }
   catch { return downloadAudioFile(String(queryOrUrl).replace(/https?:\/\/\S+/g, '').trim() || 'spotify music', { bitrate: '160k', label: 'Spotify fallback 160kbps' }); }
 }
+
 async function soundcloud(queryOrUrl) {
-  // yt-dlp suporta SoundCloud; se busca textual falhar, cai no YouTube.
+  // Se é URL do SoundCloud, tenta Cobalt primeiro (suporta SoundCloud)
+  if (isUrl(queryOrUrl)) {
+    try {
+      const cobaltUrl = await cobaltDownload(queryOrUrl, 'audio');
+      if (cobaltUrl) {
+        try {
+          const buffer = await mediaHandler.fetchBuffer(cobaltUrl);
+          if (buffer && buffer.length > 2048) {
+            return {
+              title: 'SoundCloud',
+              url: '',
+              buffer,
+              mimetype: 'audio/mpeg',
+              quality: 'SoundCloud 160kbps',
+              fileName: 'soundcloud.mp3',
+            };
+          }
+        } catch (e) {}
+        return { title: 'SoundCloud', url: cobaltUrl };
+      }
+    } catch (e) {}
+  }
+
+  // Fallback yt-dlp
   try {
     if (isUrl(queryOrUrl)) return await downloadAudioFile(queryOrUrl, { bitrate: '160k', label: 'SoundCloud 160kbps' });
     return await downloadAudioFile(`${queryOrUrl} song short`, { bitrate: '160k', label: 'SoundCloud 160kbps' });
@@ -297,8 +420,28 @@ async function soundcloud(queryOrUrl) {
 
 // ==================== PINTEREST / IMAGEM ====================
 async function pinterest(url) {
-  // Imagem/video do Pinterest: tenta yt-dlp primeiro, senão retorna URL da busca.
   if (!isUrl(url)) return (await pinterestSearch(url))[0];
+
+  // 1ª tentativa: Siputzx
+  const pinResult = await siputzxPinterest(url);
+  if (pinResult && pinResult.url) {
+    try {
+      const buffer = await mediaHandler.fetchBuffer(pinResult.url);
+      if (buffer && buffer.length > 1024) {
+        return {
+          title: pinResult.title || 'Pinterest',
+          url: '',
+          buffer,
+          mimetype: pinResult.type === 'video' ? 'video/mp4' : 'image/jpeg',
+          quality: 'Pinterest',
+          fileName: `${safeTitle(pinResult.title || 'pinterest')}.${pinResult.type === 'video' ? 'mp4' : 'jpg'}`,
+        };
+      }
+    } catch (e) {}
+    return pinResult;
+  }
+
+  // 2ª tentativa: yt-dlp
   try { return await downloadVideoFile(url, { height: 720, label: 'Pinterest MP4' }); }
   catch { return { url }; }
 }
@@ -328,6 +471,11 @@ async function bingImageFallback(query) {
 }
 
 async function pinterestSearch(query) {
+  // 1ª tentativa: Siputzx
+  const sipResults = await siputzxPinterestSearch(query);
+  if (sipResults && sipResults.length) return sipResults;
+
+  // 2ª tentativa: Outra API Pinterest
   try {
     const r = await fetchJsonFast(`https://api.siputzx.my.id/api/s/pinterest?query=${encodeURIComponent(query)}`, 25000);
     const arr = r?.data || r?.result || r?.results;
@@ -344,6 +492,8 @@ async function pinterestSearch(query) {
       if (mapped.length) return mapped;
     }
   } catch {}
+
+  // 3ª tentativa: Bing images
   const fallback = await bingImageFallback(query);
   if (fallback.length) return fallback;
   throw new Error('❌ Pinterest sem resultados no momento.');

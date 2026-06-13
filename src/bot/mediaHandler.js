@@ -35,4 +35,68 @@ async function fetchJson(url) {
   catch (e) { throw new Error('JSON inválido'); }
 }
 
-module.exports = { downloadFromMessage, fetchBuffer, fetchJson };
+/**
+ * Faz POST com body (string ou objeto) e headers customizados.
+ * Retorna JSON parseado.
+ */
+function fetchJsonPost(url, body, headers = {}, timeoutMs = 25000) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const lib = parsedUrl.protocol === 'https:' ? https : http;
+
+    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+
+    const defaultHeaders = {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(bodyStr),
+      'User-Agent': 'DARK-BOT/1.0',
+      'Accept': 'application/json',
+    };
+
+    const mergedHeaders = { ...defaultHeaders, ...headers };
+    // Recalculate Content-Length if headers overrode body
+    if (mergedHeaders['Content-Type'] === 'application/json' || !mergedHeaders['Content-Length']) {
+      mergedHeaders['Content-Length'] = Buffer.byteLength(bodyStr);
+    }
+
+    const options = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: 'POST',
+      headers: mergedHeaders,
+    };
+
+    const req = lib.request(options, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const next = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
+        return fetchJsonPost(next, body, headers, timeoutMs).then(resolve, reject);
+      }
+      if (res.statusCode >= 400) {
+        let errBody = '';
+        res.on('data', c => errBody += c);
+        res.on('end', () => reject(new Error('HTTP ' + res.statusCode + ': ' + errBody.slice(0, 200))));
+        return;
+      }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        try {
+          const text = Buffer.concat(chunks).toString('utf-8');
+          resolve(JSON.parse(text));
+        } catch (e) {
+          reject(new Error('JSON inválido na resposta POST'));
+        }
+      });
+      res.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.setTimeout(timeoutMs, () => { req.destroy(); reject(new Error('timeout POST')); });
+    req.write(bodyStr);
+    req.end();
+  });
+}
+
+module.exports = { downloadFromMessage, fetchBuffer, fetchJson, fetchJsonPost };

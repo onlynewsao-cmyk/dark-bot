@@ -1,140 +1,237 @@
-const { PRINCE, tryApis } = require('./helpers');
+/**
+ * Other Downloads v2 — APIs atualizadas 2025/2026
+ *
+ * Todas as referências à API princetechn.com (offline) foram removidas.
+ *
+ * Estratégia em camadas para cada plataforma:
+ *  1. API específica (tikwm, spotifydown, siputzx, etc.)
+ *  2. Cobalt API (open-source, multi-plataforma, sem auth)
+ *  3. yt-dlp via downloader.js (fallback local)
+ */
+const { COBALT, tryApis, cobaltDownload, tikwmDownload, spotifydownDownload, siputzxPinterest, siputzxPinterestSearch } = require('./helpers');
 
+// ==================== TIKTOK ====================
 async function tiktok(url) {
-  const apis = [
-    'https://www.tikwm.com/api/?url=' + encodeURIComponent(url),
-    PRINCE + '/tiktokdl?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  return tryApis(apis, r => {
-    const u = (r && r.data && r.data.play) || (r && r.data && r.data[0] && r.data[0].url) ||
-              (r && r.result && r.result.video && r.result.video.no_watermark) ||
-              (r && r.result && r.result.no_watermark) || (r && r.result && r.result.video) ||
-              (r && r.video && r.video.noWatermark) || (r && r.video) || (r && r.url);
-    const t = (r && r.data && r.data.title) || (r && r.title) || (r && r.result && r.result.title) || 'TikTok';
-    if (u) return { title: t, url: typeof u === 'string' ? u : (u && u.url) || u };
-    return null;
-  }, 'TIKTOK');
+  // 1ª tentativa: TikWM (específico, sem marca d'água)
+  const tikwmResult = await tikwmDownload(url);
+  if (tikwmResult && tikwmResult.noWatermark) {
+    return { title: tikwmResult.title, url: tikwmResult.noWatermark };
+  }
+  if (tikwmResult && tikwmResult.url) {
+    return { title: tikwmResult.title, url: tikwmResult.url };
+  }
+
+  // 2ª tentativa: Cobalt API
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) return { title: 'TikTok', url: cobaltUrl };
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar o TikTok. Tente novamente ou use um link diferente.');
 }
 
+// ==================== INSTAGRAM ====================
 async function instagram(url) {
-  const apis = [
-    PRINCE + '/instagram?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/igdl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/insta?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  const r = await tryApis(apis, r => {
-    let item = null;
-    if (r && r.result) {
-      if (Array.isArray(r.result)) item = r.result[0];
-      else if (r.result.media && r.result.media[0]) item = r.result.media[0];
-      else if (r.result.download_url || r.result.url) item = r.result;
+  // 1ª tentativa: Cobalt API (suporta Reels, Posts, Stories)
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) {
+      const isVideo = typeof cobaltUrl === 'string' && cobaltUrl.includes('.mp4');
+      return { type: isVideo ? 'video' : 'image', url: cobaltUrl };
     }
-    if (!item && r && r.data) item = Array.isArray(r.data) ? r.data[0] : r.data;
-    if (!item) return null;
-    const u = item.download_url || item.url || item.video || item.image;
-    return u ? { url: u } : null;
-  }, 'IG');
-  return { type: (r.url && r.url.includes('.mp4')) ? 'video' : 'image', url: r.url };
-}
+  } catch (e) {}
 
-async function facebook(url) {
+  // 2ª tentativa: APIs alternativas
   const apis = [
-    PRINCE + '/facebook?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/fbdl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/fb?apikey=prince&url=' + encodeURIComponent(url),
+    'https://api.saveig.app/api/v1/download?url=' + encodeURIComponent(url),
+    'https://api.igram.io/api/v1/download?url=' + encodeURIComponent(url),
   ];
-  return tryApis(apis, r => {
-    const u = (r && r.result && (r.result.hd_video || r.result.sd_video || r.result.video || r.result.url || r.result.download_url)) ||
-              (r && r.data && (r.data.hd || r.data.sd || r.data.url)) ||
-              (r && r.url);
-    if (u) return { url: u, title: (r && r.result && r.result.title) || 'Facebook' };
-    return null;
-  }, 'FB');
-}
-
-async function twitter(url) {
-  const apis = [
-    PRINCE + '/twitterdl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/twitter?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  return tryApis(apis, r => {
-    if (r && r.result && r.result.error) return null;
-    const u = (r && r.result && (r.result.hd_video || r.result.video || r.result.download_url || r.result.url)) ||
-              (r && r.data && (r.data.url || r.data.video)) ||
-              (r && r.url);
-    if (u) return { url: u };
-    return null;
-  }, 'TWITTER');
-}
-
-async function spotify(url) {
-  const apis = [
-    PRINCE + '/spotifydl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/spotify?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  return tryApis(apis, r => {
-    const u = (r && r.result && (r.result.download_url || r.result.url || r.result.audio)) ||
-              (r && r.data && (r.data.url || r.data.download)) ||
-              (r && r.url);
-    const t = (r && r.result && r.result.title) || (r && r.title) || 'Spotify';
-    if (u) return { title: t, url: u };
-    return null;
-  }, 'SPOTIFY');
-}
-
-async function soundcloud(url) {
-  const apis = [
-    PRINCE + '/soundclouddl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/soundcloud?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/scdl?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  return tryApis(apis, r => {
-    const u = (r && r.result && (r.result.download_url || r.result.url || r.result.audio)) ||
-              (r && r.data && (r.data.url || r.data.download)) ||
-              (r && r.url);
-    const t = (r && r.result && r.result.title) || (r && r.title) || 'SoundCloud';
-    if (u) return { title: t, url: u };
-    return null;
-  }, 'SC');
-}
-
-async function pinterest(url) {
-  const apis = [
-    PRINCE + '/pinterestdl?apikey=prince&url=' + encodeURIComponent(url),
-    PRINCE + '/pinterest?apikey=prince&url=' + encodeURIComponent(url),
-  ];
-  return tryApis(apis, r => {
-    let u = null;
-    if (r && r.result) {
-      if (r.result.media && Array.isArray(r.result.media) && r.result.media[0]) {
-        // Prioriza Video, depois Image
-        const video = r.result.media.find(m => m.type === 'Video' || m.format === 'MP4');
-        const image = r.result.media.find(m => m.type === 'Image' || m.format === 'JPG' || m.format === 'PNG' || m.type === 'Thumbnail');
-        u = (video || image || r.result.media[0]).download_url;
-      } else {
-        u = r.result.download_url || r.result.url || r.result.image || r.result.video;
+  try {
+    const r = await tryApis(apis, res => {
+      const items = res?.data || res?.result || res?.medias;
+      if (Array.isArray(items) && items.length) {
+        const vid = items.find(m => m.type === 'video');
+        const img = items.find(m => m.type === 'image');
+        const pick = vid || img || items[0];
+        if (pick && (pick.url || pick.download_url)) {
+          return { type: pick.type || (vid ? 'video' : 'image'), url: pick.url || pick.download_url };
+        }
       }
-    }
-    if (!u && r && r.data) u = r.data.url || r.data.image || r.data.video;
-    if (!u && r && r.url) u = r.url;
-    if (u) return { url: u, title: (r && r.result && r.result.title) || 'Pinterest' };
-    return null;
-  }, 'PINTEREST');
+      // Fallback para resposta com campo direto
+      if (res?.url) return { type: res.type || 'video', url: res.url };
+      if (res?.download_url) return { type: 'video', url: res.download_url };
+      return null;
+    }, 'IG');
+    return r;
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar do Instagram. Link pode ser privado ou inválido.');
+}
+
+// ==================== FACEBOOK ====================
+async function facebook(url) {
+  // 1ª tentativa: Cobalt API
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) return { url: cobaltUrl, title: 'Facebook' };
+  } catch (e) {}
+
+  // 2ª tentativa: APIs alternativas
+  const apis = [
+    'https://api.fdown.app/api/v1/download?url=' + encodeURIComponent(url),
+  ];
+  try {
+    return await tryApis(apis, r => {
+      const u = (r && r.data && (r.data.hd || r.data.sd || r.data.url)) ||
+                (r && r.result && (r.result.hd_video || r.result.sd_video || r.result.url || r.result.download_url)) ||
+                (r && r.url);
+      if (u) return { url: u, title: (r && r.result && r.result.title) || 'Facebook' };
+      return null;
+    }, 'FB');
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar do Facebook. Tente com link direto do vídeo.');
+}
+
+// ==================== TWITTER / X ====================
+async function twitter(url) {
+  // 1ª tentativa: Cobalt API
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) return { url: cobaltUrl };
+  } catch (e) {}
+
+  // 2ª tentativa: API alternativa
+  const apis = [
+    'https://api.twitsave.app/api/v1/download?url=' + encodeURIComponent(url),
+  ];
+  try {
+    return await tryApis(apis, r => {
+      if (r && r.result && r.result.error) return null;
+      const u = (r && r.data && r.data.url) ||
+                (r && r.result && (r.result.hd_video || r.result.video || r.result.url)) ||
+                (r && r.url);
+      if (u) return { url: u };
+      return null;
+    }, 'TWITTER');
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar do X/Twitter. Link pode ser privado ou inválido.');
+}
+
+// ==================== SPOTIFY ====================
+async function spotify(url) {
+  // 1ª tentativa: SpotifyDown (específico, alta qualidade)
+  const spotResult = await spotifydownDownload(url);
+  if (spotResult && spotResult.url) {
+    return {
+      title: spotResult.title,
+      url: spotResult.url,
+      author: spotResult.author,
+      thumbnail: spotResult.thumbnail,
+      duration: spotResult.duration,
+    };
+  }
+
+  // 2ª tentativa: Cobalt API (modo áudio)
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'audio');
+    if (cobaltUrl) return { title: 'Spotify', url: cobaltUrl };
+  } catch (e) {}
+
+  // 3ª tentativa: APIs alternativas
+  const apis = [
+    'https://api.spotifydown.com/download/' + (url.match(/track\/([a-zA-Z0-9]+)/)?.[1] || ''),
+  ];
+  try {
+    return await tryApis(apis, r => {
+      const u = r?.downloadLink || r?.url || r?.link;
+      const t = r?.metadata?.title || r?.title || 'Spotify';
+      if (u) return { title: t, url: u };
+      return null;
+    }, 'SPOTIFY');
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar do Spotify. Use !play <nome> como alternativa (busca no YouTube).');
+}
+
+// ==================== SOUNDCLOUD ====================
+async function soundcloud(url) {
+  // 1ª tentativa: Cobalt API (suporta SoundCloud)
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'audio');
+    if (cobaltUrl) return { title: 'SoundCloud', url: cobaltUrl };
+  } catch (e) {}
+
+  // 2ª tentativa: API alternativa
+  const apis = [
+    'https://api.kodipy.com/api/v1/soundcloud?url=' + encodeURIComponent(url),
+  ];
+  try {
+    return await tryApis(apis, r => {
+      const u = (r && r.result && (r.result.download_url || r.result.url || r.result.audio)) ||
+                (r && r.data && (r.data.url || r.data.download)) ||
+                (r && r.url);
+      const t = (r && r.result && r.result.title) || (r && r.title) || 'SoundCloud';
+      if (u) return { title: t, url: u };
+      return null;
+    }, 'SC');
+  } catch (e) {}
+
+  throw new Error('❌ Não consegui baixar do SoundCloud. Tente !play <nome> como alternativa.');
+}
+
+// ==================== PINTEREST ====================
+async function pinterest(url) {
+  // 1ª tentativa: Siputzx (específico para Pinterest)
+  const pinResult = await siputzxPinterest(url);
+  if (pinResult && pinResult.url) {
+    return pinResult;
+  }
+
+  // 2ª tentativa: Cobalt API
+  try {
+    const cobaltUrl = await cobaltDownload(url, 'auto');
+    if (cobaltUrl) return { url: cobaltUrl, title: 'Pinterest' };
+  } catch (e) {}
+
+  // Se não é URL, assume que é pesquisa
+  if (!/^https?:\/\//i.test(url)) {
+    return (await pinterestSearch(url))[0];
+  }
+
+  throw new Error('❌ Não consegui baixar do Pinterest.');
 }
 
 async function pinterestSearch(query) {
+  // 1ª tentativa: Siputzx
+  const sipResults = await siputzxPinterestSearch(query);
+  if (sipResults && sipResults.length) return sipResults;
+
+  // 2ª tentativa: APIs alternativas
   const apis = [
-    'https://api.princetechn.com/api/search/pinterest?apikey=prince&query=' + encodeURIComponent(query),
+    'https://api.siputzx.my.id/api/s/pinterest?query=' + encodeURIComponent(query),
   ];
-  return tryApis(apis, r => {
-    const arr = (r && r.result) || (r && r.data) || (r && r.results);
-    if (Array.isArray(arr) && arr.length) {
-      const pick = arr[Math.floor(Math.random() * Math.min(arr.length, 10))];
-      const u = (typeof pick === 'string') ? pick : (pick.image || pick.url || pick.src || pick.download_url || pick.thumbnail);
-      if (u) return { url: u };
-    }
-    return null;
-  }, 'PIN-SEARCH');
+  try {
+    return await tryApis(apis, r => {
+      const arr = (r && r.result) || (r && r.data) || (r && r.results);
+      if (Array.isArray(arr) && arr.length) {
+        const mapped = arr
+          .map(p => {
+            const u = typeof p === 'string' ? p : (p.image_url || p.image || p.url || p.src || p.download_url || p.thumbnail);
+            return u ? { url: u } : null;
+          })
+          .filter(Boolean)
+          .filter(x => /^https?:\/\//i.test(x.url))
+          .filter((item, idx, a) => a.findIndex(x => x.url === item.url) === idx)
+          .slice(0, 10);
+        if (mapped.length) return mapped;
+      }
+      return null;
+    }, 'PIN-SEARCH');
+  } catch (e) {}
+
+  throw new Error('❌ Pinterest sem resultados no momento.');
 }
 
 module.exports = { tiktok, instagram, facebook, twitter, spotify, soundcloud, pinterest, pinterestSearch };
