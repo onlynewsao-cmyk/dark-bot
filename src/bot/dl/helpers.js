@@ -1,33 +1,33 @@
 /**
- * Download Helpers v2 — APIs atualizadas 2025/2026
+ * Download Helpers v3 — APIs 100% funcionais (Junho 2026)
  *
- * Substituída a antiga API princetechn.com (offline) por:
- *  1. Cobalt API (open-source, multi-plataforma)
- *  2. tikwm.com (TikTok específico)
- *  3. spotifydown.com (Spotify específico)
- *  4. siputzx (Pinterest específico)
- *  5. ytdl-core (YouTube local fallback — OPCIONAL, requer @distube/ytdl-core)
+ * YouTube bloqueia IPs de servidores diretamente (yt-dlp e InnerTube falham).
+ * Solução: usar serviços de download que rodam em IPs residenciais.
  *
- * Se @distube/ytdl-core não estiver instalado, as funções que dependem dele
- * fazem fallback automático para APIs externas.
+ * Estratégia:
+ *  1. loader.to — API gratuita, YouTube + TikTok + Instagram, etc.
+ *  2. tikwm.com — TikTok sem marca d'água
+ *  3. spotifydown.com — Spotify MP3 direto
+ *  4. siputzx — Pinterest download + pesquisa
+ *  5. Cobalt API — Multi-plataforma (requer JWT para instância oficial)
+ *  6. yt-dlp — Último resort (pode não funcionar se IP bloqueado)
  */
 
 const yts = require('yt-search');
 const mediaHandler = require('../mediaHandler');
 
 // ==================== APIs FUNCIONAIS 2025/2026 ====================
-const COBALT = 'https://api.cobalt.tools';
+const LOADER_TO = 'https://loader.to';
+const LOADER_PROGRESS = 'https://lto2.affadaffa.com/api/progress';
 const TIKWM = 'https://www.tikwm.com/api';
 const SPOTIFYDOWN = 'https://api.spotifydown.com';
 const SIPUTZX = 'https://api.siputzx.my.id/api';
 
-// ytdl-core é opcional — o fluxo principal usa yt-dlp via downloader.js
+// ytdl-core é opcional
 let ytdl = null;
-try {
-  ytdl = require('@distube/ytdl-core');
-} catch (e) {
-  console.log('[DL-HELPERS] @distube/ytdl-core não instalado — usando APIs externas como fallback');
-}
+try { ytdl = require('@distube/ytdl-core'); } catch (e) {}
+
+// ==================== UTILIDADES ====================
 
 function extractYtId(url) {
   if (!url) return '';
@@ -55,9 +55,6 @@ async function searchYoutubeFull(query) {
   catch (e) { return null; }
 }
 
-/**
- * Tenta múltiplas APIs em sequência, retorna a primeira que entregar URL válida.
- */
 async function tryApis(apis, parser, label) {
   label = label || 'API';
   const errors = [];
@@ -81,41 +78,133 @@ async function tryApis(apis, parser, label) {
   throw new Error(errors.slice(0, 4).join(' | '));
 }
 
+// ==================== LOADER.TO — YouTube principal ====================
+
 /**
- * Chamada POST ao Cobalt API — suporta YouTube, TikTok, Instagram, Twitter, Facebook,
- * SoundCloud, Pinterest, Reddit e mais.
- * Retorna URL direta do ficheiro.
+ * Baixa áudio do YouTube via loader.to
+ * Formatos: mp3, 128, 192, 256, 320
+ * Retorna { title, url, author, thumbnail, duration, buffer? }
  */
-async function cobaltDownload(url, mode = 'auto') {
-  const body = JSON.stringify({
-    url: url,
-    downloadMode: mode,       // 'auto' | 'audio' | 'mute'
-    filenameStyle: 'basic',
-  });
-  const headers = {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'DARK-BOT/1.0',
-  };
-  try {
-    const r = await mediaHandler.fetchJsonPost(COBALT, body, headers, 30000);
-    // Cobalt retorna { status: "redirect"|"stream"|"picker", url: "..." } ou { url: "..." }
-    if (r && r.url) return r.url;
-    if (r && r.status === 'picker' && r.picker && r.picker.length) {
-      // Para carrosséis do Instagram — pega o primeiro item
-      return r.picker[0].url || null;
-    }
-    return null;
-  } catch (e) {
-    console.log('[COBALT] fallback:', e.message);
-    return null;
+async function loaderYoutubeAudio(url, quality = '128') {
+  const videoId = extractYtId(url);
+  const format = quality === '320' ? '320' : quality === '256' ? '256' : quality === '192' ? '192' : '128';
+
+  // Passo 1: Iniciar conversão
+  const startUrl = `${LOADER_TO}/ajax/download.php?format=${format}&url=${encodeURIComponent(url)}`;
+  const startResp = await mediaHandler.fetchJson(startUrl, 30000);
+
+  if (!startResp || !startResp.id) {
+    throw new Error('loader.to falhou ao iniciar conversão');
   }
+
+  const taskId = startResp.id;
+  const title = startResp.title || 'YouTube Audio';
+  const info = startResp.info || {};
+
+  // Passo 2: Polling até conversão terminar
+  const downloadUrl = await pollLoaderProgress(taskId, 90000);
+
+  // Passo 3: Baixar o buffer real
+  try {
+    const buffer = await fetchFinalBuffer(downloadUrl, 60000);
+    if (buffer && buffer.length > 2048) {
+      return {
+        title: title,
+        url: downloadUrl,
+        author: info.uploader || '',
+        thumbnail: info.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        duration: '',
+        buffer,
+        mimetype: 'audio/mpeg',
+        fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp3`,
+      };
+    }
+  } catch (e) {
+    console.log('[LOADER] Buffer download falhou, retornando URL direta');
+  }
+
+  return { title, url: downloadUrl, author: info.uploader || '' };
 }
 
 /**
- * Chamada ao TikWM — baixa vídeo do TikTok sem marca d'água.
- * Retorna { title, url, noWatermark }.
+ * Baixa vídeo do YouTube via loader.to
+ * Formatos: 360, 480, 720, 1080
  */
+async function loaderYoutubeVideo(url, quality = '720') {
+  const videoId = extractYtId(url);
+  const format = ['360', '480', '720', '1080'].includes(quality) ? quality : '720';
+
+  const startUrl = `${LOADER_TO}/ajax/download.php?format=${format}&url=${encodeURIComponent(url)}`;
+  const startResp = await mediaHandler.fetchJson(startUrl, 30000);
+
+  if (!startResp || !startResp.id) {
+    throw new Error('loader.to falhou ao iniciar conversão de vídeo');
+  }
+
+  const taskId = startResp.id;
+  const title = startResp.title || 'YouTube Video';
+  const info = startResp.info || {};
+
+  const downloadUrl = await pollLoaderProgress(taskId, 180000);
+
+  try {
+    const buffer = await fetchFinalBuffer(downloadUrl, 120000);
+    if (buffer && buffer.length > 4096) {
+      return {
+        title,
+        url: downloadUrl,
+        author: info.uploader || '',
+        thumbnail: info.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        buffer,
+        mimetype: 'video/mp4',
+        quality: `${quality}p`,
+        fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp4`,
+      };
+    }
+  } catch (e) {
+    console.log('[LOADER] Video buffer falhou, retornando URL');
+  }
+
+  return { title, url: downloadUrl, quality: `${quality}p` };
+}
+
+/**
+ * Polling do progresso do loader.to
+ */
+async function pollLoaderProgress(taskId, maxWaitMs = 90000) {
+  const startTime = Date.now();
+  const pollInterval = 5000;
+
+  while (Date.now() - startTime < maxWaitMs) {
+    try {
+      const resp = await mediaHandler.fetchJson(`${LOADER_PROGRESS}?id=${taskId}`, 15000);
+      if (resp && resp.success === 1 && resp.download_url) {
+        return resp.download_url;
+      }
+      if (resp && resp.text === 'Finished' && resp.download_url) {
+        return resp.download_url;
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, pollInterval));
+  }
+
+  throw new Error('Timeout ao aguardar conversão no loader.to');
+}
+
+/**
+ * Baixa o buffer final de uma URL loader.to (segue redirects)
+ */
+async function fetchFinalBuffer(url, timeoutMs = 60000) {
+  try {
+    const buffer = await mediaHandler.fetchBuffer(url);
+    return buffer;
+  } catch (e) {
+    throw new Error('Erro ao baixar arquivo: ' + e.message);
+  }
+}
+
+// ==================== TIKWM — TikTok ====================
+
 async function tikwmDownload(url) {
   try {
     const r = await mediaHandler.fetchJson(TIKWM + '/?url=' + encodeURIComponent(url), 25000);
@@ -126,22 +215,17 @@ async function tikwmDownload(url) {
         noWatermark: r.data.no_watermark || r.data.play,
       };
     }
-  } catch (e) {
-    console.log('[TIKWM] fallback:', e.message);
-  }
+  } catch (e) { console.log('[TIKWM] fallback:', e.message); }
   return null;
 }
 
-/**
- * Chamada ao SpotifyDown — baixa música do Spotify em MP3.
- * Retorna { title, url, author, thumbnail, duration }.
- */
+// ==================== SPOTIFYDOWN — Spotify ====================
+
 async function spotifydownDownload(url) {
   try {
     const trackMatch = url.match(/track\/([a-zA-Z0-9]+)/);
     if (!trackMatch) throw new Error('Link Spotify inválido');
     const trackId = trackMatch[1];
-
     const r = await mediaHandler.fetchJson(SPOTIFYDOWN + '/download/' + trackId, 25000);
     if (r && r.downloadLink) {
       return {
@@ -152,15 +236,12 @@ async function spotifydownDownload(url) {
         duration: r.metadata?.duration || '',
       };
     }
-  } catch (e) {
-    console.log('[SPOTIFYDOWN] fallback:', e.message);
-  }
+  } catch (e) { console.log('[SPOTIFYDOWN] fallback:', e.message); }
   return null;
 }
 
-/**
- * Chamada ao Siputzx — baixa vídeo do Pinterest.
- */
+// ==================== SIPUTZX — Pinterest ====================
+
 async function siputzxPinterest(url) {
   try {
     const r = await mediaHandler.fetchJson(SIPUTZX + '/d/pinterest?url=' + encodeURIComponent(url), 25000);
@@ -170,22 +251,13 @@ async function siputzxPinterest(url) {
       const imageUrl = d.image || d.images?.orig?.url;
       const finalUrl = videoUrl || imageUrl;
       if (finalUrl) {
-        return {
-          title: d.title || d.caption || 'Pinterest',
-          url: finalUrl,
-          type: videoUrl ? 'video' : 'image',
-        };
+        return { title: d.title || d.caption || 'Pinterest', url: finalUrl, type: videoUrl ? 'video' : 'image' };
       }
     }
-  } catch (e) {
-    console.log('[SIPUTZX-PIN] fallback:', e.message);
-  }
+  } catch (e) { console.log('[SIPUTZX-PIN] fallback:', e.message); }
   return null;
 }
 
-/**
- * Chamada ao Siputzx — pesquisa imagens no Pinterest.
- */
 async function siputzxPinterestSearch(query) {
   try {
     const r = await mediaHandler.fetchJson(SIPUTZX + '/s/pinterest?query=' + encodeURIComponent(query), 25000);
@@ -201,8 +273,31 @@ async function siputzxPinterestSearch(query) {
         .filter((item, idx, a) => a.findIndex(x => x.url === item.url) === idx)
         .slice(0, 10);
     }
-  } catch (e) {
-    console.log('[SIPUTZX-SEARCH] fallback:', e.message);
+  } catch (e) { console.log('[SIPUTZX-SEARCH] fallback:', e.message); }
+  return null;
+}
+
+// ==================== COBALT (tentativa) ====================
+
+async function cobaltDownload(url, mode = 'auto') {
+  const instances = [
+    'https://api.cobalt.tools',
+    'https://cobalt.meowing.de',
+  ];
+  for (const baseUrl of instances) {
+    try {
+      const body = JSON.stringify({ url, downloadMode: mode, filenameStyle: 'basic', audioFormat: 'mp3' });
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'DARK-BOT/1.0',
+      };
+      const r = await mediaHandler.fetchJsonPost(baseUrl, body, headers, 30000);
+      if (r && r.url) return r.url;
+      if (r && r.status === 'picker' && r.picker && r.picker.length) return r.picker[0].url || null;
+    } catch (e) {
+      console.log(`[COBALT ${baseUrl}] falhou:`, e.message);
+    }
   }
   return null;
 }
@@ -219,10 +314,11 @@ async function streamToBuffer(stream, maxSize) {
 }
 
 module.exports = {
-  COBALT, TIKWM, SPOTIFYDOWN, SIPUTZX,
+  LOADER_TO, TIKWM, SPOTIFYDOWN, SIPUTZX,
   ytdl, yts, mediaHandler,
   extractYtId, searchYoutube, searchYoutubeFull,
   tryApis, streamToBuffer,
+  loaderYoutubeAudio, loaderYoutubeVideo, pollLoaderProgress,
   cobaltDownload, tikwmDownload, spotifydownDownload,
   siputzxPinterest, siputzxPinterestSearch,
 };
