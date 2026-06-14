@@ -29,7 +29,10 @@
   "author": "Dark Net",
   "license": "MIT",
   "dependencies": {
+    "@distube/ytdl-core": "^4.16.12",
+    "@google/generative-ai": "^0.21.0",
     "@whiskeysockets/baileys": "^6.7.8",
+    "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
     "connect-mongo": "^5.1.0",
@@ -37,6 +40,8 @@
     "ejs": "^3.1.10",
     "express": "^4.21.1",
     "express-session": "^1.18.1",
+    "ffmpeg-static": "^5.2.0",
+    "linkedom": "^0.18.12",
     "mongoose": "^8.8.0",
     "multer": "^1.4.5-lts.1",
     "pino": "^9.5.0",
@@ -44,10 +49,8 @@
     "sharp": "^0.33.5",
     "socket.io": "^4.8.1",
     "wa-sticker-formatter": "^4.4.4",
-    "yt-search": "^2.13.1",
-    "axios": "^1.7.9",
-    "@google/generative-ai": "^0.21.0",
-    "ffmpeg-static": "^5.2.0"
+    "youtubei.js": "^17.0.1",
+    "yt-search": "^2.13.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.7"

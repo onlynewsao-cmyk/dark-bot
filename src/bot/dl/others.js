@@ -1,21 +1,24 @@
 /**
- * Other Downloads v3 — APIs 100% funcionais (Junho 2026)
+ * Other Downloads v4 — Cloudflare Worker + APIs funcionais (Junho 2026)
  *
- * TikTok: tikwm → Cobalt → loader.to
- * Instagram: Cobalt → loader.to
- * Facebook: Cobalt → loader.to
- * Twitter: Cobalt → loader.to
+ * TikTok: tikwm → Cloudflare Worker → Cobalt
+ * Instagram: Cloudflare Worker → Cobalt
+ * Facebook: Cloudflare Worker → Cobalt
+ * Twitter: Cloudflare Worker → Cobalt
  * Spotify: spotifydown → Cobalt → YouTube fallback
- * SoundCloud: Cobalt → loader.to → YouTube fallback
+ * SoundCloud: Cloudflare Worker → Cobalt → YouTube fallback
  * Pinterest: siputzx → Cobalt → Bing images
  */
-const { tryApis, cobaltDownload, tikwmDownload, spotifydownDownload, siputzxPinterest, siputzxPinterestSearch, loaderYoutubeAudio } = require('./helpers');
+const { tryApis, cobaltDownload, tikwmDownload, spotifydownDownload, siputzxPinterest, siputzxPinterestSearch, proxySocialDownload, loaderYoutubeAudio } = require('./helpers');
 
 // ==================== TIKTOK ====================
 async function tiktok(url) {
   const tikwmResult = await tikwmDownload(url);
   if (tikwmResult && tikwmResult.noWatermark) return { title: tikwmResult.title, url: tikwmResult.noWatermark };
   if (tikwmResult && tikwmResult.url) return { title: tikwmResult.title, url: tikwmResult.url };
+
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { title: 'TikTok', url: proxyUrl };
 
   try {
     const cobaltUrl = await cobaltDownload(url, 'auto');
@@ -27,6 +30,12 @@ async function tiktok(url) {
 
 // ==================== INSTAGRAM ====================
 async function instagram(url) {
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) {
+    const isVideo = typeof proxyUrl === 'string' && proxyUrl.includes('.mp4');
+    return { type: isVideo ? 'video' : 'image', url: proxyUrl };
+  }
+
   try {
     const cobaltUrl = await cobaltDownload(url, 'auto');
     if (cobaltUrl) {
@@ -40,6 +49,9 @@ async function instagram(url) {
 
 // ==================== FACEBOOK ====================
 async function facebook(url) {
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { url: proxyUrl, title: 'Facebook' };
+
   try {
     const cobaltUrl = await cobaltDownload(url, 'auto');
     if (cobaltUrl) return { url: cobaltUrl, title: 'Facebook' };
@@ -50,6 +62,9 @@ async function facebook(url) {
 
 // ==================== TWITTER / X ====================
 async function twitter(url) {
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { url: proxyUrl };
+
   try {
     const cobaltUrl = await cobaltDownload(url, 'auto');
     if (cobaltUrl) return { url: cobaltUrl };
@@ -75,6 +90,9 @@ async function spotify(url) {
 
 // ==================== SOUNDCLOUD ====================
 async function soundcloud(url) {
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { title: 'SoundCloud', url: proxyUrl };
+
   try {
     const cobaltUrl = await cobaltDownload(url, 'audio');
     if (cobaltUrl) return { title: 'SoundCloud', url: cobaltUrl };

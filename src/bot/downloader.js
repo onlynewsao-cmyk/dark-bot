@@ -1,9 +1,12 @@
 /**
- * Downloader v7 — YouTube via loader.to + APIs (Junho 2026)
+ * Downloader v8 — Cloudflare Worker + APIs funcionais (Junho 2026)
  *
- * yt-dlp NÃO FUNCIONA para YouTube (bot detection).
- * Fluxo principal para YouTube: loader.to API → Buffer MP3/MP4 direto
- * Fluxo para social: APIs específicas → yt-dlp último resort
+ * Fluxo YouTube:
+ *  1. Cloudflare Worker proxy (IPs limpos → URLs de streaming diretas)
+ *  2. loader.to API (fallback, pode ter ads)
+ *  3. yt-dlp (último resort, provavelmente falha em servidores)
+ *
+ * Fluxo social: APIs específicas → Cloudflare Worker → yt-dlp
  */
 const fs = require('fs');
 const os = require('os');
@@ -12,9 +15,13 @@ const { execFileSync, execSync } = require('child_process');
 const yts = require('yt-search');
 const mediaHandler = require('./mediaHandler');
 const {
+  YT_PROXY_URL,
+  proxyYoutubeAudio, proxyYoutubeVideo,
   loaderYoutubeAudio, loaderYoutubeVideo,
   cobaltDownload, tikwmDownload, spotifydownDownload,
   siputzxPinterest, siputzxPinterestSearch,
+  proxySocialDownload,
+  fetchMediaBuffer,
 } = require('./dl/helpers');
 
 function safeTitle(name = 'media') {
@@ -90,15 +97,45 @@ function runYtDlp(args, timeoutMs = 180000) {
   throw new Error('yt-dlp falhou: ' + errors.slice(0, 2).join(' | '));
 }
 
+// ==================== DOWNLOAD AUDIO ====================
 async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', timeoutMs = 180000 } = {}) {
   const media = await resolveMedia(query);
 
-  // 1ª tentativa: loader.to (FUNCIONA de servidores!)
+  // 1ª tentativa: Cloudflare Worker proxy (FUNCIONA de servidores!)
+  if (YT_PROXY_URL) {
+    try {
+      const quality = bitrate === '320k' ? '320' : bitrate === '192k' ? '192' : bitrate === '160k' ? '192' : '128';
+      const r = await proxyYoutubeAudio(media.url, quality);
+      if (r) {
+        if (r.buffer && Buffer.isBuffer(r.buffer) && r.buffer.length > 2048) {
+          return {
+            title: r.title || media.title, duration: media.duration, author: r.author || media.author,
+            thumb: r.thumbnail || media.thumb, url: '', buffer: r.buffer, mimetype: r.mimetype || 'audio/mpeg',
+            quality: label, fileName: r.fileName || `${safeTitle(r.title || media.title)}.mp3`,
+          };
+        }
+        // Se veio URL mas sem buffer, baixar o buffer
+        if (r.url) {
+          try {
+            const buffer = await fetchMediaBuffer(r.url, 60000);
+            if (buffer && buffer.length > 2048) {
+              return {
+                title: r.title || media.title, duration: media.duration, author: r.author || media.author,
+                thumb: r.thumbnail || media.thumb, url: '', buffer, mimetype: r.mimetype || 'audio/mpeg',
+                quality: label, fileName: r.fileName || `${safeTitle(r.title || media.title)}.mp3`,
+              };
+            }
+          } catch (e) { console.log('[DL-AUDIO] fetchBuffer falhou:', e.message); }
+        }
+      }
+    } catch (e) { console.log('[DL-AUDIO] CF Worker falhou:', e.message); }
+  }
+
+  // 2ª tentativa: loader.to (pode retornar HTML com ads)
   try {
     const quality = bitrate === '320k' ? '320' : bitrate === '192k' ? '192' : bitrate === '160k' ? '192' : '128';
     const r = await loaderYoutubeAudio(media.url, quality);
     if (r) {
-      // Se já veio buffer, retorna direto
       if (r.buffer && Buffer.isBuffer(r.buffer) && r.buffer.length > 2048) {
         return {
           title: r.title || media.title, duration: media.duration, author: r.author || media.author,
@@ -106,10 +143,9 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
           quality: label, fileName: `${safeTitle(r.title || media.title)}.mp3`,
         };
       }
-      // Se veio URL, baixar o buffer
       if (r.url) {
         try {
-          const buffer = await mediaHandler.fetchBuffer(r.url);
+          const buffer = await fetchMediaBuffer(r.url, 60000);
           if (buffer && buffer.length > 2048) {
             return {
               title: r.title || media.title, duration: media.duration, author: r.author || media.author,
@@ -122,7 +158,7 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
     }
   } catch (e) { console.log('[DL-AUDIO] loader.to falhou:', e.message); }
 
-  // 2ª tentativa: Cobalt
+  // 3ª tentativa: Cobalt
   try {
     const cobaltUrl = await cobaltDownload(media.url, 'audio');
     if (cobaltUrl) {
@@ -137,7 +173,7 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
     }
   } catch (e) {}
 
-  // 3ª tentativa: yt-dlp (pode falhar se IP bloqueado)
+  // 4ª tentativa: yt-dlp (pode falhar se IP bloqueado)
   try {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-audio-'));
     const outTpl = path.join(tmpDir, 'source.%(ext)s');
@@ -167,13 +203,55 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
     } finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   } catch (e) { console.log('[DL-AUDIO] yt-dlp falhou:', e.message); }
 
-  throw new Error('❌ Não consegui baixar o áudio. YouTube está bloqueando downloads no servidor. Tente novamente em alguns minutos.');
+  // Mensagem de erro com instruções para configurar o Worker
+  if (!YT_PROXY_URL) {
+    throw new Error(
+      '❌ Não consegui baixar o áudio.\n' +
+      'YouTube bloqueia downloads em servidores.\n\n' +
+      '🔧 Para resolver, configure o Cloudflare Worker:\n' +
+      '1. Deploy o worker em cloudflare-worker/\n' +
+      '2. Adicione a variável YT_PROXY_URL\n\n' +
+      'Veja: cloudflare-worker/README.md'
+    );
+  }
+
+  throw new Error('❌ Não consegui baixar o áudio. YouTube está bloqueando downloads no servidor.');
 }
 
+// ==================== DOWNLOAD VIDEO ====================
 async function downloadVideoFile(query, { height = 720, label = '720p', timeoutMs = 260000 } = {}) {
   const media = await resolveMedia(query);
 
-  // 1ª tentativa: loader.to
+  // 1ª tentativa: Cloudflare Worker proxy
+  if (YT_PROXY_URL) {
+    try {
+      const quality = height >= 1080 ? '1080' : height >= 720 ? '720' : height >= 480 ? '480' : '360';
+      const r = await proxyYoutubeVideo(media.url, quality);
+      if (r) {
+        if (r.buffer && Buffer.isBuffer(r.buffer) && r.buffer.length > 4096) {
+          return {
+            title: r.title || media.title, duration: media.duration, author: r.author || media.author,
+            thumb: r.thumbnail || media.thumb, url: '', buffer: r.buffer, mimetype: 'video/mp4',
+            quality: label, fileName: r.fileName || `${safeTitle(r.title || media.title)}.mp4`,
+          };
+        }
+        if (r.url) {
+          try {
+            const buffer = await fetchMediaBuffer(r.url, 120000);
+            if (buffer && buffer.length > 4096) {
+              return {
+                title: r.title || media.title, duration: media.duration, author: r.author || media.author,
+                thumb: r.thumbnail || media.thumb, url: '', buffer, mimetype: 'video/mp4',
+                quality: label, fileName: `${safeTitle(r.title || media.title)}.mp4`,
+              };
+            }
+          } catch (e) { console.log('[DL-VIDEO] fetchBuffer falhou:', e.message); }
+        }
+      }
+    } catch (e) { console.log('[DL-VIDEO] CF Worker falhou:', e.message); }
+  }
+
+  // 2ª tentativa: loader.to
   try {
     const quality = height >= 1080 ? '1080' : height >= 720 ? '720' : height >= 480 ? '480' : '360';
     const r = await loaderYoutubeVideo(media.url, quality);
@@ -187,7 +265,7 @@ async function downloadVideoFile(query, { height = 720, label = '720p', timeoutM
       }
       if (r.url) {
         try {
-          const buffer = await mediaHandler.fetchBuffer(r.url);
+          const buffer = await fetchMediaBuffer(r.url, 120000);
           if (buffer && buffer.length > 4096) {
             return {
               title: r.title || media.title, duration: media.duration, author: r.author || media.author,
@@ -200,7 +278,7 @@ async function downloadVideoFile(query, { height = 720, label = '720p', timeoutM
     }
   } catch (e) { console.log('[DL-VIDEO] loader.to falhou:', e.message); }
 
-  // 2ª tentativa: Cobalt
+  // 3ª tentativa: Cobalt
   try {
     const cobaltUrl = await cobaltDownload(media.url, 'auto');
     if (cobaltUrl) {
@@ -215,7 +293,7 @@ async function downloadVideoFile(query, { height = 720, label = '720p', timeoutM
     }
   } catch (e) {}
 
-  // 3ª tentativa: yt-dlp
+  // 4ª tentativa: yt-dlp
   try {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-video-'));
     const outTpl = path.join(tmpDir, 'source.%(ext)s');
@@ -250,6 +328,15 @@ async function downloadVideoFile(query, { height = 720, label = '720p', timeoutM
     } finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
   } catch (e) {}
 
+  if (!YT_PROXY_URL) {
+    throw new Error(
+      '❌ Não consegui baixar o vídeo.\n' +
+      'YouTube bloqueia downloads em servidores.\n\n' +
+      '🔧 Configure o Cloudflare Worker (veja cloudflare-worker/README.md)\n' +
+      'Ou tente !play para áudio.'
+    );
+  }
+
   throw new Error('❌ Não consegui baixar o vídeo. Tente !play para áudio.');
 }
 
@@ -263,43 +350,53 @@ async function youtubeVideoSavefrom(query) { return downloadVideoFile(query, { h
 // ==================== SOCIAL VIDEO ====================
 async function tiktok(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do TikTok.');
+
+  // 1. TikWM (melhor para TikTok)
   const tikwmResult = await tikwmDownload(url);
   if (tikwmResult) {
     try {
-      const buffer = await mediaHandler.fetchBuffer(tikwmResult.noWatermark || tikwmResult.url);
+      const buffer = await fetchMediaBuffer(tikwmResult.noWatermark || tikwmResult.url, 60000);
       if (buffer && buffer.length > 4096) {
         return { title: tikwmResult.title, url: '', buffer, mimetype: 'video/mp4', quality: 'TikTok MP4', fileName: `${safeTitle(tikwmResult.title)}.mp4` };
       }
     } catch (e) {}
     return { title: tikwmResult.title, url: tikwmResult.noWatermark || tikwmResult.url };
   }
+
+  // 2. Cloudflare Worker social endpoint
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { title: 'TikTok', url: proxyUrl };
+
+  // 3. Cobalt
   try { const c = await cobaltDownload(url, 'auto'); if (c) return { title: 'TikTok', url: c }; } catch (e) {}
-  try { return await downloadVideoFile(url, { height: 720, label: 'TikTok' }); } catch (e) {}
   throw new Error('❌ Não consegui baixar o TikTok.');
 }
 
 async function facebook(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do Facebook.');
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { title: 'Facebook', url: proxyUrl };
   try { const c = await cobaltDownload(url, 'auto'); if (c) return { title: 'Facebook', url: c }; } catch (e) {}
-  try { return await downloadVideoFile(url, { height: 720, label: 'Facebook' }); } catch (e) {}
   throw new Error('❌ Não consegui baixar do Facebook.');
 }
 
 async function twitter(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do X/Twitter.');
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { url: proxyUrl };
   try { const c = await cobaltDownload(url, 'auto'); if (c) return { url: c }; } catch (e) {}
-  try { return await downloadVideoFile(url, { height: 720, label: 'X/Twitter' }); } catch (e) {}
   throw new Error('❌ Não consegui baixar do X/Twitter.');
 }
 
 async function instagram(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do Instagram.');
+  const proxyUrl = await proxySocialDownload(url);
+  if (proxyUrl) return { type: proxyUrl.includes('.mp4') ? 'video' : 'image', url: proxyUrl };
   try {
     const c = await cobaltDownload(url, 'auto');
     if (c) return { type: c.includes('.mp4') ? 'video' : 'image', url: c };
   } catch (e) {}
-  try { const r = await downloadVideoFile(url, { height: 720, label: 'Instagram' }); return { ...r, type: 'video' }; } catch (e) {}
-  throw new Error('❌ Não consegui baixar do Instagram.');
+  throw new Error('❌ Não consegui baixar do Instagram. Link pode ser privado.');
 }
 
 // ==================== SPOTIFY / SOUNDCLOUD ====================
@@ -308,7 +405,7 @@ async function spotify(queryOrUrl) {
     const spotResult = await spotifydownDownload(queryOrUrl);
     if (spotResult && spotResult.url) {
       try {
-        const buffer = await mediaHandler.fetchBuffer(spotResult.url);
+        const buffer = await fetchMediaBuffer(spotResult.url, 60000);
         if (buffer && buffer.length > 2048) {
           return { title: spotResult.title, author: spotResult.author, thumb: spotResult.thumbnail, url: '', buffer, mimetype: 'audio/mpeg', quality: 'Spotify 160kbps', fileName: `${safeTitle(spotResult.title)}.mp3` };
         }
@@ -324,6 +421,8 @@ async function spotify(queryOrUrl) {
 
 async function soundcloud(queryOrUrl) {
   if (isUrl(queryOrUrl)) {
+    const proxyUrl = await proxySocialDownload(queryOrUrl);
+    if (proxyUrl) return { title: 'SoundCloud', url: proxyUrl };
     try { const c = await cobaltDownload(queryOrUrl, 'audio'); if (c) return { title: 'SoundCloud', url: c }; } catch (e) {}
   }
   try {

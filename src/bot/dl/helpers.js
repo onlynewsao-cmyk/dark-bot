@@ -1,22 +1,20 @@
 /**
- * Download Helpers v3 — APIs 100% funcionais (Junho 2026)
+ * Download Helpers v4 — YouTube via Cloudflare Worker + APIs funcionais (Junho 2026)
  *
- * YouTube bloqueia IPs de servidores diretamente (yt-dlp e InnerTube falham).
- * Solução: usar serviços de download que rodam em IPs residenciais.
- *
- * Estratégia:
- *  1. loader.to — API gratuita, YouTube + TikTok + Instagram, etc.
+ * YouTube bloqueia IPs de servidores. Solução:
+ *  1. Cloudflare Worker proxy (IPs limpos da Cloudflare) → URLs de streaming
  *  2. tikwm.com — TikTok sem marca d'água
  *  3. spotifydown.com — Spotify MP3 direto
  *  4. siputzx — Pinterest download + pesquisa
- *  5. Cobalt API — Multi-plataforma (requer JWT para instância oficial)
- *  6. yt-dlp — Último resort (pode não funcionar se IP bloqueado)
+ *  5. loader.to — Fallback YouTube (pode retornar HTML com ads)
+ *  6. yt-dlp — Último resort
  */
 
 const yts = require('yt-search');
 const mediaHandler = require('../mediaHandler');
 
-// ==================== APIs FUNCIONAIS 2025/2026 ====================
+// ==================== CONFIG ====================
+const YT_PROXY_URL = process.env.YT_PROXY_URL || '';
 const LOADER_TO = 'https://loader.to';
 const LOADER_PROGRESS = 'https://lto2.affadaffa.com/api/progress';
 const TIKWM = 'https://www.tikwm.com/api';
@@ -55,41 +53,185 @@ async function searchYoutubeFull(query) {
   catch (e) { return null; }
 }
 
-async function tryApis(apis, parser, label) {
-  label = label || 'API';
-  const errors = [];
-  for (let i = 0; i < apis.length; i++) {
-    try {
-      const apiDef = apis[i];
-      let r;
-      if (typeof apiDef === 'object' && apiDef.method === 'POST') {
-        r = await mediaHandler.fetchJsonPost(apiDef.url, apiDef.body, apiDef.headers, 25000);
-      } else {
-        r = await mediaHandler.fetchJson(typeof apiDef === 'string' ? apiDef : apiDef.url, 25000);
-      }
-      const result = parser(r);
-      if (result && result.url) {
-        console.log('[' + label + '] OK API ' + (i + 1));
-        return result;
-      }
-      errors.push('API' + (i + 1) + ':noUrl');
-    } catch (e) { errors.push('API' + (i + 1) + ':' + (e.message || e).slice(0, 40)); }
-  }
-  throw new Error(errors.slice(0, 4).join(' | '));
-}
-
-// ==================== LOADER.TO — YouTube principal ====================
+// ==================== CLOUDFLARE WORKER — YouTube principal ====================
 
 /**
- * Baixa áudio do YouTube via loader.to
- * Formatos: mp3, 128, 192, 256, 320
- * Retorna { title, url, author, thumbnail, duration, buffer? }
+ * Baixa áudio do YouTube via Cloudflare Worker proxy.
+ * O Worker roda em IPs limpos da Cloudflare e retorna URLs de streaming diretas.
+ * Retorna { title, url, author, thumbnail, duration, buffer?, mimetype, fileName }
  */
+async function proxyYoutubeAudio(url, quality = '128') {
+  const videoId = extractYtId(url);
+  if (!videoId) throw new Error('ID do vídeo não encontrado');
+  if (!YT_PROXY_URL) throw new Error('YT_PROXY_URL não configurado');
+
+  // Mapear qualidade
+  const qMap = { '320': '320', '256': '256', '192': '192', '128': '128', '96': '128', '160': '192' };
+  const q = qMap[quality] || '128';
+
+  console.log(`[CF-WORKER] Requesting audio for ${videoId} quality ${q}`);
+
+  // Passo 1: Obter URLs de streaming do Worker
+  const proxyResp = await mediaHandler.fetchJson(
+    `${YT_PROXY_URL}/audio?id=${videoId}&quality=${q}&key=darknet-engine-2026`,
+    30000
+  );
+
+  if (!proxyResp?.success || !proxyResp?.formats?.length) {
+    throw new Error(proxyResp?.error || 'Worker não retornou URLs de streaming');
+  }
+
+  const format = proxyResp.formats[0];
+  const streamUrl = format.url;
+  const title = proxyResp.title || 'YouTube Audio';
+  const author = proxyResp.author || '';
+  const thumbnail = proxyResp.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  const durationSec = proxyResp.lengthSeconds || 0;
+  const duration = durationSec ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, '0')}` : '';
+
+  console.log(`[CF-WORKER] Got stream URL: ${streamUrl.slice(0, 80)}... (${format.mimeType})`);
+
+  // Passo 2: Baixar o buffer do stream
+  try {
+    const buffer = await fetchMediaBuffer(streamUrl, 60000);
+    if (buffer && buffer.length > 2048) {
+      const isM4A = format.mimeType?.includes('audio/mp4') || format.mimeType?.includes('audio/m4a');
+      const ext = isM4A ? 'm4a' : 'mp3';
+      const mime = isM4A ? 'audio/mp4' : 'audio/mpeg';
+      return {
+        title,
+        url: streamUrl,
+        author,
+        thumbnail,
+        duration,
+        buffer,
+        mimetype: mime,
+        fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`,
+      };
+    }
+  } catch (e) {
+    console.log('[CF-WORKER] Buffer download falhou:', e.message);
+  }
+
+  // Fallback: retornar URL para o bot tentar baixar
+  return { title, url: streamUrl, author, thumbnail, duration };
+}
+
+/**
+ * Baixa vídeo do YouTube via Cloudflare Worker proxy.
+ */
+async function proxyYoutubeVideo(url, quality = '720') {
+  const videoId = extractYtId(url);
+  if (!videoId) throw new Error('ID do vídeo não encontrado');
+  if (!YT_PROXY_URL) throw new Error('YT_PROXY_URL não configurado');
+
+  const q = ['360', '480', '720', '1080'].includes(quality) ? quality : '720';
+
+  console.log(`[CF-WORKER] Requesting video for ${videoId} quality ${q}`);
+
+  const proxyResp = await mediaHandler.fetchJson(
+    `${YT_PROXY_URL}/video?id=${videoId}&quality=${q}&key=darknet-engine-2026`,
+    30000
+  );
+
+  if (!proxyResp?.success || !proxyResp?.formats?.length) {
+    throw new Error(proxyResp?.error || 'Worker não retornou URLs de streaming');
+  }
+
+  const format = proxyResp.formats[0];
+  const streamUrl = format.url;
+  const title = proxyResp.title || 'YouTube Video';
+  const author = proxyResp.author || '';
+  const thumbnail = proxyResp.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+
+  console.log(`[CF-WORKER] Got video stream URL: ${streamUrl.slice(0, 80)}...`);
+
+  try {
+    const buffer = await fetchMediaBuffer(streamUrl, 120000);
+    if (buffer && buffer.length > 4096) {
+      return {
+        title,
+        url: streamUrl,
+        author,
+        thumbnail,
+        buffer,
+        mimetype: 'video/mp4',
+        quality: `${q}p`,
+        fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp4`,
+      };
+    }
+  } catch (e) {
+    console.log('[CF-WORKER] Video buffer falhou:', e.message);
+  }
+
+  return { title, url: streamUrl, author, thumbnail, quality: `${q}p` };
+}
+
+/**
+ * Baixa o buffer de uma URL de mídia (segue redirects, aceita qualquer content-type).
+ * Diferente do mediaHandler.fetchBuffer, este método aceita qualquer tipo de resposta
+ * e verifica se o conteúdo parece ser mídia (não HTML).
+ */
+async function fetchMediaBuffer(url, timeoutMs = 60000) {
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const http = require('http');
+    const lib = url.startsWith('https') ? https : http;
+
+    const req = lib.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/125.0.0.0 Mobile Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Encoding': 'identity', // No compression to get raw bytes
+      },
+      timeout: timeoutMs,
+    }, (res) => {
+      // Follow redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        const next = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
+        return fetchMediaBuffer(next, timeoutMs).then(resolve, reject);
+      }
+      if (res.statusCode >= 400) {
+        res.resume();
+        return reject(new Error('HTTP ' + res.statusCode));
+      }
+
+      const chunks = [];
+      let totalSize = 0;
+      const maxSize = 50 * 1024 * 1024; // 50MB limit
+
+      res.on('data', (c) => {
+        totalSize += c.length;
+        if (totalSize > maxSize) {
+          req.destroy();
+          reject(new Error('Arquivo > 50MB'));
+          return;
+        }
+        chunks.push(c);
+      });
+      res.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        // Verify it's not HTML (ad page redirect)
+        const header = buffer.slice(0, 20).toString('utf-8');
+        if (header.includes('<!DOCTYPE') || header.includes('<html') || header.includes('<HTML')) {
+          return reject(new Error('Resposta é HTML, não mídia'));
+        }
+        resolve(buffer);
+      });
+      res.on('error', reject);
+    });
+
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('timeout')); });
+  });
+}
+
+// ==================== LOADER.TO — YouTube fallback ====================
+
 async function loaderYoutubeAudio(url, quality = '128') {
   const videoId = extractYtId(url);
   const format = quality === '320' ? '320' : quality === '256' ? '256' : quality === '192' ? '192' : '128';
 
-  // Passo 1: Iniciar conversão
   const startUrl = `${LOADER_TO}/ajax/download.php?format=${format}&url=${encodeURIComponent(url)}`;
   const startResp = await mediaHandler.fetchJson(startUrl, 30000);
 
@@ -101,35 +243,25 @@ async function loaderYoutubeAudio(url, quality = '128') {
   const title = startResp.title || 'YouTube Audio';
   const info = startResp.info || {};
 
-  // Passo 2: Polling até conversão terminar
   const downloadUrl = await pollLoaderProgress(taskId, 90000);
 
-  // Passo 3: Baixar o buffer real
   try {
-    const buffer = await fetchFinalBuffer(downloadUrl, 60000);
+    const buffer = await fetchMediaBuffer(downloadUrl, 60000);
     if (buffer && buffer.length > 2048) {
       return {
-        title: title,
-        url: downloadUrl,
-        author: info.uploader || '',
+        title, url: downloadUrl, author: info.uploader || '',
         thumbnail: info.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        duration: '',
-        buffer,
-        mimetype: 'audio/mpeg',
+        duration: '', buffer, mimetype: 'audio/mpeg',
         fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp3`,
       };
     }
   } catch (e) {
-    console.log('[LOADER] Buffer download falhou, retornando URL direta');
+    console.log('[LOADER] Buffer download falhou (pode ser página de ads):', e.message);
   }
 
   return { title, url: downloadUrl, author: info.uploader || '' };
 }
 
-/**
- * Baixa vídeo do YouTube via loader.to
- * Formatos: 360, 480, 720, 1080
- */
 async function loaderYoutubeVideo(url, quality = '720') {
   const videoId = extractYtId(url);
   const format = ['360', '480', '720', '1080'].includes(quality) ? quality : '720';
@@ -148,29 +280,22 @@ async function loaderYoutubeVideo(url, quality = '720') {
   const downloadUrl = await pollLoaderProgress(taskId, 180000);
 
   try {
-    const buffer = await fetchFinalBuffer(downloadUrl, 120000);
+    const buffer = await fetchMediaBuffer(downloadUrl, 120000);
     if (buffer && buffer.length > 4096) {
       return {
-        title,
-        url: downloadUrl,
-        author: info.uploader || '',
+        title, url: downloadUrl, author: info.uploader || '',
         thumbnail: info.image || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-        buffer,
-        mimetype: 'video/mp4',
-        quality: `${quality}p`,
+        buffer, mimetype: 'video/mp4', quality: `${quality}p`,
         fileName: `${String(title).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp4`,
       };
     }
   } catch (e) {
-    console.log('[LOADER] Video buffer falhou, retornando URL');
+    console.log('[LOADER] Video buffer falhou:', e.message);
   }
 
   return { title, url: downloadUrl, quality: `${quality}p` };
 }
 
-/**
- * Polling do progresso do loader.to
- */
 async function pollLoaderProgress(taskId, maxWaitMs = 90000) {
   const startTime = Date.now();
   const pollInterval = 5000;
@@ -178,29 +303,13 @@ async function pollLoaderProgress(taskId, maxWaitMs = 90000) {
   while (Date.now() - startTime < maxWaitMs) {
     try {
       const resp = await mediaHandler.fetchJson(`${LOADER_PROGRESS}?id=${taskId}`, 15000);
-      if (resp && resp.success === 1 && resp.download_url) {
-        return resp.download_url;
-      }
-      if (resp && resp.text === 'Finished' && resp.download_url) {
-        return resp.download_url;
-      }
+      if (resp && resp.success === 1 && resp.download_url) return resp.download_url;
+      if (resp && resp.text === 'Finished' && resp.download_url) return resp.download_url;
     } catch (e) {}
     await new Promise(r => setTimeout(r, pollInterval));
   }
 
   throw new Error('Timeout ao aguardar conversão no loader.to');
-}
-
-/**
- * Baixa o buffer final de uma URL loader.to (segue redirects)
- */
-async function fetchFinalBuffer(url, timeoutMs = 60000) {
-  try {
-    const buffer = await mediaHandler.fetchBuffer(url);
-    return buffer;
-  } catch (e) {
-    throw new Error('Erro ao baixar arquivo: ' + e.message);
-  }
 }
 
 // ==================== TIKWM — TikTok ====================
@@ -282,7 +391,6 @@ async function siputzxPinterestSearch(query) {
 async function cobaltDownload(url, mode = 'auto') {
   const instances = [
     'https://api.cobalt.tools',
-    'https://cobalt.meowing.de',
   ];
   for (const baseUrl of instances) {
     try {
@@ -302,6 +410,23 @@ async function cobaltDownload(url, mode = 'auto') {
   return null;
 }
 
+// ==================== SOCIAL MEDIA via Cloudflare Worker ====================
+
+/**
+ * Baixa de redes sociais via Cloudflare Worker (se configurado)
+ */
+async function proxySocialDownload(url) {
+  if (!YT_PROXY_URL) return null;
+  try {
+    const r = await mediaHandler.fetchJson(
+      `${YT_PROXY_URL}/social?url=${encodeURIComponent(url)}&key=darknet-engine-2026`,
+      25000
+    );
+    if (r?.success && r?.url) return r.url;
+  } catch (e) { console.log('[CF-WORKER-SOCIAL] falhou:', e.message); }
+  return null;
+}
+
 async function streamToBuffer(stream, maxSize) {
   maxSize = maxSize || 30 * 1024 * 1024;
   return new Promise((resolve, reject) => {
@@ -314,11 +439,17 @@ async function streamToBuffer(stream, maxSize) {
 }
 
 module.exports = {
-  LOADER_TO, TIKWM, SPOTIFYDOWN, SIPUTZX,
+  YT_PROXY_URL, TIKWM, SPOTIFYDOWN, SIPUTZX,
   ytdl, yts, mediaHandler,
   extractYtId, searchYoutube, searchYoutubeFull,
-  tryApis, streamToBuffer,
+  streamToBuffer, fetchMediaBuffer,
+  // Cloudflare Worker (primary)
+  proxyYoutubeAudio, proxyYoutubeVideo,
+  // Loader.to (fallback)
   loaderYoutubeAudio, loaderYoutubeVideo, pollLoaderProgress,
+  // Dedicated APIs
   cobaltDownload, tikwmDownload, spotifydownDownload,
   siputzxPinterest, siputzxPinterestSearch,
+  // Social via Worker
+  proxySocialDownload,
 };
