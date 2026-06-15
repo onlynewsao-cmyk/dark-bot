@@ -5,7 +5,7 @@ function cleanEnv(value, fallback = '') {
   let cleaned = String(value)
     .trim()
     .replace(/^['"]|['"]$/g, '');
-  // Render/GitHub Ã s vezes recebem URIs copiadas de HTML com &amp; ou &amp;amp;.
+  // Render/GitHub às vezes recebem URIs copiadas de HTML com &amp; ou &amp;amp;.
   while (cleaned.includes('&amp;')) cleaned = cleaned.replace(/&amp;/g, '&');
   cleaned = cleaned.replace(/&#38;|&#x26;/gi, '&');
   return cleaned;
@@ -27,15 +27,15 @@ module.exports = {
 
   owner: {
     name: cleanEnv(process.env.OWNER_NAME, 'Dark Net'),
-    number: cleanNumber(process.env.OWNER_NUMBER, '244945280380'),
+    number: cleanNumber(process.env.OWNER_NUMBER, ''),
     username: cleanEnv(process.env.OWNER_USERNAME, 'darknet').toLowerCase(),
-    // Nunca coloque a senha real no cÃ³digo. Defina OWNER_PASSWORD no Render.
+    // Nunca coloque a senha real no código. Defina OWNER_PASSWORD no Render.
     password: cleanEnv(process.env.OWNER_PASSWORD, ''),
   },
 
   bot: {
     name: cleanEnv(process.env.BOT_NAME, 'DARK BOT'),
-    number: cleanNumber(process.env.BOT_NUMBER, '244949926074'),
+    number: cleanNumber(process.env.BOT_NUMBER, ''),
     prefix: cleanEnv(process.env.BOT_PREFIX, '!'),
   },
 
@@ -55,7 +55,7 @@ module.exports = {
     openaiApiKey: cleanEnv(process.env.OPENAI_API_KEY, ''),
     openrouterApiKey: cleanEnv(process.env.OPENROUTER_API_KEY, ''),
     model: cleanEnv(process.env.AI_MODEL, ''),
-    // aliases para compatibilidade com mÃ³dulos v3
+    // aliases para compatibilidade com módulos v3
     groqKey: cleanEnv(process.env.GROQ_API_KEY, ''),
     geminiKey: cleanEnv(process.env.GEMINI_API_KEY, ''),
     openaiKey: cleanEnv(process.env.OPENAI_API_KEY, ''),
@@ -64,3 +64,4 @@ module.exports = {
 
   tenorApiKey: cleanEnv(process.env.TENOR_API_KEY, ''),
 };
+    
