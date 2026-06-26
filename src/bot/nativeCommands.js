@@ -488,6 +488,42 @@ async function ownerPv(sock, ctx, payload) {
   return null;
 }
 
+
+const AUDIO_EFFECTS = {
+  bass: 'bass=g=12', bass2: 'bass=g=18', bass3: 'bass=g=25',
+  grave: 'bass=g=10,treble=g=-2', grave2: 'bass=g=16,treble=g=-4', grave3: 'bass=g=22,treble=g=-6',
+  reverb: 'aecho=0.8:0.9:1000:0.3', reverb2: 'aecho=0.8:0.9:1200:0.45', reverb3: 'aecho=0.9:0.9:1500:0.55',
+  '8d': 'apulsator=hz=0.09', '8d2': 'apulsator=hz=0.14', '8d3': 'apulsator=hz=0.22',
+  slowed: 'atempo=0.85', slowed2: 'atempo=0.75', slowed3: 'atempo=0.65',
+  slowedreverb: 'atempo=0.85,aecho=0.8:0.9:1000:0.35', slowedreverb2: 'atempo=0.75,aecho=0.8:0.9:1200:0.45', slowedreverb3: 'atempo=0.65,aecho=0.8:0.9:1500:0.55',
+  chorus: 'chorus=0.7:0.9:55:0.4:0.25:2', chorus2: 'chorus=0.8:0.9:60:0.5:0.25:2', chorus3: 'chorus=0.9:0.9:70:0.55:0.3:2',
+  fast: 'atempo=1.35', slow: 'atempo=0.75', nightcore: 'asetrate=44100*1.25,aresample=44100,atempo=1.05', vaporwave: 'asetrate=44100*0.82,aresample=44100,atempo=0.95', hardcore: 'atempo=1.55,volume=1.3',
+  robot: 'afftfilt=real=hypot(re,im)*sin(0):imag=im', chipmunk: 'asetrate=44100*1.45,aresample=44100,atempo=0.9', squirrel: 'asetrate=44100*1.7,aresample=44100,atempo=0.85', monster: 'asetrate=44100*0.65,aresample=44100,atempo=1.1', whisper: 'highpass=f=1200,volume=0.8', pitch: 'asetrate=44100*1.2,aresample=44100', deep: 'asetrate=44100*0.75,aresample=44100,atempo=1.05',
+  echo: 'aecho=0.8:0.88:600:0.4', stadium: 'aecho=0.9:0.9:900:0.55', cave: 'aecho=0.9:0.8:1200:0.65', underwater: 'lowpass=f=700,aecho=0.8:0.8:500:0.25', telephone: 'highpass=f=300,lowpass=f=3400', radio: 'highpass=f=500,lowpass=f=5000,volume=1.2', lofi: 'lowpass=f=3000,aresample=22050,aecho=0.6:0.7:300:0.2',
+  flanger: 'flanger', phaser: 'aphaser', tremolo: 'tremolo=f=6:d=0.7', vibrato: 'vibrato=f=6.5:d=0.6', reverse: 'areverse', karaoke: 'pan=mono|c0=c0-c1', blown: 'acrusher=level_in=1:level_out=1:bits=6:mix=0.7', earrape: 'volume=8,acompressor', fat: 'bass=g=15,acompressor', smooth: 'lowpass=f=6000,acompressor=threshold=-18dB:ratio=2'
+};
+
+function getQuotedAudioMessage(msg) {
+  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage || msg.message?.buttonsResponseMessage?.contextInfo?.quotedMessage || msg.message?.interactiveResponseMessage?.contextInfo?.quotedMessage;
+  if (quoted?.audioMessage) return { key: msg.key, message: quoted };
+  if (msg.message?.audioMessage) return msg;
+  return null;
+}
+
+function processAudioEffect(buffer, filter, name) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dark-audiofx-'));
+  const input = path.join(tmpDir, 'input.bin');
+  const output = path.join(tmpDir, `${name}.mp3`);
+  try {
+    fs.writeFileSync(input, buffer);
+    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-af', filter, '-vn', '-b:a', '160k', '-ar', '44100', '-f', 'mp3', output], { stdio: 'ignore', timeout: 120000 });
+    const out = fs.readFileSync(output);
+    if (!out || out.length < 1024) throw new Error('áudio vazio');
+    if (out.length > 16 * 1024 * 1024) throw new Error('áudio muito grande após efeito');
+    return out;
+  } finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
+}
+
 module.exports = {
   // ============ INFO ============
   async start({ sock, msg, ctx, config }) {
@@ -625,6 +661,7 @@ module.exports = {
 
     let items = [
       { id: `${p}menudownload`, text: '📥 Downloads', desc: 'YouTube, Spotify, SoundCloud, redes' },
+      { id: `${p}menuaudio`, text: '🎧 Áudio FX', desc: 'bass, reverb, 8D, nightcore' },
       { id: `${p}menustickers`, text: '🎨 Stickers', desc: 'sticker, sfull, figubug, IA' },
       { id: `${p}menujogos`, text: '🎮 Jogos', desc: 'quiz, truco, forca, blackjack' },
       { id: `${p}menueconomia`, text: '💰 Economia', desc: 'Dark Bank, loja, aura, negócios' },
@@ -672,6 +709,7 @@ module.exports = {
         { cmd: 'video', args: 'central cee doja', emoji: '🎬', desc: 'vídeo HD 720p ou melhor disponível' },
         { cmd: 'video2', args: 'nome do vídeo', emoji: '📺', desc: 'tenta FHD 1080p real; fallback melhor disponível' },
         { cmd: 'statusvideo', args: 'nome/link', emoji: '⭕', desc: 'vídeo circular/status/PTV' },
+        { cmd: 'menuaudio', emoji: '🎧', desc: 'efeitos em áudio marcado' },
         { cmd: 'tiktok', args: 'url', emoji: '🎵', desc: 'TikTok sem marca' },
         { cmd: 'instagram', args: 'url', emoji: '📸', desc: 'reels/post Instagram' },
         { cmd: 'fb', args: 'url', emoji: '📘', desc: 'Facebook vídeo' },
@@ -1133,11 +1171,15 @@ module.exports = {
   async antistatus({ sock, msg, ctx, args }) {
     if (!ctx.isGroup) return reply(sock, msg, ctx, '👥 Só em grupos');
     if (!(await isAdmin(sock, ctx)) && ctx.senderNumber !== config.owner.number) return reply(sock, msg, ctx, '🚫 Só admins');
+    const action = (args[0] || 'toggle').toLowerCase();
     let doc = await AntiStatus.findOne({ groupJid: ctx.remoteJid });
     if (!doc) doc = await AntiStatus.create({ groupJid: ctx.remoteJid, enabled: false });
-    doc.enabled = !doc.enabled;
+    if (['on','ativar','ligar','1'].includes(action)) doc.enabled = true;
+    else if (['off','desativar','desligar','0'].includes(action)) doc.enabled = false;
+    else doc.enabled = !doc.enabled;
     await doc.save();
-    return reply(sock, msg, ctx, `🛡️ *Anti-Status* ${doc.enabled ? 'ATIVADO' : 'DESATIVADO'} neste grupo.`);
+    try { require('./messageListener').refreshAntiStatusCache?.(); } catch {}
+    return reply(sock, msg, ctx, `🛡️ *Anti-Status* ${doc.enabled ? 'ATIVADO' : 'DESATIVADO'} neste grupo.\n\nUse: antistatus on/off`);
   },
 
   async docfake({ sock, msg, ctx, args }) {
@@ -1553,17 +1595,44 @@ module.exports = {
   async antilink({ sock, msg, ctx, args }) {
     if (!ctx.isGroup) return reply(sock, msg, ctx, '👥 Só em grupos');
     if (!(await isAdmin(sock, ctx))) return reply(sock, msg, ctx, '🚫 Só admins');
-    const on = args[0]?.toLowerCase() === 'on';
-    await botConfigCache.set('antilink_enabled', on);
-    return reply(sock, msg, ctx, on ? '✅ Anti-link ATIVADO' : '❌ Anti-link DESATIVADO');
+    let gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }) || await GroupSettings.create({ groupJid: ctx.remoteJid, groupName: ctx.groupName || '' });
+    const a = (args[0] || 'status').toLowerCase();
+    if (['on','ativar','ligar','1'].includes(a)) gs.antilink = true;
+    else if (['off','desativar','desligar','0'].includes(a)) gs.antilink = false;
+    else if (['modo','mode'].includes(a)) {
+      const mode = (args[1] || '').toLowerCase();
+      if (!['smart','whatsapp_only','all_links'].includes(mode)) return reply(sock, msg, ctx, 'Use: antilink modo smart|whatsapp_only|all_links');
+      gs.antilinkMode = mode;
+    } else if (['acao','ação','action'].includes(a)) {
+      const act = (args[1] || '').toLowerCase();
+      if (!['warn','kick'].includes(act)) return reply(sock, msg, ctx, 'Use: antilink acao warn|kick');
+      gs.antilinkAction = act;
+    } else if (['permitir','allow','whitelist'].includes(a)) {
+      const dom = (args[1] || '').toLowerCase().replace(/^https?:\/\//,'').replace(/\/.*$/,'');
+      if (!dom) return reply(sock, msg, ctx, 'Use: antilink permitir dominio.com');
+      if (!gs.antilinkWhitelist.includes(dom)) gs.antilinkWhitelist.push(dom);
+    } else if (['remover','remove'].includes(a)) {
+      const dom = (args[1] || '').toLowerCase();
+      gs.antilinkWhitelist = (gs.antilinkWhitelist || []).filter(x => x !== dom);
+    } else if (['avisos','warns'].includes(a)) {
+      gs.maxWarns = Math.max(1, Math.min(10, Number(args[1]) || 3));
+    } else if (!['status'].includes(a)) {
+      return reply(sock, msg, ctx, 'Use: antilink on/off | modo smart|whatsapp_only|all_links | acao warn|kick | permitir dominio | remover dominio | avisos 3');
+    }
+    await gs.save();
+    const wl = gs.antilinkWhitelist?.length ? gs.antilinkWhitelist.join(', ') : 'nenhum';
+    return reply(sock, msg, ctx, `╔═══════════════════════════════╗\n║  🛡️ *ANTI-LINK STATUS*  ║\n╚═══════════════════════════════╝\n\nStatus: ${gs.antilink ? '🟢 ON' : '🔴 OFF'}\nModo:   ${gs.antilinkMode}\nAção:   ${gs.antilinkAction}\nAvisos: ${gs.maxWarns} → ban\nWhitelist: ${wl}\n\nComandos:\n◈ antilink on/off\n◈ antilink modo smart|whatsapp_only|all_links\n◈ antilink acao warn|kick\n◈ antilink permitir <dominio>\n◈ antilink remover <dominio>\n◈ antilink avisos <n>`);
   },
 
   async antispam({ sock, msg, ctx, args }) {
     if (!ctx.isGroup) return reply(sock, msg, ctx, '👥 Só em grupos');
     if (!(await isAdmin(sock, ctx))) return reply(sock, msg, ctx, '🚫 Só admins');
-    const on = args[0]?.toLowerCase() === 'on';
-    await botConfigCache.set('antispam_enabled', on);
-    return reply(sock, msg, ctx, on ? '✅ Anti-spam ATIVADO' : '❌ Anti-spam DESATIVADO');
+    let gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }) || await GroupSettings.create({ groupJid: ctx.remoteJid, groupName: ctx.groupName || '' });
+    const a = (args[0] || 'status').toLowerCase();
+    if (['on','ativar','ligar','1'].includes(a)) gs.antispam = true;
+    else if (['off','desativar','desligar','0'].includes(a)) gs.antispam = false;
+    await gs.save();
+    return reply(sock, msg, ctx, `🛡️ *Anti-spam* ${gs.antispam ? 'ATIVADO' : 'DESATIVADO'} neste grupo.\nUse: antispam on/off`);
   },
 
   async join({ sock, msg, ctx, args, isOwner }) {
@@ -2588,6 +2657,7 @@ module.exports = {
         { cmd: 'cripto', args: 'btc', emoji: '🪙', desc: 'preço cripto' },
         { cmd: 'dog', emoji: '🐶', desc: 'foto dog' },
         { cmd: 'cat', emoji: '🐱', desc: 'foto cat' },
+        { cmd: 'iawhatsapp', emoji: '🤖', desc: 'adicionar Meta AI/outras IAs' },
         { cmd: 'aiapis', emoji: '🔌', desc: 'status APIs IA' },
         { cmd: 'noticias', emoji: '📰', desc: 'notícias do dia sem key extra' },
         { cmd: 'menustyle', emoji: '🎭', desc: 'alterar visual dos menus' },
@@ -3063,5 +3133,106 @@ module.exports = {
     await BotConfig.set('theme_apply_all', v === 'on'); botConfigCache.clear();
     return reply(sock, msg, ctx, `✅ Tema global nas respostas: *${v.toUpperCase()}*`);
   },
+
+
+  async menuaudio({ sock, msg, ctx }) {
+    return reply(sock, msg, ctx, `╔━᳀『 *EFEITOS DE ÁUDIO* 』═᳀\n\n⌬ _Marque um áudio e use o comando_\n\n╔━᳀『 *🔊 Bass* 』\n⌬ bass / bass2 / bass3\n\n╔━᳀『 *🎸 Grave* 』\n⌬ grave / grave2 / grave3\n\n╔━᳀『 *🌀 Reverb* 』\n⌬ reverb / reverb2 / reverb3\n\n╔━᳀『 *🎧 8D* 』\n⌬ 8d / 8d2 / 8d3\n\n╔━᳀『 *🐢 Slowed* 』\n⌬ slowed / slowed2 / slowed3\n\n╔━᳀『 *🌊 Slowed + Reverb* 』\n⌬ slowedreverb / slowedreverb2 / slowedreverb3\n\n╔━᳀『 *🎤 Chorus* 』\n⌬ chorus / chorus2 / chorus3\n\n╔━᳀『 *⚡ Velocidade* 』\n⌬ fast / slow / nightcore / vaporwave / hardcore\n\n╔━᳀『 *🎭 Voz* 』\n⌬ robot / chipmunk / squirrel / monster / whisper / pitch / deep\n\n╔━᳀『 *🌊 Ambiente* 』\n⌬ echo / stadium / cave / underwater / telephone / radio / lofi\n\n╔━᳀『 *🎛️ Modulação* 』\n⌬ flanger / phaser / tremolo / vibrato / reverse / karaoke / blown / earrape / fat / smooth\n\n╚═━═━═━═━═━═━═━═━═━═᳀\n\n> Dark bot`);
+  },
+
+  async audiofx({ sock, msg, ctx, args }) {
+    const effect = (args[0] || '').toLowerCase();
+    if (!AUDIO_EFFECTS[effect]) return module.exports.menuaudio({ sock, msg, ctx });
+    const src = getQuotedAudioMessage(msg);
+    if (!src) return reply(sock, msg, ctx, `🎧 Responda/marque um áudio com *${effect}*.`);
+    await react(sock, msg, '🎛️');
+    try {
+      const input = await mediaHandler.downloadFromMessage(src);
+      const out = processAudioEffect(input, AUDIO_EFFECTS[effect], effect);
+      await sock.sendMessage(ctx.remoteJid, { audio: out, mimetype: 'audio/mpeg', fileName: `dark-${effect}.mp3`, ptt: false }, { quoted: msg });
+      await react(sock, msg, '✅');
+    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, `❌ Efeito falhou: ${e.message}`); }
+  },
+  async bass(a) { a.args = ['bass', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async bass2(a) { a.args = ['bass2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async bass3(a) { a.args = ['bass3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async grave(a) { a.args = ['grave', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async grave2(a) { a.args = ['grave2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async grave3(a) { a.args = ['grave3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async reverb(a) { a.args = ['reverb', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async reverb2(a) { a.args = ['reverb2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async reverb3(a) { a.args = ['reverb3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  '8d': async (a) => { a.args = ['8d', ...(a.args || [])]; return module.exports.audiofx(a); },
+  '8d2': async (a) => { a.args = ['8d2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  '8d3': async (a) => { a.args = ['8d3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowed(a) { a.args = ['slowed', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowed2(a) { a.args = ['slowed2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowed3(a) { a.args = ['slowed3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowedreverb(a) { a.args = ['slowedreverb', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowedreverb2(a) { a.args = ['slowedreverb2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slowedreverb3(a) { a.args = ['slowedreverb3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async chorus(a) { a.args = ['chorus', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async chorus2(a) { a.args = ['chorus2', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async chorus3(a) { a.args = ['chorus3', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async fast(a) { a.args = ['fast', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async slow(a) { a.args = ['slow', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async nightcore(a) { a.args = ['nightcore', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async vaporwave(a) { a.args = ['vaporwave', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async hardcore(a) { a.args = ['hardcore', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async robot(a) { a.args = ['robot', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async chipmunk(a) { a.args = ['chipmunk', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async squirrel(a) { a.args = ['squirrel', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async monster(a) { a.args = ['monster', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async whisper(a) { a.args = ['whisper', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async pitch(a) { a.args = ['pitch', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async deep(a) { a.args = ['deep', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async echo(a) { a.args = ['echo', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async stadium(a) { a.args = ['stadium', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async cave(a) { a.args = ['cave', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async underwater(a) { a.args = ['underwater', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async telephone(a) { a.args = ['telephone', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async radio(a) { a.args = ['radio', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async lofi(a) { a.args = ['lofi', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async flanger(a) { a.args = ['flanger', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async phaser(a) { a.args = ['phaser', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async tremolo(a) { a.args = ['tremolo', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async vibrato(a) { a.args = ['vibrato', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async reverse(a) { a.args = ['reverse', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async karaoke(a) { a.args = ['karaoke', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async blown(a) { a.args = ['blown', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async earrape(a) { a.args = ['earrape', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async fat(a) { a.args = ['fat', ...(a.args || [])]; return module.exports.audiofx(a); },
+  async smooth(a) { a.args = ['smooth', ...(a.args || [])]; return module.exports.audiofx(a); },
+
+
+  async iawhatsapp({ sock, msg, ctx, args, isOwner }) {
+    if (!ctx.isGroup) return reply(sock, msg, ctx, '🤖 Use em grupos para adicionar IAs como membros.');
+    if (!isOwner && !(await isAdmin(sock, ctx))) return reply(sock, msg, ctx, '🚫 Só admin/dono.');
+    const action = (args[0] || 'status').toLowerCase();
+    let list = await BotConfig.get('ai_member_numbers', []).catch(() => []);
+    if (!Array.isArray(list)) list = [];
+    if (['add','adicionar','set'].includes(action)) {
+      const nums = args.slice(1).join(' ').split(/[\s,]+/).map(userManager.normalizeNumber).filter(n => n.length >= 8);
+      if (!nums.length) return reply(sock, msg, ctx, 'Use: iawhatsapp add 551199999999 2449xxxxxxx');
+      for (const n of nums) if (!list.includes(n)) list.push(n);
+      await BotConfig.set('ai_member_numbers', list); botConfigCache.clear();
+      return reply(sock, msg, ctx, `✅ IAs WhatsApp salvas:\n${list.map(n => '• +' + n).join('\n')}`);
+    }
+    if (['remove','remover'].includes(action)) {
+      const nums = args.slice(1).map(userManager.normalizeNumber).filter(Boolean);
+      list = list.filter(n => !nums.includes(n));
+      await BotConfig.set('ai_member_numbers', list); botConfigCache.clear();
+      return reply(sock, msg, ctx, `✅ Lista atual:\n${list.length ? list.map(n => '• +' + n).join('\n') : 'vazia'}`);
+    }
+    if (['entrar','join','convocar'].includes(action)) {
+      if (!(await botIsAdmin(sock, ctx))) return reply(sock, msg, ctx, '⚠️ Preciso ser admin para adicionar membros.');
+      if (!list.length) return reply(sock, msg, ctx, 'Configure primeiro: iawhatsapp add <numero-da-ia>');
+      const jids = list.map(n => `${n}@s.whatsapp.net`);
+      await sock.groupParticipantsUpdate(ctx.remoteJid, jids, 'add').catch(() => {});
+      return reply(sock, msg, ctx, `🤖 Tentativa de adicionar IAs ao grupo:\n${list.map(n => '• +' + n).join('\n')}\n\nObs: algumas IAs como Meta AI podem não aceitar adição por número em todos países.`);
+    }
+    return reply(sock, msg, ctx, `╭━━━〔 🤖 IA WHATSAPP MEMBERS 〕━━━╮\n┃ Configure números de IAs oficiais/assistentes\n┃ e tente adicionar ao grupo.\n╰━━━━━━━━━━━━━━━━━━━━╯\n\nLista atual:\n${list.length ? list.map(n => '• +' + n).join('\n') : 'vazia'}\n\nComandos:\niawhatsapp add <numero>\niawhatsapp remove <numero>\niawhatsapp entrar`);
+  },
+  async addia(a) { return module.exports.iawhatsapp(a); },
+  async metai(a) { return module.exports.iawhatsapp(a); },
 
 };
