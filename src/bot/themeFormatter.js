@@ -1,4 +1,5 @@
 const botConfigCache = require('./botConfigCache');
+const changeThemes   = require('./changeThemes');
 
 const TIPS = [
   '⚡ DarkSide: foco, velocidade e presença.',
@@ -46,7 +47,13 @@ async function formatText(text = '') {
   if (text.includes('〔 DARK SIGNATURE 〕') || text.length > 3500) return text;
   const style = await botConfigCache.get('menu_style', 'classic').catch(() => 'classic');
   const { frame: f, icon } = styleParts(style);
-  const tip = pick(TIPS);
+  // Usa dica do tema activo se disponível
+  let tip;
+  try {
+    const activeThemeName = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+    const activeTheme = changeThemes.getTheme(activeThemeName || 'dark');
+    tip = activeTheme.tip || pick(TIPS);
+  } catch { tip = pick(TIPS); }
   return `${text}\n\n${f[0]}${f[4].repeat(5)}〔 DARK SIGNATURE 〕${f[4].repeat(5)}${f[1]}\n${f[5]} ${icon} ${tip}\n${f[2]}${f[4].repeat(28)}${f[3]}`;
 }
 

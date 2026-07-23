@@ -23,7 +23,8 @@ const { execSync, execFileSync } = require('child_process');
 const axios = require('axios');
 const { sendWithGif } = require('./gifHelper');
 const facebookPublisher = require('./facebookPublisher');
-const menuThemes = require('./menuThemes');
+const menuThemes   = require('./menuThemes');
+const changeThemes = require('./changeThemes');
 
 const startTime = Date.now();
 
@@ -378,6 +379,16 @@ function displayCommand(idOrCmd = '') {
 
 async function getButtonMode() {
   try { return await botConfigCache.get('button_mode', 'auto'); } catch { return 'auto'; }
+}
+
+/**
+ * Retorna o tema activo (changeThemes object)
+ */
+async function getActiveTheme() {
+  try {
+    const name = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+    return changeThemes.getTheme(name || 'dark');
+  } catch { return changeThemes.getTheme('dark'); }
 }
 
 async function getMenuImage(target = 'menu') {

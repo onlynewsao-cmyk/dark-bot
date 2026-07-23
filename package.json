@@ -16,7 +16,13 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["whatsapp", "bot", "baileys", "dashboard", "darkbot"],
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "dashboard",
+    "darkbot"
+  ],
   "author": "Dark Net",
   "license": "MIT",
   "dependencies": {

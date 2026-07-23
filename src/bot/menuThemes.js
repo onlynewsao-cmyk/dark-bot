@@ -15,7 +15,9 @@
 
 'use strict';
 
-const commandCatalog = require('./commandCatalog');
+const commandCatalog  = require('./commandCatalog');
+const botConfigCache  = require('./botConfigCache');
+const changeThemes    = require('./changeThemes');
 
 // ── Molduras [TL,TR,BL,BR,H,V] ─────────────────────────────
 const FRAMES = [
@@ -98,6 +100,26 @@ function styleIndex(s = 'classic') {
 
 function getStyle(style = 'classic') {
   const n = styleIndex(style);
+  // Tenta ler o tema activo do changeThemes via cache em memória
+  try {
+    const cacheEntry = botConfigCache.dump ? botConfigCache.dump() : {};
+    const activeThemeName = cacheEntry['active_theme'] || null;
+    if (activeThemeName && activeThemeName !== 'dark') {
+      const ct = changeThemes.getTheme(activeThemeName);
+      if (ct && ct.frame && ct.frame.length >= 6) {
+        const palette = PALETTES[ct.style % PALETTES.length] || PALETTES[0];
+        const mergedPalette = {
+          ...palette,
+          bullet:  ct.bullet  || palette.bullet,
+          sep:     ct.sep     || palette.sep,
+          accent:  ct.accent  || palette.accent,
+          icon:    ct.icon    || palette.icon,
+          vibe:    ct.vibe    || palette.vibe,
+        };
+        return { n: ct.style, frame: ct.frame, palette: mergedPalette };
+      }
+    }
+  } catch (_) {}
   return { n, frame: FRAMES[n % FRAMES.length], palette: PALETTES[n % PALETTES.length] };
 }
 
