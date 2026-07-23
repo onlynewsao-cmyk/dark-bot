@@ -834,6 +834,7 @@ async function handle(sock, msg) {
 
   // ── Case Handler (switch/case engine) ─────────────────────────────
   // Executa antes dos pacotes — tem prioridade
+  // Passa contexto completo incluindo wrapper "m" estilo clássico
   {
     const caseCtx = {
       sock,
@@ -844,10 +845,7 @@ async function handle(sock, msg) {
       prefix,
       command: canonicalCommand,
       isOwner,
-      isAdmin: false, // calculado dentro de cada case se necessário
       config:  commandConfig,
-      reply:   (text) => sock.sendMessage(ctx.remoteJid, { text }, { quoted: msg }),
-      react:   (emoji) => sock.sendMessage(ctx.remoteJid, { react: { text: emoji, key: msg.key } }).catch(() => {}),
     };
     const caseHandled = await caseHandler.runCase(canonicalCommand, caseCtx);
     if (caseHandled) {
