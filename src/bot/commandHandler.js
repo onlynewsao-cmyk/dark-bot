@@ -24,6 +24,10 @@ const prefixManager = require('./prefixManager');
 const CommandOverride = require('../database/models/CommandOverride');
 const userManager = require('./userManager');
 const path = require('path');
+const caseHandler = require('./caseHandler');
+
+// Inicializa os cases ao arrancar
+caseHandler.init();
 
 /**
  * Extrai texto de QUALQUER tipo de mensagem WhatsApp/Baileys.
@@ -637,79 +641,80 @@ async function handle(sock, msg) {
   }
 
   // ──────────────────────────────────────────────────────────────────────
-  // MENSAGEM SEM PREFIXO — o bot responde de forma útil e informativa
-  // ──────────────────────────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════════════════════
+  // MENSAGEM SEM PREFIXO
+  // ─ Só 2 excepções respondem SEM prefixo:
+  //   1. "aura" (e variantes) → já tratado acima pelo Auto-IA
+  //   2. Menção @bot → já tratado acima pelo Auto-IA
+  // ─ Comando digitado SEM prefixo → avisa com botão de copiar
+  // ─ Tudo o resto → ignora silenciosamente
+  // ════════════════════════════════════════════════════════════════════════
   if (!prefixInfo) {
-    const rawTrimmed   = String(text || '').trim();
-    const rawLower     = rawTrimmed.toLowerCase();
-    const botName      = String(commandConfig.bot.name || config.bot.name || 'DARK BOT');
-    const botNameLower = botName.toLowerCase();
+    const rawTrimmed = String(text || '').trim();
+    if (!rawTrimmed) return false;
 
-    // 1. Saudações → responde com boas-vindas e mostra o prefixo
-    const botChatOn = await botConfigCache.get('bot_interaction_enabled', false);
-    const enabledBotChat = botChatOn === true || botChatOn === 'true' || botChatOn === 'on' || botChatOn === 1 || botChatOn === '1';
-    if (enabledBotChat && isGreetingText(rawTrimmed)) {
-      const botJid      = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
-      const mentioned   = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
-      const mentionedBot = botJid && mentioned.includes(botJid);
-      const calledByName = rawLower.includes(botNameLower);
-      if ((!ctx.isGroup || mentionedBot || calledByName || isLikelyBotSender(ctx, text)) && canBotChat(ctx)) {
-        const otherBot = isLikelyBotSender(ctx, text);
-        const greeting = ctx.isPrimaryOwner
-          ? `Saudações, ${ctx.treatment}! 🕸️ Dark Net Engine em modo máximo para o criador. Use *${prefix}menu* para ver tudo.`
-          : otherBot
-            ? `Oi, bot aliado 🤖🕸️ Eu sou *${botName}*. Use *${prefix}menu* para comandos.`
-            : `Oi, ${ctx.treatment}! Eu sou *${botName}* 🕸️\nUse *${prefix}menu* para ver todos os comandos.`;
-        await sock.sendMessage(ctx.remoteJid, { text: greeting }, { quoted: msg });
-        return true;
-      }
-    }
-
-    // 2. Digitou um comando SEM o prefixo → detecta e avisa com o prefixo correcto
-    // Verifica se o que foi digitado é um comando existente (sem o prefixo na frente)
-    const { nativeCommands: nc } = require('./nativeCommands');
-    const packageCmds = packageCommands;
-    const allNative   = Object.keys(nc || {});
-    const allPkg      = Object.keys(packageCmds || {});
-    const aliasMap = {
-      menu:'menu', help:'menu', cmds:'menu', comandos:'menu',
-      play:'play', play2:'play2', play3:'play3', video:'video', sticker:'sticker',
-      ia:'ia', gpt:'ia', ping:'ping', start:'start', info:'info', dono:'dono',
-      menudownload:'menudownload', menudownloads:'menudownload', downloads:'menudownload',
-      menustickers:'menustickers', menujogos:'menujogos', menueconomia:'menueconomia',
-      menufamilia:'menufamilia', menudiversao:'menudiversao', menuia:'menuia',
-      menugrupo:'menugrupo', menustatus:'menustatus',
-      antilink:'antilink', antispam:'antispam', todos:'todos', ban:'ban',
-      quiz:'quiz', forca:'forca', saldo:'saldo', daily:'daily',
-    };
-
+    // Detecta se é um comando conhecido digitado SEM prefixo
     const firstWord = rawTrimmed.split(/\s+/)[0].toLowerCase();
 
-    // Verifica se é um comando registado (sem prefixo)
-    const isKnownCmd = allNative.includes(firstWord) || allPkg.includes(firstWord) || !!aliasMap[firstWord];
+    // Conjunto de comandos conhecidos (nativo + pacotes + cases)
+    const nativeKeys  = Object.keys(require('./nativeCommands') || {});
+    const packageKeys = Object.keys(packageCommands || {});
+    const caseKeys    = [...caseHandler.CASES.keys()];
+    const allKnown    = new Set([...nativeKeys, ...packageKeys, ...caseKeys]);
 
-    if (isKnownCmd) {
-      // Só responde em PV ou quando o bot está mencionado/activado em grupos
-      const shouldReply = !ctx.isGroup || isOwner;
-      if (shouldReply) {
-        const pfxList = prefixes.length > 1
-          ? `Prefixos activos: *${prefixes.join('*  •  *')}*`
-          : `Prefixo em uso: *${prefix}*`;
-        await sock.sendMessage(ctx.remoteJid, {
-          text:
-            `⚠️ *Prefixo em falta!*\n\n` +
-            `${pfxList}\n\n` +
-            `✅ Correcto: *${prefix}${firstWord}*\n` +
-            `❌ Errado:    ${firstWord}\n\n` +
-            `💡 Use *${prefix}menu* para ver todos os comandos.`,
-        }, { quoted: msg });
-        return true;
-      }
-      return false;
+    // Alguns aliases comuns
+    const quickAliases = {
+      menu:true, help:true, play:true, play2:true, play3:true,
+      video:true, sticker:true, ia:true, gpt:true, ping:true,
+      start:true, info:true, dono:true, saldo:true, daily:true,
+      quiz:true, forca:true, ban:true, todos:true, antilink:true,
+    };
+
+    const isKnownCmd = allKnown.has(firstWord) || quickAliases[firstWord];
+    if (!isKnownCmd) return false; // desconhecido → silêncio total
+
+    // É um comando conhecido mas sem prefixo → responde com aviso + botão copiar
+    // Só responde em PV; em grupos silencia (evita poluir o chat)
+    if (ctx.isGroup && !isOwner) return false;
+
+    const correctCmd = `${prefix}${firstWord}`;
+    const pfxMsg = prefixes.length > 1
+      ? `Prefixos activos: *${prefixes.join('*  •  *')}*`
+      : `Prefixo em uso: *${prefix}*`;
+
+    const warnText =
+      `⚠️ *Prefixo em falta!*\n\n` +
+      `${pfxMsg}\n\n` +
+      `✅ Correcto: *${correctCmd}*\n` +
+      `❌ Digitaste: \`${firstWord}\`\n\n` +
+      `💡 Clica no botão para copiar o comando correcto.`;
+
+    // Tenta enviar com botão CTA de cópia (copy code)
+    try {
+      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      const ctaMsg = generateWAMessageFromContent(ctx.remoteJid, {
+        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          body:   proto.Message.InteractiveMessage.Body.fromObject({ text: warnText }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
+          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{
+              name: 'cta_copy',
+              buttonParamsJson: JSON.stringify({
+                display_text: `📋 Copiar: ${correctCmd}`,
+                copy_code: correctCmd,
+              }),
+            }],
+          }),
+        }),
+      }, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, ctaMsg.message, { messageId: ctaMsg.key.id });
+    } catch {
+      // Fallback: texto simples
+      await sock.sendMessage(ctx.remoteJid, { text: warnText }, { quoted: msg });
     }
 
-    // 3. Nada relevante → ignora silenciosamente
-    return false;
+    return true;
   }
 
   const args = prefixInfo.rest.split(/\s+/);
@@ -843,6 +848,35 @@ async function handle(sock, msg) {
         ).catch(() => {});
       }
     } catch {}
+  }
+
+  // ── Case Handler (switch/case engine) ─────────────────────────────
+  // Executa antes dos pacotes — tem prioridade
+  {
+    const caseCtx = {
+      sock,
+      msg,
+      ctx,
+      args,
+      text:    args.join(' ').trim(),
+      prefix,
+      command: canonicalCommand,
+      isOwner,
+      isAdmin: false, // calculado dentro de cada case se necessário
+      config:  commandConfig,
+      reply:   (text) => sock.sendMessage(ctx.remoteJid, { text }, { quoted: msg }),
+      react:   (emoji) => sock.sendMessage(ctx.remoteJid, { react: { text: emoji, key: msg.key } }).catch(() => {}),
+    };
+    const caseHandled = await caseHandler.runCase(canonicalCommand, caseCtx);
+    if (caseHandled) {
+      if (groupConfig) {
+        groupConfig.commandsUsedToday++;
+        groupConfig.totalCommands++;
+        await groupConfig.save();
+      }
+      await incrementUserCommand(ctx.senderNumber, ctx);
+      return true;
+    }
   }
 
   // Comandos dos pacotes (interactions, family, economy, games, cheats)

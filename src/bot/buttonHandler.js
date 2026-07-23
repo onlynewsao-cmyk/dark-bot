@@ -1,8 +1,18 @@
 /**
- * DARK BOT v5 — Button Handler
- * @systemzero/baileys: ButtonV2 + Carousel + NativeFlow
- * Cascata: ButtonV2 → NativeFlow → Lista → Texto
+ * DARK BOT v5 — Button Handler ULTRA
+ * Motor completo de interactividade via @systemzero/baileys
+ *
+ * Métodos disponíveis (em ordem de robustez):
+ *  sendButtonV2()   — ButtonV2 nativo do @systemzero (botões clicáveis reais)
+ *  sendCarousel()   — Carousel com cards + imagem + botões
+ *  sendButtons()    — NativeFlow quick_reply (cascata: Direct → ViewOnce → Texto)
+ *  sendList()       — single_select interactivo
+ *  sendUrlButton()  — botão de link (cta_url)
+ *  sendCopyButton() — botão de copiar (cta_copy)
+ *
+ * Cada método tem fallback para texto formatado se o WhatsApp não renderizar.
  */
+
 'use strict';
 
 const {
@@ -11,35 +21,47 @@ const {
   prepareWAMessageMedia,
 } = require('@systemzero/baileys');
 
-// ── Fallback texto sempre visível ────────────────────────────
+// ── Lazy load MB.cjs ────────────────────────────────────────
+let _MB = null;
+function getMB() {
+  if (_MB) return _MB;
+  try { _MB = require('@systemzero/baileys/lib/MB.cjs'); } catch {}
+  return _MB;
+}
+
+// ─────────────────────────────────────────────
+// FALLBACK TEXTO — sempre funciona
+// ─────────────────────────────────────────────
 function buttonsText(title, footer, buttons = []) {
-  const rows = buttons.map((b, i) => {
-    const id = String(b.id || '').trim();
-    return `┃ ${String(i + 1).padStart(2, '0')} • *${b.text}*\n┃     ↳ \`${id}\``;
-  }).join('\n');
+  const rows = buttons.map((b, i) =>
+    `┃ ${String(i + 1).padStart(2, '0')} • *${b.text}*\n┃     ↳ \`${b.id}\``
+  ).join('\n');
   return (
-    `╭━━━〔 🕸️ DARK SIDE MENU 〕━━━╮\n` +
+    `╭━━━〔 🕸️ DARK SIDE 〕━━━╮\n` +
     `${title}\n` +
-    `┣━━━━━━━━━━━━━━━━━━━━\n` +
-    `${rows}\n` +
+    `┣━━━━━━━━━━━━━━━━━━━━\n${rows}\n` +
     `╰━━━〔 ⚡ ${footer || 'Dark Net Engine'} 〕━━━╯\n\n` +
-    `💡 *Digite o comando acima para usar.*`
+    `💡 *Digite o comando acima com o prefixo.*`
   );
 }
 
-function normalizeButtons(buttons = [], max = 8) {
-  return (buttons || [])
+function normalizeButtons(btns = [], max = 8) {
+  return (btns || [])
     .filter(b => b?.id && b?.text)
     .slice(0, max)
     .map(b => ({ id: String(b.id).trim(), text: String(b.text).slice(0, 20) }));
 }
 
-// ── Header com imagem ────────────────────────────────────────
+// ─────────────────────────────────────────────
+// HEADER COM IMAGEM
+// ─────────────────────────────────────────────
 async function buildHeader(sock, image) {
-  const empty = proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false });
+  const empty = proto.Message.InteractiveMessage.Header.fromObject({
+    title: '', subtitle: '', hasMediaAttachment: false,
+  });
   if (!image) return empty;
   try {
-    const src = Buffer.isBuffer(image) ? { image } : { image: { url: image } };
+    const src   = Buffer.isBuffer(image) ? { image } : { image: { url: image } };
     const media = await prepareWAMessageMedia(src, { upload: sock.waUploadToServer });
     return proto.Message.InteractiveMessage.Header.fromObject({
       title: '', subtitle: '', hasMediaAttachment: true,
@@ -50,7 +72,97 @@ async function buildHeader(sock, image) {
   }
 }
 
-// ── Método 1: NativeFlow directo ─────────────────────────────
+// ─────────────────────────────────────────────
+// BUTTONV2 — botões reais @systemzero
+// ─────────────────────────────────────────────
+/**
+ * Envia mensagem com botões ButtonV2 reais.
+ * @param {string}   title     — título do card (setTitle)
+ * @param {string}   body      — corpo do card (setBody)
+ * @param {string}   footer    — rodapé (setFooter)
+ * @param {Array}    buttons   — [{text, id}]
+ * @param {string}   thumbnail — URL ou Buffer da imagem (opcional)
+ * @param {object}   quoted    — mensagem original para citar
+ */
+async function sendButtonV2(sock, jid, title, body, footer, buttons, thumbnail = null, quoted = null) {
+  const MB = getMB();
+  if (!MB?.ButtonV2) throw new Error('ButtonV2 indisponível');
+
+  const msg = new MB.ButtonV2(sock);
+  if (title)  msg.setTitle(String(title).slice(0, 60));
+  if (body)   msg.setBody(String(body));
+  if (footer) msg.setFooter(String(footer));
+
+  if (thumbnail) {
+    try { msg.setThumbnail(thumbnail); } catch {}
+  }
+
+  const clean = normalizeButtons(buttons);
+  for (const btn of clean) {
+    msg.addButton(btn.text, btn.id);
+  }
+
+  return msg.send(jid, { quoted });
+}
+
+// ─────────────────────────────────────────────
+// CAROUSEL — cards com imagem + botões
+// ─────────────────────────────────────────────
+/**
+ * Envia um Carousel com múltiplos cards.
+ * @param {Array} cards — cada card:
+ *   {
+ *     title:     string,
+ *     body:      string,
+ *     footer:    string,
+ *     thumbnail: string | Buffer,  (URL ou buffer)
+ *     buttons:   [{text, id}],
+ *   }
+ */
+async function sendCarousel(sock, jid, cards, quoted = null) {
+  const MB = getMB();
+  if (!MB?.Carousel) throw new Error('Carousel indisponível');
+
+  const { prepareWAMessageMedia: prepMedia } = require('@systemzero/baileys');
+
+  const carousel = new MB.Carousel(sock);
+
+  for (const card of cards) {
+    const btns = normalizeButtons(card.buttons || []);
+    const nativeBtns = btns.map(b => ({
+      name: 'quick_reply',
+      buttonParamsJson: JSON.stringify({ display_text: b.text, id: b.id }),
+    }));
+
+    // Prepara header com imagem se disponível
+    let header = { hasMediaAttachment: false };
+    if (card.thumbnail) {
+      try {
+        const src   = Buffer.isBuffer(card.thumbnail) ? { image: card.thumbnail } : { image: { url: card.thumbnail } };
+        const media = await prepMedia(src, { upload: sock.waUploadToServer });
+        if (media?.imageMessage) {
+          header = {
+            hasMediaAttachment: true,
+            imageMessage: media.imageMessage,
+          };
+        }
+      } catch {}
+    }
+
+    carousel.addCard({
+      header,
+      body:   { text: card.body   || card.title || '' },
+      footer: { text: card.footer || 'Dark Net Engine 🕸️' },
+      nativeFlowMessage: { buttons: nativeBtns },
+    });
+  }
+
+  return carousel.send(jid, { quoted });
+}
+
+// ─────────────────────────────────────────────
+// NATIVEFLOW DIRECTO — método 1
+// ─────────────────────────────────────────────
 async function sendNativeDirect(sock, jid, title, footer, buttons, quoted, opts = {}) {
   const btns = buttons.map(b => ({
     name: 'quick_reply',
@@ -65,18 +177,20 @@ async function sendNativeDirect(sock, jid, title, footer, buttons, quoted, opts 
       nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({ buttons: btns }),
     }),
   };
-  const msg = generateWAMessageFromContent(jid, content, { userJid: sock.user?.id, quoted });
-  return sock.relayMessage(jid, msg.message, { messageId: msg.key.id });
+  const m = generateWAMessageFromContent(jid, content, { userJid: sock.user?.id, quoted });
+  return sock.relayMessage(jid, m.message, { messageId: m.key.id });
 }
 
-// ── Método 2: ViewOnce wrapper ───────────────────────────────
+// ─────────────────────────────────────────────
+// NATIVEFLOW VIEWONCE — método 2
+// ─────────────────────────────────────────────
 async function sendNativeViewOnce(sock, jid, title, footer, buttons, quoted, opts = {}) {
   const btns = buttons.map(b => ({
     name: 'quick_reply',
     buttonParamsJson: JSON.stringify({ display_text: b.text, id: b.id }),
   }));
   const header = await buildHeader(sock, opts.image);
-  const msg = generateWAMessageFromContent(jid, {
+  const m = generateWAMessageFromContent(jid, {
     viewOnceMessage: {
       message: {
         messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
@@ -89,66 +203,45 @@ async function sendNativeViewOnce(sock, jid, title, footer, buttons, quoted, opt
       },
     },
   }, { userJid: sock.user?.id, quoted });
-  return sock.relayMessage(jid, msg.message, { messageId: msg.key.id });
+  return sock.relayMessage(jid, m.message, { messageId: m.key.id });
 }
 
-// ── Carousel com @systemzero/baileys ────────────────────────
-async function sendCarousel(sock, jid, cards, quoted = null) {
-  try {
-    const { Carousel } = require('@systemzero/baileys/lib/MB.cjs');
-    const carousel = new Carousel(sock);
-    for (const card of cards) carousel.addCard(card);
-    if (quoted) carousel.setContextInfo({ quotedMessage: quoted.message, stanzaId: quoted.key.id, participant: quoted.key.participant || jid });
-    return await carousel.send(jid);
-  } catch (e) {
-    console.warn('[Carousel]', e.message?.slice(0, 60));
-    return null;
-  }
-}
-
-// ── ButtonV2 com @systemzero/baileys ────────────────────────
-async function sendButtonV2(sock, jid, title, body, footer, buttons, thumbnail = null, quoted = null) {
-  try {
-    const { ButtonV2 } = require('@systemzero/baileys/lib/MB.cjs');
-    const msg = new ButtonV2(sock);
-    if (title)     msg.setTitle(title.slice(0, 60));
-    if (body)      msg.setBody(body);
-    if (footer)    msg.setFooter(footer);
-    if (thumbnail) {
-      try { msg.setThumbnail(thumbnail); } catch {}
-    }
-    for (const btn of buttons) {
-      msg.addButton(btn.text?.slice(0, 20) || '⚡', btn.id || btn.text);
-    }
-    return await msg.send(jid, { quoted });
-  } catch (e) {
-    console.warn('[ButtonV2]', e.message?.slice(0, 60));
-    return null;
-  }
-}
-
-// ── API PRINCIPAL: sendButtons ───────────────────────────────
+// ─────────────────────────────────────────────
+// SEND BUTTONS — cascata automática
+// ─────────────────────────────────────────────
 async function sendButtons(sock, jid, title, footer, buttons, quoted = null, opts = {}) {
   const clean = normalizeButtons(buttons);
   if (!clean.length) return sock.sendMessage(jid, { text: title }, { quoted });
 
-  // Tenta 3 métodos em cascata
-  try { return await sendNativeDirect(sock, jid, title, footer, clean, quoted, opts); } catch {}
-  try { return await sendNativeViewOnce(sock, jid, title, footer, clean, quoted, opts); } catch {}
+  // Modo forçado
+  if (opts.mode === 'text') {
+    return sock.sendMessage(jid, { text: buttonsText(title, footer, clean) }, { quoted });
+  }
 
-  // Fallback texto
+  // Cascata: NativeDirect → NativeViewOnce → Texto
+  try { return await sendNativeDirect(sock, jid, title, footer, clean, quoted, opts); }   catch {}
+  try { return await sendNativeViewOnce(sock, jid, title, footer, clean, quoted, opts); } catch {}
   return sock.sendMessage(jid, { text: buttonsText(title, footer, clean) }, { quoted });
 }
 
-// ── Lista interactiva ────────────────────────────────────────
+async function sendButtonsWithImage(sock, jid, title, footer, image, buttons, quoted = null) {
+  return sendButtons(sock, jid, title, footer, buttons, quoted, { image });
+}
+
+// ─────────────────────────────────────────────
+// LISTA INTERACTIVA (single_select)
+// ─────────────────────────────────────────────
 async function sendListDirect(sock, jid, title, text, buttonText, sections, quoted = null) {
   return sock.relayMessage(jid, {
     interactiveMessage: {
       body:   { text },
-      footer: { text: title || 'Dark Side Engine ⚡' },
+      footer: { text: title || 'Dark Side ⚡' },
       header: { title: '', subtitle: '', hasMediaAttachment: false },
       nativeFlowMessage: {
-        buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify({ title: buttonText, sections }) }],
+        buttons: [{
+          name: 'single_select',
+          buttonParamsJson: JSON.stringify({ title: buttonText, sections }),
+        }],
         messageParamsJson: '',
       },
     },
@@ -156,47 +249,88 @@ async function sendListDirect(sock, jid, title, text, buttonText, sections, quot
 }
 
 async function sendList(sock, jid, title, text, buttonText, sections, quoted = null, opts = {}) {
+  if (opts.mode === 'text') {
+    const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}*\n  ↳ \`${r.id}\``)).join('\n');
+    return sock.sendMessage(jid, { text: `*${title}*\n\n${text}\n\n${rows}` }, { quoted });
+  }
   try { return await sendListDirect(sock, jid, title, text, buttonText, sections, quoted); } catch {}
-  // Fallback texto
   const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}*\n  ↳ \`${r.id}\``)).join('\n');
   return sock.sendMessage(jid, { text: `*${title}*\n\n${text}\n\n${rows}` }, { quoted });
-}
-
-// ── Botões URL / CTA ─────────────────────────────────────────
-async function sendUrlButton(sock, jid, text, displayText, url, quoted = null) {
-  try {
-    const msg = generateWAMessageFromContent(jid, {
-      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-        body:   proto.Message.InteractiveMessage.Body.fromObject({ text }),
-        footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: 'Dark Net Engine 🕸️' }),
-        header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-          buttons: [{ name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: displayText, url, merchant_url: url }) }],
-        }),
-      }),
-    }, { userJid: sock.user?.id, quoted });
-    return sock.relayMessage(jid, msg.message, { messageId: msg.key.id });
-  } catch {
-    return sock.sendMessage(jid, { text: `${text}\n\n🔗 ${displayText}: ${url}` }, { quoted });
-  }
-}
-
-async function sendButtonsWithImage(sock, jid, title, footer, image, buttons, quoted = null) {
-  return sendButtons(sock, jid, title, footer, buttons, quoted, { image });
 }
 
 async function sendListWithImage(sock, jid, title, text, buttonText, image, sections, quoted = null) {
   return sendList(sock, jid, title, text, buttonText, sections, quoted, { image });
 }
 
+// ─────────────────────────────────────────────
+// BOTÕES ESPECIAIS
+// ─────────────────────────────────────────────
+async function _sendCTA(sock, jid, text, footer, btnName, btnParams, quoted = null) {
+  try {
+    const m = generateWAMessageFromContent(jid, {
+      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+        body:   proto.Message.InteractiveMessage.Body.fromObject({ text }),
+        footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || 'Dark Net Engine 🕸️' }),
+        header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+          buttons: [{ name: btnName, buttonParamsJson: JSON.stringify(btnParams) }],
+        }),
+      }),
+    }, { userJid: sock.user?.id, quoted });
+    return sock.relayMessage(jid, m.message, { messageId: m.key.id });
+  } catch (e) {
+    return null; // caller trata o fallback
+  }
+}
+
+/** Botão de URL (abre link) */
+async function sendUrlButton(sock, jid, text, displayText, url, quoted = null) {
+  const result = await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_url', {
+    display_text: displayText, url, merchant_url: url,
+  }, quoted);
+  if (!result) {
+    return sock.sendMessage(jid, { text: `${text}\n\n🔗 ${displayText}: ${url}` }, { quoted });
+  }
+  return result;
+}
+
+/** Botão de copiar código/texto */
+async function sendCopyButton(sock, jid, text, displayText, copyCode, quoted = null) {
+  const result = await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_copy', {
+    display_text: displayText, copy_code: copyCode,
+  }, quoted);
+  if (!result) {
+    return sock.sendMessage(jid, { text: `${text}\n\n📋 ${displayText}:\n\`${copyCode}\`` }, { quoted });
+  }
+  return result;
+}
+
+/** Botão de chamada telefónica */
+async function sendCallButton(sock, jid, text, displayText, phoneNumber, quoted = null) {
+  const result = await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_call', {
+    display_text: displayText, phone_number: phoneNumber,
+  }, quoted);
+  if (!result) {
+    return sock.sendMessage(jid, { text: `${text}\n\n📞 ${displayText}: +${phoneNumber}` }, { quoted });
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────
+// EXPORTS
+// ─────────────────────────────────────────────
 module.exports = {
+  // Principais
+  sendButtonV2,
+  sendCarousel,
   sendButtons,
   sendButtonsWithImage,
   sendList,
   sendListWithImage,
   sendUrlButton,
-  sendCarousel,
-  sendButtonV2,
+  sendCopyButton,
+  sendCallButton,
+  // Helpers
   buttonsText,
   normalizeButtons,
 };
