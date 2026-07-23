@@ -19,6 +19,7 @@ const CATALOG = [
   { name: 'menustatus', category: 'info', emoji: 'ℹ️', description: 'Submenu de status e utilidades', native: true },
   { name: 'change', category: 'info', emoji: '🎨', description: 'Muda o tema visual completo do bot (símbolos, bordas, ícones)', ownerOnly: true },
   { name: 'temas', category: 'info', emoji: '🎭', description: 'Lista todos os temas disponíveis do bot' },
+  { name: 'menuinteracoes', category: 'interacoes', emoji: '💕', description: 'Menu de interações e família', native: true },
   { name: 'menustyle', category: 'info', emoji: '🎭', description: 'Configura estilo dos menus pelo WhatsApp', native: true, ownerOnly: true },
   { name: 'buttonmode', category: 'info', emoji: '🔘', description: 'Configura modo de botões pelo WhatsApp', native: true, ownerOnly: true },
   { name: 'themeglobal', category: 'info', emoji: '🎭', description: 'Aplica tema a todas respostas do bot', native: true, ownerOnly: true },

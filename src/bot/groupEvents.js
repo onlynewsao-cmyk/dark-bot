@@ -1,12 +1,15 @@
 /**
  * DARK BOT v5 — Group Events
  * Welcome/Goodbye por grupo + Trial 3 dias ao entrar
+ * + Imagem de boas-vindas gerada com sharp (foto + número do membro)
  */
 'use strict';
 
-const config        = require('../config');
-const botConfigCache = require('./botConfigCache');
-const GroupSettings  = require('../database/models/GroupSettings');
+const config          = require('../config');
+const botConfigCache  = require('./botConfigCache');
+const GroupSettings   = require('../database/models/GroupSettings');
+const changeThemes    = require('./changeThemes');
+const { generateWelcomeImage } = require('./welcomeImage');
 
 function fillVars(text, { userName, groupName, botName, ownerName, number } = {}) {
   return String(text || '')
@@ -120,34 +123,81 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
   const globalOn = await botConfigCache.get('welcome_enabled', true).catch(() => true);
   if (!globalOn) return;
 
+  // Número ordinal do membro no grupo
+  const memberCount = (meta?.participants?.length) || 0;
+
+  // Obter tema activo para a imagem
+  let themeName = 'dark', themeEmoji = '🕸️';
+  try {
+    const tn = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+    const t  = changeThemes.getTheme(tn || 'dark');
+    themeName  = t.name;
+    themeEmoji = t.emoji;
+  } catch {}
+
+  // Foto de perfil
+  let ppUrl = null;
+  try { ppUrl = await sock.profilePictureUrl(participantJid, 'image').catch(() => null); } catch {}
+
+  // Push name do membro
+  const pushName = number; // fallback se não tiver nome
+
+  // Caption do welcome (usa template custom ou padrão)
+  const t = changeThemes.getTheme(themeName);
+  const f = t.frame;
   const defaultMsg =
-    `╭━〔 🌙 *BEM-VINDO(A)* 〕━╮\n` +
-    `┃ 👋 Olá {user}!\n` +
-    `┃ 🎉 Entraste em *{grupo}*\n` +
-    `┃ 🤖 *{bot}*\n` +
-    `╰━━━━━━━━━━━━━━━━━━━━╯`;
+    `${f[0]}${f[4].repeat(22)}${f[1]}\n` +
+    `${f[5]}  ${t.icon} *BEM-VINDO(A)!*  ${f[5]}\n` +
+    `${f[2]}${f[4].repeat(22)}${f[3]}\n\n` +
+    `${t.bullet} 👤 @${number}\n` +
+    `${t.bullet} 🎉 Entrou em *${groupName}*\n` +
+    `${t.bullet} 👥 Membro nº *${memberCount}*\n` +
+    `${t.bullet} 🤖 *${config.bot.name}*\n\n` +
+    `> ${t.vibe}`;
 
   const template = gs?.customWelcomeMsg || defaultMsg;
-  const text = fillVars(template, {
+  const caption = fillVars(template, {
     userName: number, groupName, botName: config.bot.name,
     ownerName: config.owner.name, number,
   });
 
-  try {
-    const welcomeImg = gs?.welcomeWithMedia;
-    if (welcomeImg) {
-      await sock.sendMessage(groupJid, { image: { url: welcomeImg }, caption: text, mentions: [participantJid] });
-      return;
-    }
-    if (gs?.welcomeWithPhoto !== false) {
-      const pp = await sock.profilePictureUrl(participantJid, 'image').catch(() => null);
-      if (pp) {
-        await sock.sendMessage(groupJid, { image: { url: pp }, caption: text, mentions: [participantJid] });
+  // ── Tentar gerar imagem com sharp ──────────────────────────────────
+  // Se imagem custom definida no grupo → usa ela
+  const welcomeImg = gs?.welcomeWithMedia;
+  if (welcomeImg) {
+    await sock.sendMessage(groupJid, {
+      image: { url: welcomeImg }, caption, mentions: [participantJid],
+    }).catch(() => {});
+    return;
+  }
+
+  // Gera imagem com foto de perfil + número de membro
+  const welcomeImageEnabled = await botConfigCache.get('welcome_image_enabled', true).catch(() => true);
+
+  if (welcomeImageEnabled !== false) {
+    try {
+      const imgBuf = await generateWelcomeImage({
+        profilePicUrl: ppUrl,
+        memberName:    number,
+        memberNum:     memberCount,
+        groupName,
+        themeName,
+        themeEmoji,
+        botName:       config.bot.name,
+      });
+      if (imgBuf) {
+        await sock.sendMessage(groupJid, {
+          image: imgBuf, caption, mentions: [participantJid],
+        });
         return;
       }
+    } catch (e) {
+      console.warn('[Welcome Image]', e.message);
     }
-  } catch {}
-  await sock.sendMessage(groupJid, { text, mentions: [participantJid] }).catch(() => {});
+  }
+
+  // Fallback: só texto
+  await sock.sendMessage(groupJid, { text: caption, mentions: [participantJid] }).catch(() => {});
 }
 
 async function onLeave(sock, groupJid, participantJid, number, groupName, gs) {

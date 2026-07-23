@@ -217,17 +217,24 @@ async function handle(sock, msg) {
 
   // Botões de menu chegam com prefixo embutido (ex: "!menup") → processados normalmente
   // Botões sem prefixo (ex: "menup") → adiciona o prefixo
+  // Remove emojis do início dos IDs de botão (ex: "📥!menudownload" → "!menudownload")
+  // Os IDs de botão agora têm emoji no início para exibição visual
+  const EMOJI_STRIP = /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F300}-\u{1F9FF}]+/u;
+  if (text && EMOJI_STRIP.test(text)) {
+    const stripped = text.replace(EMOJI_STRIP, '').trim();
+    if (stripped.length > 0) text = stripped;
+  }
+
   const firstTokenRaw = String(text || '').trim().split(/\s+/)[0];
   const firstTokenNoPrefix = firstTokenRaw.replace(/^[^a-z0-9]+/i, '').toLowerCase();
 
   // IDs conhecidos de botões que podem chegar sem prefixo
-  // IDs de botões de menu que podem chegar sem prefixo
   const noPrefixBtnIds = new Set([
     'menu','down','menudownload','menuia','menustickers','menufigurinhas',
     'menujogos','menueconomia','menucoins','menufamilia','menudiversao',
-    'brincadeiras','alteradores','menulogos','menuadm','menugrupo',
+    'menuinteracoes','brincadeiras','alteradores','menulogos','menuadm','menugrupo',
     'menustatus','menudono','maiscmds','cmdsocultos','menu18','criador',
-    'alugar','statusalugar','vip','donos','ping','start',
+    'alugar','statusalugar','vip','donos','ping','start','temas','change',
     'play','play2','play3','video','video2','sticker','sfull','ia','gpt',
     'noticias','saldo','daily','quiz','forca','rank','rankcoins','perfil',
     'info','dono','id','menuaudio','antilink','antispam','welcome',
@@ -555,10 +562,20 @@ async function handle(sock, msg) {
   const textLower = text.toLowerCase().trim();
   // "aura" exacto OU começa com "aura " → APENAS se a mensagem INTEIRA é sobre aura
   // Não activa se "aura" aparece no meio: "tenho mais aura que tu" NÃO activa
-  const AURA_TRIGGERS = ['aura', '+aura', 'ativei aura', 'minha aura', 'boost aura', 'dark aura'];
+  // Aura triggers expandidos — palavras exatas OU frases que começam com elas
+  const AURA_TRIGGERS = [
+    'aura', '+aura', '-aura', 'aura?',
+    'ativei aura', 'minha aura', 'boost aura', 'dark aura',
+    'qual minha aura', 'mede minha aura', 'mede minha aura',
+    'quanta aura', 'tô com aura', 'to com aura', 'tenho aura',
+    'aura ativada', 'aura mode', 'dark side', 'darkside',
+    'oi aura', 'ola aura', 'olá aura', 'bom dia aura', 'boa tarde aura', 'boa noite aura',
+    'aura me diz', 'aura fala', 'aura responde', 'aura ajuda',
+  ];
   const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) && (
     AURA_TRIGGERS.includes(textLower) ||
-    AURA_TRIGGERS.some(k => k.length > 4 && textLower.startsWith(k))
+    AURA_TRIGGERS.some(k => k.length > 4 && textLower.startsWith(k)) ||
+    textLower === 'aura'
   );
 
   // isReplyToBot: só activa se a mensagem tem texto real (não stickers/mídias sem texto)
@@ -690,13 +707,24 @@ async function handle(sock, msg) {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // SEM PREFIXO — só 2 casos respondem:
-  //  1. "prefixo" (a palavra) → mostra prefixo com botão copiar
-  //  2. "aura" (exacto) → já foi tratado pelo Auto-IA acima
+  // SEM PREFIXO — 3 casos respondem:
+  //  1. "menu" (exacto) → abre menu principal
+  //  2. "prefixo" (a palavra) → mostra prefixo com botão copiar
+  //  3. "aura" (exacto) → já foi tratado pelo Auto-IA acima
   //  Tudo o resto → SILÊNCIO TOTAL
   // ════════════════════════════════════════════════════════════════════════
   if (!prefixInfo) {
     const rawTrimmed = String(text || '').trim().toLowerCase();
+
+    // CASO 0: "menu" escrito sem prefixo → abre o menu principal
+    if (rawTrimmed === 'menu' || rawTrimmed === 'menú') {
+      try {
+        await nativeCommands.menu({ sock, msg, ctx, config: commandConfig, isOwner });
+      } catch {
+        await sock.sendMessage(ctx.remoteJid, { text: `Use *${prefix}menu* para ver os comandos.` }, { quoted: msg });
+      }
+      return true;
+    }
 
     // CASO 1: a pessoa escreveu "prefixo" → mostra o prefixo com botão de copiar
     if (rawTrimmed === 'prefixo' || rawTrimmed === 'prefix') {
@@ -780,6 +808,7 @@ async function handle(sock, msg) {
     setdesc: 'setdesc', setdescricao: 'setdesc', setnomegrupo: 'setnomegrupo', setsubject: 'setnomegrupo',
     getjid: 'jid', copyjid: 'jid', myjid: 'jid',
     'gênero': 'genero', gender: 'genero', 'alterargênero': 'alterargenero', mudargenero: 'alterargenero',
+    menuinteracoes: 'menuinteracoes', interacoes: 'menuinteracoes', interações: 'menuinteracoes',
     guia: 'menu', guia2: 'menu', ayuda: 'ia', tienda: 'vip',
     abrazar: 'abracar', abraçar: 'abracar', hug: 'abracar', cuddle: 'abracar', acurrucarse: 'abracar',
     besar: 'beijar', kiss: 'beijar', golpear: 'soco', punch: 'soco', slap: 'tapa', bofetada: 'tapa',

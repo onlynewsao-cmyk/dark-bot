@@ -656,45 +656,51 @@ module.exports = {
     const isAdm  = ctx.isOwner || (await isAdmin(sock, ctx));
     const isCargo = ctx.isOwner ? '👑 Dono' : isVip ? '⭐ Premium' : isAdm ? '🛡️ Admin' : '🆓 Free';
 
+    // Tema activo para o menu
+    const activeThemeForMenu = await getActiveTheme();
+    const tIcon = activeThemeForMenu.icon;
+    const tVibe = activeThemeForMenu.vibe;
+    const tBullet = activeThemeForMenu.bullet;
+
     const textok = [
-      `🕸️ *${localConfig.bot.name}*`,
-      `👤 ${ctx.pushName}  •  🏷️ ${isCargo}`,
+      `${tIcon} *${localConfig.bot.name}*`,
+      `${tBullet} ${ctx.pushName}  •  🏷️ ${isCargo}`,
       `🔑 Prefixo: *${p}*  •  👑 ${localConfig.owner.name}`,
-      `✦ ᴅᴀʀᴋ sɪᴅᴇ ᴇɴɢɪɴᴇ ⚡♾️`,
+      `> ${tVibe}`,
     ].join('\n');
 
     const channelUrl = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
     // ── Secções do menu (todos os submenus) ───────────
+    // IDs com emoji no início para identificação visual rápida
     const baseRows = [
-
-      { title: '📥 Downloads',         description: 'YouTube, música, vídeo, redes', id: p + 'down' },
-      { title: '🧠 IA & Web',          description: 'chat, notícias, imagens, pesquisa', id: p + 'menuia' },
-      { title: '🎨 Stickers',          description: 'figurinhas, packs, arte', id: p + 'menufigurinhas' },
-      { title: '😂 Brincadeiras',      description: 'diversão, medidores, zoeira', id: p + 'brincadeiras' },
-      { title: '💰 Coins & Economia',  description: 'bank, loja, aura, ranking', id: p + 'menucoins' },
-      { title: '🎮 Jogos',             description: 'quiz, forca, blackjack, bingo', id: p + 'menujogos' },
-      { title: '🎛️ Alteradores',      description: 'efeitos de áudio, bass, reverb', id: p + 'alteradores' },
-      { title: '👥 ADM & Grupos',      description: 'moderação, regras, anti-link', id: p + 'menuadm' },
-      { title: '🛠️ Utilitários',      description: 'clima, câmbio, QR, ferramentas', id: p + 'menustatus' },
-      { title: '⭐ VIP / Planos',      description: 'planos premium, benefícios', id: p + 'vip' },
-      { title: '🏠 Alugar Bot',        description: 'hospedar em grupos', id: p + 'alugar' },
+      { title: '📥 Downloads',         description: 'YouTube, música, vídeo, redes',    id: '📥' + p + 'menudownload' },
+      { title: '🧠 IA & Web',          description: 'chat, notícias, imagens, pesquisa', id: '🧠' + p + 'menuia' },
+      { title: '🎨 Stickers',          description: 'figurinhas, packs, arte',            id: '🎨' + p + 'menufigurinhas' },
+      { title: '😂 Brincadeiras',      description: 'diversão, medidores, zoeira',        id: '😂' + p + 'menudiversao' },
+      { title: '💰 Coins & Economia',  description: 'bank, loja, aura, ranking',          id: '💰' + p + 'menueconomia' },
+      { title: '🎮 Jogos',             description: 'quiz, forca, blackjack, bingo',      id: '🎮' + p + 'menujogos' },
+      { title: '💕 Interações',        description: 'abraçar, beijar, casar, família',    id: '💕' + p + 'menuinteracoes' },
+      { title: '👥 ADM & Grupos',      description: 'moderação, regras, anti-link',       id: '👥' + p + 'menuadm' },
+      { title: '🛠️ Utilitários',      description: 'clima, câmbio, QR, ferramentas',     id: '🛠️' + p + 'menustatus' },
+      { title: '⭐ VIP / Planos',      description: 'planos premium, benefícios',          id: '⭐' + p + 'vip' },
+      { title: '🎭 Temas',             description: 'mudar visual do bot',                id: '🎭' + p + 'temas' },
     ];
 
     const extraRows = [];
     if (isAdm || isVip || ctx.isOwner) {
-      extraRows.push({ title: '🔧 + Cmds',   description: 'mais comandos avançados', id: p + 'maiscmds' });
+      extraRows.push({ title: '🔧 + Cmds',       description: 'mais comandos avançados', id: '🔧' + p + 'maiscmds' });
     }
     if (ctx.isOwner) {
-      extraRows.push({ title: '👑 Painel Dono', description: 'controlo total', id: p + 'menudono' });
-      extraRows.push({ title: '🕳️ Cmds Ocultos', description: 'portal privado', id: p + 'cmdsocultos' });
+      extraRows.push({ title: '👑 Painel Dono',   description: 'controlo total',          id: '👑' + p + 'menudono' });
+      extraRows.push({ title: '🕳️ Cmds Ocultos', description: 'portal privado',           id: '🕳️' + p + 'cmdsocultos' });
     }
 
     const listaParams = {
-      title: '🕸️ ᴅᴀʀᴋ ʙᴏᴛ — ᴍᴇɴᴜ',
+      title: `${tIcon} ${localConfig.bot.name} — MENU`,
       sections: [
         {
-          title: '🕸️ MÓDULOS',
+          title: `${tIcon} MÓDULOS`,
           highlight_label: localConfig.owner.name + ' · Dark Side',
           rows: baseRows,
         },
@@ -1082,6 +1088,35 @@ module.exports = {
   },
 
   // ── !menufamilia ──────────────────────────────────────────────────────
+  // ── !menuinteracoes ───────────────────────────────────────────────────
+  async menuinteracoes({ sock, msg, ctx, config: cfg }) {
+    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
+      title: '💕 INTERAÇÕES & FAMÍLIA', target: 'menuinteracoes',
+      subtitle: 'Abraçar • Beijar • Casar • Família',
+      buttonText: '💕 Selecionar',
+      items: [
+        { cmd: 'abracar',   emoji: '🤗', desc: 'Abraçar @alguém' },
+        { cmd: 'beijar',    emoji: '💋', desc: 'Beijar @alguém' },
+        { cmd: 'cafune',    emoji: '🥰', desc: 'Fazer cafuné em @alguém' },
+        { cmd: 'declarar',  emoji: '💌', desc: 'Declarar amor a @alguém' },
+        { cmd: 'flertar',   emoji: '😏', desc: 'Flertar com @alguém' },
+        { cmd: 'dancar',    emoji: '💃', desc: 'Dançar com @alguém' },
+        { cmd: 'tapa',      emoji: '👋', desc: 'Dar tapa em @alguém' },
+        { cmd: 'soco',      emoji: '👊', desc: 'Socar @alguém' },
+        { cmd: 'chutar',    emoji: '🦵', desc: 'Chutar @alguém' },
+        { cmd: 'morder',    emoji: '🦷', desc: 'Morder @alguém' },
+        { cmd: 'empurrar',  emoji: '🫷', desc: 'Empurrar @alguém' },
+        { cmd: 'matar',     emoji: '💀', desc: 'Matar @alguém (zoeira)' },
+        { cmd: 'aura',      emoji: '⚡', desc: 'Ver minha aura' },
+        { cmd: 'cafe',      emoji: '☕', desc: 'Oferecer café a @alguém' },
+        { cmd: 'casar',     emoji: '💍', desc: 'Pedir casamento' },
+        { cmd: 'divorciar', emoji: '💔', desc: 'Pedir divórcio' },
+        { cmd: 'adotar',    emoji: '👶', desc: 'Adotar @alguém' },
+        { cmd: 'familia',   emoji: '👨‍👩‍👧', desc: 'Ver família' },
+      ],
+    });
+  },
+
   async menufamilia({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
       title: '👨‍👩‍👧 FAMÍLIA', target: 'menufamilia',

@@ -1,491 +1,598 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║   DARK BOT v5 — changeThemes.js                             ║
- * ║   Sistema de temas visuais globais via !change               ║
- * ║   Cada tema afecta: bordas, ícones, símbolos, textos        ║
- * ║   decorativos, cabeçalhos, rodapés e emojis do bot.         ║
+ * ║   Sistema de Temas Visuais Globais                          ║
+ * ║   Cada tema = identidade visual completa e única            ║
  * ╚══════════════════════════════════════════════════════════════╝
  *
- *  !change            → lista todos os temas com preview
- *  !change <nome>     → aplica tema imediatamente
- *  !change reset      → volta ao padrão (dark)
- *  !change preview <nome> → mostra preview sem aplicar
+ * Cada tema define:
+ *  frame      → 6 caracteres [TL, TR, BL, BR, H, V]
+ *  bullet     → marcador de lista
+ *  sep        → separador entre itens
+ *  accent     → caracter/emoji de destaque
+ *  icon       → ícone principal do tema
+ *  vibe       → assinatura / rodapé
+ *  headerDec  → decoração do cabeçalho (usa {TITLE})
+ *  react      → emoji de reação nos comandos
+ *  tip        → dica/assinatura do tema
+ *  menuTitle  → título do menu principal
+ *  menuFooter → rodapé do menu
+ *  thumbText  → texto nas captions/thumbnails
+ *  sectionSep → separador entre secções
+ *  style      → índice FRAMES no menuThemes.js (0-9)
+ *  emoji      → emoji do tema
  */
 
 'use strict';
 
-// ── Definição completa dos temas ───────────────────────────────────────────────
-// Cada tema tem:
-//   name       → identificador (usado no comando)
-//   label      → nome bonito exibido
-//   emoji      → emoji principal do tema
-//   style      → índice do FRAMES no menuThemes.js (0-9)
-//   frame      → [TL, TR, BL, BR, H, V]  bordas
-//   bullet     → marcador de itens
-//   sep        → separador entre itens
-//   accent     → acento / destaque
-//   icon       → ícone principal
-//   vibe       → linha de rodapé / assinatura
-//   headerDec  → decoração de cabeçalho (linha acima/abaixo do título)
-//   react      → emoji de reação padrão para comandos processando
-//   tip        → dica/assinatura do tema
-//   menuTitle  → título do menu principal
-//   menuFooter → rodapé do menu principal
-//   thumbText  → texto sobreposto em thumbnails/captions
-//   sectionSep → separador entre secções do menu
-
 const THEMES = {
 
-  // ─── 0. DARK (padrão) ───────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  0. DARK  (identidade padrão — completamente única)
+  //     Símbolo: teia de aranha  |  Estética: abismo, sombra
+  // ════════════════════════════════════════════════════════
   dark: {
     name:       'dark',
-    label:      '🕸️ DARK — Dark Side Engine',
+    label:      '🕸️ DARK — Abismo Engine',
     emoji:      '🕸️',
     style:      0,
-    frame:      ['╭','╮','╰','╯','─','│'],
-    bullet:     '▹',
+    frame:      ['╭', '╮', '╰', '╯', '─', '│'],
+    bullet:     '▸',
     sep:        '⌁',
-    accent:     '⚡',
-    icon:       '🕸️',
-    vibe:       'ᴅᴀʀᴋ sɪᴅᴇ ᴇɴɢɪɴᴇ 🌑',
-    headerDec:  '━━━〔 {TITLE} 〕━━━',
+    accent:     '🕸️',
+    icon:       '🌑',
+    vibe:       '🌑 ᴅᴀʀᴋ ᴇɴɢɪɴᴇ ᴠ5 🕸️',
+    headerDec:  '╭─⌁─〔 {TITLE} 〕─⌁─╮',
     react:      '⏳',
-    tip:        '🌑 A sombra trabalha mesmo quando ninguém vê.',
-    menuTitle:  '🕸️ DARK BOT — Menu Principal',
-    menuFooter: '> 🕸️ Dark Side Engine | Dark Net',
+    tip:        '🌑 O abismo não faz barulho — age.',
+    menuTitle:  '🕸️ DARK BOT — Painel Sombrio',
+    menuFooter: '> 🌑 Dark Engine v5 | 🕸️ Dark Net',
     thumbText:  '🕸️ {BOT}',
-    sectionSep: '┣━━━━━━━━━━━━━━━━━━━━━━━━┫',
+    sectionSep: '╰─⌁──────────────────⌁─╯',
   },
 
-  // ─── 1. CYBER ───────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  1. CYBER  —  Identidade: Matriz / Código Verde / Neural
+  // ════════════════════════════════════════════════════════
   cyber: {
     name:       'cyber',
-    label:      '🧬 CYBER — Neural Web System',
+    label:      '🧬 CYBER — Neural Matrix',
     emoji:      '🧬',
     style:      1,
-    frame:      ['┏','┓','┗','┛','━','┃'],
+    frame:      ['┏', '┓', '┗', '┛', '━', '┃'],
     bullet:     '⌬',
     sep:        '⟐',
     accent:     '◈',
     icon:       '🧬',
-    vibe:       '░▒▓ NEURAL WEB ▓▒░',
-    headerDec:  '⟐⟐⟐〔 {TITLE} 〕⟐⟐⟐',
+    vibe:       '░▒▓ NEURAL MATRIX ▓▒░',
+    headerDec:  '┏⟐⟐〔 {TITLE} 〕⟐⟐┓',
     react:      '🔄',
-    tip:        '🧬 Sistema vivo: comandos, mídia e IA em evolução.',
-    menuTitle:  '🧬 CYBER MODE — Neural Web',
-    menuFooter: '> ░▒▓ NEURAL WEB ▓▒░ | Dark Net',
+    tip:        '🧬 Código vivo: evolui a cada interacção.',
+    menuTitle:  '🧬 CYBER — Neural Matrix',
+    menuFooter: '> ░▒▓ NEURAL MATRIX ▓▒░',
     thumbText:  '🧬 {BOT}',
-    sectionSep: '┣━⟐━━━━━━━━━━━━━━━━━━━⟐━┫',
+    sectionSep: '┣━⟐━━━━━━━━━━━━━━━━⟐━┫',
   },
 
-  // ─── 2. ROYAL ───────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  2. ROYAL  —  Identidade: Ouro / Coroa / Aura Suprema
+  // ════════════════════════════════════════════════════════
   royal: {
     name:       'royal',
-    label:      '👑 ROYAL — Aura Suprema',
+    label:      '👑 ROYAL — Soberania Suprema',
     emoji:      '👑',
     style:      2,
-    frame:      ['╔','╗','╚','╝','═','║'],
+    frame:      ['╔', '╗', '╚', '╝', '═', '║'],
     bullet:     '◈',
     sep:        '✦',
     accent:     '♾️',
     icon:       '👑',
-    vibe:       '+9999999 ᴀᴜʀᴀ ♾️',
-    headerDec:  '✦✦✦〔 {TITLE} 〕✦✦✦',
+    vibe:       '♾️ +999.999 AURA REAL ♾️',
+    headerDec:  '╔✦✦〔 {TITLE} 〕✦✦╗',
     react:      '👑',
-    tip:        '♾️ Aura sobe quando você usa o bot com estilo.',
-    menuTitle:  '👑 ROYAL MODE — Aura Suprema',
-    menuFooter: '> +9999999 AURA ♾️ | Dark Net',
+    tip:        '♾️ Soberania não se explica — sente-se.',
+    menuTitle:  '👑 ROYAL — Soberania Suprema',
+    menuFooter: '> ♾️ +999.999 AURA REAL ♾️',
     thumbText:  '👑 {BOT}',
-    sectionSep: '╠══════════════════════════╣',
+    sectionSep: '╠══✦══════════════╦══╣',
   },
 
-  // ─── 3. SHADOW ──────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  3. SHADOW  —  Identidade: Minimalismo / Sombra Silenciosa
+  // ════════════════════════════════════════════════════════
   shadow: {
     name:       'shadow',
-    label:      '🌑 SHADOW — Minimal Dark Protocol',
-    emoji:      '🌑',
+    label:      '🌫️ SHADOW — Silêncio Absoluto',
+    emoji:      '🌫️',
     style:      3,
-    frame:      ['┌','┐','└','┘','─','│'],
-    bullet:     '•',
-    sep:        '·',
+    frame:      ['┌', '┐', '└', '┘', '─', '│'],
+    bullet:     '·',
+    sep:        '∙',
     accent:     '○',
-    icon:       '🌑',
-    vibe:       'minimal dark protocol',
-    headerDec:  '·····〔 {TITLE} 〕·····',
-    react:      '🌑',
-    tip:        '🌑 Silêncio é poder.',
-    menuTitle:  '🌑 SHADOW — Minimal Dark',
-    menuFooter: '> minimal dark protocol | Dark Net',
-    thumbText:  '🌑 {BOT}',
-    sectionSep: '├──────────────────────────┤',
+    icon:       '🌫️',
+    vibe:       '∙ ∙ ∙  s i l ê n c i o  ∙ ∙ ∙',
+    headerDec:  '┌∙∙∙〔 {TITLE} 〕∙∙∙┐',
+    react:      '🌫️',
+    tip:        '🌫️ O silêncio é a linguagem mais poderosa.',
+    menuTitle:  '🌫️ SHADOW — Silêncio Absoluto',
+    menuFooter: '> ∙ ∙ ∙  s i l ê n c i o  ∙ ∙ ∙',
+    thumbText:  '∙ {BOT}',
+    sectionSep: '├──────────────────────┤',
   },
 
-  // ─── 4. BLADE ───────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  4. BLADE  —  Identidade: Lâmina / Aço / Guerreiro
+  // ════════════════════════════════════════════════════════
   blade: {
     name:       'blade',
-    label:      '🗡️ BLADE — Blade Runner Menu',
-    emoji:      '🗡️',
+    label:      '⚔️ BLADE — Lâmina de Aço',
+    emoji:      '⚔️',
     style:      4,
-    frame:      ['╒','╕','╘','╛','═','│'],
+    frame:      ['╒', '╕', '╘', '╛', '═', '│'],
     bullet:     '⫸',
     sep:        '╱',
     accent:     '⚔️',
-    icon:       '🗡️',
-    vibe:       'blade runner menu',
-    headerDec:  '⚔️═══〔 {TITLE} 〕═══⚔️',
+    icon:       '⚔️',
+    vibe:       '⚔️ LÂMINA SUPREMA ⚔️',
+    headerDec:  '⚔️═〔 {TITLE} 〕═⚔️',
     react:      '⚔️',
-    tip:        '🗡️ Corta o código, não o usuário.',
-    menuTitle:  '🗡️ BLADE MODE — Blade Runner',
-    menuFooter: '> ⚔️ BLADE RUNNER | Dark Net',
-    thumbText:  '🗡️ {BOT}',
-    sectionSep: '╞══════════════════════════╡',
+    tip:        '⚔️ Quem afila a lâmina vence sem lutar.',
+    menuTitle:  '⚔️ BLADE — Lâmina de Aço',
+    menuFooter: '> ⚔️ LÂMINA SUPREMA ⚔️',
+    thumbText:  '⚔️ {BOT}',
+    sectionSep: '╞⚔️══════════════⚔️╡',
   },
 
-  // ─── 5. HACKER ──────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  5. HACKER  —  Identidade: Terminal / Root / Código
+  // ════════════════════════════════════════════════════════
   hacker: {
     name:       'hacker',
-    label:      '💻 HACKER — Root Access Terminal',
+    label:      '💻 HACKER — Root Terminal',
     emoji:      '💻',
     style:      5,
-    frame:      ['╓','╖','╙','╜','─','║'],
-    bullet:     '>',
+    frame:      ['╓', '╖', '╙', '╜', '─', '║'],
+    bullet:     '$',
     sep:        '::',
-    accent:     '$',
+    accent:     '#',
     icon:       '💻',
-    vibe:       'root@darkbot:~#',
+    vibe:       'root@darkbot:~# █',
     headerDec:  '[[ {TITLE} ]]',
     react:      '💻',
-    tip:        '💻 root@darkbot:~# echo "acesso liberado"',
-    menuTitle:  '💻 HACKER MODE — Terminal Root',
-    menuFooter: '> root@darkbot:~# | Dark Net',
-    thumbText:  '> {BOT}',
-    sectionSep: '╟──────────────────────────╢',
+    tip:        '$ echo "acesso autorizado — bem-vindo, root"',
+    menuTitle:  '💻 HACKER — Terminal Root',
+    menuFooter: '> root@darkbot:~# exit 0',
+    thumbText:  '$ {BOT}',
+    sectionSep: '╟──────────────────────╢',
   },
 
-  // ─── 6. MOONLIGHT ───────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  6. MOONLIGHT  —  Identidade: Lua / Cosmos / Astral
+  // ════════════════════════════════════════════════════════
   moonlight: {
     name:       'moonlight',
-    label:      '🌙 MOONLIGHT — Moon System Online',
+    label:      '🌙 MOONLIGHT — Cosmos Astral',
     emoji:      '🌙',
     style:      6,
-    frame:      ['▛','▜','▙','▟','▀','▌'],
+    frame:      ['▛', '▜', '▙', '▟', '▀', '▌'],
     bullet:     '☾',
     sep:        '⋆',
-    accent:     '★',
+    accent:     '✦',
     icon:       '🌙',
-    vibe:       'moon system online 🌙',
-    headerDec:  '★⋆⋆〔 {TITLE} 〕⋆⋆★',
+    vibe:       '🌙 cosmos online ✦ lua cheia',
+    headerDec:  '🌙⋆⋆〔 {TITLE} 〕⋆⋆🌙',
     react:      '🌙',
-    tip:        '🌙 Funciona melhor à meia-noite.',
-    menuTitle:  '🌙 MOONLIGHT — Moon System',
-    menuFooter: '> ★ moon system online 🌙 | Dark Net',
+    tip:        '🌙 O cosmos não tem pressa — tem precisão.',
+    menuTitle:  '🌙 MOONLIGHT — Cosmos Astral',
+    menuFooter: '> 🌙 cosmos online ✦ lua cheia',
     thumbText:  '🌙 {BOT}',
-    sectionSep: '▙▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▟',
+    sectionSep: '▙✦▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀✦▟',
   },
 
-  // ─── 7. DIAMOND ─────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  7. DIAMOND  —  Identidade: Gema / Cristal / Luxo
+  // ════════════════════════════════════════════════════════
   diamond: {
     name:       'diamond',
-    label:      '💎 DIAMOND — Premium Access Layer',
+    label:      '💎 DIAMOND — Cristal Premium',
     emoji:      '💎',
     style:      7,
-    frame:      ['◢','◣','◥','◤','━','┃'],
+    frame:      ['◢', '◣', '◥', '◤', '━', '┃'],
     bullet:     '◆',
-    sep:        '✧',
-    accent:     '◇',
+    sep:        '◇',
+    accent:     '✧',
     icon:       '💎',
-    vibe:       'premium access layer 💎',
-    headerDec:  '◆◇◆〔 {TITLE} 〕◆◇◆',
+    vibe:       '💎 CRISTAL PREMIUM ◆◇◆',
+    headerDec:  '◆◇〔 {TITLE} 〕◇◆',
     react:      '💎',
-    tip:        '💎 Acesso premium: sem limites, sem fronteiras.',
-    menuTitle:  '💎 DIAMOND — Premium Layer',
-    menuFooter: '> ◆ PREMIUM ACCESS ◆ | Dark Net',
+    tip:        '💎 Pressão cria diamantes — e bots de elite.',
+    menuTitle:  '💎 DIAMOND — Cristal Premium',
+    menuFooter: '> 💎 CRISTAL PREMIUM ◆◇◆',
     thumbText:  '💎 {BOT}',
-    sectionSep: '◢━━━━━━━━━━━━━━━━━━━━━━━━◣',
+    sectionSep: '◢◆━━━━━━━━━━━━━━━━◆◣',
   },
 
-  // ─── 8. FIRE ────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  8. FIRE  —  Identidade: Chamas / Ego / Intensidade
+  // ════════════════════════════════════════════════════════
   fire: {
     name:       'fire',
-    label:      '🔥 FIRE — Ego Mode Activated',
+    label:      '🔥 FIRE — Chamas do Ego',
     emoji:      '🔥',
     style:      8,
-    frame:      ['✦','✦','✧','✧','━','┃'],
-    bullet:     '▸',
-    sep:        '—',
-    accent:     '🌶️',
+    frame:      ['🔥', '🔥', '🔥', '🔥', '═', '┃'],
+    bullet:     '▶',
+    sep:        '🔥',
+    accent:     '🌋',
     icon:       '🔥',
-    vibe:       'ego mode activated 🔥',
-    headerDec:  '🔥━━〔 {TITLE} 〕━━🔥',
+    vibe:       '🔥 EGO MODE: ON 🌋 LIMITES: OFF',
+    headerDec:  '🔥〔 {TITLE} 〕🔥',
     react:      '🔥',
-    tip:        '🔥 Ego mode: ON. Limites: DESLIGADOS.',
-    menuTitle:  '🔥 FIRE MODE — Ego Activated',
-    menuFooter: '> 🔥 EGO MODE ACTIVATED | Dark Net',
+    tip:        '🔥 O fogo não pede licença — consome.',
+    menuTitle:  '🔥 FIRE — Chamas do Ego',
+    menuFooter: '> 🔥 EGO MODE: ON 🌋 LIMITES: OFF',
     thumbText:  '🔥 {BOT}',
-    sectionSep: '┃🔥━━━━━━━━━━━━━━━━━━━━━🔥┃',
+    sectionSep: '┃🔥══════════════🔥┃',
   },
 
-  // ─── 9. SPIDER ──────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  9. SPIDER  —  Identidade: Teia / Armadilha / Web
+  // ════════════════════════════════════════════════════════
   spider: {
     name:       'spider',
-    label:      '🕷️ SPIDER — Web Automation Core',
+    label:      '🕷️ SPIDER — Web Suprema',
     emoji:      '🕷️',
     style:      9,
-    frame:      ['⎔','⎔','⎔','⎔','═','║'],
+    frame:      ['⎔', '⎔', '⎔', '⎔', '═', '║'],
     bullet:     '⛓',
     sep:        '⌁',
     accent:     '🕷️',
     icon:       '🕷️',
-    vibe:       'web automation core 🕸️',
-    headerDec:  '🕷️⌁⌁〔 {TITLE} 〕⌁⌁🕷️',
+    vibe:       '🕷️ web automation core 🕸️',
+    headerDec:  '🕷️⌁〔 {TITLE} 〕⌁🕷️',
     react:      '🕷️',
-    tip:        '🕸️ A teia captura tudo — dados, média, inteligência.',
-    menuTitle:  '🕷️ SPIDER — Web Core',
-    menuFooter: '> 🕸️ WEB AUTOMATION CORE | Dark Net',
+    tip:        '🕸️ A teia captura tudo — ninguém escapa.',
+    menuTitle:  '🕷️ SPIDER — Web Suprema',
+    menuFooter: '> 🕷️ web automation core 🕸️',
     thumbText:  '🕷️ {BOT}',
-    sectionSep: '║⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁║',
+    sectionSep: '║⌁⛓⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁⌁║',
   },
 
-  // ─── 10. DRAGON ─────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  10. DRAGON  —  Identidade: Dragão / Poder / Mitologia
+  // ════════════════════════════════════════════════════════
   dragon: {
     name:       'dragon',
-    label:      '🐉 DRAGON — System Zero Inspired',
+    label:      '🐉 DRAGON — Poder Mitológico',
     emoji:      '🐉',
     style:      2,
-    frame:      ['╔','╗','╚','╝','═','║'],
+    frame:      ['〔', '〕', '【', '】', '═', '║'],
     bullet:     '⊛',
     sep:        '»',
     accent:     '🔴',
     icon:       '🐉',
-    vibe:       '© Dragon System 🔴',
-    headerDec:  '╔━᳀〔 {TITLE} 〕═᳀',
+    vibe:       '🐉 © DRAGON SYSTEM 🔴',
+    headerDec:  '🐉═══〔 {TITLE} 〕═══🐉',
     react:      '🐉',
-    tip:        '🐉 O dragão não pede licença — age.',
-    menuTitle:  '🐉 DRAGON SYSTEM — Versão Suprema',
-    menuFooter: '> © Dragon System 🔴 | Dark Net',
+    tip:        '🐉 O dragão não age sem propósito — domina.',
+    menuTitle:  '🐉 DRAGON — Sistema Supremo',
+    menuFooter: '> 🐉 © DRAGON SYSTEM 🔴',
     thumbText:  '🐉 {BOT}',
-    sectionSep: '╠══════════════════════════╣',
+    sectionSep: '〔⊛════════════════⊛〕',
   },
 
-  // ─── 11. ITADORI ─────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  11. ITADORI  —  Identidade: Jujutsu / Maldição / Força
+  // ════════════════════════════════════════════════════════
   itadori: {
     name:       'itadori',
-    label:      '⛩️ ITADORI — Jujutsu Core',
+    label:      '⛩️ ITADORI — Jujutsu Kaisen Core',
     emoji:      '⛩️',
     style:      1,
-    frame:      ['┏','┓','┗','┛','━','┃'],
-    bullet:     '┃★',
-    sep:        '⊛',
+    frame:      ['┏', '┓', '┗', '┛', '━', '┃'],
+    bullet:     '⛩',
+    sep:        '☯',
     accent:     '🩸',
     icon:       '⛩️',
-    vibe:       '⛩️ Jujutsu Core System',
-    headerDec:  '┏☆━━〔 {TITLE} 〕━━☆┓',
+    vibe:       '⛩️ 術式展開 — Jujutsu Core',
+    headerDec:  '⛩☯━〔 {TITLE} 〕━☯⛩',
     react:      '⛩️',
-    tip:        '⛩️ Força e maldição — domina as duas.',
-    menuTitle:  '⛩️ ITADORI BOT — Jujutsu Core',
-    menuFooter: '> ⛩️ JUJUTSU CORE SYSTEM | Dark Net',
+    tip:        '⛩️ A maldição é domada por quem entende o poder.',
+    menuTitle:  '⛩️ ITADORI — Jujutsu Kaisen',
+    menuFooter: '> ⛩️ 術式展開 — Jujutsu Core',
     thumbText:  '⛩️ {BOT}',
-    sectionSep: '┣━☆━━━━━━━━━━━━━━━━━━━━━━━☆━┫',
+    sectionSep: '┣⛩☯━━━━━━━━━━━━━━━━━☯⛩┫',
   },
 
-  // ─── 12. SASUKE ─────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  12. SASUKE  —  Identidade: Sharingan / Uchiha / Sangue
+  // ════════════════════════════════════════════════════════
   sasuke: {
     name:       'sasuke',
-    label:      '⛩️🩸 SASUKE — Sharingan Mode',
-    emoji:      '🩸',
+    label:      '🔴 SASUKE — Sharingan Uchiha',
+    emoji:      '🔴',
     style:      4,
-    frame:      ['╒','╕','╘','╛','═','│'],
-    bullet:     '⛩',
+    frame:      ['╔', '╗', '╚', '╝', '─', '¦'],
+    bullet:     '⊗',
     sep:        '🩸',
     accent:     '🔴',
-    icon:       '⛩️',
-    vibe:       '⛩🩸 Sharingan ativado',
-    headerDec:  '⛩🩸━〔 {TITLE} 〕━🩸⛩',
-    react:      '🩸',
-    tip:        '🩸 O Sharingan nunca mente — captura tudo.',
-    menuTitle:  '⛩🩸 SASUKE BOT — Sharingan Mode',
-    menuFooter: '> ⛩🩸 SHARINGAN ATIVADO | Dark Net',
-    thumbText:  '⛩🩸 {BOT}',
-    sectionSep: '╞🩸══════════════════════🩸╡',
+    icon:       '⊗',
+    vibe:       '⊗ SHARINGAN ATIVADO 🔴 UCHIHA',
+    headerDec:  '⊗🩸〔 {TITLE} 〕🩸⊗',
+    react:      '🔴',
+    tip:        '🔴 O Sharingan registou — nunca esquece.',
+    menuTitle:  '⊗ SASUKE — Sharingan Uchiha',
+    menuFooter: '> ⊗ SHARINGAN ATIVADO 🔴 UCHIHA',
+    thumbText:  '⊗ {BOT}',
+    sectionSep: '╚⊗🩸──────────────🩸⊗╝',
   },
 
-  // ─── 13. NEON ────────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  13. NEON  —  Identidade: Cidade Neon / Cyberpunk / Roxo
+  // ════════════════════════════════════════════════════════
   neon: {
     name:       'neon',
-    label:      '💜 NEON — Sistema MD Neon',
+    label:      '💜 NEON — Cidade Cyberpunk',
     emoji:      '💜',
     style:      4,
-    frame:      ['╒','╕','╘','╛','═','│'],
+    frame:      ['╔', '╗', '╚', '╝', '─', '┊'],
     bullet:     '◉',
-    sep:        '∙',
+    sep:        '∷',
     accent:     '✵',
     icon:       '💜',
-    vibe:       '◉ NEON SYSTEM ◉',
-    headerDec:  '◉∙∙〔 {TITLE} 〕∙∙◉',
+    vibe:       '💜 NEON CITY ∷ ONLINE ◉',
+    headerDec:  '◉∷〔 {TITLE} 〕∷◉',
     react:      '💜',
-    tip:        '💜 Brilha mais forte no escuro.',
-    menuTitle:  '💜 NEON SYSTEM — Interface MD',
-    menuFooter: '> ◉ NEON SYSTEM ◉ | Dark Net',
+    tip:        '💜 A cidade nunca dorme — nem o bot.',
+    menuTitle:  '💜 NEON — Cidade Cyberpunk',
+    menuFooter: '> 💜 NEON CITY ∷ ONLINE ◉',
     thumbText:  '💜 {BOT}',
-    sectionSep: '╞◉∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙∙◉╡',
+    sectionSep: '╚◉∷───────────────────∷◉╝',
   },
 
-  // ─── 14. GOTHIC ──────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  14. GOTHIC  —  Identidade: Arte Negra / Trevas / Cruz
+  // ════════════════════════════════════════════════════════
   gothic: {
     name:       'gothic',
-    label:      '🖤 GOTHIC — Dark Arts System',
+    label:      '🖤 GOTHIC — Arte das Trevas',
     emoji:      '🖤',
     style:      5,
-    frame:      ['╓','╖','╙','╜','─','║'],
+    frame:      ['✠', '✠', '✠', '✠', '─', '┊'],
     bullet:     '✝',
     sep:        '†',
     accent:     '☠️',
     icon:       '🖤',
-    vibe:       '† Dark Arts System †',
-    headerDec:  '✝††〔 {TITLE} 〕††✝',
+    vibe:       '✝ Arte das Trevas ✝ in nomine',
+    headerDec:  '✝†〔 {TITLE} 〕†✝',
     react:      '🖤',
-    tip:        '☠️ A morte é só o começo da automação.',
-    menuTitle:  '🖤 GOTHIC SYSTEM — Dark Arts',
-    menuFooter: '> † DARK ARTS SYSTEM † | Dark Net',
+    tip:        '☠️ Das trevas nasce a maior arte.',
+    menuTitle:  '🖤 GOTHIC — Arte das Trevas',
+    menuFooter: '> ✝ Arte das Trevas ✝ in nomine',
     thumbText:  '✝ {BOT}',
-    sectionSep: '╟†━━━━━━━━━━━━━━━━━━━━━━━†╢',
+    sectionSep: '✠†──────────────────†✠',
   },
 
-  // ─── 15. ALIEN ───────────────────────────────────────────────
+  // ════════════════════════════════════════════════════════
+  //  15. ALIEN  —  Identidade: Extraterrestre / Cosmos / Hexágono
+  // ════════════════════════════════════════════════════════
   alien: {
     name:       'alien',
-    label:      '👾 ALIEN — Extraterrestrial Protocol',
+    label:      '👾 ALIEN — Protocolo Extraterrestre',
     emoji:      '👾',
     style:      6,
-    frame:      ['▛','▜','▙','▟','▀','▌'],
+    frame:      ['⬡', '⬡', '⬡', '⬡', '─', '⋮'],
     bullet:     '⬡',
     sep:        '∎',
     accent:     '🛸',
     icon:       '👾',
-    vibe:       '👾 EXTRA PROTOCOL ONLINE 🛸',
-    headerDec:  '⬡∎∎〔 {TITLE} 〕∎∎⬡',
+    vibe:       '👾 PROTOCOLO EXTRA-DIMENSIONAL 🛸',
+    headerDec:  '⬡∎〔 {TITLE} 〕∎⬡',
     react:      '👾',
-    tip:        '🛸 Protocolo alienígena: não há limites físicos.',
-    menuTitle:  '👾 ALIEN BOT — Extra Protocol',
-    menuFooter: '> 🛸 EXTRATERRESTRIAL PROTOCOL | Dark Net',
+    tip:        '🛸 O protocolo alien não tem limites conhecidos.',
+    menuTitle:  '👾 ALIEN — Protocolo Extra-Dim',
+    menuFooter: '> 👾 PROTOCOLO EXTRA-DIMENSIONAL 🛸',
     thumbText:  '👾 {BOT}',
-    sectionSep: '▙⬡▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀⬡▟',
+    sectionSep: '⬡∎──────────────────∎⬡',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  16. OMEGA  —  Identidade: Fim / Absoluto / Universo
+  // ════════════════════════════════════════════════════════
+  omega: {
+    name:       'omega',
+    label:      '♾️ OMEGA — Fim e Começo',
+    emoji:      '♾️',
+    style:      2,
+    frame:      ['Ω', 'Ω', 'Ω', 'Ω', '═', '¦'],
+    bullet:     'Ω',
+    sep:        '∞',
+    accent:     '⚛️',
+    icon:       '♾️',
+    vibe:       'Ω OMEGA PROTOCOL — sem início, sem fim ∞',
+    headerDec:  'Ω∞〔 {TITLE} 〕∞Ω',
+    react:      '♾️',
+    tip:        '∞ O omega é o fim que abre o próximo ciclo.',
+    menuTitle:  '♾️ OMEGA — Absoluto Universal',
+    menuFooter: '> Ω OMEGA PROTOCOL — sem início, sem fim ∞',
+    thumbText:  '♾️ {BOT}',
+    sectionSep: 'Ω∞════════════════∞Ω',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  17. STORM  —  Identidade: Relâmpago / Tempestade / Caos
+  // ════════════════════════════════════════════════════════
+  storm: {
+    name:       'storm',
+    label:      '⚡ STORM — Tempestade Caótica',
+    emoji:      '⚡',
+    style:      1,
+    frame:      ['⚡', '⚡', '⚡', '⚡', '━', '┃'],
+    bullet:     '▷',
+    sep:        '⚡',
+    accent:     '🌩️',
+    icon:       '⚡',
+    vibe:       '⚡ TEMPESTADE ONLINE 🌩️ CAOS TOTAL',
+    headerDec:  '⚡━〔 {TITLE} 〕━⚡',
+    react:      '⚡',
+    tip:        '⚡ A tempestade não avisa — já chegou.',
+    menuTitle:  '⚡ STORM — Tempestade Caótica',
+    menuFooter: '> ⚡ TEMPESTADE ONLINE 🌩️ CAOS TOTAL',
+    thumbText:  '⚡ {BOT}',
+    sectionSep: '┃⚡━━━━━━━━━━━━━━━━━⚡┃',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  18. ANCIENT  —  Identidade: Antigo / Rúnico / Mitológico
+  // ════════════════════════════════════════════════════════
+  ancient: {
+    name:       'ancient',
+    label:      '🏛️ ANCIENT — Runas Ancestrais',
+    emoji:      '🏛️',
+    style:      5,
+    frame:      ['᛭', '᛭', '᛭', '᛭', '─', '⁞'],
+    bullet:     'ᚱ',
+    sep:        'ᚢ',
+    accent:     '⚱️',
+    icon:       '🏛️',
+    vibe:       'ᚱᚢᚾ — os ancestrais codificaram ⚱️',
+    headerDec:  'ᚱᚢ〔 {TITLE} 〕ᚢᚱ',
+    react:      '🏛️',
+    tip:        '🏛️ Quem lê as runas, decifra o futuro.',
+    menuTitle:  '🏛️ ANCIENT — Runas Ancestrais',
+    menuFooter: '> ᚱᚢᚾ — os ancestrais codificaram ⚱️',
+    thumbText:  '🏛️ {BOT}',
+    sectionSep: '᛭ᚱᚢ──────────────────ᚢᚱ᛭',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  19. CRYSTAL  —  Identidade: Transparência / Gelo / Pureza
+  // ════════════════════════════════════════════════════════
+  crystal: {
+    name:       'crystal',
+    label:      '🔮 CRYSTAL — Visão do Futuro',
+    emoji:      '🔮',
+    style:      7,
+    frame:      ['❄', '❄', '❄', '❄', '─', '⁞'],
+    bullet:     '◇',
+    sep:        '❄',
+    accent:     '✨',
+    icon:       '🔮',
+    vibe:       '🔮 CRYSTAL VISION — o futuro é claro',
+    headerDec:  '❄✨〔 {TITLE} 〕✨❄',
+    react:      '🔮',
+    tip:        '🔮 A bola de cristal nunca mente — o código também não.',
+    menuTitle:  '🔮 CRYSTAL — Visão do Futuro',
+    menuFooter: '> 🔮 CRYSTAL VISION — o futuro é claro',
+    thumbText:  '🔮 {BOT}',
+    sectionSep: '❄◇──────────────────◇❄',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  20. VOID  —  Identidade: Vazio / Nada / Zero
+  // ════════════════════════════════════════════════════════
+  void: {
+    name:       'void',
+    label:      '🌀 VOID — O Nada Absoluto',
+    emoji:      '🌀',
+    style:      3,
+    frame:      ['░', '░', '░', '░', '▒', '▓'],
+    bullet:     '▪',
+    sep:        '▫',
+    accent:     '●',
+    icon:       '🌀',
+    vibe:       '🌀 v o i d ▓▒░ null.protocol',
+    headerDec:  '░▒〔 {TITLE} 〕▒░',
+    react:      '🌀',
+    tip:        '🌀 No vazio, tudo é possível.',
+    menuTitle:  '🌀 VOID — Protocolo Nulo',
+    menuFooter: '> 🌀 v o i d ▓▒░ null.protocol',
+    thumbText:  '🌀 {BOT}',
+    sectionSep: '░▪▒──────────────────▒▪░',
   },
 
 };
 
 // ── Exportações ────────────────────────────────────────────────────────────────
 
-/**
- * Retorna o tema pelo nome (ou o tema 'dark' se não encontrado)
- * @param {string} name
- * @returns {object}
- */
 function getTheme(name = 'dark') {
-  const n = String(name).toLowerCase().trim();
+  const n = String(name || 'dark').toLowerCase().trim();
   return THEMES[n] || THEMES.dark;
 }
 
-/**
- * Retorna todos os temas como array
- */
 function listThemes() {
   return Object.values(THEMES);
 }
 
 /**
- * Gera preview de um tema (texto formatado para enviar no WhatsApp)
- * @param {object} theme
- * @param {string} botName
- * @param {string} prefix
+ * Preview formatado de um tema
  */
 function previewTheme(theme, botName = 'DARK BOT', prefix = '!') {
-  const f = theme.frame;
-  const H = f[4];
-  const V = f[5];
+  const f  = theme.frame;
+  const H  = f[4] || '─';
+  const V  = f[5] || '│';
   const tl = f[0], tr = f[1], bl = f[2], br = f[3];
-
-  const W = 26;
-  const bar = (txt) => `${V} ${txt.padEnd(W)} ${V}`;
-  const topLine = `${tl}${H.repeat(W + 2)}${tr}`;
-  const botLine = `${bl}${H.repeat(W + 2)}${br}`;
-  const sepLine = bar(theme.sep.repeat(Math.min(4, W)));
-
-  const headerTitle = theme.headerDec.replace('{TITLE}', 'PRÉVIA');
+  const W  = 26;
+  const bar = (txt) => `${V} ${String(txt || '').slice(0, W).padEnd(W)} ${V}`;
+  const top = `${tl}${H.repeat(W + 2)}${tr}`;
+  const bot = `${bl}${H.repeat(W + 2)}${br}`;
+  const sep = bar(`${theme.sep}`.repeat(Math.min(3, W)));
 
   return [
     `*${theme.emoji} ${theme.label}*`,
     '',
-    topLine,
+    top,
     bar(`${theme.icon}  *${botName}*`),
     bar(theme.vibe.slice(0, W)),
-    sepLine,
+    sep,
     bar(`${theme.bullet} Prefixo: *${prefix}*`),
     bar(`${theme.bullet} Reação: ${theme.react}`),
-    bar(`${theme.bullet} Borda: ${tl}${H.repeat(4)}${tr}`),
-    bar(`${theme.bullet} Separador: ${theme.sep}`),
-    bar(`${theme.bullet} Marcador: ${theme.bullet}`),
-    bar(`${theme.bullet} Ícone: ${theme.icon}`),
-    sepLine,
+    bar(`${theme.bullet} Borda: ${tl}${H}${H}${H}${tr}`),
+    bar(`${theme.bullet} Sep: ${theme.sep} | Marcador: ${theme.bullet}`),
+    bar(`${theme.bullet} Ícone: ${theme.icon} | Accent: ${theme.accent}`),
+    sep,
     bar(theme.tip.slice(0, W)),
-    botLine,
+    bot,
     '',
-    `> ${headerTitle}`,
-    `> ${theme.menuFooter.replace('{BOT}', botName)}`,
+    `> ${theme.headerDec.replace('{TITLE}', 'PREVIEW')}`,
     '',
-    `📌 Para aplicar: *${prefix}change ${theme.name}*`,
+    `📌 Aplicar: *${prefix}change ${theme.name}*`,
   ].join('\n');
 }
 
 /**
- * Gera a lista visual de todos os temas
- * @param {string} prefix
- * @param {string} currentTheme
+ * Lista todos os temas em texto
  */
 function listThemesText(prefix = '!', currentTheme = 'dark') {
-  const lines = [
-    `╔══════════════════════════════╗`,
-    `║  🎭 *TEMAS DISPONÍVEIS*       ║`,
-    `╚══════════════════════════════╝`,
-    '',
-    `Use: *${prefix}change <nome>*`,
-    `Preview: *${prefix}change preview <nome>*`,
-    `Reset: *${prefix}change reset*`,
-    '',
-    `━━━ *TEMAS* ━━━`,
-  ];
+  const all = Object.values(THEMES);
+  let txt  = `╔══════════════════════════════╗\n`;
+  txt     += `║  🎭 *TEMAS DO BOT*            ║\n`;
+  txt     += `╚══════════════════════════════╝\n\n`;
+  txt     += `Tema actual: *${currentTheme.toUpperCase()}*\n\n`;
 
-  for (const t of Object.values(THEMES)) {
+  for (const t of all) {
     const active = t.name === currentTheme ? ' ◄ *ACTIVO*' : '';
-    lines.push(`${t.emoji} *${t.name.toUpperCase()}* — ${t.label.replace(/^.*? — /, '')}${active}`);
+    txt += `${t.emoji} *${t.name.toUpperCase()}*${active}\n`;
+    txt += `  _${t.vibe.slice(0, 40)}_\n`;
+    txt += `  ${t.frame[0]}${t.frame[4].repeat(3)}${t.frame[1]} ${t.bullet} ${t.sep}\n\n`;
   }
 
-  lines.push('');
-  lines.push(`> 🎨 ${Object.keys(THEMES).length} temas disponíveis`);
-
-  return lines.join('\n');
+  txt += `> 🎨 ${all.length} temas disponíveis\n`;
+  txt += `> Aplicar: *${prefix}change <nome>*`;
+  return txt;
 }
 
-/**
- * Formata um cabeçalho de secção usando o tema activo
- * @param {object} theme
- * @param {string} title
- */
 function formatHeader(theme, title = '') {
   return theme.headerDec.replace('{TITLE}', title);
 }
 
-/**
- * Formata um bloco de texto com borda do tema
- * @param {object} theme
- * @param {string[]} lines
- */
 function formatBlock(theme, lines = []) {
-  const f = theme.frame;
-  const H = f[4], V = f[5];
+  const f  = theme.frame;
+  const H  = f[4] || '─';
+  const V  = f[5] || '│';
   const tl = f[0], tr = f[1], bl = f[2], br = f[3];
-  const W = 26;
-  const bar = (txt) => `${V} ${String(txt).slice(0, W).padEnd(W)} ${V}`;
+  const W  = 26;
+  const bar = (txt) => `${V} ${String(txt || '').slice(0, W).padEnd(W)} ${V}`;
   return [
     `${tl}${H.repeat(W + 2)}${tr}`,
     ...lines.map(l => bar(l)),
@@ -493,12 +600,4 @@ function formatBlock(theme, lines = []) {
   ].join('\n');
 }
 
-module.exports = {
-  THEMES,
-  getTheme,
-  listThemes,
-  previewTheme,
-  listThemesText,
-  formatHeader,
-  formatBlock,
-};
+module.exports = { THEMES, getTheme, listThemes, previewTheme, listThemesText, formatHeader, formatBlock };
