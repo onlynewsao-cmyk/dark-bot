@@ -554,19 +554,36 @@ async function handle(sock, msg) {
   const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum;
 
   const textLower = text.toLowerCase().trim();
-  const AURA_TRIGGERS = ['aura', '+aura', 'ativei aura', 'minha aura', 'boost aura', 'aura ativa', 'dark aura'];
-  const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) &&
-    AURA_TRIGGERS.some(k => textLower === k || textLower.startsWith(k + ' '));
+  // "aura" exacto OU começa com "aura " → APENAS se a mensagem INTEIRA é sobre aura
+  // Não activa se "aura" aparece no meio: "tenho mais aura que tu" NÃO activa
+  const AURA_TRIGGERS = ['aura', '+aura', 'ativei aura', 'minha aura', 'boost aura', 'dark aura'];
+  const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) && (
+    AURA_TRIGGERS.includes(textLower) ||
+    AURA_TRIGGERS.some(k => k.length > 4 && textLower.startsWith(k))
+  );
+
+  // isReplyToBot: só activa se a mensagem tem texto real (não stickers/mídias sem texto)
+  const replyHasText = isReplyToBot && text.length > 1;
 
   const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
-  if (aiActive && (isBotMentioned || isReplyToBot || isAuraTrigger)) {
+  // Só responde se:
+  //  - O bot foi mencionado E há texto real
+  //  - A mensagem é uma resposta directa ao bot E tem texto
+  //  - É "aura" exacto (ou variante exacta) em grupo
+  if (aiActive && (isBotMentioned || replyHasText || isAuraTrigger)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
-      const prompt = cleanText.length > 1 ? cleanText : (isAuraTrigger ? '✨ Aura activada! Saúda o grupo com estilo.' : 'Olá!');
+      // Não processa se o texto é apenas um emoji ou 1-2 caracteres sem sentido
+      if (!isAuraTrigger && cleanText.length < 3) return false;
+      const prompt = cleanText.length > 1 ? cleanText : (isAuraTrigger ? 'Reage ao grupo com a aura do Dark Side. Faz algo épico.' : 'Olá!');
 
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '🤔', key: msg.key } });
+      // Não reage com emoji — responde directamente (mais natural)
+      // SÓ reage com 🤔 para perguntas longas (>20 chars) que demoram
+      if (cleanText.length > 20) {
+        await sock.sendMessage(ctx.remoteJid, { react: { text: '🤔', key: msg.key } });
+      }
 
       // VIP / Dono → prioridade máxima
       const userForPriority = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName).catch(() => null);

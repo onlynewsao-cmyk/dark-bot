@@ -415,8 +415,13 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
   return menuThemes.renderSubmenu({ submenu: target, ctx, config, style, showPrefix, customItems: items });
 }
 
-async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Abrir comandos', target = 'menu', items = [] }) {
+async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Selecionar', target = 'menu', items = [] }) {
   const p = config.bot.prefix;
+
+  // Lê se prefixo deve aparecer nos títulos da lista
+  const showPrefix = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
+  const usePrefix  = showPrefix === true || showPrefix === 'true' || showPrefix === 'on';
+
   const visible = filterButtons(
     items.map(it => ({ id: `${p}${it.cmd}${it.args ? ' ' + it.args : ''}`, text: `${it.emoji || '⚡'} ${it.cmd}` })),
     ctx
@@ -427,14 +432,14 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
     return reply(sock, msg, ctx, `⚠️ Sem comandos disponíveis em *${title}*.`);
   }
 
-  // ── SOMENTE lista interactiva (sem texto antes) ──
+  // Rows: título com ou sem prefixo conforme configuração
   const rows = allowed.slice(0, 20).map(it => ({
-    title:       `${it.emoji || '⚡'} ${it.cmd}`.slice(0, 24),
+    title:       `${it.emoji || '⚡'} ${usePrefix ? p : ''}${it.cmd}`.slice(0, 24),
     description: String(it.desc || it.cmd).slice(0, 72),
     id:          `${p}${it.cmd}${it.args ? ' ' + it.args : ''}`,
   }));
 
-  // Lista interativa — tentativa 1
+  // ── TENTATIVA 1: lista interactiva (single_select) ──────────
   try {
     await buttonHandler.sendList(
       sock, ctx.remoteJid,
@@ -447,7 +452,7 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
     return;
   } catch {}
 
-  // Fallback: ButtonV2 com os primeiros 8 comandos
+  // ── TENTATIVA 2: ButtonV2 com os primeiros 8 ─────────────────
   try {
     const btns = rows.slice(0, 8).map(r => ({ text: r.title, id: r.id }));
     await buttonHandler.sendButtonV2(
@@ -462,29 +467,17 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
     return;
   } catch {}
 
-  // Último fallback: texto organizado por linha
+  // ── FALLBACK FINAL: texto formatado por linha ─────────────────
+  // (só chega aqui se ButtonV2 também falhar — dispositivo muito antigo)
   const lines = rows.map((r, i) =>
-    `┃ ${String(i+1).padStart(2,'0')} • *${r.title}* — ${r.description}`
+    `┃ *${r.title}*\n┃   ↳ _${r.description}_`
   ).join('\n');
   await reply(sock, msg, ctx,
     `╭━━━〔 ${title} 〕━━━╮\n` +
     lines +
-    `\n╰━━━━━━━━━━━━━━━━━━━━╯`
+    `\n╰━━━━━━━━━━━━━━━━━━━━╯\n\n` +
+    `💡 *${usePrefix ? '' : 'Use ' + p}* para executar os comandos`
   );
-
-  if (!allowed.length) return;
-
-  // Botões rápidos (max 8) — compatibilidade com código antigo
-  try {
-    await buttonHandler.sendButtons(
-      sock, ctx.remoteJid,
-      `⌁ ${title}`, 'Dark Side Engine ⚡',
-      visible.slice(0, 8),
-      msg,
-      { image: menuImg, mode: btnMode }
-    );
-  } catch {}
-  // Se falhar tudo, o texto já foi enviado acima — OK
 }
 
 
@@ -1104,6 +1097,87 @@ module.exports = {
       ],
     });
   },
+
+  // ── !menueconomia / !menucoins ────────────────────────────────────────
+  async menueconomia({ sock, msg, ctx, config: cfg }) {
+    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
+      title: '💰 ECONOMIA & AURA', target: 'menueconomia',
+      subtitle: 'Coins • Bank • Loja • Ranking',
+      buttonText: '💰 Selecionar',
+      items: [
+        { cmd: 'saldo',      emoji: '💰', desc: 'Ver saldo de coins' },
+        { cmd: 'daily',      emoji: '🎁', desc: 'Recompensa diária' },
+        { cmd: 'trabalhar',  emoji: '💼', desc: 'Trabalhar para ganhar coins' },
+        { cmd: 'crime',      emoji: '🔫', desc: 'Cometer um crime (risco)' },
+        { cmd: 'roubar',     emoji: '💸', desc: 'Roubar coins de alguém' },
+        { cmd: 'depositar',  emoji: '🏦', desc: 'Depositar no banco' },
+        { cmd: 'sacar',      emoji: '💵', desc: 'Sacar do banco' },
+        { cmd: 'transferir', emoji: '↔️', desc: 'Transferir para outro user' },
+        { cmd: 'apostar',    emoji: '🎲', desc: 'Apostar coins' },
+        { cmd: 'loja',       emoji: '🏪', desc: 'Ver itens da loja' },
+        { cmd: 'comprar',    emoji: '🛒', desc: 'Comprar item da loja' },
+        { cmd: 'inventario', emoji: '🎒', desc: 'Ver inventário' },
+        { cmd: 'ranking',    emoji: '🏆', desc: 'Ranking do grupo' },
+        { cmd: 'rank',       emoji: '⚡', desc: 'Ranking de aura' },
+        { cmd: 'rankcoins',  emoji: '💰', desc: 'Ranking de coins' },
+        { cmd: 'aura',       emoji: '⚡', desc: 'Activar aura (+energia)' },
+        { cmd: 'heal',       emoji: '💊', desc: 'Recuperar HP' },
+      ],
+    });
+  },
+
+  // ── !menufamilia ──────────────────────────────────────────────────────
+  async menufamilia({ sock, msg, ctx, config: cfg }) {
+    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
+      title: '👨‍👩‍👧 FAMÍLIA', target: 'menufamilia',
+      subtitle: 'Casamento • Família • Laços',
+      buttonText: '👨‍👩‍👧 Selecionar',
+      items: [
+        { cmd: 'casar',     emoji: '💍', desc: 'Pedir casamento a @alguém' },
+        { cmd: 'aceitar',   emoji: '✅', desc: 'Aceitar pedido de casamento' },
+        { cmd: 'recusar',   emoji: '❌', desc: 'Recusar pedido' },
+        { cmd: 'divorciar', emoji: '💔', desc: 'Pedir divórcio' },
+        { cmd: 'esposa',    emoji: '👰', desc: 'Ver cônjuge' },
+        { cmd: 'adotar',    emoji: '👶', desc: 'Adotar @alguém como filho' },
+        { cmd: 'expulsar',  emoji: '🚪', desc: 'Expulsar filho da família' },
+        { cmd: 'familia',   emoji: '👨‍👩‍👧', desc: 'Ver árvore familiar' },
+      ],
+    });
+  },
+
+  // ── !menudiversao ─────────────────────────────────────────────────────
+  async menudiversao({ sock, msg, ctx, config: cfg }) {
+    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
+      title: '😂 DIVERSÃO & ZOEIRA', target: 'menudiversao',
+      subtitle: 'Medidores • Brincadeiras • Interações',
+      buttonText: '😂 Selecionar',
+      items: [
+        { cmd: 'dado',      emoji: '🎲', desc: 'Jogar dado' },
+        { cmd: 'moeda',     emoji: '🪙', desc: 'Cara ou coroa' },
+        { cmd: 'piada',     emoji: '😂', desc: 'Piada aleatória' },
+        { cmd: 'frase',     emoji: '💭', desc: 'Frase do dia' },
+        { cmd: 'ppt',       emoji: '🎮', desc: 'Pedra papel tesoura' },
+        { cmd: 'gay',       emoji: '🏳️‍🌈', desc: 'Medidor gay' },
+        { cmd: 'lindo',     emoji: '✨', desc: 'Medidor de beleza' },
+        { cmd: 'feio',      emoji: '🥶', desc: 'Medidor de feiúra' },
+        { cmd: 'rico',      emoji: '💰', desc: 'Medidor de riqueza' },
+        { cmd: 'corno',     emoji: '🦌', desc: 'Medidor cornudo' },
+        { cmd: 'safado',    emoji: '🔥', desc: 'Medidor de safadeza' },
+        { cmd: 'ship',      emoji: '💕', desc: 'Combinar dois utilizadores' },
+        { cmd: 'casal',     emoji: '👫', desc: 'Casal do grupo' },
+        { cmd: 'roleta',    emoji: '🎰', desc: 'Roleta aleatória' },
+        { cmd: 'verdade',   emoji: '❓', desc: 'Verdade ou desafio' },
+        { cmd: 'horoscopo', emoji: '🔮', desc: 'Horóscopo do signo' },
+        { cmd: 'fofocar',   emoji: '🗣️', desc: 'Fofocar sobre alguém' },
+        { cmd: 'aura',      emoji: '⚡', desc: 'Activar aura' },
+        { cmd: 'abracar',   emoji: '🤗', desc: 'Abraçar @alguém' },
+        { cmd: 'beijar',    emoji: '💋', desc: 'Beijar @alguém' },
+        { cmd: 'dancar',    emoji: '💃', desc: 'Dançar' },
+      ],
+    });
+  },
+
+
 
   async menuia({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
