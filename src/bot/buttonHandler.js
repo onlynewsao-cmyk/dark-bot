@@ -229,19 +229,35 @@ async function sendButtonsWithImage(sock, jid, title, footer, image, buttons, qu
 }
 
 // ─────────────────────────────────────────────
-// LISTA INTERACTIVA (single_select)
+// LISTA INTERACTIVA (single_select) — formato @systemzero/baileys
 // ─────────────────────────────────────────────
 async function sendListDirect(sock, jid, title, text, buttonText, sections, quoted = null) {
+  // Método 1: proto InteractiveMessage com nativeFlowMessage (mais compatível)
+  try {
+    const m = generateWAMessageFromContent(jid, {
+      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+        body:   proto.Message.InteractiveMessage.Body.fromObject({ text }),
+        footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: title || '' }),
+        header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+          buttons: [{
+            name: 'single_select',
+            buttonParamsJson: JSON.stringify({ title: buttonText, sections }),
+          }],
+        }),
+      }),
+    }, { userJid: sock.user?.id, quoted });
+    return sock.relayMessage(jid, m.message, { messageId: m.key.id });
+  } catch {}
+
+  // Método 2: relayMessage raw
   return sock.relayMessage(jid, {
     interactiveMessage: {
       body:   { text },
-      footer: { text: title || 'Dark Side ⚡' },
-      header: { title: '', subtitle: '', hasMediaAttachment: false },
+      footer: { text: title || '' },
+      header: { title: '', hasMediaAttachment: false },
       nativeFlowMessage: {
-        buttons: [{
-          name: 'single_select',
-          buttonParamsJson: JSON.stringify({ title: buttonText, sections }),
-        }],
+        buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify({ title: buttonText, sections }) }],
         messageParamsJson: '',
       },
     },
@@ -249,13 +265,16 @@ async function sendListDirect(sock, jid, title, text, buttonText, sections, quot
 }
 
 async function sendList(sock, jid, title, text, buttonText, sections, quoted = null, opts = {}) {
+  // Modo texto forçado
   if (opts.mode === 'text') {
-    const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}*\n  ↳ \`${r.id}\``)).join('\n');
-    return sock.sendMessage(jid, { text: `*${title}*\n\n${text}\n\n${rows}` }, { quoted });
+    const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}* — ${r.description || r.id}`)).join('\n');
+    return sock.sendMessage(jid, { text: `*${title}*\n\n${rows}` }, { quoted });
   }
+  // Tenta lista interactiva
   try { return await sendListDirect(sock, jid, title, text, buttonText, sections, quoted); } catch {}
-  const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}*\n  ↳ \`${r.id}\``)).join('\n');
-  return sock.sendMessage(jid, { text: `*${title}*\n\n${text}\n\n${rows}` }, { quoted });
+  // Fallback texto
+  const rows = (sections || []).flatMap(s => (s.rows || []).map(r => `• *${r.title}* — ${r.description || ''}`)).join('\n');
+  return sock.sendMessage(jid, { text: `*${title}*\n\n${rows}` }, { quoted });
 }
 
 async function sendListWithImage(sock, jid, title, text, buttonText, image, sections, quoted = null) {
