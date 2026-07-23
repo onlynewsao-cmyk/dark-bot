@@ -221,19 +221,22 @@ async function handle(sock, msg) {
   const firstTokenNoPrefix = firstTokenRaw.replace(/^[^a-z0-9]+/i, '').toLowerCase();
 
   // IDs conhecidos de botões que podem chegar sem prefixo
+  // IDs de botões de menu que podem chegar sem prefixo
   const noPrefixBtnIds = new Set([
-    'menu','menubtn','menup','down','menudownload','menuia','menustickers','menufigurinhas',
-    'menujogos','menueconomia','menucoins','menufamilia','menudiversao','brincadeiras',
-    'alteradores','menulogos','menuadm','menugrupo','menustatus','menudono','maiscmds',
-    'cmdsocultos','menu18','criador','alugar','statusalugar','vip','donos','ping','start',
-    'play','play2','play3','video','video2','sticker','sfull','ia','gpt','noticias',
-    'saldo','daily','quiz','forca','rank','rankcoins','perfil','info','dono','id',
-    'menuaudio','antilink','antispam','welcome','ban','kick','promote','link','todos',
-    'aimemoria','airesetar','aiapis','imagem','figura','figubug','figubug2','toimg',
-    'mediaup','medialist','mediadel','pinpacks','pinterest','pinmp4','tiktok','instagram',
-    'fb','twitter','spotify','soundcloud','youtube','help','cmds','comandos',
+    'menu','down','menudownload','menuia','menustickers','menufigurinhas',
+    'menujogos','menueconomia','menucoins','menufamilia','menudiversao',
+    'brincadeiras','alteradores','menulogos','menuadm','menugrupo',
+    'menustatus','menudono','maiscmds','cmdsocultos','menu18','criador',
+    'alugar','statusalugar','vip','donos','ping','start',
+    'play','play2','play3','video','video2','sticker','sfull','ia','gpt',
+    'noticias','saldo','daily','quiz','forca','rank','rankcoins','perfil',
+    'info','dono','id','menuaudio','antilink','antispam','welcome',
+    'ban','kick','promote','link','todos','aimemoria','airesetar',
+    'aiapis','imagem','figura','figubug','figubug2','toimg',
+    'mediaup','medialist','mediadel','pinpacks','pinterest','pinmp4',
+    'tiktok','instagram','fb','twitter','spotify','soundcloud',
+    'help','cmds','comandos','pinsticker',
   ]);
-
   if (text && !startsWithAnyPrefix(text, prefixes) && noPrefixBtnIds.has(firstTokenNoPrefix)) {
     text = (prefixes[0] || config.bot.prefix || '!') + text;
   }
@@ -704,7 +707,7 @@ async function handle(sock, msg) {
   ctx.args = args;
 
   const aliasMap = {
-    help: 'menu', cmds: 'menu', comandos: 'menu',
+    help: 'menu', cmds: 'menu', comandos: 'menu', menubtn: 'menu', menup: 'menu',
     s: 'sticker', fig: 'sticker', owner: 'dono', bot: 'info', portal18: 'cmdsocultos', ocultos: 'cmdsocultos', hidden: 'cmdsocultos', adultvid: 'adultvideo', adultmp4: 'adultvideo',
     yt: 'play', musica: 'play', music: 'play', ytmp3: 'play', ytmp4: 'video', ptv: 'statusvideo', videostatus: 'statusvideo', circular: 'statusvideo', statusvideo: 'statusvideo',
     yt2: 'play2', musica2: 'play2', savefrom: 'play2',
@@ -722,10 +725,10 @@ async function handle(sock, msg) {
     pesquisar: 'pesquisar', search: 'pesquisar', google: 'pesquisar', procurar: 'pesquisar', resumo: 'resumir', resumir: 'resumir', summarize: 'resumir',
     configs: 'configs', cfg: 'config', arquivo: 'config',
     menuprincipal: 'menu', mainmenu: 'menu', menumain: 'menu', menucompleto: 'menu',
-    menuaudio: 'menuaudio', menuefeitosaudio: 'menuaudio', efeitosaudio: 'menuaudio', menudl: 'menudownload', menudownloads: 'menudownload', downloads: 'menudownload', menugames: 'menujogos', menubotoes: 'menubtn', menubotao: 'menubtn',
+    menuaudio: 'menuaudio', menuefeitosaudio: 'menuaudio', efeitosaudio: 'menuaudio', menudl: 'menudownload', menudownloads: 'menudownload', downloads: 'menudownload', menugames: 'menujogos', menubotoes: 'menu', menubotao: 'menu',
     menubrincadeiras: 'menudiversao', menuzoeira: 'menudiversao', menufun: 'menudiversao', menumemes: 'menudiversao',
     menucoins: 'menueconomia', menubank: 'menueconomia', menudarkbank: 'menueconomia',
-    menualteradores: 'menustatus', menuefeitos: 'menustatus', menuaudio: 'menustatus',
+    menualteradores: 'menustatus', menuefeitos: 'menustatus',
     menulogos: 'menustickers', menulogo: 'menustickers', menusticker: 'menustickers', menufigurinhas: 'menustickers',
     menuadm: 'menugrupo', menuadmin: 'menugrupo', administrador: 'menugrupo', helpadm: 'menugrupo',
     'menu+18': 'cmdsocultos', menu18: 'cmdsocultos',
@@ -744,7 +747,7 @@ async function handle(sock, msg) {
     setdesc: 'setdesc', setdescricao: 'setdesc', setnomegrupo: 'setnomegrupo', setsubject: 'setnomegrupo',
     getjid: 'jid', copyjid: 'jid', myjid: 'jid',
     'gênero': 'genero', gender: 'genero', 'alterargênero': 'alterargenero', mudargenero: 'alterargenero',
-    guia: 'menu', guia2: 'menubtn', ayuda: 'ia', tienda: 'vip',
+    guia: 'menu', guia2: 'menu', ayuda: 'ia', tienda: 'vip',
     abrazar: 'abracar', abraçar: 'abracar', hug: 'abracar', cuddle: 'abracar', acurrucarse: 'abracar',
     besar: 'beijar', kiss: 'beijar', golpear: 'soco', punch: 'soco', slap: 'tapa', bofetada: 'tapa',
     bailar: 'dancar', dance: 'dancar', coffee: 'cafe', cafezinho: 'cafe', tomarCafe: 'cafe', tomar_cafe: 'cafe',
@@ -803,7 +806,7 @@ async function handle(sock, msg) {
 
   // ── Limite free PV (50 cmds/dia — mais generoso para não frustrar) ──
   // Comandos de info/ajuda não contam para o limite
-  const PV_EXEMPT = new Set(['menu','menubtn','menup','start','ping','info','dono','criador','aiapis','donos','help','cmds','comandos']);
+  const PV_EXEMPT = new Set(['menu','start','ping','info','dono','criador','aiapis','donos','help','cmds','comandos','vip','prefixos']);
   if (!ctx.isGroup && !isOwner && !PV_EXEMPT.has(canonicalCommand || '')) {
     try {
       const FREE_PV_LIMIT = 50;
