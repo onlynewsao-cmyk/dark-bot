@@ -418,7 +418,7 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
 async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Selecionar', target = 'menu', items = [] }) {
   const p = config.bot.prefix;
 
-  // Prefixo nos títulos: conforme config !menustyle prefix on/off
+  // Prefixo nos títulos conforme config !menustyle prefix on/off
   const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
   const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
 
@@ -429,39 +429,25 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   const allowed = items.filter(it => visible.some(v => v.id === `${p}${it.cmd}`));
 
   if (!allowed.length) {
-    return reply(sock, msg, ctx, `⚠️ Sem comandos disponíveis neste menu.`);
+    return reply(sock, msg, ctx, `⚠️ Sem comandos em *${title}*.`);
   }
 
-  // Montar rows da lista
-  const rows = allowed.slice(0, 20).map(it => ({
-    title:       `${it.emoji || '⚡'} ${useP ? p : ''}${it.cmd}`.slice(0, 24),
-    description: String(it.desc || '').slice(0, 72),
-    id:          `${p}${it.cmd}`,
-  }));
+  // ── Texto formatado estilo referência ─────────────────────────────
+  // Linha de separador e título
+  const lines = [
+    `╔━᳀『 *${title}* 』═᳀`,
+    '',
+  ];
+  for (const it of allowed) {
+    const cmd = `${useP ? p : ''}${it.cmd}`;
+    lines.push(`  ⌬ *${cmd}* — _${it.desc || it.cmd}_`);
+  }
+  lines.push('');
+  lines.push(`╚═━═━═━═━═━═━═━═━═━═᳀`);
+  if (subtitle) lines.push(`> _${subtitle}_`);
+  lines.push(`> ${config.bot.name} 🕸️`);
 
-  // Método 1: lista interactiva
-  try {
-    await buttonHandler.sendList(
-      sock, ctx.remoteJid,
-      title,
-      subtitle || 'Seleciona um comando:',
-      buttonText,
-      [{ title, rows }],
-      msg
-    );
-    return;
-  } catch {}
-
-  // Método 2: ButtonV2
-  try {
-    const btns = rows.slice(0, 8).map(r => ({ text: r.title, id: r.id }));
-    await buttonHandler.sendButtonV2(sock, ctx.remoteJid, title, subtitle || 'Escolhe:', config.bot.name + ' 🕸️', btns, null, msg);
-    return;
-  } catch {}
-
-  // Fallback: texto simples e limpo
-  const txt = rows.map(r => `${r.title} — _${r.description}_`).join('\n');
-  await reply(sock, msg, ctx, `*${title}*\n\n${txt}`);
+  return reply(sock, msg, ctx, lines.join('\n'));
 }
 
 
@@ -1963,7 +1949,141 @@ module.exports = {
     } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
   },
 
-  // !pinpacks <nome> — busca pack de stickers no Pinterest
+  // !pinterest <busca> — Carousel com imagens do Pinterest
+  // Cada card: imagem + descrição + botão Criar Sticker + botão Abrir Link
+  async pinterest({ sock, msg, ctx, args, config: cfg }) {
+    const localConfig = cfg || config;
+    const p = localConfig.bot.prefix;
+    const query = args.join(' ').trim();
+
+    if (!query) return reply(sock, msg, ctx,
+      `╔━᳀『 📌 *PINTEREST* 』═᳀\n` +
+      `\n  ⌬ *Uso:* ${p}pinterest <busca>\n` +
+      `  ⌬ *Ex:* ${p}pinterest anime dark aesthetic\n` +
+      `  ⌬ *Ex:* ${p}pinterest peaky blinders\n\n` +
+      `  ⌬ ${p}pinpacks <busca> — pack de stickers\n` +
+      `  ⌬ ${p}pinmp4 <link>   — vídeo do Pinterest\n` +
+      `╚═━═━═━═━═━═━═━═━═━═᳀`
+    );
+
+    await react(sock, msg, '⏳');
+
+    try {
+      const SZ = 'https://api.siputzx.my.id/api';
+      const r  = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query)}`, 20000);
+      const items = (r?.data || [])
+        .filter(x => x?.image_url && /^https?/i.test(x.image_url))
+        .slice(0, 8);
+
+      if (!items.length) throw new Error('Sem imagens encontradas.');
+
+      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+
+      const cards = [];
+      for (const item of items) {
+        // Prepara imagem do card
+        let imageMessage = null;
+        try {
+          const media = await prepareWAMessageMedia(
+            { image: { url: item.image_url } },
+            { upload: sock.waUploadToServer }
+          );
+          imageMessage = media?.imageMessage || null;
+        } catch {}
+
+        const desc = (item.description || item.grid_title || query).slice(0, 80);
+        const pinUrl = item.pin || item.image_url;
+
+        cards.push({
+          header: imageMessage
+            ? { hasMediaAttachment: true, imageMessage }
+            : { hasMediaAttachment: false },
+          body:   { text: desc },
+          footer: { text: `📌 Pinterest × ${localConfig.bot.name}` },
+          nativeFlowMessage: {
+            buttons: [
+              // Botão 1: Criar Sticker desta imagem
+              {
+                name: 'quick_reply',
+                buttonParamsJson: JSON.stringify({
+                  display_text: '🎨 Criar Sticker',
+                  id: `${p}pinsticker ${item.image_url}`,
+                }),
+              },
+              // Botão 2: Abrir link no Pinterest
+              {
+                name: 'cta_url',
+                buttonParamsJson: JSON.stringify({
+                  display_text: '🔗 Abrir link',
+                  url: pinUrl,
+                  merchant_url: pinUrl,
+                }),
+              },
+            ],
+          },
+        });
+      }
+
+      const msgObj = generateWAMessageFromContent(ctx.remoteJid, {
+        interactiveMessage: {
+          body:   { text: `📌 *Pinterest — ${query}*\n${items.length} imagens encontradas` },
+          footer: { text: localConfig.bot.name + ' 🕸️' },
+          carouselMessage: { cards },
+        },
+      }, { userJid: sock.user?.id, quoted: msg });
+
+      await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
+      await react(sock, msg, '✅');
+
+    } catch (e) {
+      // Fallback: envia individualmente
+      try {
+        const SZ = 'https://api.siputzx.my.id/api';
+        const r2 = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query)}`, 20000);
+        const imgs = (r2?.data || []).filter(x => x?.image_url).slice(0, 5);
+        if (imgs.length) {
+          await reply(sock, msg, ctx, `📌 *Pinterest* — ${query}\n${imgs.length} imagens`);
+          for (let i = 0; i < imgs.length; i++) {
+            await sock.sendMessage(ctx.remoteJid, {
+              image: { url: imgs[i].image_url },
+              caption: `📌 ${i+1}/${imgs.length} — ${(imgs[i].description||query).slice(0,60)}\n\n🎨 *${localConfig.bot.prefix}pinsticker ${imgs[i].image_url}*`,
+            }, { quoted: msg });
+            await new Promise(r => setTimeout(r, 500));
+          }
+          await react(sock, msg, '✅');
+          return;
+        }
+      } catch {}
+      await react(sock, msg, '❌');
+      return reply(sock, msg, ctx, '❌ Pinterest falhou. Tente de novo.');
+    }
+  },
+
+  // !pinsticker <url> — converte imagem do Pinterest em sticker
+  async pinsticker({ sock, msg, ctx, args, config: cfg }) {
+    const localConfig = cfg || config;
+    const url = args.join(' ').trim();
+    if (!url || !/^https?/i.test(url)) return reply(sock, msg, ctx, `🎨 Uso: ${(cfg||config).bot.prefix}pinsticker <url da imagem>`);
+    await react(sock, msg, '⏳');
+    try {
+      const buf = await mediaHandler.fetchBuffer(url);
+      if (!buf || buf.length < 500) throw new Error('imagem vazia');
+      const stk = await stickerMaker.create(buf, {
+        botName:   localConfig.bot.name,
+        ownerName: localConfig.owner.name,
+        userName:  ctx.pushName,
+        groupName: ctx.groupName || 'PV',
+        isVideo:   false,
+      });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await react(sock, msg, '✅');
+    } catch (e) {
+      await react(sock, msg, '❌');
+      return reply(sock, msg, ctx, '❌ Falha ao criar sticker: ' + e.message);
+    }
+  },
+
+    // !pinpacks <nome> — busca pack de stickers no Pinterest
   async pinpacks({ sock, msg, ctx, args, config: cfg }) {
     const localConfig = cfg || config;
     const query = args.join(' ').trim();
