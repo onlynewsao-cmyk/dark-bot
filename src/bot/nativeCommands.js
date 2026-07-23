@@ -769,47 +769,55 @@ module.exports = {
     const localConfig = cfg || config;
     const p = localConfig.bot.prefix;
 
-    // ── Info do utilizador ──────────────────────────────────
     const u      = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
     const isVip  = u && u.isPremium && u.isPremium();
     const isAdm  = ctx.isOwner || (await isAdmin(sock, ctx));
     const isCargo = ctx.isOwner ? '👑 Dono' : isVip ? '⭐ Premium' : isAdm ? '🛡️ Admin' : '🆓 Free';
 
-    // ── Texto do menu ───────────────────────────────────────
     const textok = [
       `🕸️ *${localConfig.bot.name}*`,
       `👤 ${ctx.pushName}  •  🏷️ ${isCargo}`,
       `🔑 Prefixo: *${p}*  •  👑 ${localConfig.owner.name}`,
-      `✦ ᴅᴀʀᴋ sɪᴅᴇ ᴇɴɢɪɴᴇ ⚡`,
+      `✦ ᴅᴀʀᴋ sɪᴅᴇ ᴇɴɢɪɴᴇ ⚡♾️`,
     ].join('\n');
 
     const channelUrl = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
-    // ── Rows para a lista ───────────────────────────────────
-    const menuRows = [
-      { title: '🕸️ Menu Principal',   description: 'comandos principais', id: p + 'menup' },
-      { title: '📥 Downloads',         description: 'YouTube, música, vídeo', id: p + 'down' },
-      { title: '🎨 Figurinhas',        description: 'stickers e criação', id: p + 'menufigurinhas' },
-      { title: '😂 Brincadeiras',      description: 'diversão e zoeira', id: p + 'brincadeiras' },
-      { title: '💰 Coins',             description: 'economia e bank', id: p + 'menucoins' },
-      { title: '🎛️ Alteradores',      description: 'efeitos de áudio', id: p + 'alteradores' },
-      { title: '🖼️ Logos',            description: 'logos e imagens', id: p + 'menulogos' },
-      { title: '🔞 Menu+18',           description: 'só VIPs', id: p + 'menu18' },
-      { title: '👥 ADM',               description: 'gestão de grupos', id: p + 'menuadm' },
-      { title: '👑 Dono',              description: 'painel do dono', id: p + 'menudono' },
-      { title: '🕸️ Criador',          description: 'info do criador', id: p + 'criador' },
-      { title: '🏓 Ping',              description: 'estado do bot', id: p + 'ping' },
-      { title: '🏠 Alugar Bot',        description: 'planos de aluguel', id: p + 'alugar' },
+    // ── Secções do menu (todos os submenus) ───────────
+    const baseRows = [
+      { title: '🕸️ Menu Principal',   description: 'info, ping, perfil, criador', id: p + 'menup' },
+      { title: '📥 Downloads',         description: 'YouTube, música, vídeo, redes', id: p + 'down' },
+      { title: '🧠 IA & Web',          description: 'chat, notícias, imagens, pesquisa', id: p + 'menuia' },
+      { title: '🎨 Stickers',          description: 'figurinhas, packs, arte', id: p + 'menufigurinhas' },
+      { title: '😂 Brincadeiras',      description: 'diversão, medidores, zoeira', id: p + 'brincadeiras' },
+      { title: '💰 Coins & Economia',  description: 'bank, loja, aura, ranking', id: p + 'menucoins' },
+      { title: '🎮 Jogos',             description: 'quiz, forca, blackjack, bingo', id: p + 'menujogos' },
+      { title: '🎛️ Alteradores',      description: 'efeitos de áudio, bass, reverb', id: p + 'alteradores' },
+      { title: '👥 ADM & Grupos',      description: 'moderação, regras, anti-link', id: p + 'menuadm' },
+      { title: '🛠️ Utilitários',      description: 'clima, câmbio, QR, ferramentas', id: p + 'menustatus' },
+      { title: '⭐ VIP / Planos',      description: 'planos premium, benefícios', id: p + 'vip' },
+      { title: '🏠 Alugar Bot',        description: 'hospedar em grupos', id: p + 'alugar' },
     ];
 
-    // Botões da lista (single_select + canal)
+    const extraRows = [];
+    if (isAdm || isVip || ctx.isOwner) {
+      extraRows.push({ title: '🔧 + Cmds',   description: 'mais comandos avançados', id: p + 'maiscmds' });
+    }
+    if (ctx.isOwner) {
+      extraRows.push({ title: '👑 Painel Dono', description: 'controlo total', id: p + 'menudono' });
+      extraRows.push({ title: '🕳️ Cmds Ocultos', description: 'portal privado', id: p + 'cmdsocultos' });
+    }
+
     const listaParams = {
-      title: '🕸️ ᴍᴇɴᴜ',
-      sections: [{
-        title: '🕸️ DARK BOT MODULES',
-        highlight_label: localConfig.owner.name + '|ᴅᴇᴠ',
-        rows: menuRows,
-      }],
+      title: '🕸️ ᴅᴀʀᴋ ʙᴏᴛ — ᴍᴇɴᴜ',
+      sections: [
+        {
+          title: '🕸️ MÓDULOS',
+          highlight_label: localConfig.owner.name + ' · Dark Side',
+          rows: baseRows,
+        },
+        ...(extraRows.length ? [{ title: '🔒 AVANÇADO', rows: extraRows }] : []),
+      ],
     };
 
     const nativeBtns = [
@@ -817,28 +825,23 @@ module.exports = {
       { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🕸️ Canal', url: channelUrl, merchant_url: channelUrl }) },
     ];
 
-    // ── Tentativa 1: Carousel real com imagem ────────────────
-    const logoPath = require('path').join(__dirname, '..', 'public', 'img', 'logo.jpg');
-    const { Carousel } = require('@systemzero/baileys/lib/MB.cjs');
+    // ── Carousel com logo ─────────────────────────────
     const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+    const logoPath = require('path').join(__dirname, '..', 'public', 'img', 'logo.jpg');
+    const fs2 = require('fs');
 
-    let carouselSent = false;
+    let carouselOk = false;
     try {
       let imageMessage = null;
-      if (require('fs').existsSync(logoPath)) {
+      if (fs2.existsSync(logoPath)) {
         try {
-          const media = await prepareWAMessageMedia(
-            { image: { url: logoPath } },
-            { upload: sock.waUploadToServer }
-          );
+          const media = await prepareWAMessageMedia({ image: { url: logoPath } }, { upload: sock.waUploadToServer });
           imageMessage = media?.imageMessage || null;
         } catch {}
       }
 
       const card = {
-        header: imageMessage
-          ? { hasMediaAttachment: true, imageMessage }
-          : { hasMediaAttachment: false },
+        header: imageMessage ? { hasMediaAttachment: true, imageMessage } : { hasMediaAttachment: false },
         body:   { text: textok },
         footer: { text: `🕸️ ${localConfig.bot.name} · ${localConfig.owner.name}` },
         nativeFlowMessage: { buttons: nativeBtns },
@@ -854,41 +857,29 @@ module.exports = {
       }, { userJid: sock.user?.id, quoted: msg });
 
       await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
-      carouselSent = true;
+      carouselOk = true;
     } catch (e) {
-      console.warn('[menubtn] Carousel:', e.message?.slice(0, 60));
+      console.warn('[menubtn Carousel]', e.message?.slice(0, 50));
     }
 
-    if (carouselSent) { logCmd('menubtn', ctx); return; }
+    if (carouselOk) { logCmd('menubtn', ctx); return; }
 
-    // ── Tentativa 2: Lista interactiva ───────────────────────
+    // Fallback: lista interactiva
     try {
-      await buttonHandler.sendList(
-        sock, ctx.remoteJid,
-        `🕸️ ${localConfig.bot.name}`,
-        textok,
-        '🕸️ Abrir módulo',
-        [{ title: '🕸️ DARK BOT', rows: menuRows }],
-        msg
-      );
-      logCmd('menubtn', ctx);
-      return;
+      await buttonHandler.sendList(sock, ctx.remoteJid, `🕸️ ${localConfig.bot.name}`, textok, '🕸️ Abrir', listaParams.sections, msg);
+      logCmd('menubtn', ctx); return;
     } catch {}
 
-    // ── Fallback: texto ──────────────────────────────────────
+    // Último fallback: texto
+    const allRows = baseRows.concat(extraRows);
     const fallback = `╭━━━〔 🕸️ *${localConfig.bot.name}* 〕━━━╮\n` +
-      `┃ 👤 ${ctx.pushName}  •  🏷️ ${isCargo}\n` +
-      `┃ 🔑 Prefixo: *${p}*  •  👑 ${localConfig.owner.name}\n` +
-      `┣━━━━━━━━━━━━━━━━━━━━━━━━┫\n` +
-      menuRows.map((r, i) => `┃ ${String(i+1).padStart(2,'0')} • *${r.title}*`).join('\n') +
+      allRows.map((r,i) => `┃ ${String(i+1).padStart(2,'0')} • *${r.title}*`).join('\n') +
       `\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯`;
     await reply(sock, msg, ctx, fallback);
     logCmd('menubtn', ctx);
   },
 
 
-
-  // Sub-menus interativos + fallback bonito em texto
   async menudownload({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
       title: '📥 DOWNLOADS', target: 'menudownload',

@@ -61,7 +61,7 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   // ── Hospedagem / Aluguel ──────────────────────────────────
   isHosted: { type: Boolean, default: false },
-  trialExpiresAt: { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+  trialExpiresAt: { type: Date, default: () => new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) }, // 3 dias trial
   hostedUntil: { type: Date, default: null },
   commandsUsedToday: { type: Number, default: 0 },
   lastResetDate: { type: String, default: () => new Date().toISOString().split('T')[0] },

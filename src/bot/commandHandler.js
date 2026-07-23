@@ -531,12 +531,12 @@ async function handle(sock, msg) {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // GATILHOS SEM PREFIXO — apenas menções ao bot e palavra "aura"
-  // Tudo o resto EXIGE prefixo obrigatório
-  // ═══════════════════════════════════════════════════════════════════
-  const botJid = sock.user?.id
-    ? (sock.user.id.split(':')[0] + '@s.whatsapp.net')
-    : '';
+  // ════════════════════════════════════════════════════════════════════════
+  // AUTO-IA — menções, respostas e "aura"
+  // VIP/Dono: timeout reduzido (prioridade)
+  // Lê contexto da conversa para respostas naturais
+  // ════════════════════════════════════════════════════════════════════════
+  const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
   const botLid = sock.user?.lid || '';
   const botNum = botJid.split('@')[0];
 
@@ -545,72 +545,72 @@ async function handle(sock, msg) {
     msg.message?.interactiveResponseMessage?.contextInfo?.mentionedJid || []
   );
 
-  // Verifica se o bot foi mencionado (por JID, LID ou @número)
-  const isBotMentioned = !!(
-    botJid && (
-      allMentioned.some(j => j.split(':')[0].split('@')[0] === botNum) ||
-      (botLid && allMentioned.some(j => j.split(':')[0].split('@')[0] === botLid.split(':')[0].split('@')[0]))
-    )
-  );
+  const isBotMentioned = !!(botJid && (
+    allMentioned.some(j => j.split(':')[0].split('@')[0] === botNum) ||
+    (botLid && allMentioned.some(j => j.split(':')[0].split('@')[0] === botLid.split(':')[0].split('@')[0]))
+  ));
 
-  // Verifica se é resposta directa ao bot
   const ctxParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
   const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum;
 
-  // Palavra-chave "aura" sem prefixo (só em grupos — causa engajamento)
   const textLower = text.toLowerCase().trim();
-  const AURA_TRIGGERS = ['aura', '+aura', 'aura +', 'ativei aura', 'minha aura', 'boost aura'];
+  const AURA_TRIGGERS = ['aura', '+aura', 'ativei aura', 'minha aura', 'boost aura', 'aura ativa', 'dark aura'];
   const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) &&
     AURA_TRIGGERS.some(k => textLower === k || textLower.startsWith(k + ' '));
 
-  const aiAutoEnabled = await botConfigCache.get('ai_auto_enabled', true);
-  const aiAutoOn = aiAutoEnabled === true || aiAutoEnabled === 'true' || aiAutoEnabled === 'on' || aiAutoEnabled === 1 || aiAutoEnabled === '1';
+  const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
+  const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
-  if (aiAutoOn && (isBotMentioned || isReplyToBot || isAuraTrigger)) {
+  if (aiActive && (isBotMentioned || isReplyToBot || isAuraTrigger)) {
     try {
-      const cleanText = text
-        .replace(/@[0-9]+/g, '')
-        .replace(new RegExp('@' + botNum, 'g'), '')
-        .trim();
-      const prompt = cleanText.length > 1 ? cleanText : 'Olá!';
+      const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
+      const prompt = cleanText.length > 1 ? cleanText : (isAuraTrigger ? '✨ Aura activada! Saúda o grupo com estilo.' : 'Olá!');
 
       await sock.sendMessage(ctx.remoteJid, { react: { text: '🤔', key: msg.key } });
 
-      // Carrega memória + perfil
-      let memOpts = { history: [], userTone: '', userProfile: null };
+      // VIP / Dono → prioridade máxima
+      const userForPriority = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName).catch(() => null);
+      const isPriority = isOwner || !!(userForPriority?.isPremium && userForPriority.isPremium());
+
+      let memOpts = { history: [], userTone: '', userProfile: null, groupContext: '' };
       try {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber);
         const u   = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
+
+        // Contexto da conversa: mensagem citada + info do grupo
+        let groupContext = '';
+        if (ctx.isGroup) {
+          const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+          const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
+          if (qtxt) groupContext = `Mensagem citada: "${qtxt.slice(0, 200)}"\n`;
+          groupContext += `Grupo: ${ctx.groupName || 'grupo'}`;
+        }
+
         memOpts = {
-          history:     mem.getContextWindow(12),
-          userTone:    u?.aiTone || '',
-          userProfile: { name: ctx.pushName, gender: u?.gender || '', ...mem.profile },
+          history:      mem.getContextWindow(14),
+          userTone:     u?.aiTone || '',
+          userProfile:  { name: ctx.pushName, gender: u?.gender || '', ...mem.profile },
+          groupContext,
         };
         mem.addMessage('user', prompt);
         await mem.save().catch(() => {});
       } catch {}
 
-      const answer = await Promise.race([
-        ai.chat(prompt, '', memOpts),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000)),
-      ]);
+      const answer = await ai.chat(prompt, '', memOpts, isPriority);
 
-      // Guarda resposta na memória
       try {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber);
         mem.addMessage('assistant', answer);
         await mem.save().catch(() => {});
       } catch {}
 
-      await sock.sendMessage(ctx.remoteJid, { text: `🧠 ${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: answer }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
       return true;
-
     } catch (e) {
-      if (e.message !== 'timeout') console.warn('[Auto-IA]', e.message);
+      console.warn('[Auto-IA]', e.message?.slice(0, 60));
     }
   }
-
   // Sticker em mídia
   const isMedia = msg.message?.imageMessage || msg.message?.videoMessage;
   if (isMedia && (text === `${prefix}sticker` || text === `${prefix}s` || text === `${prefix}fig`)) {
