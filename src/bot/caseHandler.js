@@ -1,42 +1,44 @@
 /**
- * DARK BOT v5 — Case Handler Engine v2
- * Suporta o estilo clássico switch/case com wrapper "m"
+ * DARK BOT v5 — Case Handler Engine v3 ULTRA
+ * ═══════════════════════════════════════════════════════
  *
- * COMO USAR (no WhatsApp):
- *   !addcase fakemsg     → adiciona case com texto simples
- *   !delcase fakemsg     → remove case
- *   !listcases           → lista todos os cases dinâmicos
+ * COMO ADICIONAR UM CASE PELO WHATSAPP:
  *
- * CRIAR UM CASE PROGRAMÁTICO em src/bot/cases/meu-ficheiro.js:
+ *   1. Copia o código do teu case (sem as linhas case 'xxx': { e break; })
+ *   2. Envia: !addcase <nome>
+ *      e na mesma mensagem (ou na seguinte citando) o código JS
  *
- *   module.exports = function(registerCase) {
+ *   Exemplo (código na mesma mensagem após o nome):
+ *   !addcase ping
+ *   ---
+ *   if (!text) return m.reply('Pong!');
+ *   m.reply(`Pong! Latência: ${Date.now() - m.ts}ms`);
  *
- *     case 'fakemsg': {
- *       registerCase('fakemsg', async ({ m, sock, text, isOwner, reply }) => {
- *         if (!m.quoted) return m.reply('Marca o utilizador!');
- *         if (!text)     return m.reply('Falta o texto!');
- *         // ... lógica aqui
- *       });
- *     }
+ *   Exemplo com código separado (responde ao código com !addcase nome):
+ *   (coloca o código numa mensagem, depois responde a ela com !addcase nome)
  *
- *   };
+ * VARIÁVEIS DISPONÍVEIS NO CÓDIGO DO CASE:
+ *   m        — wrapper da mensagem (m.reply, m.react, m.quoted, m.chat, m.sender)
+ *   sock     — socket Baileys completo
+ *   ctx      — contexto (ctx.remoteJid, ctx.senderNumber, ctx.isGroup, ctx.pushName)
+ *   text     — texto após o comando
+ *   args     — array de argumentos
+ *   prefix   — prefixo activo
+ *   command  — nome do comando
+ *   isOwner  — boolean
+ *   reply    — atalho para m.reply
+ *   react    — atalho para m.react
+ *   q        — alias de text (compatibilidade clássica)
+ *   from     — alias de m.chat (compatibilidade clássica)
+ *   info     — alias de m.msg (compatibilidade clássica)
  *
- * CONTEXTO DISPONÍVEL em cada case:
- *   m          — wrapper estilo classic (m.reply, m.quoted, m.sender, m.chat, m.key, m.isGroup, m.pushName)
- *   sock       — socket do Baileys (@systemzero)
- *   msg        — mensagem raw do Baileys
- *   ctx        — contexto processado (senderNumber, remoteJid, isGroup, pushName, isOwner...)
- *   text       — texto após o comando
- *   args       — array de argumentos
- *   prefix     — prefixo activo
- *   command    — nome do comando (sem prefixo)
- *   isOwner    — boolean
- *   isAdmin    — boolean (calculado por isAdminFn())
- *   isAdminFn  — async () => boolean
- *   config     — configuração do bot
- *   reply      — (text) => Promise  [alias de m.reply]
- *   react      — (emoji) => Promise
- *   quoted     — mensagem citada (raw) ou null
+ * COMANDOS DE GESTÃO:
+ *   !addcase <cmd> <código>   — adiciona case com código JS
+ *   !removicase <cmd>         — remove case dinâmico
+ *   !downcase <cmd>           — ver/descarregar código do case
+ *   !listcases                — listar todos os cases dinâmicos
+ *   !runcase <cmd> [args...]  — executar um case directamente
+ *   !reloadcases              — recarregar cases dos ficheiros (só Dono)
  */
 
 'use strict';
@@ -46,18 +48,18 @@ const BotConfig = require('../database/models/BotConfig');
 // ─────────────────────────────────────────────
 // MAPA PRINCIPAL
 // ─────────────────────────────────────────────
-/** @type {Map<string, Function>} */
 const CASES = new Map();
+// Guarda o código fonte dos cases dinâmicos para downcase
+const CASES_SOURCE = new Map();
 
 // ─────────────────────────────────────────────
-// CONSTRUIR WRAPPER "m" ESTILO CLÁSSICO
+// WRAPPER "m" — estilo clássico
 // ─────────────────────────────────────────────
 function buildM(sock, msg, ctx) {
-  const jid      = ctx.remoteJid;
-  const sender   = ctx.senderJid || jid;
-  const key      = msg.key;
+  const jid    = ctx.remoteJid;
+  const sender = ctx.senderJid || jid;
+  const key    = msg.key;
 
-  // Mensagem citada
   const ctxInfo    = msg.message?.extendedTextMessage?.contextInfo ||
                      msg.message?.interactiveResponseMessage?.contextInfo || {};
   const quotedMsg  = ctxInfo.quotedMessage || null;
@@ -69,35 +71,31 @@ function buildM(sock, msg, ctx) {
     sender:      quotedPart || sender,
     participant: quotedPart,
     message:     quotedMsg,
-    // Texto da mensagem citada
+    msg:         { message: quotedMsg, key: { id: quotedId, remoteJid: jid, participant: quotedPart, fromMe: false } },
     text: quotedMsg.conversation ||
           quotedMsg.extendedTextMessage?.text ||
           quotedMsg.imageMessage?.caption ||
           quotedMsg.videoMessage?.caption || '',
-    // Tipos
-    isImage:  !!quotedMsg.imageMessage,
-    isVideo:  !!quotedMsg.videoMessage,
-    isAudio:  !!quotedMsg.audioMessage,
-    isSticker:!!quotedMsg.stickerMessage,
-    isDoc:    !!quotedMsg.documentMessage,
+    isImage:   !!quotedMsg.imageMessage,
+    isVideo:   !!quotedMsg.videoMessage,
+    isAudio:   !!quotedMsg.audioMessage,
+    isSticker: !!quotedMsg.stickerMessage,
+    isDoc:     !!quotedMsg.documentMessage,
   } : null;
 
-  // Wrapper m
   const m = {
     key,
-    chat:      jid,
+    msg,
+    chat:     jid,
     sender,
-    pushName:  ctx.pushName || '',
-    isGroup:   ctx.isGroup || false,
+    from:     jid,
+    pushName: ctx.pushName || '',
+    isGroup:  ctx.isGroup  || false,
     quoted,
+    ts:       Date.now(),
 
-    /** Responde à mensagem */
     reply: (text) => sock.sendMessage(jid, { text: String(text) }, { quoted: msg }),
-
-    /** Reage com emoji */
     react: (emoji) => sock.sendMessage(jid, { react: { text: emoji, key } }).catch(() => {}),
-
-    /** Apaga a mensagem actual */
     delete: () => sock.sendMessage(jid, { delete: key }).catch(() => {}),
   };
 
@@ -105,33 +103,28 @@ function buildM(sock, msg, ctx) {
 }
 
 // ─────────────────────────────────────────────
-// FUNÇÃO isAdmin LAZY
+// COMPILAR CÓDIGO JS → FUNÇÃO ASYNC
 // ─────────────────────────────────────────────
-function makeIsAdminFn(sock, ctx) {
-  let _cached = null;
-  return async () => {
-    if (_cached !== null) return _cached;
-    if (ctx.isOwner) return (_cached = true);
-    if (!ctx.isGroup) return (_cached = false);
-    try {
-      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const snum = ctx.senderNumber;
-      _cached = meta.participants?.some(p =>
-        p.id.split('@')[0].replace(/\D/g,'') === snum &&
-        (p.admin === 'admin' || p.admin === 'superadmin')
-      ) || false;
-    } catch { _cached = false; }
-    return _cached;
-  };
+function compileCase(code) {
+  // Envolve o código numa função async com todas as variáveis
+  const wrapped = `
+    (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info }) {
+      ${code}
+    })
+  `;
+  // eslint-disable-next-line no-new-func
+  return eval(wrapped);
 }
 
 // ─────────────────────────────────────────────
 // REGISTAR UM CASE
 // ─────────────────────────────────────────────
-function registerCase(commands, handler) {
+function registerCase(commands, handler, source = null) {
   const list = Array.isArray(commands) ? commands : [commands];
   for (const cmd of list) {
-    CASES.set(String(cmd).toLowerCase().trim(), handler);
+    const key = String(cmd).toLowerCase().trim();
+    CASES.set(key, handler);
+    if (source) CASES_SOURCE.set(key, source);
   }
 }
 
@@ -146,6 +139,8 @@ function loadCases() {
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
   for (const file of files) {
     try {
+      // Limpar cache para hot reload
+      delete require.cache[require.resolve(path.join(dir, file))];
       const mod = require(path.join(dir, file));
       if (typeof mod === 'function') {
         mod(registerCase);
@@ -170,34 +165,59 @@ let _dynamicLoaded = false;
 
 async function loadDynamicCases() {
   try {
-    const stored = await BotConfig.get('dynamic_cases', {}).catch(() => ({}));
+    const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
     if (!stored || typeof stored !== 'object') return;
-    for (const [cmd, response] of Object.entries(stored)) {
-      if (!CASES.has(cmd)) {
-        registerCase(cmd, async ({ m }) => m.reply(response));
+    for (const [cmd, entry] of Object.entries(stored)) {
+      if (CASES.has(cmd)) continue; // não sobrepõe cases de ficheiros
+      const source = typeof entry === 'string' ? entry : entry.code || entry;
+      try {
+        const fn = compileCase(source);
+        registerCase(cmd, fn, source);
+      } catch (e) {
+        // Case com erro → regista como resposta de texto
+        const txt = String(source);
+        registerCase(cmd, async ({ m }) => m.reply(txt), txt);
       }
     }
   } catch {}
   _dynamicLoaded = true;
 }
 
-async function addDynamicCase(command, response) {
-  const stored = await BotConfig.get('dynamic_cases', {}).catch(() => ({}));
-  stored[command] = response;
-  await BotConfig.set('dynamic_cases', stored);
-  registerCase(command, async ({ m }) => m.reply(response));
+async function addDynamicCase(command, code) {
+  const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
+  stored[command] = { code, addedAt: new Date().toISOString() };
+  await BotConfig.set('dynamic_cases_v2', stored);
+  try {
+    const fn = compileCase(code);
+    registerCase(command, fn, code);
+  } catch (e) {
+    registerCase(command, async ({ m }) => m.reply(code), code);
+    throw new Error('Código guardado mas com erro de sintaxe: ' + e.message.slice(0, 100));
+  }
 }
 
 async function delDynamicCase(command) {
-  const stored = await BotConfig.get('dynamic_cases', {}).catch(() => ({}));
+  const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
   delete stored[command];
-  await BotConfig.set('dynamic_cases', stored);
+  await BotConfig.set('dynamic_cases_v2', stored);
   CASES.delete(command);
+  CASES_SOURCE.delete(command);
 }
 
 async function listDynamicCases() {
-  const stored = await BotConfig.get('dynamic_cases', {}).catch(() => ({}));
-  return Object.keys(stored);
+  const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
+  return Object.entries(stored).map(([cmd, entry]) => ({
+    cmd,
+    addedAt: entry?.addedAt || '?',
+    preview: (entry?.code || String(entry)).slice(0, 50),
+  }));
+}
+
+async function getDynamicCaseSource(command) {
+  const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
+  const entry  = stored[command];
+  if (!entry) return null;
+  return entry?.code || String(entry);
 }
 
 // ─────────────────────────────────────────────
@@ -211,38 +231,31 @@ async function runCase(command, rawCtx) {
   if (!handler) return false;
 
   const { sock, msg, ctx, args, text, prefix, isOwner, config } = rawCtx;
-
-  // Constrói wrapper m e quoted
   const { m, quoted } = buildM(sock, msg, ctx);
 
-  // Função isAdmin lazy
-  const isAdminFn = makeIsAdminFn(sock, ctx);
+  // isAdmin lazy
+  const isAdminFn = async () => {
+    if (ctx.isOwner) return true;
+    if (!ctx.isGroup) return false;
+    try {
+      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+      const snum = ctx.senderNumber;
+      return meta.participants?.some(p =>
+        p.id.split('@')[0].replace(/\D/g,'') === snum &&
+        (p.admin === 'admin' || p.admin === 'superadmin')
+      ) || false;
+    } catch { return false; }
+  };
 
-  // Contexto completo para o case
   const caseCtx = {
-    // Wrapper estilo clássico
-    m,
-    quoted,
-
-    // Raw Baileys
-    sock,
-    msg,
-    ctx,
-
-    // Dados do comando
-    args,
-    text,
-    prefix,
-    command: cmd,
-    isOwner,
-    isAdminFn,
-
-    // Config
-    config,
-
-    // Helpers rápidos
-    reply:  (t) => m.reply(t),
-    react:  (e) => m.react(e),
+    m, quoted, sock, msg, ctx, args,
+    text, prefix, command: cmd, isOwner, isAdminFn, config,
+    reply: (t) => m.reply(t),
+    react: (e) => m.react(e),
+    // Aliases clássicos
+    q:    text,
+    from: ctx.remoteJid,
+    info: msg,
   };
 
   try {
@@ -250,52 +263,180 @@ async function runCase(command, rawCtx) {
     return true;
   } catch (e) {
     console.error(`[Case:${cmd}]`, e.message?.slice(0, 100));
-    try { await m.reply(`❌ Erro: ${e.message?.slice(0, 100)}`); } catch {}
+    try { await m.reply(`❌ Erro no case *${cmd}*:\n${e.message?.slice(0, 200)}`); } catch {}
     return true;
   }
 }
 
 // ─────────────────────────────────────────────
-// CASES DE GESTÃO
+// EXTRAIR CÓDIGO DO CASE (remove cabeçalho/rodapé estilo switch)
+// ─────────────────────────────────────────────
+function extractCaseCode(rawText) {
+  let code = rawText.trim();
+
+  // Remove: case 'xxx': {   e   case "xxx": {
+  code = code.replace(/^case\s+['"`][^'"`]+['"`]\s*:\s*\{?\s*/i, '');
+
+  // Remove: break; e break  no fim
+  code = code.replace(/\bbreak\s*;?\s*$/i, '');
+
+  // Remove: }  isolado no fim (fechamento do case)
+  code = code.replace(/^\}\s*$/m, '');
+
+  // Remove delimitador --- (separador entre comando e código)
+  code = code.replace(/^---\s*/m, '');
+
+  return code.trim();
+}
+
+// ─────────────────────────────────────────────
+// CASES DE GESTÃO (addcase, removicase, downcase, listcases, runcase, reloadcases)
 // ─────────────────────────────────────────────
 function registerManagementCases() {
 
-  // !addcase <cmd> <resposta>
-  registerCase(['addcase', 'addcmd'], async ({ args, text, isOwner, m, prefix }) => {
+  // ── !addcase <cmd> [código] ──────────────────────────────────────
+  registerCase(['addcase', 'addcmd', 'newcase'], async ({ m, sock, ctx, msg, args, text, isOwner, prefix }) => {
     if (!isOwner) return m.reply('🚫 Só o Dono pode adicionar cases.');
-    const [cmd, ...rest] = args;
-    if (!cmd || !rest.length) return m.reply(
-      `❌ Uso: *${prefix}addcase* <comando> <resposta>\n` +
-      `Ex: *${prefix}addcase oi* Olá! 👋`
+
+    // Obtém o nome do case (primeiro argumento)
+    const cmdName = args[0]?.toLowerCase().trim();
+    if (!cmdName) return m.reply(
+      `❌ *Como adicionar um case:*\n\n` +
+      `*Opção 1* — Código na mesma mensagem:\n` +
+      `\`\`\`\n${prefix}addcase ping\n---\nm.reply('Pong!');\n\`\`\`\n\n` +
+      `*Opção 2* — Responde a uma mensagem com o código:\n` +
+      `Coloca o código numa mensagem, depois responde a ela com *${prefix}addcase nome*\n\n` +
+      `*Opção 3* — Cole o case completo (com case 'x': { ... break;}):\n` +
+      `O bot extrai o código automaticamente`
     );
-    const command  = cmd.toLowerCase().trim();
-    const response = rest.join(' ').trim();
-    await addDynamicCase(command, response);
-    return m.reply(`✅ Case *${prefix}${command}* adicionado!\nResposta: _${response}_`);
+
+    // Obtém o código: pode vir na mesma mensagem ou na mensagem citada
+    let code = args.slice(1).join(' ').trim();
+
+    // Se há um --- separador, o código vem depois
+    if (text.includes('\n---\n') || text.includes('\n---')) {
+      const parts = text.replace(/^[^\n]+\n/, '').split(/^---\s*$/m);
+      code = parts.slice(-1)[0]?.trim() || code;
+    }
+
+    // Se não há código na mensagem mas há citação, usa o texto citado
+    if (!code && m.quoted?.text) {
+      code = m.quoted.text.trim();
+    }
+
+    if (!code) return m.reply(
+      `❌ Falta o código!\n\n` +
+      `Envia: *${prefix}addcase ${cmdName}*\n` +
+      `e o código abaixo de --- ou responde a uma mensagem com o código`
+    );
+
+    // Extrai o código se vier em formato switch/case clássico
+    const cleanCode = extractCaseCode(code);
+
+    try {
+      await addDynamicCase(cmdName, cleanCode);
+      await m.reply(
+        `✅ *Case adicionado com sucesso!*\n\n` +
+        `📌 Comando: *${prefix}${cmdName}*\n` +
+        `📄 Código: ${cleanCode.split('\n').length} linhas\n\n` +
+        `Testa agora com *${prefix}${cmdName}*`
+      );
+    } catch (e) {
+      await m.reply(
+        `⚠️ *Case guardado mas com erro:*\n${e.message}\n\n` +
+        `Verifica a sintaxe e usa *${prefix}downcase ${cmdName}* para ver o código.`
+      );
+    }
   });
 
-  // !delcase <cmd>
-  registerCase(['delcase', 'delcmd', 'remcase'], async ({ args, isOwner, m, prefix }) => {
+  // ── !removicase / !delcase <cmd> ────────────────────────────────
+  registerCase(['removicase', 'delcase', 'delcmd', 'remcase', 'removecase'], async ({ m, args, isOwner, prefix }) => {
     if (!isOwner) return m.reply('🚫 Só o Dono pode remover cases.');
     const cmd = (args[0] || '').toLowerCase().trim();
-    if (!cmd) return m.reply(`❌ Uso: *${prefix}delcase* <comando>`);
+    if (!cmd) return m.reply(`❌ Uso: *${prefix}removicase* <comando>`);
+
+    const src = await getDynamicCaseSource(cmd);
+    if (!src) return m.reply(`❌ Case *${prefix}${cmd}* não encontrado nos cases dinâmicos.`);
+
     await delDynamicCase(cmd);
-    return m.reply(`✅ Case *${prefix}${cmd}* removido.`);
+    m.reply(`✅ Case *${prefix}${cmd}* removido com sucesso.`);
   });
 
-  // !listcases
-  registerCase(['listcases', 'listcmds', 'mycases'], async ({ isOwner, m, prefix }) => {
-    if (!isOwner) return m.reply('🚫 Só o Dono pode ver os cases.');
+  // ── !downcase <cmd> ─────────────────────────────────────────────
+  registerCase(['downcase', 'getcasecode', 'viewcase', 'showcase'], async ({ m, args, isOwner, prefix }) => {
+    if (!isOwner) return m.reply('🚫 Só o Dono.');
+    const cmd = (args[0] || '').toLowerCase().trim();
+    if (!cmd) return m.reply(`❌ Uso: *${prefix}downcase* <comando>`);
+
+    // Verifica primeiro nos casos dinâmicos
+    const src = await getDynamicCaseSource(cmd);
+    if (src) {
+      const fullCode = `case '${cmd}': {\n${src}\nbreak;\n}`;
+      await m.reply(
+        `📄 *Código do case: ${prefix}${cmd}*\n\n` +
+        `\`\`\`\n${fullCode}\n\`\`\``
+      );
+      return;
+    }
+
+    // Verifica nos cases em memória (pode ter source)
+    const memSrc = CASES_SOURCE.get(cmd);
+    if (memSrc) {
+      const fullCode = `case '${cmd}': {\n${memSrc}\nbreak;\n}`;
+      await m.reply(
+        `📄 *Código do case (memória): ${prefix}${cmd}*\n\n` +
+        `\`\`\`\n${fullCode}\n\`\`\``
+      );
+      return;
+    }
+
+    m.reply(`❌ Sem código fonte para *${prefix}${cmd}*.\nCases de ficheiros não têm source disponível aqui.`);
+  });
+
+  // ── !listcases ──────────────────────────────────────────────────
+  registerCase(['listcases', 'listcmds', 'mycases', 'listcase'], async ({ m, isOwner, prefix }) => {
+    if (!isOwner) return m.reply('🚫 Só o Dono pode ver os cases dinâmicos.');
     const list = await listDynamicCases();
-    if (!list.length) return m.reply(`📭 Sem cases dinâmicos.\nAdiciona com *${prefix}addcase <cmd> <resposta>*`);
-    const lines = list.map((c, i) => `  ⌬ *${prefix}${c}*`).join('\n');
-    return m.reply(
-      `╔━᳀『 🕸️ CASES DINÂMICOS 』═᳀\n` +
-      `\n${lines}\n\n` +
-      `╚═━═━═━═━═━═━═━═᳀\n` +
-      `> *${prefix}addcase* <cmd> <resposta>\n` +
-      `> *${prefix}delcase* <cmd>`
+    if (!list.length) return m.reply(
+      `📭 *Sem cases dinâmicos.*\n\nAdiciona com:\n*${prefix}addcase <nome>*\ne o código abaixo`
     );
+
+    const total = CASES.size;
+    const lines = list.map((c, i) =>
+      `  ⌬ *${prefix}${c.cmd}* — _${c.preview}..._`
+    ).join('\n');
+
+    m.reply(
+      `╔━᳀『 🕸️ CASES DINÂMICOS 』═᳀\n` +
+      `\n  Total geral: *${total}* | Dinâmicos: *${list.length}*\n\n` +
+      `${lines}\n\n` +
+      `╚═━═━═━═━═━═━═━═᳀\n` +
+      `> *${prefix}addcase* <cmd> + código\n` +
+      `> *${prefix}downcase* <cmd> — ver código\n` +
+      `> *${prefix}removicase* <cmd> — remover`
+    );
+  });
+
+  // ── !runcase <cmd> [args] ───────────────────────────────────────
+  registerCase(['runcase', 'execcase', 'testcase'], async ({ m, sock, msg, ctx, args, prefix, isOwner, config }) => {
+    if (!isOwner) return m.reply('🚫 Só o Dono pode executar cases directamente.');
+    const cmd = (args[0] || '').toLowerCase().trim();
+    if (!cmd) return m.reply(`❌ Uso: *${prefix}runcase* <comando> [args...]`);
+
+    const caseArgs = args.slice(1);
+    const caseText = caseArgs.join(' ');
+    const rawCtx = { sock, msg, ctx, args: caseArgs, text: caseText, prefix, isOwner, config };
+    const handled = await runCase(cmd, rawCtx);
+    if (!handled) m.reply(`❌ Case *${prefix}${cmd}* não encontrado.`);
+  });
+
+  // ── !reloadcases ─────────────────────────────────────────────────
+  registerCase(['reloadcases', 'recarregarcases', 'refreshcases'], async ({ m, isOwner }) => {
+    if (!isOwner) return m.reply('🚫 Só o Dono.');
+    const before = CASES.size;
+    loadCases();
+    await loadDynamicCases();
+    m.reply(`✅ Cases recarregados!\nAntes: ${before} | Agora: ${CASES.size}`);
   });
 }
 
@@ -316,7 +457,10 @@ module.exports = {
   addDynamicCase,
   delDynamicCase,
   listDynamicCases,
-  CASES,
-  init,
+  getDynamicCaseSource,
   buildM,
+  CASES,
+  CASES_SOURCE,
+  extractCaseCode,
+  init,
 };
