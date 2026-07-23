@@ -215,33 +215,29 @@ async function handle(sock, msg) {
   const ctx = getSenderInfo(msg);
   const prefixes = await prefixManager.getPrefixes();
 
-  // Comandos conhecidos que podem chegar sem prefixo (via botões ou menu)
-  const noPrefixMenuIds = new Set([
-    'menuprincipal','mainmenu','menumain','menucompleto','help','comandos','cmds',
-    'menudownloads','menudownload','downloads','menudl',
-    'menubrincadeiras','menuzoeira','menudiversao','menufun','menumemes',
-    'menucoins','menueconomia','menueco','menubank','menudarkbank',
-    'menualteradores','menuefeitos','menuaudio','audioeffects','menulogos','menulogo',
-    'menu+18','menu18','cmdsocultos','portal18',
-    'menuadm','menuadmin','menugrupo','admin','admins',
-    'menudono','menuowner','donomenu','maiscmds',
-    'menusticker','menustickers','menufigurinhas','menuia','menustatus','menuinfo',
-    'aceitarinvocacao','recusarinvocacao',
-    // Comandos frequentes que podem vir de botões sem prefixo
-    'menu','start','ping','info','dono','id','perfil','ia','gpt','noticias',
-    'sticker','sfull','toimg','play','video','tiktok','instagram','fb',
-    'saldo','daily','quiz','forca','adivinha',
-  ]);
-
-  // Normaliza o texto vindo de resposta de botão NativeFlow:
-  // O id do botão pode vir como "!menu", "menu" ou "!menu arg1"
+  // Botões de menu chegam com prefixo embutido (ex: "!menup") → processados normalmente
+  // Botões sem prefixo (ex: "menup") → adiciona o prefixo
   const firstTokenRaw = String(text || '').trim().split(/\s+/)[0];
   const firstTokenNoPrefix = firstTokenRaw.replace(/^[^a-z0-9]+/i, '').toLowerCase();
 
-  // Se não tem prefixo mas é um comando conhecido → adiciona prefixo
-  if (text && !startsWithAnyPrefix(text, prefixes) && noPrefixMenuIds.has(firstTokenNoPrefix)) {
+  // IDs conhecidos de botões que podem chegar sem prefixo
+  const noPrefixBtnIds = new Set([
+    'menu','menubtn','menup','down','menudownload','menuia','menustickers','menufigurinhas',
+    'menujogos','menueconomia','menucoins','menufamilia','menudiversao','brincadeiras',
+    'alteradores','menulogos','menuadm','menugrupo','menustatus','menudono','maiscmds',
+    'cmdsocultos','menu18','criador','alugar','statusalugar','vip','donos','ping','start',
+    'play','play2','play3','video','video2','sticker','sfull','ia','gpt','noticias',
+    'saldo','daily','quiz','forca','rank','rankcoins','perfil','info','dono','id',
+    'menuaudio','antilink','antispam','welcome','ban','kick','promote','link','todos',
+    'aimemoria','airesetar','aiapis','imagem','figura','figubug','figubug2','toimg',
+    'mediaup','medialist','mediadel','pinpacks','pinterest','pinmp4','tiktok','instagram',
+    'fb','twitter','spotify','soundcloud','youtube','help','cmds','comandos',
+  ]);
+
+  if (text && !startsWithAnyPrefix(text, prefixes) && noPrefixBtnIds.has(firstTokenNoPrefix)) {
     text = (prefixes[0] || config.bot.prefix || '!') + text;
   }
+
   const prefixInfo = await prefixManager.detectPrefix(text);
   const prefix = prefixInfo?.prefix || prefixes[0] || config.bot.prefix || '!';
   const commandConfig = { ...config, bot: { ...config.bot, prefix } };
@@ -657,82 +653,48 @@ async function handle(sock, msg) {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────
   // ════════════════════════════════════════════════════════════════════════
-  // MENSAGEM SEM PREFIXO
-  // ─ Só 2 excepções respondem SEM prefixo:
-  //   1. "aura" (e variantes) → já tratado acima pelo Auto-IA
-  //   2. Menção @bot → já tratado acima pelo Auto-IA
-  // ─ Comando digitado SEM prefixo → avisa com botão de copiar
-  // ─ Tudo o resto → ignora silenciosamente
+  // SEM PREFIXO — só 2 casos respondem:
+  //  1. "prefixo" (a palavra) → mostra prefixo com botão copiar
+  //  2. "aura" (exacto) → já foi tratado pelo Auto-IA acima
+  //  Tudo o resto → SILÊNCIO TOTAL
   // ════════════════════════════════════════════════════════════════════════
   if (!prefixInfo) {
-    const rawTrimmed = String(text || '').trim();
-    if (!rawTrimmed) return false;
+    const rawTrimmed = String(text || '').trim().toLowerCase();
 
-    // Detecta se é um comando conhecido digitado SEM prefixo
-    const firstWord = rawTrimmed.split(/\s+/)[0].toLowerCase();
-
-    // Conjunto de comandos conhecidos (nativo + pacotes + cases)
-    const nativeKeys  = Object.keys(require('./nativeCommands') || {});
-    const packageKeys = Object.keys(packageCommands || {});
-    const caseKeys    = [...caseHandler.CASES.keys()];
-    const allKnown    = new Set([...nativeKeys, ...packageKeys, ...caseKeys]);
-
-    // Alguns aliases comuns
-    const quickAliases = {
-      menu:true, help:true, play:true, play2:true, play3:true,
-      video:true, sticker:true, ia:true, gpt:true, ping:true,
-      start:true, info:true, dono:true, saldo:true, daily:true,
-      quiz:true, forca:true, ban:true, todos:true, antilink:true,
-    };
-
-    const isKnownCmd = allKnown.has(firstWord) || quickAliases[firstWord];
-    if (!isKnownCmd) return false; // desconhecido → silêncio total
-
-    // É um comando conhecido mas sem prefixo → responde com aviso + botão copiar
-    // Só responde em PV; em grupos silencia (evita poluir o chat)
-    if (ctx.isGroup && !isOwner) return false;
-
-    const correctCmd = `${prefix}${firstWord}`;
-    const pfxMsg = prefixes.length > 1
-      ? `Prefixos activos: *${prefixes.join('*  •  *')}*`
-      : `Prefixo em uso: *${prefix}*`;
-
-    const warnText =
-      `⚠️ *Prefixo em falta!*\n\n` +
-      `${pfxMsg}\n\n` +
-      `✅ Correcto: *${correctCmd}*\n` +
-      `❌ Digitaste: \`${firstWord}\`\n\n` +
-      `💡 Clica no botão para copiar o comando correcto.`;
-
-    // Tenta enviar com botão CTA de cópia (copy code)
-    try {
-      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
-      const ctaMsg = generateWAMessageFromContent(ctx.remoteJid, {
-        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-          body:   proto.Message.InteractiveMessage.Body.fromObject({ text: warnText }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
-          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-            buttons: [{
-              name: 'cta_copy',
-              buttonParamsJson: JSON.stringify({
-                display_text: `📋 Copiar: ${correctCmd}`,
-                copy_code: correctCmd,
-              }),
-            }],
+    // CASO 1: a pessoa escreveu "prefixo" → mostra o prefixo com botão de copiar
+    if (rawTrimmed === 'prefixo' || rawTrimmed === 'prefix') {
+      const correctCmd = prefix + 'menu';
+      const msgTxt =
+        `🔑 *Prefixo em uso: ${prefix}*\n\n` +
+        `Todos os comandos começam com *${prefix}*\n` +
+        `Ex: *${prefix}menu* · *${prefix}play* · *${prefix}ia*`;
+      try {
+        const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+        const m = generateWAMessageFromContent(ctx.remoteJid, {
+          interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+            body:   proto.Message.InteractiveMessage.Body.fromObject({ text: msgTxt }),
+            footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
+            header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+              buttons: [{
+                name: 'cta_copy',
+                buttonParamsJson: JSON.stringify({ display_text: '📋 Copiar prefixo: ' + prefix, copy_code: prefix }),
+              }],
+            }),
           }),
-        }),
-      }, { userJid: sock.user?.id, quoted: msg });
-      await sock.relayMessage(ctx.remoteJid, ctaMsg.message, { messageId: ctaMsg.key.id });
-    } catch {
-      // Fallback: texto simples
-      await sock.sendMessage(ctx.remoteJid, { text: warnText }, { quoted: msg });
+        }, { userJid: sock.user?.id, quoted: msg });
+        await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+      } catch {
+        await sock.sendMessage(ctx.remoteJid, { text: msgTxt }, { quoted: msg });
+      }
+      return true;
     }
 
-    return true;
+    // CASO 2: "aura" já foi tratado → aqui silencia tudo o resto
+    return false;
   }
+
 
   const args = prefixInfo.rest.split(/\s+/);
   const commandName = args.shift().toLowerCase();

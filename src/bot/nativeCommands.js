@@ -418,33 +418,33 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
 async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Selecionar', target = 'menu', items = [] }) {
   const p = config.bot.prefix;
 
-  // Lê se prefixo deve aparecer nos títulos da lista
-  const showPrefix = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
-  const usePrefix  = showPrefix === true || showPrefix === 'true' || showPrefix === 'on';
+  // Prefixo nos títulos: conforme config !menustyle prefix on/off
+  const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
+  const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
 
   const visible = filterButtons(
-    items.map(it => ({ id: `${p}${it.cmd}${it.args ? ' ' + it.args : ''}`, text: `${it.emoji || '⚡'} ${it.cmd}` })),
+    items.map(it => ({ id: `${p}${it.cmd}`, text: it.cmd })),
     ctx
   );
-  const allowed = items.filter(it => visible.some(v => v.id.startsWith(`${p}${it.cmd}`)));
+  const allowed = items.filter(it => visible.some(v => v.id === `${p}${it.cmd}`));
 
   if (!allowed.length) {
-    return reply(sock, msg, ctx, `⚠️ Sem comandos disponíveis em *${title}*.`);
+    return reply(sock, msg, ctx, `⚠️ Sem comandos disponíveis neste menu.`);
   }
 
-  // Rows: título com ou sem prefixo conforme configuração
+  // Montar rows da lista
   const rows = allowed.slice(0, 20).map(it => ({
-    title:       `${it.emoji || '⚡'} ${usePrefix ? p : ''}${it.cmd}`.slice(0, 24),
-    description: String(it.desc || it.cmd).slice(0, 72),
-    id:          `${p}${it.cmd}${it.args ? ' ' + it.args : ''}`,
+    title:       `${it.emoji || '⚡'} ${useP ? p : ''}${it.cmd}`.slice(0, 24),
+    description: String(it.desc || '').slice(0, 72),
+    id:          `${p}${it.cmd}`,
   }));
 
-  // ── TENTATIVA 1: lista interactiva (single_select) ──────────
+  // Método 1: lista interactiva
   try {
     await buttonHandler.sendList(
       sock, ctx.remoteJid,
       title,
-      subtitle || `Selecione um comando:`,
+      subtitle || 'Seleciona um comando:',
       buttonText,
       [{ title, rows }],
       msg
@@ -452,32 +452,16 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
     return;
   } catch {}
 
-  // ── TENTATIVA 2: ButtonV2 com os primeiros 8 ─────────────────
+  // Método 2: ButtonV2
   try {
     const btns = rows.slice(0, 8).map(r => ({ text: r.title, id: r.id }));
-    await buttonHandler.sendButtonV2(
-      sock, ctx.remoteJid,
-      title,
-      subtitle || 'Escolhe um comando:',
-      config.bot.name + ' 🕸️',
-      btns,
-      null,
-      msg
-    );
+    await buttonHandler.sendButtonV2(sock, ctx.remoteJid, title, subtitle || 'Escolhe:', config.bot.name + ' 🕸️', btns, null, msg);
     return;
   } catch {}
 
-  // ── FALLBACK FINAL: texto formatado por linha ─────────────────
-  // (só chega aqui se ButtonV2 também falhar — dispositivo muito antigo)
-  const lines = rows.map((r, i) =>
-    `┃ *${r.title}*\n┃   ↳ _${r.description}_`
-  ).join('\n');
-  await reply(sock, msg, ctx,
-    `╭━━━〔 ${title} 〕━━━╮\n` +
-    lines +
-    `\n╰━━━━━━━━━━━━━━━━━━━━╯\n\n` +
-    `💡 *${usePrefix ? '' : 'Use ' + p}* para executar os comandos`
-  );
+  // Fallback: texto simples e limpo
+  const txt = rows.map(r => `${r.title} — _${r.description}_`).join('\n');
+  await reply(sock, msg, ctx, `*${title}*\n\n${txt}`);
 }
 
 
