@@ -935,7 +935,14 @@ async function handle(sock, msg) {
     const cmd = await Command.findOne({ $or: [{ name: commandName }, { aliases: commandName }], enabled: true });
     if (!cmd) {
       // Comando desconhecido com prefixo → sugerir o mais próximo
+      // Só sugere se parece mesmo um comando (não palavra aleatória com prefixo)
+      // Ex: "!oi" não sugere; "!plai" sugere "play"
       if (commandName.length >= 2) {
+        // Palavras muito curtas ou comuns que não são comandos → silêncio
+        const commonWords = new Set(['oi','ok','sim','nao','não','ola','olá','boa','bom','ae','ai','ei','ué','ne','né','rs','kkk','lol','haha','ta','tá','bd','bjs','vlw','obg']);
+        if (commandName.length < 3 || commonWords.has(commandName)) {
+          return false;
+        }
         // Calcular distância Levenshtein simples para sugestão
         const allCmds = [
           ...Object.keys(nativeCommands || {}),
@@ -985,7 +992,7 @@ async function handle(sock, msg) {
           }
         }
         // Sem sugestão → silêncio total (não polui grupos)
-      }
+      } // fim if commandName.length >= 2
       return false;
     }
     if (cmd.accessLevel === 'owner' && !isOwner) {

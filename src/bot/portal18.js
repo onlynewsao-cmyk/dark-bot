@@ -141,21 +141,23 @@ async function konachanImages(tags = 'nude', count = 3) {
 }
 
 // ─────────────────────────────────────────────
-// FONTE 3 — e621.net (furry/anthro adulto)
+// FONTE 3 — e621.net (funciona sem key, ampla variedade)
 // ─────────────────────────────────────────────
 async function e621Images(tags = 'rating:e', count = 3) {
-  const safeTags = (tags || 'rating:e')
-    .replace(/loli|cub|child|minor/gi, '')
-    .trim() + ' -loli -cub -scat';
-  const url = `https://e621.net/posts.json?tags=${encodeURIComponent(safeTags.trim())}+order:random&limit=${count + 2}`;
-  const data = await fetchJ(url);
-  const posts = data?.posts || [];
+  const safeTags = (String(tags || 'rating:e'))
+    .replace(/loli|cub|child|minor|shota|gore|scat/gi, '')
+    .trim() + ' -loli -cub -scat -gore order:random';
+  const url = `https://e621.net/posts.json?tags=${encodeURIComponent(safeTags.trim())}&limit=${count + 3}`;
+  const data = await fetchJ(url, 12000);
+  const posts = (data?.posts || []).filter(p => p.file?.url && ['jpg','png','gif','webm'].includes(p.file?.ext));
   if (!posts.length) throw new Error('Sem resultados no e621.net');
   return posts.slice(0, count).map(p => ({
-    url: p.file?.url || '',
-    tags: (p.tags?.general || []).slice(0, 6).join(', '),
+    url: p.file.url,
+    previewUrl: p.preview?.url || p.file.url,
+    tags: [...(p.tags?.character||[]), ...(p.tags?.general||[])].slice(0, 5).join(', '),
     score: p.score?.total || 0,
     source: 'e621.net',
+    isVideo: p.file.ext === 'webm',
   })).filter(p => p.url);
 }
 
