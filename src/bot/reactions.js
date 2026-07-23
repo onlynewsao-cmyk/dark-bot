@@ -54,7 +54,24 @@ async function react(sock, msg, emoji) {
   } catch (e) { /* ignora */ }
 }
 
+// Comandos que NUNCA devem ter reação de ⏳ (são rápidos e de texto)
+const NO_REACT_CMDS = new Set([
+  'menu','menubtn','menup','menudono','maiscmds','cmdsocultos',
+  'menudownload','menuia','menustickers','menufigurinhas','menujogos',
+  'menueconomia','menucoins','menufamilia','menudiversao','menustatus',
+  'menuaudio','menugrupo','menuadm','menulogos','alteradores','brincadeiras',
+  'down','criador','donos','ping','info','id','perfil','genero','alterargenero',
+  'jid','dono','start','vip','assinar','alugar','statusalugar','aiapis',
+  'aimemoria','airesetar','aiton','prefixos','setprefix',
+  'dado','moeda','piada','frase','horoscopo','listcases','addcase','delcase',
+  'saldo','daily','inventario','loja','familia','esposa','regras',
+  'link','grupo','admins','antilink','antispam','welcome',
+  'rank','rankcoins',
+]);
+
 async function reactStart(sock, msg, commandName) {
+  // Não reage em comandos de texto/menu (são imediatos)
+  if (NO_REACT_CMDS.has((commandName || '').toLowerCase())) return;
   await react(sock, msg, getProcessingEmoji(commandName));
 }
 

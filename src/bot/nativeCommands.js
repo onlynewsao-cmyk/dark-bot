@@ -656,7 +656,7 @@ module.exports = {
 
     // ── Secções do menu (todos os submenus) ───────────
     const baseRows = [
-      { title: '🕸️ Menu Principal',   description: 'info, ping, perfil, criador', id: p + 'menu' },
+
       { title: '📥 Downloads',         description: 'YouTube, música, vídeo, redes', id: p + 'down' },
       { title: '🧠 IA & Web',          description: 'chat, notícias, imagens, pesquisa', id: p + 'menuia' },
       { title: '🎨 Stickers',          description: 'figurinhas, packs, arte', id: p + 'menufigurinhas' },
@@ -2048,6 +2048,7 @@ module.exports = {
         userName:  ctx.pushName,
         groupName: ctx.groupName || 'PV',
         isVideo:   false,
+        full:      true,   // sfull — preenche formato completo sem cortar
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
       await react(sock, msg, '✅');

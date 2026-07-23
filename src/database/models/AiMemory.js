@@ -13,8 +13,12 @@ const MessageSchema = new mongoose.Schema({
 }, { _id: false });
 
 const AiMemorySchema = new mongoose.Schema({
-  // Identificador do utilizador (número WhatsApp)
-  userNumber: { type: String, required: true, index: true },
+  // Identificador único: para grupos = groupJid, para PV = número do utilizador
+  // Formato: "GROUP:120363XXX@g.us" ou "PV:244XXXXXXXXX"
+  contextId: { type: String, required: true, index: true },
+
+  // Número do utilizador (para PV e para memória individual em grupo)
+  userNumber: { type: String, default: '', index: true },
 
   // Histórico de mensagens (últimas 40 por defeito)
   history: { type: [MessageSchema], default: [] },
@@ -56,10 +60,17 @@ AiMemorySchema.methods.resetHistory = function () {
   this.resetAt = new Date();
 };
 
-// Helper estático para encontrar ou criar
-AiMemorySchema.statics.getOrCreate = async function (userNumber) {
-  let mem = await this.findOne({ userNumber });
-  if (!mem) mem = await this.create({ userNumber });
+// getOrCreate por contextId (grupo ou PV)
+// Para grupos: contextId = "GROUP:" + groupJid
+// Para PV:     contextId = "PV:" + userNumber
+AiMemorySchema.statics.getOrCreate = async function (userNumber, groupJid = null) {
+  const contextId = groupJid ? `GROUP:${groupJid}` : `PV:${userNumber}`;
+  let mem = await this.findOne({ contextId });
+  if (!mem) mem = await this.create({ contextId, userNumber });
+  else if (!mem.userNumber && userNumber) {
+    mem.userNumber = userNumber;
+    await mem.save().catch(() => {});
+  }
   return mem;
 };
 

@@ -529,11 +529,11 @@ async function handle(sock, msg) {
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════
   // ════════════════════════════════════════════════════════════════════════
-  // AUTO-IA — menções, respostas e "aura"
-  // VIP/Dono: timeout reduzido (prioridade)
-  // Lê contexto da conversa para respostas naturais
+  // AUTO-IA — Aura: IA humana, memória individual por grupo/PV
+  // Responde a: menções @bot | respostas directas | "aura" exacto
+  // Memória separada: cada grupo tem o seu contexto, cada PV o seu
+  // Personalidade: humana, sem emojis de bot, natural, inteligente
   // ════════════════════════════════════════════════════════════════════════
   const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
   const botLid = sock.user?.lid || '';
@@ -574,57 +574,90 @@ async function handle(sock, msg) {
   if (aiActive && (isBotMentioned || replyHasText || isAuraTrigger)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
-      // Não processa se o texto é apenas um emoji ou 1-2 caracteres sem sentido
-      if (!isAuraTrigger && cleanText.length < 3) return false;
-      const prompt = cleanText.length > 1 ? cleanText : (isAuraTrigger ? 'Reage ao grupo com a aura do Dark Side. Faz algo épico.' : 'Olá!');
+      if (!isAuraTrigger && cleanText.length < 2) return false;
 
-      // Não reage com emoji — responde directamente (mais natural)
-      // SÓ reage com 🤔 para perguntas longas (>20 chars) que demoram
-      if (cleanText.length > 20) {
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '🤔', key: msg.key } });
-      }
+      // Prompt natural — sem instruções de bot
+      const prompt = cleanText.length > 1 ? cleanText
+        : (isAuraTrigger ? 'Olá pessoal! Sinto a vossa energia.' : 'Olá!');
 
-      // VIP / Dono → prioridade máxima
+      // Sem emojis de processamento — responde directamente como humano
+      // (a reacção 🤔 denuncia o bot — removida)
+
+      // Prioridade: VIP e Dono primeiro
       const userForPriority = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName).catch(() => null);
       const isPriority = isOwner || !!(userForPriority?.isPremium && userForPriority.isPremium());
 
+      // ── Memória INDIVIDUAL por contexto (grupo separado de PV) ──────────
+      // Cada grupo tem o seu próprio histórico de conversa
+      // Cada PV tem o seu próprio histórico
+      const contextId = ctx.isGroup ? ctx.remoteJid : ctx.senderNumber;
+
       let memOpts = { history: [], userTone: '', userProfile: null, groupContext: '' };
       try {
-        const mem = await AiMemory.getOrCreate(ctx.senderNumber);
+        // Memória do contexto (grupo ou PV)
+        const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
         const u   = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
 
-        // Contexto da conversa: mensagem citada + info do grupo
+        // Contexto rico: mensagem citada + mensagens recentes do cache + info do local
         let groupContext = '';
+        const { messageCache } = require('./messageListener');
+
         if (ctx.isGroup) {
+          // Lê as últimas mensagens do grupo para contexto
+          const recentGroupMsgs = [];
+          for (const [, cachedMsg] of messageCache) {
+            if (cachedMsg.key?.remoteJid === ctx.remoteJid && !cachedMsg.key?.fromMe) {
+              const txt = cachedMsg.message?.conversation || cachedMsg.message?.extendedTextMessage?.text || '';
+              const sender = cachedMsg.key?.participant || cachedMsg.pushName || '';
+              if (txt && txt.length > 1) {
+                recentGroupMsgs.push({ sender: sender.split('@')[0].split(':')[0], txt: txt.slice(0, 100) });
+              }
+            }
+          }
+          const last5 = recentGroupMsgs.slice(-5);
+          if (last5.length) {
+            groupContext = `Contexto recente do grupo "${ctx.groupName || 'grupo'}":\n` +
+              last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n\n';
+          }
+
+          // Mensagem citada (se há)
           const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
           const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
-          if (qtxt) groupContext = `Mensagem citada: "${qtxt.slice(0, 200)}"\n`;
-          groupContext += `Grupo: ${ctx.groupName || 'grupo'}`;
+          if (qtxt) groupContext += `Estão a responder a: "${qtxt.slice(0, 150)}"\n`;
+          groupContext += `Local: grupo "${ctx.groupName || 'desconhecido'}"`;
+        } else {
+          groupContext = `Conversa privada com ${ctx.pushName || 'utilizador'}`;
+          // Mensagem citada em PV
+          const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+          const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
+          if (qtxt) groupContext += `\nA responder a: "${qtxt.slice(0, 150)}"`;
         }
 
         memOpts = {
-          history:      mem.getContextWindow(14),
+          history:      mem.getContextWindow(16),
           userTone:     u?.aiTone || '',
           userProfile:  { name: ctx.pushName, gender: u?.gender || '', ...mem.profile },
           groupContext,
         };
-        mem.addMessage('user', prompt);
+        mem.addMessage('user', `[${ctx.pushName}]: ${prompt}`);
         await mem.save().catch(() => {});
       } catch {}
 
       const answer = await ai.chat(prompt, '', memOpts, isPriority);
 
+      // Salva resposta na memória do contexto
       try {
-        const mem = await AiMemory.getOrCreate(ctx.senderNumber);
+        const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
         mem.addMessage('assistant', answer);
         await mem.save().catch(() => {});
       } catch {}
 
+      // Responde de forma natural — sem emoji depois (comportamento humano)
       await sock.sendMessage(ctx.remoteJid, { text: answer }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
       return true;
+
     } catch (e) {
-      console.warn('[Auto-IA]', e.message?.slice(0, 60));
+      console.warn('[Aura]', e.message?.slice(0, 60));
     }
   }
   // Sticker em mídia
@@ -901,14 +934,57 @@ async function handle(sock, msg) {
   try {
     const cmd = await Command.findOne({ $or: [{ name: commandName }, { aliases: commandName }], enabled: true });
     if (!cmd) {
-      // Comando desconhecido — silencioso em grupos; em PV avisa discretamente
-      if (!ctx.isGroup && commandName.length >= 2) {
-        await sock.sendMessage(ctx.remoteJid, {
-          text:
-            `⚠️ *Comando desconhecido:* *${prefix}${commandName}*\n\n` +
-            `Use *${prefix}menu* para ver todos os comandos.\n` +
-            `Ou *${prefix}menubtn* para o menu interactivo.`,
-        }, { quoted: msg });
+      // Comando desconhecido com prefixo → sugerir o mais próximo
+      if (commandName.length >= 2) {
+        // Calcular distância Levenshtein simples para sugestão
+        const allCmds = [
+          ...Object.keys(nativeCommands || {}),
+          ...Object.keys(packageCommands || {}),
+          ...[...caseHandler.CASES.keys()],
+        ].filter(k => Math.abs(k.length - commandName.length) <= 3);
+
+        function levenshtein(a, b) {
+          const dp = Array.from({ length: a.length + 1 }, (_, i) =>
+            Array.from({ length: b.length + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+          );
+          for (let i = 1; i <= a.length; i++)
+            for (let j = 1; j <= b.length; j++)
+              dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+                : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+          return dp[a.length][b.length];
+        }
+
+        const closest = allCmds
+          .map(k => ({ k, d: levenshtein(commandName, k) }))
+          .sort((a, b) => a.d - b.d)
+          .filter(x => x.d <= 3)
+          .slice(0, 3);
+
+        if (closest.length > 0) {
+          const suggestion = closest[0].k;
+          const correctCmd = prefix + suggestion;
+          const warnText = `⚠️ *${prefix}${commandName}* não existe.\n\n💡 Quiseste dizer *${correctCmd}*?`;
+          try {
+            const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+            const btnMsg = generateWAMessageFromContent(ctx.remoteJid, {
+              interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+                body:   proto.Message.InteractiveMessage.Body.fromObject({ text: warnText }),
+                footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
+                header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+                nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                  buttons: [
+                    { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copiar: ' + correctCmd, copy_code: correctCmd }) },
+                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📜 Ver menu', id: prefix + 'menu' }) },
+                  ],
+                }),
+              }),
+            }, { userJid: sock.user?.id, quoted: msg });
+            await sock.relayMessage(ctx.remoteJid, btnMsg.message, { messageId: btnMsg.key.id });
+          } catch {
+            await sock.sendMessage(ctx.remoteJid, { text: warnText + `\n\nUsa *${prefix}menu* para ver todos os comandos.` }, { quoted: msg });
+          }
+        }
+        // Sem sugestão → silêncio total (não polui grupos)
       }
       return false;
     }
