@@ -86,7 +86,7 @@ function renderInfo(theme, fields = [], opts = {}) {
   const linePfx = t.infoLine || t.linePrefix || `┃${icon} `;
 
   const lines = fields.map(([label, value]) => {
-    const fl = applyFont(label, f);
+    const fl = label; // sem font no card (WhatsApp não suporta bold math)
     return `${fl}: ${value}`;
   });
 

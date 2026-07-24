@@ -81,8 +81,24 @@ const FONTS = {
   },
 };
 
+
+// v6.2 — Fontes seguras para WhatsApp (bold/rpg/mono/double/cursive/fraktur
+// usam Unicode Mathematical que aparece como □ no WhatsApp)
+const SAFE_FONT_MAP = {
+  bold: 'smallcaps',
+  rpg: 'smallcaps',
+  mono: 'normal',
+  double: 'smallcaps',
+  cursive: 'smallcaps',
+  fraktur: 'smallcaps',
+};
+
+function safeFont(name) {
+  return SAFE_FONT_MAP[name] || name || 'normal';
+}
+
 function applyFont(text, fontName = 'normal') {
-  const fn = FONTS[fontName] || FONTS.normal;
+  const fn = FONTS[safeFont(fontName)] || FONTS.normal;
   return fn(text);
 }
 
