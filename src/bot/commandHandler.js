@@ -707,24 +707,13 @@ async function handle(sock, msg) {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // SEM PREFIXO — 3 casos respondem:
-  //  1. "menu" (exacto) → abre menu principal
-  //  2. "prefixo" (a palavra) → mostra prefixo com botão copiar
-  //  3. "aura" (exacto) → já foi tratado pelo Auto-IA acima
-  //  Tudo o resto → SILÊNCIO TOTAL
+  // SEM PREFIXO — 2 casos respondem:
+  //  1. "prefixo" (a palavra) → mostra prefixo com botão copiar
+  //  2. "aura" (exacto) → já foi tratado pelo Auto-IA acima
+  //  Tudo o resto (incluindo "menu") → SILÊNCIO TOTAL
   // ════════════════════════════════════════════════════════════════════════
   if (!prefixInfo) {
     const rawTrimmed = String(text || '').trim().toLowerCase();
-
-    // CASO 0: "menu" escrito sem prefixo → abre o menu principal
-    if (rawTrimmed === 'menu' || rawTrimmed === 'menú') {
-      try {
-        await nativeCommands.menu({ sock, msg, ctx, config: commandConfig, isOwner });
-      } catch {
-        await sock.sendMessage(ctx.remoteJid, { text: `Use *${prefix}menu* para ver os comandos.` }, { quoted: msg });
-      }
-      return true;
-    }
 
     // CASO 1: a pessoa escreveu "prefixo" → mostra o prefixo com botão de copiar
     if (rawTrimmed === 'prefixo' || rawTrimmed === 'prefix') {
