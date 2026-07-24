@@ -26,11 +26,13 @@ module.exports = function registerGroupCases(registerCase) {
   async function botIsAdm(sock, ctx) {
     try {
       const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
-      return meta.participants?.some(p =>
-        p.id.split(':')[0].split('@')[0] === botNum &&
-        (p.admin === 'admin' || p.admin === 'superadmin')
-      );
+      // Extrai número do bot de forma robusta (id pode ser "1234567890:0@s.whatsapp.net")
+      const botRaw = String(sock.user?.id || sock.user?.jid || '');
+      const botNum = botRaw.replace(/:.*/, '').replace('@s.whatsapp.net','').replace('@lid','').trim();
+      return meta.participants?.some(p => {
+        const pNum = String(p.id || '').replace(/:.*/, '').replace('@s.whatsapp.net','').replace('@lid','').trim();
+        return pNum === botNum && (p.admin === 'admin' || p.admin === 'superadmin');
+      }) || false;
     } catch { return false; }
   }
 

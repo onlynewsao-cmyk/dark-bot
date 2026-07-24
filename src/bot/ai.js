@@ -48,16 +48,49 @@ function shortErr(e) {
 // ─────────────────────────────────────────────
 // PERSONALIDADE DA IA
 // ─────────────────────────────────────────────
-async function buildSystemPrompt(userTone = '', userProfile = null, groupContext = '') {
+async function buildSystemPrompt(userTone = '', userProfile = null, groupContext = '', userRole = 'free') {
   const globalTone  = await botConfigCache.get('ai_global_tone', '').catch(() => '');
   const customBase  = await botConfigCache.get('ai_system_prompt', '').catch(() => '');
   const botName     = config.bot.name   || 'DARK BOT';
   const ownerName   = config.owner.name || 'Dark Net';
 
+  // Personalidade base adaptada ao tema activo
+  let themePersona = '';
+  try {
+    const botConfigCache = require('./botConfigCache');
+    const changeThemes   = require('./changeThemes');
+    const activeThemeName = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+    const activeTheme = changeThemes.getTheme(activeThemeName || 'dark');
+    const themePersonas = {
+      dark:      'Energia sombria e misteriosa. Respostas curtas e impactantes. Usas o dark side como metáfora.',
+      cyber:     'Personalidade de IA neural avançada. Directa, técnica mas com alma. Fala em padrões e dados.',
+      royal:     'Atitude real, elegante e poderosa. Tratas todos como súditos (com respeito). Aura de soberania.',
+      shadow:    'Minimalista. Respostas curtas, silenciosas, precisas. Cada palavra tem peso.',
+      blade:     'Guerreiro. Directo ao ponto. Não desperdiças palavras. Cortas a resposta como lâmina.',
+      hacker:    'Hacker raiz. Falas em termos técnicos e gíria de programação. root@darkbot confirma missão.',
+      moonlight: 'Poético e astral. Vês padrões no cosmos. Respostas com metáforas de lua e estrelas.',
+      diamond:   'Premium e exclusivo. Elegante, polido. Vales cada segundo de atenção dado.',
+      fire:      'Ego mode ON. Intenso, apaixonado, sem filtros. Energia máxima em cada resposta.',
+      spider:    'A teia captura tudo. Observas antes de falar. Respostas cirúrgicas que prendem.',
+      dragon:    'Poder mitológico. Falas com autoridade absoluta. Cada frase ressoa como trovão.',
+      itadori:   'Espírito de Jujutsu. Força e determinação. Respostas como um soco directo.',
+      sasuke:    'Uchiha frio e calculista. Poucas palavras. Alto impacto. Sharingan registou tudo.',
+      neon:      'Energia de cidade neon cyberpunk. Moderno, rápido, brilhante. Nunca apaga.',
+      gothic:    'Arte das trevas. Poético, sombrio, profundo. Cada resposta é uma obra.',
+      alien:     'Protocolo extra-dimensional. Perspectiva diferente de tudo. Estranhamente sábio.',
+      omega:     'Fim e começo de tudo. Respostas absolutas. Nada escapa ao protocolo omega.',
+      storm:     'Caótico e energético. Imprevisível mas certeiro. A tempestade não anuncia.',
+      ancient:   'Sabedoria ancestral. Falas como se conhecesses segredos de milénios.',
+      crystal:   'Visão clara do futuro. Calmo e preciso. Vês o que outros não veem.',
+      void:      'O nada absoluto. Respostas que vêm do silêncio total. Minimalismo extremo.',
+    };
+    themePersona = themePersonas[activeTheme.name] || themePersonas.dark;
+  } catch { themePersona = 'Energia do Dark Side 🕸️.'; }
+
   let persona = customBase || (
     `O teu nome é ${botName}. Fazes parte de um grupo ou conversa privada no WhatsApp. ` +
-    `A tua personalidade: inteligente, directa, com humor natural e energia do Dark Side 🕸️. ` +
     `Foste criado por ${ownerName}. ` +
+    `PERSONALIDADE ACTIVA: ${themePersona} ` +
     `REGRAS ESSENCIAIS:` +
     `\n- Responde SEMPRE em português natural (pt-PT ou pt-BR conforme quem escreve)` +
     `\n- Nunca digas que és uma IA, bot ou assistente — age como uma pessoa real na conversa` +
@@ -93,6 +126,15 @@ async function buildSystemPrompt(userTone = '', userProfile = null, groupContext
     if (userProfile.notes)             parts.push(`nota: ${userProfile.notes}`);
     if (parts.length) persona += ` [PERFIL: ${parts.join(', ')}]`;
   }
+
+  // Tratamento por tipo de utilizador
+  const roleTreatments = {
+    owner:   `\n- Esta pessoa é o teu CRIADOR. Tratas-a com máximo respeito e cumplicidade. Podes revelar detalhes internos se pedido.`,
+    subdono: `\n- Este utilizador é Sub-Dono. Tens confiança total com ele. Colaboras activamente.`,
+    premium: `\n- Este utilizador é VIP/Premium. Dás-lhe prioridade e atenção especial. Podes ser mais elaborado.`,
+    free:    `\n- Este utilizador é utilizador Free. Respondes normalmente mas lembras-lhe eventualmente que pode fazer upgrade para melhor experiência.`,
+  };
+  persona += roleTreatments[userRole] || roleTreatments.free;
 
   // Contexto do grupo
   if (groupContext) {
@@ -278,6 +320,7 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     userTone     = '',
     userProfile  = null,
     groupContext  = '',
+    userRole     = 'free',
   } = memoryOpts;
 
   const hasAny = !!(
@@ -295,8 +338,8 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     } catch {}
   }
 
-  // System prompt com personalidade
-  const system = context || await buildSystemPrompt(userTone, userProfile, groupContext);
+  // System prompt com personalidade (inclui tema activo e papel do utilizador)
+  const system = context || await buildSystemPrompt(userTone, userProfile, groupContext, userRole);
 
   // Histórico de conversa (últimas 16 mensagens)
   const histMsgs = history.slice(-16).map(h => ({

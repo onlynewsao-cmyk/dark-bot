@@ -690,11 +690,18 @@ async function handle(sock, msg) {
           if (qtxt) groupContext += `\nA responder a: "${qtxt.slice(0, 150)}"`;
         }
 
+        // Determina o papel do utilizador para personalidade da IA
+        let userRole = 'free';
+        if (ctx.isPrimaryOwner) userRole = 'owner';
+        else if (isOwner) userRole = 'subdono';
+        else if (u && checkIsPremium(u)) userRole = 'premium';
+
         memOpts = {
           history:      mem.getContextWindow(16),
           userTone:     u?.aiTone || '',
           userProfile:  { name: ctx.pushName, gender: u?.gender || '', ...mem.profile },
           groupContext,
+          userRole,
         };
         mem.addMessage('user', `[${ctx.pushName}]: ${prompt}`);
         await mem.save().catch(() => {});

@@ -425,14 +425,16 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
   return menuThemes.renderSubmenu({ submenu: target, ctx, config, style, showPrefix, customItems: items });
 }
 
-async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Selecionar', target = 'menu', items = [] }) {
-  const p = config.bot.prefix;
+async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = 'Abrir', target = 'menu', items = [], selectable = [] }) {
+  const p       = config.bot.prefix;
   const botName = config.bot.name || 'DARK BOT';
 
   // Tema activo — afecta TODOS os textos visíveis
-  const t = await getActiveTheme();
-  const f = t.frame;
-  const V = f[5] || '│';
+  const t  = await getActiveTheme();
+  const f  = t.frame;
+  const V  = f[5] || '│';
+  const H  = f[4] || '─';
+  const tl = f[0], tr = f[1], bl = f[2], br = f[3];
 
   const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
   const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
@@ -443,43 +445,83 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   );
   const allowed = items.filter(it => visible.some(v => v.id === `${p}${it.cmd}`));
 
-  if (!allowed.length) {
-    return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
-  }
+  if (!allowed.length) return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
 
-  // ── Cabeçalho com identidade do tema activo ────────────────────────
-  const header = t.headerDec.replace('{TITLE}', title);
-  const footer = t.sectionSep || `${f[2]}${f[4].repeat(24)}${f[3]}`;
+  // ── Cabeçalho do tema ──────────────────────────────────────────────
+  const header  = t.headerDec.replace('{TITLE}', title);
+  const sepLine = t.sectionSep || `${bl}${H.repeat(26)}${br}`;
 
+  // ── Texto rico no estilo do tema (com todos os cmds) ───────────────
   const lines = [
     `${t.icon} ─ ⋆⋅ ${t.accent} ⋅⋆ ─ ${t.icon}`,
     ``,
     header,
-    `${V}`,
     `${V}${t.bullet} 𝐁𝐨𝐭: *${botName}*`,
     `${V}${t.bullet} 𝐔𝐬𝐮á𝐫𝐢𝐨: ${ctx.pushName || 'Membro'}`,
     `${V}${t.bullet} 𝐏𝐫𝐞𝐟𝐢𝐱𝐨: 『${p}』`,
-    `${V}`,
-    footer,
+    sepLine,
     ``,
   ];
 
-  // Secção de comandos
-  lines.push(`${t.sectionSep || header.replace('{TITLE}', title)}`);
-  lines.push(`${V} ${t.bullet} ${title}`);
-  lines.push(`${footer}`);
-
+  // Agrupa os comandos 1 por linha com descrição
   for (const it of allowed) {
     const cmd = `${useP ? p : ''}${it.cmd}`;
-    lines.push(`${V}${t.bullet} ${t.accent} *${cmd}*`);
+    lines.push(`${V}${t.bullet} ${t.accent} *${cmd}*${it.desc ? ` — _${it.desc}_` : ''}`);
   }
 
   lines.push(``);
-  lines.push(footer);
+  lines.push(sepLine);
   if (subtitle) lines.push(`> _${subtitle}_`);
   lines.push(`> ${t.icon} ${botName} ${t.sep} ${t.vibe}`);
 
-  return reply(sock, msg, ctx, lines.join('\n'));
+  const textBody = lines.join('\n');
+
+  // ── Lista interativa (single_select) com cmds seleccionáveis ──────
+  // Só inclui na lista os que fazem sentido executar directamente (flag selectable)
+  const selectableCmds = selectable.length
+    ? allowed.filter(it => selectable.includes(it.cmd))
+    : allowed.filter(it => it.selectable !== false);
+
+  const rows = selectableCmds.slice(0, 24).map(it => ({
+    title:       `${it.emoji || t.bullet} ${useP ? p : ''}${it.cmd}`,
+    description: (it.desc || '').slice(0, 72),
+    id:          `${p}${it.cmd}`,
+  }));
+
+  // Tenta enviar com botão interativo (como na imagem: texto + botão "Abrir")
+  let sent = false;
+  if (rows.length) {
+    try {
+      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      const listParams = {
+        title:    `${t.icon} ${title}`,
+        sections: [{ title: `${t.icon} COMANDOS`, rows }],
+      };
+      const m = generateWAMessageFromContent(ctx.remoteJid, {
+        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textBody }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({
+            text: `${t.icon} ${botName}`,
+          }),
+          header: proto.Message.InteractiveMessage.Header.fromObject({
+            title: '', hasMediaAttachment: false,
+          }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{
+              name: 'single_select',
+              buttonParamsJson: JSON.stringify(listParams),
+            }],
+          }),
+        }),
+      }, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+      sent = true;
+    } catch { /* fallback abaixo */ }
+  }
+
+  if (!sent) {
+    await reply(sock, msg, ctx, textBody);
+  }
 }
 
 

@@ -511,6 +511,121 @@ const THEMES = {
     sectionSep: '░▪▒──────────────────▒▪░',
   },
 
+  // ════════════════════════════════════════════════════════
+  //  21. SAKURA  —  Identidade: Flor / Delicadeza / Força
+  // ════════════════════════════════════════════════════════
+  sakura: {
+    name:       'sakura',
+    label:      '🌸 SAKURA — Flor de Cerejeira',
+    emoji:      '🌸',
+    style:      0,
+    frame:      ['꒰', '꒱', '꒰', '꒱', '─', '┊'],
+    bullet:     '✿',
+    sep:        '·˚',
+    accent:     '🌸',
+    icon:       '🌸',
+    vibe:       '🌸 hanami protocol · flores em queda',
+    headerDec:  '✿·˚〔 {TITLE} 〕˚·✿',
+    react:      '🌸',
+    tip:        '🌸 A flor mais bela dura pouco — por isso impacta.',
+    menuTitle:  '🌸 SAKURA — Flor de Cerejeira',
+    menuFooter: '> 🌸 hanami protocol · flores em queda',
+    thumbText:  '🌸 {BOT}',
+    sectionSep: '꒰✿·˚──────────────˚·✿꒱',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  22. MATRIX  —  Identidade: Simulação / Código / Verde
+  // ════════════════════════════════════════════════════════
+  matrix: {
+    name:       'matrix',
+    label:      '🟩 MATRIX — Código de Simulação',
+    emoji:      '🟩',
+    style:      1,
+    frame:      ['⌈', '⌉', '⌊', '⌋', '─', '¦'],
+    bullet:     '0x',
+    sep:        '>>',
+    accent:     '01',
+    icon:       '🟩',
+    vibe:       '// MATRIX: SIMULATION ACTIVE //',
+    headerDec:  '⌈>> {TITLE} <<⌉',
+    react:      '🟩',
+    tip:        '// red pill ou blue pill? Já escolheste.',
+    menuTitle:  '🟩 MATRIX — Simulação Activa',
+    menuFooter: '> // MATRIX: SIMULATION ACTIVE //',
+    thumbText:  '0x {BOT}',
+    sectionSep: '⌊>>──────────────────<<⌋',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  23. RITUAL  —  Identidade: Magia / Ocultismo / Sigilo
+  // ════════════════════════════════════════════════════════
+  ritual: {
+    name:       'ritual',
+    label:      '🔯 RITUAL — Magia Oculta',
+    emoji:      '🔯',
+    style:      2,
+    frame:      ['⛧', '⛧', '⛧', '⛧', '═', '⁞'],
+    bullet:     '⁶⁶⁶',
+    sep:        '✶',
+    accent:     '🕯️',
+    icon:       '🔯',
+    vibe:       '🔯 in nomine — ritual iniciado ⛧',
+    headerDec:  '⛧✶〔 {TITLE} 〕✶⛧',
+    react:      '🔯',
+    tip:        '🕯️ O ritual não perdoa os que duvidam.',
+    menuTitle:  '🔯 RITUAL — Magia Oculta',
+    menuFooter: '> 🔯 in nomine — ritual iniciado ⛧',
+    thumbText:  '🔯 {BOT}',
+    sectionSep: '⛧✶════════════════════✶⛧',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  24. AURORA  —  Identidade: Aurora Boreal / Cores / Magia Natural
+  // ════════════════════════════════════════════════════════
+  aurora: {
+    name:       'aurora',
+    label:      '🌌 AURORA — Borealis Engine',
+    emoji:      '🌌',
+    style:      6,
+    frame:      ['꩜', '꩜', '꩜', '꩜', '─', '⋮'],
+    bullet:     '✦',
+    sep:        '〰',
+    accent:     '🌌',
+    icon:       '🌌',
+    vibe:       '🌌 aurora borealis — luzes do norte',
+    headerDec:  '✦〰〔 {TITLE} 〕〰✦',
+    react:      '🌌',
+    tip:        '🌌 Cada cor da aurora é uma frequência de poder.',
+    menuTitle:  '🌌 AURORA — Borealis Engine',
+    menuFooter: '> 🌌 aurora borealis — luzes do norte',
+    thumbText:  '🌌 {BOT}',
+    sectionSep: '꩜✦───────────────────✦꩜',
+  },
+
+  // ════════════════════════════════════════════════════════
+  //  25. EMPEROR  —  Identidade: Império / Domínio / Grandeza
+  // ════════════════════════════════════════════════════════
+  emperor: {
+    name:       'emperor',
+    label:      '🏴 EMPEROR — Domínio Imperial',
+    emoji:      '🏴',
+    style:      2,
+    frame:      ['▓', '▓', '▓', '▓', '═', '║'],
+    bullet:     '⚜',
+    sep:        '⚔',
+    accent:     '🏴',
+    icon:       '⚜',
+    vibe:       '⚜ IMPERIUM SINE FINE ⚔ domínio eterno',
+    headerDec:  '⚜⚔〔 {TITLE} 〕⚔⚜',
+    react:      '🏴',
+    tip:        '⚜ Impérios não se pedem — conquistam-se.',
+    menuTitle:  '⚜ EMPEROR — Domínio Imperial',
+    menuFooter: '> ⚜ IMPERIUM SINE FINE ⚔',
+    thumbText:  '⚜ {BOT}',
+    sectionSep: '▓⚜⚔════════════════⚔⚜▓',
+  },
+
 };
 
 // ── Exportações ────────────────────────────────────────────────────────────────
