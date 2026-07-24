@@ -712,124 +712,166 @@ module.exports = {
   // ──────────────────────────────────────────────────────────
   async menu({ sock, msg, ctx, config: cfg, isOwner }) {
     const localConfig = cfg || config;
-    const p = localConfig.bot.prefix;
+    const p           = localConfig.bot.prefix;
+    const botName     = localConfig.bot.name   || 'DARK BOT';
+    const ownerName   = localConfig.owner.name || 'Dark Net';
+    const channelUrl  = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
-    const u      = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
-    const isVip  = u && u.isPremium && u.isPremium();
-    const isAdm  = ctx.isOwner || (await isAdmin(sock, ctx));
+    // ── Dados do utilizador ───────────────────────────────────────────
+    const u       = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
+    const isVip   = u && u.isPremium && u.isPremium();
+    const isAdm   = ctx.isOwner || (await isAdmin(sock, ctx));
     const isCargo = ctx.isOwner ? '👑 Dono' : isVip ? '⭐ Premium' : isAdm ? '🛡️ Admin' : '🆓 Free';
+    const isChVip = isVip ? '✅' : '❌';
 
-    // Tema activo para o menu
-    const activeThemeForMenu = await getActiveTheme();
-    const tIcon = activeThemeForMenu.icon;
-    const tVibe = activeThemeForMenu.vibe;
-    const tBullet = activeThemeForMenu.bullet;
+    // ── Tema activo ───────────────────────────────────────────────────
+    const t = await getActiveTheme();
 
-    const textok = [
-      `${tIcon} *${localConfig.bot.name}*`,
-      `${tBullet} ${ctx.pushName}  •  🏷️ ${isCargo}`,
-      `🔑 Prefixo: *${p}*  •  👑 ${localConfig.owner.name}`,
-      `> ${tVibe}`,
-    ].join('\n');
+    // ── Texto do card (body) com identidade do tema ───────────────────
+    const textok =
+      `${t.bullet} 𝐔𝐒𝐔Á𝐑𝐈𝐎: ${ctx.pushName}\n` +
+      `${t.bullet} 𝐂𝐀𝐑𝐆𝐎: ${isCargo}\n` +
+      `${t.bullet} 𝐕𝐈𝐏: ${isChVip}\n` +
+      `${t.bullet} 𝐏𝐑𝐄𝐅𝐈𝐗𝐎: 『${p}』\n` +
+      `> ${t.vibe}`;
 
-    const channelUrl = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
-
-    // ── Secções do menu (todos os submenus) ───────────
-    // IDs com emoji no início para identificação visual rápida
-    const baseRows = [
-      { title: '📥 Downloads',         description: 'YouTube, música, vídeo, redes',    id: '📥' + p + 'menudownload' },
-      { title: '🧠 IA & Web',          description: 'chat, notícias, imagens, pesquisa', id: '🧠' + p + 'menuia' },
-      { title: '🎨 Stickers',          description: 'figurinhas, packs, arte',            id: '🎨' + p + 'menufigurinhas' },
-      { title: '😂 Brincadeiras',      description: 'diversão, medidores, zoeira',        id: '😂' + p + 'menudiversao' },
-      { title: '💰 Coins & Economia',  description: 'bank, loja, aura, ranking',          id: '💰' + p + 'menueconomia' },
-      { title: '🎮 Jogos',             description: 'quiz, forca, blackjack, bingo',      id: '🎮' + p + 'menujogos' },
-      { title: '💕 Interações',        description: 'abraçar, beijar, casar, família',    id: '💕' + p + 'menuinteracoes' },
-      { title: '👥 ADM & Grupos',      description: 'moderação, regras, anti-link',       id: '👥' + p + 'menuadm' },
-      { title: '🛠️ Utilitários',      description: 'clima, câmbio, QR, ferramentas',     id: '🛠️' + p + 'menustatus' },
-      { title: '⭐ VIP / Planos',      description: 'planos premium, benefícios',          id: '⭐' + p + 'vip' },
-      { title: '🎭 Temas',             description: 'mudar visual do bot',                id: '🎭' + p + 'temas' },
-    ];
-
-    const extraRows = [];
-    if (isAdm || isVip || ctx.isOwner) {
-      extraRows.push({ title: '🔧 + Cmds',       description: 'mais comandos avançados', id: '🔧' + p + 'maiscmds' });
-    }
-    if (ctx.isOwner) {
-      extraRows.push({ title: '👑 Painel Dono',   description: 'controlo total',          id: '👑' + p + 'menudono' });
-      extraRows.push({ title: '🕳️ Cmds Ocultos', description: 'portal privado',           id: '🕳️' + p + 'cmdsocultos' });
-    }
-
-    const listaParams = {
-      title: `${tIcon} ${localConfig.bot.name} — MENU`,
+    // ── Secções da lista (estrutura do código de referência) ──────────
+    const listaMenus = {
+      title: `${t.icon} ᴍᴇɴᴜ`,
       sections: [
         {
-          title: `${tIcon} MÓDULOS`,
-          highlight_label: localConfig.owner.name + ' · Dark Side',
-          rows: baseRows,
+          title: `${t.icon} ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs`,
+          highlight_label: ownerName,
+          rows: [
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴘʀɪɴᴄɪᴘᴀʟ`,   title: '_comandos principais e básicos do bot._',    id: p + 'menu'          },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs`,    title: '_YouTube, TikTok, Instagram, Spotify._',     id: p + 'menudownload'  },
+            { header: `${t.icon} ᴍᴇɴᴜ-ɪᴀ`,           title: '_IA com memória, GPT, imagens, pesquisa._',   id: p + 'menuia'        },
+            { header: `${t.icon} ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs`,   title: '_stickers, packs, arte e figurinhas._',      id: p + 'menufigurinhas'},
+            { header: `${t.icon} ᴍᴇɴᴜ-ʙʀɪɴᴄᴀᴅᴇɪʀᴀs`, title: '_diversão, medidores e zoeiras para grupo._', id: p + 'menudiversao'  },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴄᴏɪɴs`,        title: '_economia, aura, banco e ranking._',           id: p + 'menueconomia'  },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴊᴏɢᴏs`,        title: '_quiz, forca, blackjack e bingo._',            id: p + 'menujogos'     },
+            { header: `${t.icon} ɪɴᴛᴇʀᴀᴄ̧ᴏ̃ᴇs`,        title: '_abraçar, beijar, casar e família._',          id: p + 'menuinteracoes'},
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴀᴅᴍ`,          title: '_moderação, regras e anti-link._',             id: p + 'menuadm'       },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴜᴛɪʟs`,        title: '_clima, câmbio, QR e ferramentas._',           id: p + 'menustatus'    },
+            { header: `${t.icon} ᴍᴇɴᴜ+18`,            title: '_conteúdo adulto — só VIPs._',                 id: p + 'cmdsocultos'   },
+          ],
         },
-        ...(extraRows.length ? [{ title: '🔒 AVANÇADO', rows: extraRows }] : []),
+        {
+          title: `${t.icon} ғᴜɴᴄ̧ᴏ̃ᴇs ᴇxᴛʀᴀs`,
+          highlight_label: ownerName,
+          rows: [
+            { header: `${t.icon} ᴛᴇᴍᴀs`,      title: '_mudar visual completo do bot._',          id: p + 'temas'        },
+            { header: `${t.icon} ᴠɪᴘ`,         title: '_planos premium e benefícios exclusivos._', id: p + 'vip'          },
+            { header: `${t.icon} ᴘɪɴɢ`,        title: '_latência e status do bot._',               id: p + 'ping'         },
+            { header: `${t.icon} ᴘᴇʀғɪʟ`,     title: '_informações do utilizador._',               id: p + 'perfil'       },
+            { header: `${t.icon} ᴅᴏɴᴏ`,        title: '_informações e contacto do dono._',         id: p + 'dono'         },
+            { header: `${t.icon} ᴀʟᴜɢᴀʀ ʙᴏᴛ`, title: '_planos de hospedagem do bot._',            id: p + 'alugar'       },
+            ...(isAdm || isVip || ctx.isOwner
+              ? [{ header: `${t.icon} + ᴄᴍᴅs`, title: '_comandos avançados para admins e VIPs._',  id: p + 'maiscmds'     }]
+              : []),
+            ...(ctx.isOwner
+              ? [{ header: `${t.icon} ᴘᴀɪɴᴇʟ ᴅᴏɴᴏ`, title: '_controlo total do sistema._',        id: p + 'menudono'     }]
+              : []),
+          ],
+        },
       ],
     };
 
+    // ── Botões nativos: lista + canal ─────────────────────────────────
     const nativeBtns = [
-      { name: 'single_select', buttonParamsJson: JSON.stringify(listaParams) },
-      { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🕸️ Canal', url: channelUrl, merchant_url: channelUrl }) },
+      { name: 'single_select', buttonParamsJson: JSON.stringify(listaMenus) },
+      {
+        name: 'cta_url',
+        buttonParamsJson: JSON.stringify({
+          display_text: `${t.icon} ᴄᴀɴᴀʟ`,
+          url:           channelUrl,
+          merchant_url:  channelUrl,
+        }),
+      },
     ];
 
-    // ── Carousel com logo (código original do commit 94c1651) ──────────
+    // ── Carregar mídia do menu (vídeo GIF ou imagem) ──────────────────
     const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
-    const logoPath = require('path').join(__dirname, '..', 'public', 'img', 'logo.jpg');
-    const fs2 = require('fs');
+    const _path = require('path');
+    const fs2   = require('fs');
+
+    const caminhoVideo  = _path.join(__dirname, '..', 'public', 'img', 'fotomenu.mp4');
+    const caminhoImagem = _path.join(__dirname, '..', 'public', 'img', 'logo.jpg');
+
+    let mediaMenu = null;
+    try {
+      if (fs2.existsSync(caminhoVideo)) {
+        mediaMenu = await prepareWAMessageMedia(
+          { video: { url: caminhoVideo }, mimetype: 'video/mp4', gifPlayback: true, seconds: 8 },
+          { upload: sock.waUploadToServer }
+        );
+      } else if (fs2.existsSync(caminhoImagem)) {
+        mediaMenu = await prepareWAMessageMedia(
+          { image: { url: caminhoImagem } },
+          { upload: sock.waUploadToServer }
+        );
+      }
+    } catch {}
+
+    // ── Montar header do card ─────────────────────────────────────────
+    let cardHeader = { hasMediaAttachment: false };
+    if (mediaMenu?.videoMessage) {
+      cardHeader = { hasMediaAttachment: true, videoMessage: mediaMenu.videoMessage };
+    } else if (mediaMenu?.imageMessage) {
+      cardHeader = { hasMediaAttachment: true, imageMessage: mediaMenu.imageMessage };
+    }
+
+    // ── Carousel (estrutura exacta do código de referência) ───────────
+    const carouselMessage = {
+      cards: [{
+        header:             cardHeader,
+        body:               { text: textok },
+        footer:             { text: `${t.icon} ${botName}` },
+        nativeFlowMessage:  { buttons: nativeBtns },
+      }],
+    };
 
     let carouselOk = false;
     try {
-      let imageMessage = null;
-      if (fs2.existsSync(logoPath)) {
-        try {
-          const media = await prepareWAMessageMedia({ image: { url: logoPath } }, { upload: sock.waUploadToServer });
-          imageMessage = media?.imageMessage || null;
-        } catch {}
-      }
-
-      const card = {
-        header: imageMessage ? { hasMediaAttachment: true, imageMessage } : { hasMediaAttachment: false },
-        body:   { text: textok },
-        footer: { text: `${tIcon} ${localConfig.bot.name} · ${localConfig.owner.name}` },
-        nativeFlowMessage: { buttons: nativeBtns },
-      };
-
       const msgObj = generateWAMessageFromContent(ctx.remoteJid, {
         interactiveMessage: {
-          contextInfo: { participant: ctx.senderJid },
-          body:   { text: `${tIcon} *ᴍᴇɴᴜ*` },
-          footer: { text: localConfig.bot.name },
-          carouselMessage: { cards: [card] },
+          contextInfo: {
+            participant:    ctx.senderJid,
+            quotedMessage:  { conversation: `${t.icon} ᴍᴇɴᴜ ${t.icon}` },
+          },
+          body:             { text: `${t.icon} *ᴍᴇɴᴜ*` },
+          footer:           { text: botName },
+          carouselMessage,
         },
       }, { userJid: sock.user?.id, quoted: msg });
 
       await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
       carouselOk = true;
     } catch (e) {
-      console.warn('[menu Carousel]', e.message?.slice(0, 80));
+      console.warn('[menu Carousel]', e.message?.slice(0, 100));
     }
 
     if (carouselOk) { logCmd('menu', ctx); return; }
 
-    // Fallback: lista interactiva (buttonHandler)
+    // ── Fallback 1: lista interactiva simples ─────────────────────────
     try {
-      await buttonHandler.sendList(sock, ctx.remoteJid, `${tIcon} ${localConfig.bot.name}`, textok, `${tIcon} Abrir`, listaParams.sections, msg);
+      await buttonHandler.sendList(
+        sock, ctx.remoteJid,
+        `${t.icon} ${botName}`, textok,
+        `${t.icon} Abrir`,
+        listaMenus.sections, msg
+      );
       logCmd('menu', ctx); return;
     } catch {}
 
-    // Último fallback: texto rico com tema activo
-    const allRows = baseRows.concat(extraRows);
-    const t   = activeThemeForMenu;
+    // ── Fallback 2: texto rico com o tema activo ──────────────────────
     const sep = t.sectionSep || '━━━━━━━━━━━━━━━━━━━━━━━━';
+    const allRows = listaMenus.sections.flatMap(s => s.rows);
     const fallback =
-      `${t.icon} *${localConfig.bot.name}*\n` +
-      `${t.bullet} ${ctx.pushName}  •  🏷️ ${isCargo}\n` +
-      `🔑 Prefixo: *${p}*\n${sep}\n\n` +
-      allRows.map(r => `${t.bullet} *${r.title}* — _${r.description}_`).join('\n') +
+      `${t.icon} *${botName}*\n${sep}\n\n` +
+      `${t.bullet} 𝐔𝐒𝐔Á𝐑𝐈𝐎: ${ctx.pushName}  •  ${isCargo}\n` +
+      `${t.bullet} 𝐏𝐑𝐄𝐅𝐈𝐗𝐎: 『${p}』\n${sep}\n\n` +
+      allRows.map(r => `${t.bullet} *${r.header}* — _${r.title.replace(/_/g,'')}_`).join('\n') +
       `\n\n> ${t.vibe}`;
     await reply(sock, msg, ctx, fallback);
     logCmd('menu', ctx);
