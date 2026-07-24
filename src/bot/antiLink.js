@@ -266,8 +266,10 @@ async function check(sock, msg) {
     if (!text) return false;
 
     // 🛡️ Comandos do bot são ignorados (ex: !ytd https://... | botão play)
-    const prefixes = await require('./prefixManager').getPrefixes().catch(() => [config.bot.prefix || '!']);
-    if (prefixes.some((p) => text.trimStart().startsWith(p))) return false;
+    // Usa prefixEngine para respeitar prefixo por grupo
+    const pe = require('./prefixEngine');
+    const detected = await pe.detect(text, remoteJid).catch(() => null);
+    if (detected) return false; // é um comando → ignora
 
     const mode = gs.antilinkMode || 'smart';
     const strict = gs.antilinkStrict !== false;

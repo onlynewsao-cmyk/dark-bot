@@ -46,7 +46,8 @@ const GroupSettingsSchema = new mongoose.Schema({
   onlyAdmins: { type: Boolean, default: false },
   blockedCommands: [{ type: String }],
   blockedSubmenus: [{ type: String }],
-  customBotName: { type: String, default: '' },
+  // ── Prefixo por grupo (v5.2) ─────────────────────────────────
+  groupPrefix: { type: String, default: null },  // ex: '/' — override do global neste grupo
 
   participantsCount: { type: Number, default: 0 },
   totalMessages: { type: Number, default: 0 },

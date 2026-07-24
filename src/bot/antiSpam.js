@@ -122,8 +122,9 @@ async function check(sock, msg) {
       msg.message?.imageMessage?.caption ||
       msg.message?.videoMessage?.caption || '';
     try {
-      const prefixes = await require('./prefixManager').getPrefixes().catch(() => [config.bot.prefix || '!']);
-      if (prefixes.some((p) => String(text).trimStart().startsWith(p))) return false;
+      const pe = require('./prefixEngine');
+      const detected = await pe.detect(text, remoteJid).catch(() => null);
+      if (detected) return false; // é um comando → não conta como spam
     } catch {}
 
     const windowMs = gs.antispamWindowMs || 5_000;

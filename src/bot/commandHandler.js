@@ -21,6 +21,7 @@ const ai = require('./ai');
 const decrypter = require('../decrypter');
 const { formatForWhatsApp } = require('../decrypter/formatter');
 const prefixManager = require('./prefixManager');
+const prefixEngine  = require('./prefixEngine');
 const CommandOverride = require('../database/models/CommandOverride');
 const userManager = require('./userManager');
 const path = require('path');
@@ -213,7 +214,7 @@ async function handle(sock, msg) {
   if (!text && !msg.message?.documentMessage && !msg.message?.documentWithCaptionMessage) return false;
 
   const ctx = getSenderInfo(msg);
-  const prefixes = await prefixManager.getPrefixes();
+  const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
 
   // ── Interceptar cliques do change theme (lista interativa) ──────────
   if (text.startsWith('CHANGE_THEME_')) {
@@ -265,33 +266,14 @@ async function handle(sock, msg) {
     }
   }
 
-  const firstTokenRaw = String(text || '').trim().split(/\s+/)[0];
-  const firstTokenNoPrefix = firstTokenRaw.replace(/^[^a-z0-9]+/i, '').toLowerCase();
-
-  // IDs conhecidos de botões que podem chegar sem prefixo
-  const noPrefixBtnIds = new Set([
-    'menu','down','menudownload','menuia','menustickers','menufigurinhas',
-    'menujogos','menueconomia','menucoins','menufamilia','menudiversao',
-    'menuinteracoes','brincadeiras','alteradores','menulogos','menuadm','menugrupo',
-    'menustatus','menudono','maiscmds','cmdsocultos','menu18','criador',
-    'alugar','statusalugar','vip','donos','ping','start','temas','change',
-    'play','play2','play3','video','video2','sticker','sfull','ia','gpt',
-    'noticias','saldo','daily','quiz','forca','rank','rankcoins','perfil',
-    'info','dono','id','menuaudio','antilink','antispam','welcome',
-    'ban','kick','promote','link','todos','aimemoria','airesetar',
-    'aiapis','imagem','figura','figubug','figubug2','toimg',
-    'mediaup','medialist','mediadel','pinpacks','pinterest','pinmp4',
-    'tiktok','instagram','fb','twitter','spotify','soundcloud',
-    'help','cmds','comandos','pinsticker',
-  ]);
-  if (text && !startsWithAnyPrefix(text, prefixes) && noPrefixBtnIds.has(firstTokenNoPrefix)) {
-    text = (prefixes[0] || config.bot.prefix || '!') + text;
-  }
-
-  const prefixInfo = await prefixManager.detectPrefix(text);
-  const prefix = prefixInfo?.prefix || prefixes[0] || config.bot.prefix || '!';
+  // ── PrefixEngine v2 — deteção rigorosa por grupo ──────────────
+  // Substitui o antigo noPrefixBtnIds/firstTokenNoPrefix que causava
+  // o bug: "?play" era tratado como botão "play" → sugeria "$play"
+  const prefixInfo = await prefixEngine.detect(text, ctx.remoteJid);
+  const prefix     = prefixInfo?.prefix || prefixes[0] || config.bot.prefix || '!';
   const commandConfig = { ...config, bot: { ...config.bot, prefix } };
   ctx.prefix = prefix;
+  ctx.prefixSource = prefixInfo?.source || null; // 'group'|'global'|'button_ns'|'button_exact'
 
   // ── Dono + Blacklist em paralelo (1 round-trip ao invés de 2) ──
   const [ownerLid, blacklist, extraOwners, disabledUsers, disabledGroups] = await Promise.all([
@@ -994,8 +976,12 @@ async function handle(sock, msg) {
     const cmd = await Command.findOne({ $or: [{ name: commandName }, { aliases: commandName }], enabled: true });
     if (!cmd) {
       // Comando desconhecido com prefixo → sugerir o mais próximo
-      // Só sugere se parece mesmo um comando (não palavra aleatória com prefixo)
-      // Ex: "!oi" não sugere; "!plai" sugere "play"
+      // v5.2: SÓ sugere quando o prefixo ACTIVO foi usado (não para cliques de botão)
+      // "?play" com prefixo "$" → silêncio total (prefixo errado)
+      // "$plai" com prefixo "$" → sugere "$play" (prefixo correcto, typo)
+      const isRealPrefix = ctx.prefixSource === 'group' || ctx.prefixSource === 'global';
+      if (!isRealPrefix) return false; // clique de botão ou prefixo errado → silêncio
+
       if (commandName.length >= 2) {
         // Palavras muito curtas ou comuns que não são comandos → silêncio
         const commonWords = new Set(['oi','ok','sim','nao','não','ola','olá','boa','bom','ae','ai','ei','ué','ne','né','rs','kkk','lol','haha','ta','tá','bd','bjs','vlw','obg']);
