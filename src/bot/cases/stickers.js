@@ -76,7 +76,7 @@ module.exports = function registerStickerCases(registerCase) {
 
   // ── !figubug2 — Sticker IA ────────────────────────────────────────
   registerCase(['figubug2', 'aisticker', 'iatig'], async ({ m, sock, ctx, args, reply, react }) => {
-    const prompt = args.join(' ').trim() || `Dark Net Engine logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
+    const prompt = args.join(' ').trim() || `DARK BOT logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
     await react('🎨');
     try {
       const img = await ai.generateImage(prompt);

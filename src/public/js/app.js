@@ -1,5 +1,5 @@
 /* ============================================
-   DARK BOT — Frontend App JS v3.0
+   DARK BOT — Frontend App JS v6
    ============================================ */
 
 // ===== SOCKET.IO GLOBAL =====

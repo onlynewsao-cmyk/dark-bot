@@ -73,7 +73,7 @@ function buttonsText(title, footer, buttons = []) {
     `╭━━━〔 🕸️ DARK SIDE 〕━━━╮\n` +
     `${title}\n` +
     `┣━━━━━━━━━━━━━━━━━━━━\n${rows}\n` +
-    `╰━━━〔 ⚡ ${footer || 'Dark Net Engine'} 〕━━━╯\n\n` +
+    `╰━━━〔 ⚡ ${footer || (require('../config').bot.name + ' 🕸️')} 〕━━━╯\n\n` +
     `💡 *Toca numa opção ou digita o comando com o prefixo.*`
   );
 }
@@ -124,7 +124,7 @@ async function sendInteractive(sock, jid, title, footer, buttons, quoted = null,
 
   const interactive = {
     body: proto.Message.InteractiveMessage.Body.fromObject({ text: title }),
-    footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || 'Dark Net Engine 🕸️' }),
+    footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || (require('../config').bot.name + ' 🕸️') }),
     header,
     nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
       buttons: btns,
@@ -225,7 +225,7 @@ async function sendCarousel(sock, jid, cards, quoted = null) {
     carousel.addCard({
       header,
       body: { text: card.body || card.title || '' },
-      footer: { text: card.footer || 'Dark Net Engine 🕸️' },
+      footer: { text: card.footer || (require('../config').bot.name + ' 🕸️') },
       nativeFlowMessage: { buttons: nativeBtns },
     });
   }
@@ -245,7 +245,7 @@ async function sendNativeDirect(sock, jid, title, footer, buttons, quoted, opts 
   const content = {
     interactiveMessage: proto.Message.InteractiveMessage.fromObject({
       body: proto.Message.InteractiveMessage.Body.fromObject({ text: title }),
-      footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || 'Dark Net Engine 🕸️' }),
+      footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || (require('../config').bot.name + ' 🕸️') }),
       header,
       nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({ buttons: btns }),
     }),
@@ -336,7 +336,7 @@ async function _sendCTA(sock, jid, text, footer, btnName, btnParams, quoted = nu
         messageContextInfo: { deviceListMetadata: {}, deviceListMetadataVersion: 2 },
         interactiveMessage: proto.Message.InteractiveMessage.fromObject({
           body: proto.Message.InteractiveMessage.Body.fromObject({ text }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || 'Dark Net Engine 🕸️' }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: footer || (require('../config').bot.name + ' 🕸️') }),
           header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
           nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
             buttons: [{ name: btnName, buttonParamsJson: JSON.stringify(btnParams) }],
@@ -354,7 +354,7 @@ async function _sendCTA(sock, jid, text, footer, btnName, btnParams, quoted = nu
 /** Botão de URL (abre link) */
 async function sendUrlButton(sock, jid, text, displayText, url, quoted = null) {
   try {
-    return await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_url', {
+    return await _sendCTA(sock, jid, text, 'DARK BOT 🕸️', 'cta_url', {
       display_text: displayText, url, merchant_url: url,
     }, quoted);
   } catch {
@@ -365,7 +365,7 @@ async function sendUrlButton(sock, jid, text, displayText, url, quoted = null) {
 /** Botão de copiar código/texto */
 async function sendCopyButton(sock, jid, text, displayText, copyCode, quoted = null) {
   try {
-    return await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_copy', {
+    return await _sendCTA(sock, jid, text, 'DARK BOT 🕸️', 'cta_copy', {
       display_text: displayText, copy_code: copyCode,
     }, quoted);
   } catch {
@@ -376,7 +376,7 @@ async function sendCopyButton(sock, jid, text, displayText, copyCode, quoted = n
 /** Botão de chamada telefónica */
 async function sendCallButton(sock, jid, text, displayText, phoneNumber, quoted = null) {
   try {
-    return await _sendCTA(sock, jid, text, 'Dark Net Engine 🕸️', 'cta_call', {
+    return await _sendCTA(sock, jid, text, 'DARK BOT 🕸️', 'cta_call', {
       display_text: displayText, phone_number: phoneNumber,
     }, quoted);
   } catch {
