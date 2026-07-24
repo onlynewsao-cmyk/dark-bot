@@ -94,7 +94,7 @@ function buildM(sock, msg, ctx) {
     quoted,
     ts:       Date.now(),
 
-    reply: (text) => sock.sendMessage(jid, { text: String(text) }, { quoted: msg }),
+    reply: async (text) => { const RE = require('./renderEngine'); const themed = await RE.themeText(String(text), jid).catch(() => String(text)); return sock.sendMessage(jid, { text: themed }, { quoted: msg }); },
     react: (emoji) => sock.sendMessage(jid, { react: { text: emoji, key } }).catch(() => {}),
     delete: () => sock.sendMessage(jid, { delete: key }).catch(() => {}),
   };

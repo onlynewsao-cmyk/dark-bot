@@ -41,7 +41,9 @@ async function appendChannel(text) {
 }
 
 const reply = async (sock, msg, ctx, text) => {
-  const finalText = await appendChannel(text);
+  const RE = require('./renderEngine');
+  const themed = await RE.themeText(text, ctx.remoteJid).catch(() => text);
+  const finalText = await appendChannel(themed);
   return sock.sendMessage(ctx.remoteJid, { text: finalText }, { quoted: msg });
 };
 const react = (sock, msg, emoji) => sock.sendMessage(msg.key.remoteJid, { react: { text: emoji, key: msg.key } });
@@ -1926,7 +1928,7 @@ module.exports = {
     }
 
     if (!targetJid) return reply(sock, msg, ctx, `🏠 Use em grupo ou: ${p}alugar <jid_do_grupo> <dias>`);
-    if (dias < 1 || dias > 3650) return reply(sock, msg, ctx, '❌ Uso: ${localConfig.bot.prefix}alugar <dias> (1-3650)\nEx: ${localConfig.bot.prefix}alugar 30.');
+    if (dias < 1 || dias > 3650) return reply(sock, msg, ctx, `❌ Uso: ${localConfig.bot.prefix}alugar <dias> (1-3650)\nEx: ${localConfig.bot.prefix}alugar 30`);
 
     // Verifica limite VIP
     if (!isSubDono && isVip) {
