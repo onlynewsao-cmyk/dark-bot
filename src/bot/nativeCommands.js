@@ -447,6 +447,9 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   if (!allowed.length) return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
 
   // ── Renderiza com o change activo (bordas + fonte + personalidade) ──
+const selCmds = allowed.filter(it => it.sel === true);
+  const txtCmds = allowed.filter(it => it.sel !== true);
+
   const textBody = RE.renderSubmenu(t, title, txtCmds.map(it => ({
     name: (useP ? p : '') + it.cmd,
     desc: it.desc || '',
@@ -455,9 +458,7 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   // ── v6.3: separação SEL vs TEXTO ──────────────────────────────────
   // sel:true → SÓ na lista de seleção (executa directo)
   // sel:false → SÓ no texto (precisa de dados/args/mention)
-  const selCmds = allowed.filter(it => it.sel === true);
-  const txtCmds = allowed.filter(it => it.sel !== true);
-
+  
   const rows = selCmds.slice(0, 24).map(it => ({
     title:       `${it.emoji || t.bullet} ${useP ? p : ''}${it.cmd}`,
     description: (it.desc || '').slice(0, 72),
@@ -700,12 +701,13 @@ module.exports = {
     const botName     = localConfig.bot.name   || 'DARK BOT';
     const channelUrl  = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
-    // ── Reacção 🕸️ (referência: reagir(from, "🕸️")) ──
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🕸️', key: msg.key } }).catch(() => {});
 
     // ── Tema activo — o menu acompanha o !change / !temas ──
     let t = { icon: '🕸️', vibe: 'Dark Engine', bullet: '▸' };
     try { t = await getActiveTheme(ctx.remoteJid); } catch {}
+
+    // ── Reacção com emoji do change activo ──
+    await sock.sendMessage(ctx.remoteJid, { react: { text: t.react || t.icon || '🕸️', key: msg.key } }).catch(() => {});
 
     // ── Dados do utilizador (cargo + VIP) ──
     let isCargo = '🆓 FREE';
@@ -733,28 +735,28 @@ module.exports = {
       sections: [
         {
           title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ',
-          highlight_label: 'ᴅᴀʀᴋ ɴᴇᴛ|ᴅᴇᴠ',
+          highlight_label: (botName || 'DARK BOT') + '|DEV',
           rows: [
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs',   title: '_comandos de download e upload._',              id: p + 'down' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs',  title: '_comandos de figurinhas e criação._',           id: p + 'menufigurinhas' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ʙʀɪɴᴄᴀғᴇɪʀᴀs', title: '_comandos de diversão e zoeiras para grupo._',  id: p + 'brincadeiras' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴄᴏɪɴs',        title: '_comandos de coins, aventura e diversão._',     id: p + 'menucoins' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴀʟᴛᴇʀᴀᴅᴏʀᴇs', title: '_edição de música e alteradores._',             id: p + 'alteradores' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ʟᴏɢᴏs',        title: '_criação de logos e imagens._',                 id: p + 'menulogos' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ+18',           title: '_comandos para adultos, só VIPs têm acesso._',  id: p + 'menu18' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴀᴅᴍ',          title: '_comandos para grupo, só ADM tem acesso._',     id: p + 'menuadm' },
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴅᴏɴᴏ',         title: '_apenas dono._',                                id: p + 'menudono' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs`,   title: '_comandos de download e upload._',              id: p + 'down' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs`,  title: '_comandos de figurinhas e criação._',           id: p + 'menufigurinhas' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ʙʀɪɴᴄᴀғᴇɪʀᴀs`, title: '_comandos de diversão e zoeiras para grupo._',  id: p + 'brincadeiras' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴄᴏɪɴs`,        title: '_comandos de coins, aventura e diversão._',     id: p + 'menucoins' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴀʟᴛᴇʀᴀᴅᴏʀᴇs`, title: '_edição de música e alteradores._',             id: p + 'alteradores' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ʟᴏɢᴏs`,        title: '_criação de logos e imagens._',                 id: p + 'menulogos' },
+            { header: `${t.icon} ᴍᴇɴᴜ+18`,           title: '_comandos para adultos, só VIPs têm acesso._',  id: p + 'menu18' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴀᴅᴍ`,          title: '_comandos para grupo, só ADM tem acesso._',     id: p + 'menuadm' },
+            { header: `${t.icon} ᴍᴇɴᴜ-ᴅᴏɴᴏ`,         title: '_apenas dono._',                                id: p + 'menudono' },
           ],
         },
         {
           title: 'ғᴜɴᴄ̧ᴏᴇs ᴇxᴛʀᴀs ',
-          highlight_label: 'ᴅᴀʀᴋ ɴᴇᴛ|ᴅᴇᴠ',
+          highlight_label: (botName || 'DARK BOT') + '|DEV',
           rows: [
-            { header: '🕸️ ᴄʀɪᴀᴅᴏʀ',   title: '_informações do criador do bot._',           id: p + 'criador' },
-            { header: '🕸️ ᴘᴇʀғɪʟ',     title: '_dados e cargo do usuário._',                id: p + 'perfil' },
-            { header: '🕸️ ᴘɪɴɢ',       title: '_informação e latência do bot._',            id: p + 'ping' },
-            { header: '🕸️ ᴅᴏɴᴏs',      title: '_lista de dono e sub-donos._',               id: p + 'donos' },
-            { header: '🕸️ ᴀʟᴜɢᴀʀ ʙᴏᴛ', title: '_informações de planos de aluguel do bot._', id: p + 'alugar' },
+            { header: `${t.icon}  ᴄʀɪᴀᴅᴏʀ`,   title: '_informações do criador do bot._',           id: p + 'criador' },
+            { header: `${t.icon}  ᴘᴇʀғɪʟ`,     title: '_dados e cargo do usuário._',                id: p + 'perfil' },
+            { header: `${t.icon}  ᴘɪɴɢ`,       title: '_informação e latência do bot._',            id: p + 'ping' },
+            { header: `${t.icon}  ᴅᴏɴᴏs`,      title: '_lista de dono e sub-donos._',               id: p + 'donos' },
+            { header: `${t.icon}  ᴀʟᴜɢᴀʀ ʙᴏᴛ`, title: '_informações de planos de aluguel do bot._', id: p + 'alugar' },
           ],
         },
       ],
@@ -937,7 +939,7 @@ module.exports = {
       
       const stk = await stickerMaker.create(buffer, {
         botName: "LENDÁRIO BUG",
-        ownerName: "DARK NET",
+        ownerName: config.owner.name || "Dark Net",
         userName: ctx.pushName,
         groupName: "DARK BUG",
         isVideo: isAnimated,
