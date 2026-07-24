@@ -194,18 +194,11 @@ async function detect(text, groupJid = null) {
     return null;
   }
 
-  // 5. ID exacto de botão (sem prefixo, sem namespace)?
-  //    Só reconhece se o PRIMEIRO TOKEN é EXACTAMENTE um ID conhecido
-  //    (sem caracteres extras antes — "play" sim, "?play" não, "!play" não)
-  const firstToken = trimmed.split(/\s+/)[0].toLowerCase();
-  if (EXACT_BTN_IDS.has(firstToken) && firstToken === trimmed.split(/\s+/)[0].toLowerCase()) {
-    // Verificação extra: o token não pode ter sido modificado por strip de pontuação
-    // ou seja, o texto original deve começar directamente com letras do ID
-    if (/^[a-z]/i.test(trimmed)) {
-      const rest = trimmed.slice(firstToken.length).trim();
-      return { prefix: '', rest: `${firstToken} ${rest}`.trim(), source: 'button_exact' };
-    }
-  }
+  // 5. IDs exactos de botão — DESACTIVADO (v5.3)
+  //    Antes: "Play" ou "Ping" sem prefixo activavam comandos (bug!)
+  //    Agora: SÓ prefixo activo ou namespace DB_ funcionam.
+  //    Botões dos menus já incluem o prefixo (ex: "$menup") ou DB_.
+  //    Texto natural NUNCA activa comandos.
 
   // 6. Nada detectado → silêncio
   return null;

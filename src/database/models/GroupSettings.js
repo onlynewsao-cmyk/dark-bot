@@ -48,6 +48,8 @@ const GroupSettingsSchema = new mongoose.Schema({
   blockedSubmenus: [{ type: String }],
   // ── Prefixo por grupo (v5.2) ─────────────────────────────────
   groupPrefix: { type: String, default: null },  // ex: '/' — override do global neste grupo
+  // ── Tema por grupo (v5.3) ────────────────────────────────────
+  groupTheme: { type: String, default: null },   // ex: 'cyber' — override do global neste grupo
 
   participantsCount: { type: Number, default: 0 },
   totalMessages: { type: Number, default: 0 },

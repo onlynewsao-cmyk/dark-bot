@@ -473,6 +473,77 @@ module.exports = function registerGroupCases(registerCase) {
     }
   });
 
+  // ── !out — Bot sai do grupo (só dono) ─────────────────────────
+  registerCase(['out', 'sair', 'leave', 'bye'], async ({ sock, ctx, reply, isOwner, prefix }) => {
+    if (!ctx.isGroup) return reply('👥 Só em grupos.');
+    if (!isOwner) return reply('🚫 Só o Dono pode remover o bot do grupo.');
+    const t = await require('../changeThemes').getTheme(
+      await require('../botConfigCache').get('active_theme', 'dark').catch(() => 'dark')
+    );
+    const msg =
+      `${t.icon} *${t.name.toUpperCase()} — DESPEDIDA*\n\n` +
+      `${t.bullet} Fui chamado de volta às sombras.\n` +
+      `${t.bullet} Obrigado por tudo, *${ctx.groupName || 'grupo'}*.\n` +
+      `${t.bullet} Até à próxima invocação.\n\n` +
+      `> ${t.vibe}`;
+    await sock.sendMessage(ctx.remoteJid, { text: msg }).catch(() => {});
+    await new Promise(r => setTimeout(r, 2000));
+    try { await sock.groupLeave(ctx.remoteJid); } catch (e) {
+      return reply('❌ Erro ao sair: ' + e.message);
+    }
+  });
+
+  // ── !settheme — tema POR GRUPO (só dono) ──────────────────────
+  registerCase(['settheme', 'temagrupo', 'grouptheme'], async ({ ctx, args, reply, isOwner, prefix }) => {
+    if (!ctx.isGroup) return reply('👥 Só em grupos.');
+    if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema do grupo.');
+    const ct = require('../changeThemes');
+    const sub = (args[0] || '').toLowerCase();
+
+    if (['reset', 'limpar', 'default', 'global'].includes(sub)) {
+      await GroupSettings.findOneAndUpdate(
+        { groupJid: ctx.remoteJid },
+        { $unset: { groupTheme: 1 } },
+        { upsert: true }
+      );
+      const global = await require('../botConfigCache').get('active_theme', 'dark').catch(() => 'dark');
+      return reply(`🔄 Tema deste grupo *resetado* para o global: *${global}*`);
+    }
+
+    if (!sub) {
+      const themes = ct.listThemes ? ct.listThemes() : [];
+      const list = themes.map((t, i) => `${t.icon} *${t.name}*`).join(' · ');
+      return reply(
+        `🎨 *Temas disponíveis:*\n\n${list}\n\n` +
+        `Uso: *${prefix}settheme <nome>*\n` +
+        `Ex: *${prefix}settheme cyber*\n` +
+        `Reset: *${prefix}settheme reset*\n\n` +
+        `⚠️ Só altera ESTE grupo.`
+      );
+    }
+
+    const found = ct.getTheme(sub);
+    if (!found || found.name !== sub) {
+      return reply(`❌ Tema "${sub}" não existe. Usa *${prefix}settheme* para ver a lista.`);
+    }
+
+    await GroupSettings.findOneAndUpdate(
+      { groupJid: ctx.remoteJid },
+      { groupTheme: found.name },
+      { upsert: true }
+    );
+    // Limpa cache de tema por grupo
+    try { require('../bot/botConfigCache').clear(); } catch {}
+
+    return reply(
+      `${found.icon} *Tema deste grupo alterado!*\n\n` +
+      `🎨 Novo tema: *${found.name.toUpperCase()}*\n` +
+      `📍 Grupo: *${ctx.groupName || ctx.remoteJid}*\n` +
+      `> ${found.vibe}\n\n` +
+      `⚠️ Outros grupos continuam com o tema global.`
+    );
+  });
+
   // !welcome
   registerCase(['welcome', 'boasvindas', 'bv'], async ({ sock, ctx, args, prefix, reply }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');

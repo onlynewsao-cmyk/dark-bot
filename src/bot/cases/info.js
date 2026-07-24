@@ -9,13 +9,13 @@ const botConfigCache = require('../botConfigCache');
 const changeThemes  = require('../changeThemes');
 
 /**
- * Helper: retorna o tema activo
+ * Helper: retorna o tema activo (por grupo ou global)
+ * v5.3: usa themeResolver para "camuflagem 100%" por grupo
  */
-async function getActiveTheme() {
-  try {
-    const name = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
-    return changeThemes.getTheme(name || 'dark');
-  } catch { return changeThemes.getTheme('dark'); }
+const themeResolver = require('../themeResolver');
+async function getActiveTheme(groupJid = null) {
+  try { return await themeResolver.getThemeForContext(groupJid); }
+  catch { return changeThemes.getTheme('dark'); }
 }
 
 module.exports = function registerInfoCases(registerCase) {
@@ -27,7 +27,7 @@ module.exports = function registerInfoCases(registerCase) {
     const lat  = Date.now() - t0;
     const bar  = lat < 200 ? '🟢 Excelente' : lat < 500 ? '🟡 Boa' : '🔴 Alta';
     const ram  = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
-    const t    = await getActiveTheme();
+    const t    = await getActiveTheme(ctx.remoteJid);
     const f    = t.frame;
     const H    = f[4], V = f[5];
     const tl   = f[0], tr = f[1], bl = f[2], br = f[3];
@@ -56,7 +56,7 @@ module.exports = function registerInfoCases(registerCase) {
 
   // ── case 'id' / 'jid' ─────────────────────────────────────
   registerCase(['id', 'jid', 'myid'], async ({ ctx, reply }) => {
-    const t = await getActiveTheme();
+    const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
     return reply(
@@ -73,7 +73,7 @@ module.exports = function registerInfoCases(registerCase) {
 
   // ── case 'perfil' ──────────────────────────────────────────
   registerCase(['perfil', 'perfiluser', 'rankuser'], async ({ sock, ctx, reply, prefix }) => {
-    const t = await getActiveTheme();
+    const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
     const W = 26;
@@ -130,7 +130,7 @@ module.exports = function registerInfoCases(registerCase) {
 
   // ── case 'donos' ───────────────────────────────────────────
   registerCase(['donos', 'subdonos', 'equipe', 'staff'], async ({ reply }) => {
-    const t = await getActiveTheme();
+    const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
 
@@ -158,7 +158,7 @@ module.exports = function registerInfoCases(registerCase) {
   // ── case 'aiapis' ──────────────────────────────────────────
   registerCase(['aiapis', 'iaapis', 'checkia'], async ({ prefix, reply }) => {
     const aiMod     = require('../ai');
-    const t         = await getActiveTheme();
+    const t         = await getActiveTheme(ctx.remoteJid);
     const hasGroq   = !!config.ai.groqApiKey;
     const hasGemini = !!config.ai.geminiApiKey;
     const hasRouter = !!config.ai.openrouterApiKey;
