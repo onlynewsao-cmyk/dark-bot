@@ -714,166 +714,197 @@ module.exports = {
     const localConfig = cfg || config;
     const p           = localConfig.bot.prefix;
     const botName     = localConfig.bot.name   || 'DARK BOT';
-    const ownerName   = localConfig.owner.name || 'Dark Net';
     const channelUrl  = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
-    // Dados do utilizador
-    const u       = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
-    const isVip   = u && u.isPremium && u.isPremium();
-    const isAdm   = ctx.isOwner || (await isAdmin(sock, ctx));
-    const isCargo = ctx.isOwner ? '\u{1F451} Dono' : isVip ? '\u2B50 Premium' : isAdm ? '\u{1F6E1}\uFE0F Admin' : '\u{1F193} Free';
-    const isChVip = (isVip || ctx.isOwner) ? '\u2705' : '\u274C';
+    // ── Reacção 🕸️ (referência: reagir(from, "🕸️")) ──
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '🕸️', key: msg.key } }).catch(() => {});
 
-    // Tema activo
-    const t = await getActiveTheme();
+    // ── Tema activo — o menu acompanha o !change / !temas ──
+    let t = { icon: '🕸️', vibe: 'Dark Engine', bullet: '▸' };
+    try { t = await getActiveTheme(); } catch {}
 
-    // Carregar midia (video GIF preferido, imagem fallback)
-    const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
-    const _path = require('path');
-    const fs2   = require('fs');
-    const caminhoVideo  = _path.join(__dirname, '..', 'public', 'img', 'fotomenu.mp4');
-    const caminhoImagem = _path.join(__dirname, '..', 'public', 'img', 'logo.jpg');
-
-    let mediaMenu = null;
+    // ── Dados do utilizador (cargo + VIP) ──
+    let isCargo = '🆓 FREE';
+    let isChVip = 'INATIVO ❌';
     try {
-      if (fs2.existsSync(caminhoVideo)) {
-        mediaMenu = await prepareWAMessageMedia(
-          { video: { url: caminhoVideo }, mimetype: 'video/mp4', gifPlayback: true, seconds: 8 },
-          { upload: sock.waUploadToServer }
-        );
-      } else if (fs2.existsSync(caminhoImagem)) {
-        mediaMenu = await prepareWAMessageMedia(
-          { image: { url: caminhoImagem } },
-          { upload: sock.waUploadToServer }
-        );
+      const u     = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
+      const isVip = !!(u && u.isPremium && u.isPremium());
+      let   isAdm = false;
+      if (!ctx.isOwner && ctx.isGroup) {
+        try {
+          const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+          const snum = ctx.senderNumber;
+          isAdm = !!meta?.participants?.some(pt =>
+            pt.id.split('@')[0].replace(/\D/g, '') === snum &&
+            (pt.admin === 'admin' || pt.admin === 'superadmin'));
+        } catch {}
       }
+      isCargo = ctx.isOwner ? '👑 DONO SUPREMO' : isVip ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
+      isChVip = (isVip || ctx.isOwner) ? 'ATIVO ✅' : 'INATIVO ❌';
     } catch {}
 
-    // Lista de menus (2 seccoes, estrutura exacta do codigo de referencia)
+    // ── Lista de menus (estrutura EXACTA do código de referência, versão DARK) ──
     const listaMenus = {
-      title: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C',
+      title: 'ᴍᴇɴᴜ',
       sections: [
         {
-          title:           t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C\u02E2 \u1D05\u026A\u1D20\u1D07\u0280\u02E2\u1D0F\u02E2',
-          highlight_label: ownerName,
+          title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ',
+          highlight_label: 'ᴅᴀʀᴋ ɴᴇᴛ|ᴅᴇᴠ',
           rows: [
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D18\u0280\u026A\u1D4C\u1D04\u026A\u1D18\u1D00\u029F',  title: '_comandos principais e basicos do bot._',    id: p + 'menu'           },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D05\u1D0F\u1D21\u1D4B\u029F\u1D0F\u1D00\u1D05\u02E2', title: '_YouTube, TikTok, Instagram, Spotify._',    id: p + 'menudownload'   },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u026A\u1D00',                                                    title: '_IA com memoria, GPT e imagens._',          id: p + 'menuia'         },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u0493\u026A\u0262\u1D1C\u0280\u026A\u1D4B\u029F\u1D00\u02E2', title: '_comandos de figurinhas e criacao._',   id: p + 'menufigurinhas' },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u0299\u0280\u026A\u1D4B\u1D04\u1D00\u1D05\u1D07\u026A\u0280\u1D00\u02E2', title: '_diversao, medidores e zoeiras._', id: p + 'menudiversao' },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D04\u1D0F\u026A\u1D4B\u02E2',                              title: '_economia, aura, banco e ranking._',         id: p + 'menueconomia'   },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1DA0\u1D0F\u0262\u1D0F\u02E2',                             title: '_quiz, forca, blackjack e bingo._',          id: p + 'menujogos'      },
-            { header: t.icon + ' \u026A\u1D4B\u1D1B\u1D07\u0280\u1D00\u1D04\u0327\u00F5\u1D07\u02E2',                title: '_abracar, beijar, casar e familia._',        id: p + 'menuinteracoes' },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D00\u1D05\u1D4C',                                          title: '_comandos para grupo, so ADM tem acesso._', id: p + 'menuadm'        },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D1C\u1D1B\u026A\u029F\u02E2',                            title: '_clima, cambio, QR e ferramentas._',         id: p + 'menustatus'     },
-            { header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C+18',                                                              title: '_comando para adultos, so VIPs tem acesso._', id: p + 'cmdsocultos' },
-            ...(ctx.isOwner
-              ? [{ header: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C-\u1D05\u1D0F\u1D4B\u1D0F', title: '_apenas dono._', id: p + 'menudono' }]
-              : []),
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴘʀɪɴᴄɪᴘᴀʟ',    title: '_comandos principais e básicos do bot._',       id: p + 'menup' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs',   title: '_comandos de download e upload._',              id: p + 'down' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs',  title: '_comandos de figurinhas e criação._',           id: p + 'menufigurinhas' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ʙʀɪɴᴄᴀғᴇɪʀᴀs', title: '_comandos de diversão e zoeiras para grupo._',  id: p + 'brincadeiras' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴄᴏɪɴs',        title: '_comandos de coins, aventura e diversão._',     id: p + 'menucoins' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴀʟᴛᴇʀᴀᴅᴏʀᴇs', title: '_edição de música e alteradores._',             id: p + 'alteradores' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ʟᴏɢᴏs',        title: '_criação de logos e imagens._',                 id: p + 'menulogos' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ+18',           title: '_comandos para adultos, só VIPs têm acesso._',  id: p + 'menu18' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴀᴅᴍ',          title: '_comandos para grupo, só ADM tem acesso._',     id: p + 'menuadm' },
+            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴅᴏɴᴏ',         title: '_apenas dono._',                                id: p + 'menudono' },
           ],
         },
         {
-          title:           t.icon + ' \u0493\u1D1C\u1D4B\u1D04\u0327\u00F5\u1D07\u02E2 \u1D07\u02E3\u1D1B\u0280\u1D00\u02E2',
-          highlight_label: ownerName,
+          title: 'ғᴜɴᴄ̧ᴏᴇs ᴇxᴛʀᴀs ',
+          highlight_label: 'ᴅᴀʀᴋ ɴᴇᴛ|ᴅᴇᴠ',
           rows: [
-            { header: t.icon + ' \u1D1B\u1D07\u1D4C\u1D00\u02E2',          title: '_mudar visual completo do bot._',            id: p + 'temas'    },
-            { header: t.icon + ' \u1D20\u026A\u1D18',                          title: '_planos premium e beneficios exclusivos._',  id: p + 'vip'      },
-            { header: t.icon + ' \u1D18\u1D07\u0280\u0493\u026A\u029F',    title: '_informacoes e dados do utilizador._',       id: p + 'perfil'   },
-            { header: t.icon + ' \u1D18\u026A\u1D4B\u0262',                  title: '_latencia e status do bot._',                id: p + 'ping'     },
-            { header: t.icon + ' \u1D05\u1D0F\u1D4B\u1D0F',                 title: '_informacoes e contacto do dono._',          id: p + 'dono'     },
-            { header: t.icon + ' \u1D00\u029F\u1D1C\u0262\u1D00\u0280 \u0299\u1D0F\u1D1B', title: '_planos de aluguel do bot._', id: p + 'alugar' },
-            ...(isAdm || isVip || ctx.isOwner
-              ? [{ header: t.icon + ' + \u1D04\u1D4C\u1D05\u02E2', title: '_comandos avancados para admins e VIPs._', id: p + 'maiscmds' }]
-              : []),
+            { header: '🕸️ ᴄʀɪᴀᴅᴏʀ',   title: '_informações do criador do bot._',           id: p + 'criador' },
+            { header: '🕸️ ᴘᴇʀғɪʟ',     title: '_dados e cargo do usuário._',                id: p + 'perfil' },
+            { header: '🕸️ ᴘɪɴɢ',       title: '_informação e latência do bot._',            id: p + 'ping' },
+            { header: '🕸️ ᴅᴏɴᴏs',      title: '_lista de dono e sub-donos._',               id: p + 'donos' },
+            { header: '🕸️ ᴀʟᴜɢᴀʀ ʙᴏᴛ', title: '_informações de planos de aluguel do bot._', id: p + 'alugar' },
           ],
         },
       ],
     };
 
-    // Botoes nativos
+    // ── Botões: lista interactiva + canal ──
     const botoes = [
       { name: 'single_select', buttonParamsJson: JSON.stringify(listaMenus) },
       { name: 'cta_url', buttonParamsJson: JSON.stringify({
-          display_text: t.icon + ' \u1D04\u1D00\u1D4B\u1D00\u029F',
+          display_text: 'ᴄᴀɴᴀʟ',
           url:          channelUrl,
           merchant_url: channelUrl,
       })},
     ];
 
-    // Texto do card (corpo do carousel)
+    // ── Corpo do card (estrutura exacta da referência) ──
     const textok =
-      t.bullet + ' \uD835\uDEE2\uD835\uDEE4\uD835\uDEE4\u00C1\uD835\uDEE3\uD835\uDEE8\uD835\uDEEE: ' + ctx.pushName + '\n' +
-      t.bullet + ' \uD835\uDEDE\uD835\uDEDE\uD835\uDEE3\uD835\uDEE6\uD835\uDEEE: ' + isCargo + '\n' +
-      t.bullet + ' \uD835\uDEEE\uD835\uDEE8\uD835\uDEDF: ' + isChVip + '\n' +
-      t.bullet + ' \uD835\uDEDF\uD835\uDEE3\uD835\uDEE6\uD835\uDEE1\uD835\uDEE8\uD835\uDEEA\uD835\uDEEE: \u300E' + p + '\u300F\n' +
-      '> ' + t.vibe;
+      '║𝚄𝚂𝚄Á𝚁𝙸𝙾: ' + (ctx.pushName || 'Desconhecido') + '\n' +
+      '║𝙲𝙰𝚁𝙶𝙾: ' + isCargo + '\n' +
+      '║𝚅𝙸𝙿: ' + isChVip + '\n\n' +
+      '*Eu quero que cada usuário tenha uma experiência digna.* ' + t.icon;
 
-    // Header do card (video ou imagem ou sem midia)
-    let cardHeader;
-    if (mediaMenu && mediaMenu.videoMessage) {
-      cardHeader = { hasMediaAttachment: true, videoMessage: mediaMenu.videoMessage };
-    } else if (mediaMenu && mediaMenu.imageMessage) {
-      cardHeader = { hasMediaAttachment: true, imageMessage: mediaMenu.imageMessage };
-    } else {
-      cardHeader = { hasMediaAttachment: false };
-    }
+    const footerCard = t.icon + ' ᴅᴀʀᴋ ʙᴏᴛ ᴠ5 · ᴅᴀʀᴋ ɴᴇᴛ ᴇɴɢɪɴᴇ';
 
-    // Carousel (estrutura exacta do codigo de referencia)
-    const carouselMessage = {
-      cards: [{
-        header:            cardHeader,
-        body:              { text: textok },
-        footer:            { text: t.icon + ' ' + botName },
-        nativeFlowMessage: { buttons: botoes },
-      }],
-    };
-
+    // ═══ 1º — CAROUSEL com mídia (vídeo GIF preferido, imagem fallback) ═══
     try {
+      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+      const fs2  = require('fs');
+      const path = require('path');
+      const root = path.join(__dirname, '..', '..');
+
+      const caminhoVideo = [
+        path.join(root, 'configs', 'LOGOS', 'fotomenu.mp4'),
+        path.join(__dirname, '..', 'public', 'img', 'fotomenu.mp4'),
+      ].find(f => fs2.existsSync(f));
+
+      let mediaMenu = null;
+      if (caminhoVideo) {
+        mediaMenu = await prepareWAMessageMedia(
+          { video: { url: caminhoVideo }, mimetype: 'video/mp4', gifPlayback: true, seconds: 8 },
+          { upload: sock.waUploadToServer }
+        );
+      } else {
+        const caminhoImagem = [
+          path.join(root, 'configs', 'LOGOS', 'fotomenu.png'),
+          path.join(root, 'configs', 'LOGOS', 'fotomenu.jpg'),
+          path.join(__dirname, '..', 'public', 'img', 'logo.jpg'),
+        ].find(f => fs2.existsSync(f));
+        if (caminhoImagem) {
+          mediaMenu = await prepareWAMessageMedia(
+            { image: { url: caminhoImagem } },
+            { upload: sock.waUploadToServer }
+          );
+        }
+      }
+
+      const cardHeader = mediaMenu?.videoMessage
+        ? { hasMediaAttachment: true, videoMessage: mediaMenu.videoMessage }
+        : mediaMenu?.imageMessage
+          ? { hasMediaAttachment: true, imageMessage: mediaMenu.imageMessage }
+          : { hasMediaAttachment: false };
+
+      const carouselMessage = {
+        cards: [{
+          header: cardHeader,
+          headerType: mediaMenu?.videoMessage ? 'VIDEO' : 'IMAGE',
+          body:   { text: textok },
+          footer: { text: footerCard },
+          nativeFlowMessage: { buttons: botoes },
+        }],
+      };
+
       const msgObj = generateWAMessageFromContent(ctx.remoteJid, {
         interactiveMessage: {
           contextInfo: {
             participant:   ctx.senderJid,
-            quotedMessage: { conversation: t.icon + ' \u1D4C\u1D07\u1D4B\u1D1C ' + t.icon },
+            quotedMessage: { conversation: '░⃟⃛🕸️ ᴍᴇɴᴜ 🕸️' },
           },
-          body:           { text: t.icon + ' *\u1D4C\u1D07\u1D4B\u1D1C*' },
-          footer:         { text: botName },
+          body: { text: '*ᴍᴇɴᴜ*' },
           carouselMessage,
         },
-      }, { userJid: sock.user && sock.user.id, quoted: msg });
+      }, { userJid: sock.user && sock.user.id });
 
-      await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
+      // additionalNodes: converte o carousel em botões reais nos clientes novos
+      await sock.relayMessage(ctx.remoteJid, msgObj.message, {
+        messageId: msgObj.key.id,
+        additionalNodes: [
+          {
+            tag: 'biz', attrs: {},
+            content: [{
+              tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+              content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+            }],
+          },
+        ],
+      });
       logCmd('menu', ctx);
       return;
-    } catch (e) {
-      console.error('[menu Carousel]', e.message && e.message.slice(0, 120));
+    } catch (error) {
+      console.error('Erro menu carousel:', (error.message || '').slice(0, 120));
     }
 
-    // Fallback 1: lista interactiva
+    // ═══ 2º Fallback — lista interactiva ═══
     try {
       await buttonHandler.sendList(
         sock, ctx.remoteJid,
-        t.icon + ' ' + botName, textok,
+        t.icon + ' ' + botName,
+        textok,
         t.icon + ' Abrir',
-        listaMenus.sections, msg
+        listaMenus.sections,
+        msg
       );
       logCmd('menu', ctx);
       return;
     } catch {}
 
-    // Fallback 2: texto rico (sempre funciona)
-    const style      = await botConfigCache.get('menu_style', '0').catch(() => '0');
-    const showPrefix = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
-    const uptime     = formatUptime(Date.now() - startTime);
-    const menuText   = menuThemes.renderMainMenu({
-      ctx: Object.assign({}, ctx, { isOwner }),
-      config: localConfig,
-      stats:  { uptime },
-      style,
-      showPrefix: showPrefix === true || showPrefix === 'true' || showPrefix === 'on',
-    });
-    await reply(sock, msg, ctx, menuText);
-    logCmd('menu', ctx);
+    // ═══ 3º Fallback — texto rico (sempre funciona) ═══
+    try {
+      const style      = await botConfigCache.get('menu_style', '0').catch(() => '0');
+      const showPrefix = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
+      const uptime     = formatUptime(Date.now() - startTime);
+      const menuText   = menuThemes.renderMainMenu({
+        ctx: Object.assign({}, ctx, { isOwner }),
+        config: localConfig,
+        stats:  { uptime },
+        style,
+        showPrefix: showPrefix === true || showPrefix === 'true' || showPrefix === 'on',
+      });
+      await reply(sock, msg, ctx, menuText);
+      logCmd('menu', ctx);
+    } catch (e2) {
+      await reply(sock, msg, ctx, t.icon + ' *ᴍᴇɴᴜ*\n\nErro ao montar o menu: ' + String(e2.message || '').slice(0, 80));
+    }
   },
 
  async menudono({ sock, msg, ctx, config, isOwner }) {

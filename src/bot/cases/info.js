@@ -71,6 +71,90 @@ module.exports = function registerInfoCases(registerCase) {
     );
   });
 
+  // ── case 'perfil' ──────────────────────────────────────────
+  registerCase(['perfil', 'perfiluser', 'rankuser'], async ({ sock, ctx, reply, prefix }) => {
+    const t = await getActiveTheme();
+    const f = t.frame;
+    const b = t.bullet;
+    const W = 26;
+    const bar = (txt) => `${f[5]} ${String(txt).slice(0, W).padEnd(W)} ${f[5]}`;
+
+    let cargo = '🆓 FREE';
+    let vipTxt = 'INATIVO ❌';
+    let cmds = 0;
+    let desde = '—';
+    let genero = 'não definido';
+
+    try {
+      const User = require('../../database/models/User');
+      const u = await User.findOne({ whatsappNumber: ctx.senderNumber });
+      if (u) {
+        const isVip = u.isPremium ? u.isPremium() : (u.role === 'premium');
+        cmds  = u.commandsUsed || 0;
+        desde = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '—';
+        genero = { male: '♂ Masculino', female: '♀ Feminino', other: '⚧ Outro' }[u.gender] || 'não definido';
+        if (ctx.isOwner)      { cargo = '👑 DONO SUPREMO'; vipTxt = 'ATIVO ✅'; }
+        else if (isVip)       { cargo = '💎 VIP';          vipTxt = u.premiumUntil ? `ATIVO ✅ até ${new Date(u.premiumUntil).toLocaleDateString('pt-BR')}` : 'ATIVO ✅'; }
+        else                  { cargo = '🆓 FREE';         vipTxt = 'INATIVO ❌'; }
+      }
+      if (!ctx.isOwner && cargo === '🆓 FREE') {
+        // verifica se é admin do grupo
+        try {
+          const meta = ctx.groupMeta || (ctx.isGroup ? await sock.groupMetadata(ctx.remoteJid) : null);
+          const snum = ctx.senderNumber;
+          const isAdm = meta?.participants?.some(p =>
+            p.id.split('@')[0].replace(/\D/g, '') === snum && (p.admin === 'admin' || p.admin === 'superadmin'));
+          if (isAdm) cargo = '🛡️ ADMIN';
+        } catch {}
+      }
+    } catch {}
+
+    const txt =
+      `${f[0]}${f[4].repeat(W + 2)}${f[1]}\n` +
+      bar(`${t.icon} ᴘᴇʀғɪʟ ᴅᴇ ᴜsᴜáʀɪᴏ`) + '\n' +
+      bar(t.vibe.slice(0, W)) + '\n' +
+      `${f[2]}${f[4].repeat(W + 2)}${f[3]}\n\n` +
+      `${b} 👤 Nome: *${ctx.pushName || 'Desconhecido'}*\n` +
+      `${b} 📱 Número: *+${ctx.senderNumber}*\n` +
+      `${b} 🎭 Cargo: *${cargo}*\n` +
+      `${b} ⭐ VIP: *${vipTxt}*\n` +
+      `${b} ⚧ Género: *${genero}*\n` +
+      `${b} 🧮 Comandos: *${cmds}*\n` +
+      `${b} 📅 No bot desde: *${desde}*\n` +
+      `${b} 📍 Local: ${ctx.isGroup ? `*${ctx.groupName || 'grupo'}*` : '*chat privado*'}\n\n` +
+      `> ${t.icon} ${prefix}alterargenero — mudar género\n` +
+      `> ${t.icon} ${prefix}vip — tornar-se VIP`;
+
+    return reply(txt);
+  });
+
+  // ── case 'donos' ───────────────────────────────────────────
+  registerCase(['donos', 'subdonos', 'equipe', 'staff'], async ({ reply }) => {
+    const t = await getActiveTheme();
+    const f = t.frame;
+    const b = t.bullet;
+
+    const extras = await botConfigCache.get('owner_numbers', []).catch(() => []);
+    const extraList = (Array.isArray(extras) ? extras : String(extras || '').split(/[\s,]+/))
+      .map(n => String(n).replace(/\D/g, '')).filter(n => n.length >= 8);
+
+    const lines = [
+      `${f[0]}${f[4].repeat(28)}${f[1]}`,
+      `${f[5]} ${t.icon} ᴅᴏɴᴏs ᴅᴏ ${config.bot.name} ${t.icon}`,
+      `${f[2]}${f[4].repeat(28)}${f[3]}`,
+      '',
+      `${b} 👑 *Dono Supremo:* ${config.owner.name}`,
+      `${b}    wa.me/${config.owner.number}`,
+    ];
+    if (extraList.length) {
+      lines.push('');
+      extraList.forEach((n, i) => lines.push(`${b} 🛡️ *Sub-Dono ${i + 1}:* +${n}\n${b}    wa.me/${n}`));
+    }
+    lines.push('', `> ${t.vibe}`);
+
+    return reply(lines.join('\n'));
+  });
+
   // ── case 'aiapis' ──────────────────────────────────────────
   registerCase(['aiapis', 'iaapis', 'checkia'], async ({ prefix, reply }) => {
     const aiMod     = require('../ai');

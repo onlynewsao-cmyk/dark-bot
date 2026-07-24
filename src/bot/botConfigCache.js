@@ -12,6 +12,14 @@
  */
 
 const BotConfig = require('../database/models/BotConfig');
+const { mongoose } = require('../database/connection');
+
+// v5.1: fail-fast quando o MongoDB não está ligado.
+// Sem isto, cada query ficava 10s em buffer (mongoose bufferTimeoutMS),
+// bloqueando TODOS os pedidos HTTP quando o Mongo caía no Render.
+function _dbUp() {
+  return mongoose.connection.readyState === 1;
+}
 
 // Cache principal: key → { value, ts }
 const _cache = new Map();
@@ -51,6 +59,9 @@ async function get(key, defaultValue = null) {
   // Cache fresco → retorna imediatamente (zero I/O)
   if (_isFresh(entry, key)) return entry.value;
 
+  // Sem MongoDB → stale-while-error ou default (sem bloquear)
+  if (!_dbUp()) return entry != null ? entry.value : defaultValue;
+
   try {
     const doc = await BotConfig.findOne({ key }).lean();
     const value = doc != null ? doc.value : defaultValue;
@@ -66,6 +77,11 @@ async function get(key, defaultValue = null) {
  * Escreve uma config no MongoDB e atualiza cache local.
  */
 async function set(key, value) {
+  // Sem MongoDB → só cache local (não bloqueia)
+  if (!_dbUp()) {
+    _cache.set(key, { value, ts: Date.now() });
+    return value;
+  }
   try {
     await BotConfig.findOneAndUpdate(
       { key },
@@ -94,6 +110,7 @@ function clear(key) {
  * Chamado no startup e a cada 5 min.
  */
 async function refresh() {
+  if (!_dbUp()) return 0;
   try {
     const docs = await BotConfig.find().lean();
     const now = Date.now();
@@ -125,6 +142,15 @@ async function getMany(keys, defaults = {}) {
   }
 
   if (missing.length === 0) return result;
+
+  // Sem MongoDB → cache expirado ou defaults (sem bloquear)
+  if (!_dbUp()) {
+    for (const key of missing) {
+      const entry = _cache.get(key);
+      result[key] = entry ? entry.value : (defaults[key] !== undefined ? defaults[key] : null);
+    }
+    return result;
+  }
 
   // Busca os que faltam num único round-trip
   try {
