@@ -417,9 +417,8 @@ async function getStickerWatermarkConfig(config, ctx) {
 
 
 
-function fancyCommandLine(prefix, cmd, desc = '') {
-  const full = `${cmd}`; // visual sem prefixo; o handler continua usando prefixo internamente
-  return `┃ ⚡ *${full.padEnd(18, ' ')}* ${desc ? '— ' + desc : ''}`;
+function fancyCommandLine(theme, cmd, desc = '') {
+  return `${theme.frame[5]}${theme.bullet} ${theme.accent} *${cmd}* ${desc ? '— ' + desc : ''}`;
 }
 
 function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {}, style = 'classic', showPrefix = false, target = '') {
@@ -428,8 +427,13 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
 
 async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = '⚡ Selecionar', target = 'menu', items = [] }) {
   const p = config.bot.prefix;
+  const botName = config.bot.name || 'DARK BOT';
 
-  // Prefixo nos títulos conforme config !menustyle prefix on/off
+  // Tema activo — afecta TODOS os textos visíveis
+  const t = await getActiveTheme();
+  const f = t.frame;
+  const V = f[5] || '│';
+
   const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
   const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
 
@@ -440,61 +444,78 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   const allowed = items.filter(it => visible.some(v => v.id === `${p}${it.cmd}`));
 
   if (!allowed.length) {
-    return reply(sock, msg, ctx, `⚠️ Sem comandos em *${title}*.`);
+    return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
   }
 
-  // ── Texto formatado estilo referência ─────────────────────────────
-  // Linha de separador e título
+  // ── Cabeçalho com identidade do tema activo ────────────────────────
+  const header = t.headerDec.replace('{TITLE}', title);
+  const footer = t.sectionSep || `${f[2]}${f[4].repeat(24)}${f[3]}`;
+
   const lines = [
-    `╔━᳀『 *${title}* 』═᳀`,
-    '',
+    `${t.icon} ─ ⋆⋅ ${t.accent} ⋅⋆ ─ ${t.icon}`,
+    ``,
+    header,
+    `${V}`,
+    `${V}${t.bullet} 𝐁𝐨𝐭: *${botName}*`,
+    `${V}${t.bullet} 𝐔𝐬𝐮á𝐫𝐢𝐨: ${ctx.pushName || 'Membro'}`,
+    `${V}${t.bullet} 𝐏𝐫𝐞𝐟𝐢𝐱𝐨: 『${p}』`,
+    `${V}`,
+    footer,
+    ``,
   ];
+
+  // Secção de comandos
+  lines.push(`${t.sectionSep || header.replace('{TITLE}', title)}`);
+  lines.push(`${V} ${t.bullet} ${title}`);
+  lines.push(`${footer}`);
+
   for (const it of allowed) {
     const cmd = `${useP ? p : ''}${it.cmd}`;
-    lines.push(`  ⌬ *${cmd}* — _${it.desc || it.cmd}_`);
+    lines.push(`${V}${t.bullet} ${t.accent} *${cmd}*`);
   }
-  lines.push('');
-  lines.push(`╚═━═━═━═━═━═━═━═━═━═᳀`);
+
+  lines.push(``);
+  lines.push(footer);
   if (subtitle) lines.push(`> _${subtitle}_`);
-  lines.push(`> ${config.bot.name} 🕸️`);
+  lines.push(`> ${t.icon} ${botName} ${t.sep} ${t.vibe}`);
 
   return reply(sock, msg, ctx, lines.join('\n'));
 }
 
 
 function menuCmd(cmd, p, showPrefix) { return `${showPrefix ? p : ''}${cmd}`; }
-function buildConfigurableMenu(ctx, config, { uptime = '0d 0h 0m', style = 'classic', showPrefix = false } = {}) {
-  const p = config.bot.prefix;
-  const n = Number(String(style).replace(/\D/g, '')) || 0;
-  const frames = [
-    ['╭','╮','╰','╯','─','│'], ['┏','┓','┗','┛','━','┃'], ['╔','╗','╚','╝','═','║'], ['▛','▜','▙','▟','▀','▌'],
-    ['✦','✦','✧','✧','━','┃'], ['⎔','⎔','⎔','⎔','═','║'], ['◢','◣','◥','◤','━','┃'], ['╓','╖','╙','╜','─','║'],
-    ['┌','┐','└','┘','─','│'], ['╒','╕','╘','╛','═','│']
-  ];
-  const icons = ['⚡','♾️','🌑','🕸️','👑','💎','🔥','🧬','🛡️','🗡️','☯️','🌀'];
-  const names = ['DARK SIDE','NEON MATRIX','SHADOW REALM','AURA MODE','CYBER ROYAL','EGO ENGINE','VOID PANEL','NIGHT CORE','DARK WEB','BLADE UI','MOON SYSTEM','OMEGA'];
-  const sep = ['⌁','◈','▹','➣','⟡','⌬','◆','⬢','✧','⫸'][n % 10];
-  const f = frames[n % frames.length], ic = icons[n % icons.length], theme = names[n % names.length];
-  const top = (title) => `${f[0]}${f[4].repeat(8)}〔 ${title} 〕${f[4].repeat(8)}${f[1]}`;
-  const botLine = `${f[5]} ${ic} *${config.bot.name}* ${sep} ${theme} ${ic}`;
-  const bottom = `${f[2]}${f[4].repeat(28)}${f[3]}`;
-  const line = (txt) => `${f[5]} ${txt}`;
-  const cmds = (...arr) => line(arr.map(c => `*${menuCmd(c,p,showPrefix)}*`).join(` ${sep} `));
+function buildConfigurableMenu(ctx, config, { uptime = '0d 0h 0m', style = 'classic', showPrefix = false, activeTheme = null } = {}) {
+  const p  = config.bot.prefix;
+  // Usa o tema activo se fornecido, caso contrário usa o style numérico
+  const t  = activeTheme || null;
+  const f  = t ? t.frame : ['╭','╮','╰','╯','─','│'];
+  const ic = t ? t.icon : '🕸️';
+  const sep= t ? t.sep  : '⌁';
+  const b  = t ? t.bullet : '▸';
+  const headerDec = t ? t.headerDec : '╭─〔 {TITLE} 〕─╮';
+
+  const top    = (title) => headerDec.replace('{TITLE}', title);
+  const bottom = t ? (t.sectionSep || `${f[2]}${f[4].repeat(28)}${f[3]}`) : `${f[2]}${f[4].repeat(28)}${f[3]}`;
+  const line   = (txt) => `${f[5]}${b} ${txt}`;
+  const cmds   = (...arr) => line(arr.map(c => `*${menuCmd(c,p,showPrefix)}*`).join(` ${sep} `));
+
   const sections = [
-    ['🧠 IA / WEB', [cmds('ia','gpt','deepsearch'), cmds('noticias','pesquisar','resumir'), cmds('imagem','figura','figubug2')]],
-    ['📥 DOWNLOADS', [cmds('play','play2','play3'), cmds('video','video2','statusvideo'), cmds('tiktok','instagram','fb','twitter'), cmds('spotify','soundcloud','pinterest','pinmp4')]],
-    ['🎨 STICKERS', [cmds('sticker','sfull','figubug'), cmds('toimg','attp','ttp')]],
-    ['👥 GRUPOS / ADM', [cmds('ban','del','add','tempban'), cmds('promote','demote','open','close'), cmds('todos','hidetag','tagadmins'), cmds('regras','inatividade','antilink')]],
-    ['💕 INTERAÇÕES', [cmds('abracar','beijar','cafune','declarar'), cmds('flertar','paparico','dancar'), cmds('tapa','soco','chutar','matar'), cmds('mimimi','fofocar','cuidar')]],
-    ['💰 ECONOMIA', [cmds('saldo','daily','trabalhar','crime'), cmds('roubar','depositar','sacar','transferir'), cmds('loja','comprar','inventario','ranking')]],
-    ['🎮 JOGOS', [cmds('forca','quiz','adivinha'), cmds('blackjack','truco','russa'), cmds('verdade','desafio','bingo')]],
-    ['🛠️ UTILS', [cmds('ping','info','id','perfil'), cmds('qrcode','calc','clima','encurtar'), cmds('vip','assinar','meuplano')]],
+    ['🧠 IA / WEB',      [cmds('ia','gpt','claude','copilot'), cmds('noticias','pesquisar','resumir'), cmds('imagem','figura','figubug2')]],
+    ['📥 DOWNLOADS',     [cmds('play','play2','play3'), cmds('video','video2','statusvideo'), cmds('tiktok','instagram','fb','twitter'), cmds('spotify','soundcloud','pinterest','pinpacks')]],
+    ['🎨 STICKERS',      [cmds('sticker','sfull','figubug2'), cmds('toimg','attp','ttp'), cmds('stickerrename','pinpacks')]],
+    ['💕 INTERAÇÕES',    [cmds('abracar','beijar','cafune','declarar'), cmds('flertar','dancar','tapa','soco'), cmds('matar','morder','casar','adotar')]],
+    ['💰 ECONOMIA',      [cmds('saldo','daily','trabalhar','crime'), cmds('roubar','depositar','sacar','transferir'), cmds('loja','comprar','inventario','rank')]],
+    ['🎮 JOGOS',         [cmds('forca','quiz','adivinha'), cmds('blackjack','russa'), cmds('verdade','desafio','bingo')]],
+    ['👥 ADM & GRUPOS',  [cmds('ban','del','add','tempban'), cmds('promote','demote','open','close'), cmds('todos','hidetag','regras','antilink')]],
+    ['🛠️ UTILS',        [cmds('ping','info','id','perfil'), cmds('qrcode','calc','clima','encurtar'), cmds('vip','assinar','temas','change')]],
   ];
-  let out = `${top(config.bot.name)}\n${botLine}\n${line('ᴛʜᴇ ᴅᴀʀᴋ sɪᴅᴇ • +9999999 AURA')}\n${bottom}\n\n`;
-  out += `${top('USER PROFILE')}\n${line(`👋 ${ctx.treatment || ctx.pushName}`)}\n${line(`📛 ${ctx.pushName}`)}\n${line(`📱 ${ctx.senderNumber}`)}\n${line(`💬 ${ctx.isGroup ? ctx.groupName : 'Privado'}`)}\n${line(`🔑 Prefixo: ${p}`)}\n${bottom}\n\n`;
+
+  const vibe = t ? t.vibe : 'DARK ENGINE v5 🕸️';
+  let out = `${top(config.bot.name)}\n${line(`${ic} *${config.bot.name}*`)}\n${line(vibe)}\n${bottom}\n\n`;
+  out += `${top('PERFIL')}\n${line(`👤 ${ctx.pushName}`)}\n${line(`📱 ${ctx.senderNumber}`)}\n${line(`💬 ${ctx.isGroup ? ctx.groupName : 'Privado'}`)}\n${line(`🔑 Prefixo: ${p}`)}\n${bottom}\n\n`;
   for (const [title, rows] of sections) out += `${top(title)}\n${rows.join('\n')}\n${bottom}\n\n`;
-  if (ctx.isOwner) out += `${top('👑 ROOT OWNER')}\n${cmds('menudono','maiscmds','broadcast')}\n${cmds('stats','restart','backup','eval')}\n${bottom}\n\n`;
-  out += `> ${sep} *${config.bot.name}* · ${config.owner.name}\n> 👑 ${config.owner.number || 'privado'} · ⏱️ ${uptime}\n> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅᴀʀᴋ ᴇɴɢɪɴᴇ ${ic}`;
+  if (ctx.isOwner) out += `${top('👑 ROOT DONO')}\n${cmds('menudono','maiscmds','broadcast','addai')}\n${cmds('change','setprefix','themeglobal')}\n${bottom}\n\n`;
+  out += `> ${b} *${config.bot.name}* ${sep} ${config.owner.name}\n> ⏱️ ${uptime}\n> ${vibe}`;
   return out;
 }
 

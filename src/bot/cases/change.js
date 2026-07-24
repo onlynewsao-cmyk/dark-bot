@@ -3,11 +3,11 @@
  * ║   DARK BOT v5 — cases/change.js                             ║
  * ║   Sistema de Temas Globais — !change                        ║
  * ║                                                             ║
- * ║   !change              → lista todos os temas               ║
- * ║   !change <nome>       → aplica tema imediatamente          ║
- * ║   !change preview <n>  → mostra preview sem aplicar         ║
- * ║   !change reset        → volta ao tema dark (padrão)        ║
- * ║   !change info         → info do tema activo                ║
+ * ║   !change          → lista interativa (single_select)       ║
+ * ║   !change <nome>   → aplica tema imediatamente              ║
+ * ║   !change reset    → volta ao tema dark (padrão)            ║
+ * ║   !change info     → info do tema activo                    ║
+ * ║   !change preview <n> → preview sem aplicar                 ║
  * ╚══════════════════════════════════════════════════════════════╝
  */
 'use strict';
@@ -19,166 +19,168 @@ const changeThemes    = require('../changeThemes');
 
 module.exports = function registerChangeCases(registerCase) {
 
-  // ═══════════════════════════════════════════════════════════
-  // !change  /  !tema  /  !settheme  /  !changetheme
-  // ═══════════════════════════════════════════════════════════
   registerCase(
     ['change', 'tema', 'settheme', 'changetheme', 'themechange', 'mudarstema'],
-    async ({ sock, msg, ctx, args, prefix, isOwner, reply, react }) => {
+    async ({ sock, msg, ctx, args, prefix, isOwner, reply }) => {
 
       const botName = config.bot?.name || 'DARK BOT';
 
-      // ── Obter tema activo ───────────────────────────────────
       const currentThemeName = await botConfigCache
-        .get('active_theme', 'dark')
-        .catch(() => 'dark');
+        .get('active_theme', 'dark').catch(() => 'dark');
       const currentTheme = changeThemes.getTheme(currentThemeName);
 
-      // ── Sem args → listar todos os temas ───────────────────
-      if (!args.length) {
-        const f   = currentTheme.frame;
-        const H   = f[4], V   = f[5];
-        const tl  = f[0], tr  = f[1], bl  = f[2], br  = f[3];
-        const b   = currentTheme.bullet;
-        const s   = currentTheme.sep;
-        const ico = currentTheme.icon;
+      const { generateWAMessageFromContent, proto } =
+        require('@systemzero/baileys');
 
+      // ── Sem args → lista interativa de seleção ─────────────────────
+      if (!args.length) {
         const all = changeThemes.listThemes();
 
-        let txt = `${tl}${H.repeat(30)}${tr}\n`;
-        txt    += `${V}  ${ico} *TEMAS DO BOT — ${botName}*  ${V}\n`;
-        txt    += `${V}  Tema actual: *${currentThemeName.toUpperCase()}*${' '.repeat(Math.max(0, 18 - currentThemeName.length))}${V}\n`;
-        txt    += `${bl}${H.repeat(30)}${br}\n\n`;
+        // Monta rows para single_select (máx 24 por secção)
+        const rows = all.map(t => ({
+          title:       `${t.emoji} ${t.name.toUpperCase()}`,
+          description: t.vibe.slice(0, 72),
+          id:          `CHANGE_THEME_${t.name}`,
+        }));
 
-        txt += `${b} *Como usar:*\n`;
-        txt += `${s} Aplicar: *${prefix}change <nome>*\n`;
-        txt += `${s} Preview: *${prefix}change preview <nome>*\n`;
-        txt += `${s} Resetar: *${prefix}change reset*\n`;
-        txt += `${s} Info:    *${prefix}change info*\n\n`;
+        const t = currentTheme;
+        const bodyTxt =
+          `${t.icon} *TEMAS DO BOT — ${botName}*\n\n` +
+          `${t.bullet} Tema actual: *${currentThemeName.toUpperCase()}*\n` +
+          `${t.bullet} Cada tema muda: bordas, ícones, símbolos, menus, submenus e todos os textos visíveis\n\n` +
+          `Seleciona um tema abaixo ${t.accent}`;
 
-        txt += `${tl}${H.repeat(30)}${tr}\n`;
-        txt += `${V}  🎭 *TODOS OS TEMAS*${' '.repeat(13)}${V}\n`;
-        txt += `${bl}${H.repeat(30)}${br}\n\n`;
+        const listParams = {
+          title:    `${t.icon} TEMAS DISPONÍVEIS`,
+          sections: [
+            {
+              title: `${t.icon} ESCOLHE O TEU TEMA`,
+              rows,
+            },
+          ],
+        };
 
-        for (const t of all) {
-          const active = t.name === currentThemeName ? ' ◄ *ACTIVO*' : '';
-          txt += `${t.emoji} *${t.name.toUpperCase()}*${active}\n`;
-          txt += `  _${t.label.replace(/^[^\s]+ /, '')}_\n`;
-          txt += `  Borda: ${t.frame[0]}${t.frame[4].repeat(3)}${t.frame[1]}  ${t.bullet} ${t.sep}  ${t.icon}\n\n`;
+        try {
+          const m = generateWAMessageFromContent(ctx.remoteJid, {
+            interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+              body:   proto.Message.InteractiveMessage.Body.fromObject({ text: bodyTxt }),
+              footer: proto.Message.InteractiveMessage.Footer.fromObject({
+                text: `${t.icon} ${botName} ${t.sep} ${t.vibe.slice(0, 50)}`,
+              }),
+              header: proto.Message.InteractiveMessage.Header.fromObject({
+                title: '', hasMediaAttachment: false,
+              }),
+              nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+                buttons: [{
+                  name: 'single_select',
+                  buttonParamsJson: JSON.stringify(listParams),
+                }],
+              }),
+            }),
+          }, { userJid: sock.user?.id, quoted: msg });
+          await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+        } catch {
+          // Fallback texto se interactiveMessage falhar
+          let txt = `${t.icon} *TEMAS DISPONÍVEIS — ${botName}*\n\n`;
+          for (const th of all) {
+            const active = th.name === currentThemeName ? ' ◄ *ACTIVO*' : '';
+            txt += `${th.emoji} *${th.name.toUpperCase()}*${active} — _${th.vibe.slice(0,40)}_\n`;
+          }
+          txt += `\n${t.bullet} Aplicar: *${prefix}change <nome>*`;
+          await reply(txt);
         }
-
-        txt += `> ${ico} ${botName} × ${currentTheme.vibe}`;
-
-        return reply(txt);
+        return;
       }
 
-      // ── preview <nome> ──────────────────────────────────────
-      if (args[0].toLowerCase() === 'preview') {
-        const themeName = args[1]?.toLowerCase()?.trim();
-        if (!themeName) {
-          return reply(`❓ Qual tema quer pré-visualizar?\n\nEx: *${prefix}change preview dragon*`);
-        }
-        const t = changeThemes.getTheme(themeName);
-        if (t.name !== themeName && themeName !== 'dark') {
-          return reply(
-            `❌ Tema *${themeName}* não encontrado.\n\n` +
-            `Temas disponíveis:\n` +
-            changeThemes.listThemes().map(x => `${x.emoji} ${x.name}`).join('\n') +
-            `\n\nUse: *${prefix}change <nome>*`
-          );
-        }
-        return reply(changeThemes.previewTheme(t, botName, prefix));
+      // ── info → preview do tema activo ──────────────────────────────
+      if (args[0].toLowerCase() === 'info') {
+        return reply(changeThemes.previewTheme(currentTheme, botName, prefix));
       }
 
-      // ── reset → volta ao dark ───────────────────────────────
+      // ── reset → volta ao dark ───────────────────────────────────────
       if (args[0].toLowerCase() === 'reset') {
         if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema.');
         await BotConfig.set('active_theme', 'dark');
-        await BotConfig.set('menu_style', 'classic');
+        await BotConfig.set('menu_style', '0');
         botConfigCache.clear();
         const t = changeThemes.getTheme('dark');
         return reply(
-          `${t.frame[0]}${t.frame[4].repeat(28)}${t.frame[1]}\n` +
-          `${t.frame[5]}  ${t.icon} *TEMA RESETADO*  ${t.frame[5]}\n` +
-          `${t.frame[2]}${t.frame[4].repeat(28)}${t.frame[3]}\n\n` +
-          `✅ Voltou ao tema *DARK* (padrão)\n\n` +
+          `${t.icon} *TEMA RESETADO*\n\n` +
+          `${t.bullet} Voltou ao tema *DARK* (padrão)\n\n` +
           `> ${t.vibe}`
         );
       }
 
-      // ── info → info do tema activo ─────────────────────────
-      if (args[0].toLowerCase() === 'info') {
-        const t = currentTheme;
+      // ── preview <nome> ──────────────────────────────────────────────
+      if (args[0].toLowerCase() === 'preview') {
+        const themeName = args[1]?.toLowerCase()?.trim();
+        if (!themeName) return reply(`❓ Qual tema?\nEx: *${prefix}change preview dragon*`);
+        const t = changeThemes.getTheme(themeName);
         return reply(changeThemes.previewTheme(t, botName, prefix));
       }
 
-      // ── Aplicar tema ────────────────────────────────────────
+      // ── Aplicar tema por nome ───────────────────────────────────────
       if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema do bot.');
 
       const themeName = args[0].toLowerCase().trim();
-      const allThemes = changeThemes.listThemes();
-      const found = allThemes.find(t => t.name === themeName);
+      const found = changeThemes.listThemes().find(t => t.name === themeName);
 
       if (!found) {
+        const list = changeThemes.listThemes().map(t => `${t.emoji} ${t.name}`).join('\n');
         return reply(
-          `❌ Tema *${themeName}* não encontrado.\n\n` +
-          `*Temas disponíveis:*\n` +
-          allThemes.map(t => `${t.emoji} *${t.name}* — ${t.vibe}`).join('\n') +
-          `\n\n💡 Use: *${prefix}change <nome>*\n💡 Preview: *${prefix}change preview <nome>*`
+          `❌ Tema *${themeName}* não encontrado.\n\n*Temas disponíveis:*\n${list}\n\n💡 Use: *${prefix}change* para ver a lista interativa`
         );
       }
 
-      // Salvar no DB
       await BotConfig.set('active_theme', found.name);
-      // Sincronizar com menu_style (índice numérico)
       await BotConfig.set('menu_style', String(found.style));
       botConfigCache.clear();
 
-      // Montar mensagem de confirmação no estilo do NOVO tema
+      // Confirmação no estilo do NOVO tema
       const f  = found.frame;
-      const H  = f[4], V  = f[5];
-      const tl = f[0], tr = f[1], bl = f[2], br = f[3];
+      const H  = f[4] || '─';
+      const V  = f[5] || '│';
       const W  = 28;
       const bar = (txt) => `${V} ${String(txt).slice(0, W).padEnd(W)} ${V}`;
 
       const confirm =
-        `${tl}${H.repeat(W + 2)}${tr}\n` +
-        `${bar(`${found.icon}  ${found.label}`)}\n` +
-        `${bar(`${found.sep.repeat(4)} TEMA APLICADO ${found.sep.repeat(4)}`)}\n` +
-        `${bar('')}\n` +
+        `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
+        `${found.headerDec.replace('{TITLE}', 'TEMA APLICADO')}\n` +
+        `${bar(``)}\n` +
         `${bar(`${found.bullet} Bot: ${botName}`)}\n` +
         `${bar(`${found.bullet} Novo tema: ${found.name.toUpperCase()}`)}\n` +
         `${bar(`${found.bullet} Ícone: ${found.icon}`)}\n` +
         `${bar(`${found.bullet} Reação: ${found.react}`)}\n` +
-        `${bar(`${found.bullet} Borda: ${tl}${H.repeat(4)}${tr}`)}\n` +
-        `${bar(`${found.bullet} Marcador: ${found.bullet}`)}\n` +
-        `${bar(`${found.bullet} Separador: ${found.sep}`)}\n` +
-        `${bar('')}\n` +
+        `${bar(`${found.bullet} Borda: ${f[0]}${H.repeat(4)}${f[1]}`)}\n` +
+        `${bar(`${found.bullet} Marcador: ${found.bullet} ${found.sep}`)}\n` +
+        `${bar(``)}\n` +
         `${bar(found.tip.slice(0, W))}\n` +
-        `${bl}${H.repeat(W + 2)}${br}\n\n` +
-        `✅ *Tema aplicado com sucesso!*\n` +
-        `Todo o bot adoptou o estilo *${found.name.toUpperCase()}*\n\n` +
+        `${found.sectionSep || `${f[2]}${H.repeat(W + 2)}${f[3]}`}\n\n` +
+        `✅ *Tema aplicado!* Todo o bot adoptou o estilo *${found.name.toUpperCase()}*\n\n` +
         `> ${found.icon} ${found.menuFooter.replace('{BOT}', botName)}`;
 
       return reply(confirm);
     }
   );
 
-  // ═══════════════════════════════════════════════════════════
-  // !temas  — alias rápido (só lista)
-  // ═══════════════════════════════════════════════════════════
+  // ── Handler do botão da lista interativa ────────────────────────────
+  // Quando o utilizador seleciona da lista → aplica automaticamente
+  registerCase(['__change_theme_handler__'], async () => {}); // placeholder, handled below
+
+  // ── !temas — alias rápido ────────────────────────────────────────────
   registerCase(['temas', 'themes', 'listthemes', 'listtemas'], async ({ prefix, reply }) => {
     const currentThemeName = await botConfigCache
-      .get('active_theme', 'dark')
-      .catch(() => 'dark');
+      .get('active_theme', 'dark').catch(() => 'dark');
     const all = changeThemes.listThemes();
-    let txt = `🎭 *TEMAS DO BOT*\n\nTema actual: *${currentThemeName.toUpperCase()}*\n\n`;
-    for (const t of all) {
-      const active = t.name === currentThemeName ? ' ◄ ACTIVO' : '';
-      txt += `${t.emoji} *${t.name.toUpperCase()}*${active} — _${t.vibe}_\n`;
+    const t   = changeThemes.getTheme(currentThemeName);
+    let txt = `${t.icon} *TEMAS DO BOT*\n\nTema actual: *${currentThemeName.toUpperCase()}*\n\n`;
+    for (const th of all) {
+      const active = th.name === currentThemeName ? ' ◄ ACTIVO' : '';
+      txt += `${th.emoji} *${th.name.toUpperCase()}*${active}\n`;
+      txt += `  _${th.vibe.slice(0,45)}_\n`;
     }
-    txt += `\n💡 Aplicar: *${prefix}change <nome>*`;
+    txt += `\n${t.bullet} Aplicar: *${prefix}change <nome>*\n`;
+    txt += `${t.bullet} Lista interativa: *${prefix}change*`;
     return reply(txt);
   });
-
 };

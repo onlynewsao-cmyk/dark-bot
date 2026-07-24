@@ -215,10 +215,46 @@ async function handle(sock, msg) {
   const ctx = getSenderInfo(msg);
   const prefixes = await prefixManager.getPrefixes();
 
+  // ── Interceptar cliques do change theme (lista interativa) ──────────
+  if (text.startsWith('CHANGE_THEME_')) {
+    const themeName = text.replace('CHANGE_THEME_', '').toLowerCase().trim();
+    const changeThemes = require('./changeThemes');
+    const BotConfig    = require('../database/models/BotConfig');
+    const found = changeThemes.getTheme(themeName);
+    if (found && found.name === themeName) {
+      const [ownerLidB, extraOwners] = await Promise.all([
+        botConfigCache.get('owner_lid', '').catch(() => ''),
+        botConfigCache.get('extra_owners', []).catch(() => []),
+      ]);
+      const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
+      const senderNum = ctx.senderNumber;
+      const isOwner = senderNum === ownerNum ||
+        (Array.isArray(extraOwners) && extraOwners.includes(senderNum));
+      if (!isOwner) {
+        await sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono pode mudar o tema.' }, { quoted: msg });
+        return true;
+      }
+      await BotConfig.set('active_theme', found.name);
+      await BotConfig.set('menu_style', String(found.style));
+      botConfigCache.clear();
+      const f = found.frame, H = f[4] || '─', V = f[5] || '│';
+      const W = 26;
+      const bar = (t2) => `${V} ${String(t2).slice(0, W).padEnd(W)} ${V}`;
+      const txt =
+        `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
+        `${found.headerDec.replace('{TITLE}', 'TEMA APLICADO')}\n` +
+        `${bar(`${found.bullet} Tema: ${found.name.toUpperCase()}`)}\n` +
+        `${bar(found.tip.slice(0, W))}\n` +
+        `${found.sectionSep || `${f[2]}${H.repeat(W + 2)}${f[3]}`}\n\n` +
+        `✅ *${found.name.toUpperCase()}* activado! Todo o bot mudou.\n\n` +
+        `> ${found.icon} ${found.vibe}`;
+      await sock.sendMessage(ctx.remoteJid, { text: txt }, { quoted: msg });
+      return true;
+    }
+  }
+
   // Botões de menu chegam com prefixo embutido (ex: "!menup") → processados normalmente
-  // Botões sem prefixo (ex: "menup") → adiciona o prefixo
   // Remove emojis do início dos IDs de botão (ex: "📥!menudownload" → "!menudownload")
-  // Os IDs de botão agora têm emoji no início para exibição visual
   const EMOJI_STRIP = /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F300}-\u{1F9FF}]+/u;
   if (text && EMOJI_STRIP.test(text)) {
     const stripped = text.replace(EMOJI_STRIP, '').trim();
@@ -566,16 +602,20 @@ async function handle(sock, msg) {
   const AURA_TRIGGERS = [
     'aura', '+aura', '-aura', 'aura?',
     'ativei aura', 'minha aura', 'boost aura', 'dark aura',
-    'qual minha aura', 'mede minha aura', 'mede minha aura',
+    'qual minha aura', 'mede minha aura',
     'quanta aura', 'tô com aura', 'to com aura', 'tenho aura',
     'aura ativada', 'aura mode', 'dark side', 'darkside',
     'oi aura', 'ola aura', 'olá aura', 'bom dia aura', 'boa tarde aura', 'boa noite aura',
     'aura me diz', 'aura fala', 'aura responde', 'aura ajuda',
   ];
+  // Activa se:
+  //  1. Palavra exacta da lista
+  //  2. Frase começa com uma das keywords (ex: "aura quantos anos você tem?")
+  //  3. Começa com "aura " (qualquer coisa depois) — citou aura no início
   const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) && (
     AURA_TRIGGERS.includes(textLower) ||
-    AURA_TRIGGERS.some(k => k.length > 4 && textLower.startsWith(k)) ||
-    textLower === 'aura'
+    AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
+    textLower.startsWith('aura ')   // qualquer frase que começa com "aura ..."
   );
 
   // isReplyToBot: só activa se a mensagem tem texto real (não stickers/mídias sem texto)
