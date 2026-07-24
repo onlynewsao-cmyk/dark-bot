@@ -9,31 +9,52 @@ const botConfigCache = require('../botConfigCache');
 
 module.exports = function registerGroupCases(registerCase) {
 
-  // ── Helper isAdmin ──────────────────────────────────────────────────
+  // ── Helper para obter metadata fresca (nunca usa cache antigo) ─────
+  async function getGroupMeta(sock, ctx) {
+    try { return await sock.groupMetadata(ctx.remoteJid); }
+    catch { return ctx.groupMeta || null; }
+  }
+
+  // ── Helper isAdmin (utilizador que enviou o comando) ─────────────
   async function isAdm(sock, ctx) {
     if (ctx.isOwner) return true;
     try {
-      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const snum = ctx.senderNumber;
-      return meta.participants?.some(p =>
-        p.id.split('@')[0].replace(/\D/g,'') === snum &&
-        (p.admin === 'admin' || p.admin === 'superadmin')
-      );
+      const meta = await getGroupMeta(sock, ctx);
+      if (!meta?.participants) return false;
+      const snum = String(ctx.senderNumber || '').replace(/\D/g, '');
+      return meta.participants.some(p => {
+        const pNum = String(p.id || '').split(':')[0].split('@')[0].replace(/\D/g, '');
+        return pNum === snum && (p.admin === 'admin' || p.admin === 'superadmin');
+      });
     } catch { return false; }
   }
 
   // ── Helper botIsAdmin ───────────────────────────────────────────────
+  // Mesma lógica exacta de groupEvents.js (que funciona correctamente)
   async function botIsAdm(sock, ctx) {
     try {
-      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      // Extrai número do bot de forma robusta (id pode ser "1234567890:0@s.whatsapp.net")
-      const botRaw = String(sock.user?.id || sock.user?.jid || '');
-      const botNum = botRaw.replace(/:.*/, '').replace('@s.whatsapp.net','').replace('@lid','').trim();
-      return meta.participants?.some(p => {
-        const pNum = String(p.id || '').replace(/:.*/, '').replace('@s.whatsapp.net','').replace('@lid','').trim();
-        return pNum === botNum && (p.admin === 'admin' || p.admin === 'superadmin');
-      }) || false;
-    } catch { return false; }
+      const meta = await getGroupMeta(sock, ctx);
+      if (!meta?.participants?.length) return false;
+
+      // Extrai número puro do bot — split(':')[0] remove :device, split('@')[0] remove @domain
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      if (!botNum) return false;
+
+      const botEntry = meta.participants.find(p => {
+        const pNum = String(p.id || '').split(':')[0].split('@')[0];
+        return pNum === botNum;
+      });
+
+      // Log de debug (remover após confirmar)
+      if (process.env.DEBUG_ADMIN) {
+        console.log('[botIsAdm] botNum:', botNum, '| found:', botEntry?.id, '| admin:', botEntry?.admin);
+      }
+
+      return !!(botEntry && (botEntry.admin === 'admin' || botEntry.admin === 'superadmin'));
+    } catch (e) {
+      console.warn('[botIsAdm] erro:', e?.message?.slice(0, 60));
+      return false;
+    }
   }
 
   // ── Helper: obtém mencionados ───────────────────────────────────────
