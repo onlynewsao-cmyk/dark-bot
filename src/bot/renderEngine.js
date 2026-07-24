@@ -134,7 +134,51 @@ function renderMenuFooter(theme, botName = 'DARK BOT') {
   return `${t.icon || '🕸️'} ${botName} · ${t.vibe || 'Dark Engine'}`;
 }
 
+
+
+/**
+ * v6.7: Aplica o visual do change a QUALQUER texto de resposta.
+ * Se o texto já tem bordas do tema, não duplica.
+ * Senão, adiciona o linePrefix do tema a cada linha.
+ */
+async function themeText(text, groupJid) {
+  if (!text || typeof text !== 'string') return text;
+  const t = await getTheme(groupJid);
+  const pfx = t.linePrefix || (t.frame?.[5] || '│') + (t.bullet || '▸') + ' ';
+  const top = t.topBorder || '';
+  const bot = t.bottomBorder || '';
+  
+  // Se já tem bordas/estrutura visual, não duplicar
+  // Detecta: começa com caracter de borda OU contém linePrefix OU contém vibe
+  const borderChars = ['╭','╔','┌','','┏','╰','╚','└','│','║','┃','╎','┊'];
+  const firstChar = text.trim()[0];
+  if (borderChars.includes(firstChar)) return text;
+  // Se tem 3+ linhas e a maioria começa com caracter decorativo → já formatado
+  const tLines = text.split('\n');
+  if (tLines.length >= 3) {
+    const decorated = tLines.filter(l => borderChars.includes(l.trim()[0]) || l.trim().startsWith('>') || l.trim() === '').length;
+    if (decorated >= tLines.length * 0.5) return text;
+  }
+  if (pfx && text.includes(pfx)) return text;
+  if (t.vibe && text.includes(t.vibe)) return text;
+  if (top && text.includes(top.slice(0, 8))) return text;
+  
+  // Envolver cada linha com o linePrefix do tema
+  const lines = text.split('\n');
+  const themed = lines.map(l => l.trim() ? pfx + l : l).join('\n');
+  
+  // Adicionar bordas se o tema tiver
+  const parts = [];
+  if (top) parts.push(top.replace(/{TITLE}/g, '').replace(/{ICON}/g, t.icon || '🕸️').replace(/{BOT}/g, ''));
+  parts.push(themed);
+  if (bot) parts.push(bot.replace(/{ICON}/g, t.icon || '🕸️').replace(/{BOT}/g, ''));
+  if (t.vibe) parts.push('> ' + t.vibe);
+  
+  return parts.join('\n');
+}
+
 module.exports = {
+  themeText,
   getTheme,
   renderBlock,
   renderSubmenu,
