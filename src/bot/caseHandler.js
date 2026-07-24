@@ -119,10 +119,13 @@ function compileCase(code) {
 // ─────────────────────────────────────────────
 // REGISTAR UM CASE
 // ─────────────────────────────────────────────
-function registerCase(commands, handler, source = null) {
+function registerCase(commands, handler, sourceOrOpts = null) {
+  const onlyIfNew = sourceOrOpts === true || (typeof sourceOrOpts === 'object' && sourceOrOpts?.onlyIfNew);
+  const source = typeof sourceOrOpts === 'string' ? sourceOrOpts : null;
   const list = Array.isArray(commands) ? commands : [commands];
   for (const cmd of list) {
     const key = String(cmd).toLowerCase().trim();
+    if (onlyIfNew && CASES.has(key)) continue; // não sobrescreve existente
     CASES.set(key, handler);
     if (source) CASES_SOURCE.set(key, source);
   }
