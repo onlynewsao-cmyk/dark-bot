@@ -133,38 +133,49 @@ module.exports = function registerPremiumCases(registerCase) {
   });
 
   // ══════════════════════════════════════════════════════════
-  // case 'setprefix' — muda o prefixo globalmente
   // ══════════════════════════════════════════════════════════
-  registerCase(['setprefix', 'prefixo', 'changeprefix'], async ({
+  // !setprefix — muda o prefixo (só Dono, apenas 1 prefixo)
+  // ══════════════════════════════════════════════════════════
+  registerCase(['setprefix', 'changeprefix'], async ({
     args, isOwner, prefix, reply,
   }) => {
-    if (!isOwner) return reply('🚫 Só o Dono pode mudar o prefixo.');
-    const newPfxRaw = args.join(' ').trim();
-    if (!newPfxRaw) return reply(
-      `⚙️ *Mudar Prefixo Global*\n\n` +
+    if (!isOwner) return reply('🚫 Só o Dono pode mudar o prefixo do bot.');
+
+    // Pega apenas o primeiro token — prefixo único
+    const newP = args[0]?.trim();
+    if (!newP) return reply(
+      `⚙️ *Mudar Prefixo do Bot*\n\n` +
       `Uso: *${prefix}setprefix <novo>*\n` +
       `Ex: *${prefix}setprefix !*\n` +
-      `Ex: *${prefix}setprefix ! .*  (dois prefixos)\n\n` +
-      `Prefixo actual: *${prefix}*`
+      `Ex: *${prefix}setprefix $*\n` +
+      `Ex: *${prefix}setprefix /*\n\n` +
+      `Prefixo actual: *${prefix}*\n` +
+      `_Nota: apenas 1 prefixo é aceite._`
     );
-    const newPfxList = newPfxRaw.split(/[\s,]+/).filter(Boolean).slice(0, 5);
-    await prefixManager.setPrefixes(newPfxList);
+
+    // Validar — não aceita espaços nem caracteres de controlo
+    if (/\s/.test(newP) || newP.length > 5) {
+      return reply(`❌ Prefixo inválido. Use 1 a 5 caracteres sem espaços.\nEx: *!*, *$*, */*, *.*`);
+    }
+
+    await prefixManager.setPrefixes([newP]);
     botConfigCache.clear();
-    const display = newPfxList.join('  •  ');
+
     return reply(
-      `✅ *Prefixo alterado!*\n\n` +
-      `🔑 Novo prefixo: *${display}*\n\n` +
-      `💡 Todos os comandos passam a usar *${newPfxList[0]}*\n` +
-      `O bot actualiza em todos os grupos automaticamente.`
+      `✅ *Prefixo alterado com sucesso!*\n\n` +
+      `🔑 Novo prefixo: *${newP}*\n\n` +
+      `Agora todos os comandos usam *${newP}*\n` +
+      `Ex: *${newP}menu* · *${newP}play* · *${newP}ia*`
     );
   });
 
-  // ── !prefixos — ver prefixos actuais ──────────────────────
-  registerCase(['prefixos', 'prefix', 'getprefix'], async ({ prefix, reply }) => {
-    const list = await prefixManager.getPrefixes();
+  // ── !prefixo — ver prefixo actual ─────────────────────────
+  registerCase(['prefixo', 'prefixos', 'getprefix'], async ({ prefix, reply }) => {
     return reply(
-      `🔑 *Prefixos activos:* *${list.join('*  •  *')}*\n\n` +
-      `💡 Para mudar (só Dono): *${prefix}setprefix <novo>*`
+      `🔑 *Prefixo actual: *${prefix}**\n\n` +
+      `Todos os comandos começam com *${prefix}*\n` +
+      `Ex: *${prefix}menu* · *${prefix}play* · *${prefix}ia*\n\n` +
+      `_Só o Dono pode mudar: ${prefix}setprefix <novo>_`
     );
   });
 

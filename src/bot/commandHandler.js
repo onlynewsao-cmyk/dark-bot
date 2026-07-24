@@ -781,44 +781,11 @@ async function handle(sock, msg) {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // SEM PREFIXO — 2 casos respondem:
-  //  1. "prefixo" (a palavra) → mostra prefixo com botão copiar
-  //  2. "aura" (exacto) → já foi tratado pelo Auto-IA acima
-  //  Tudo o resto (incluindo "menu") → SILÊNCIO TOTAL
+  // SEM PREFIXO — SILÊNCIO TOTAL
+  //  "aura" e menções ao bot já foram tratados acima pelo Auto-IA
+  //  Tudo o resto → SILÊNCIO (bot não responde a palavras)
   // ════════════════════════════════════════════════════════════════════════
   if (!prefixInfo) {
-    const rawTrimmed = String(text || '').trim().toLowerCase();
-
-    // CASO 1: a pessoa escreveu "prefixo" → mostra o prefixo com botão de copiar
-    if (rawTrimmed === 'prefixo' || rawTrimmed === 'prefix') {
-      const correctCmd = prefix + 'menu';
-      const msgTxt =
-        `🔑 *Prefixo em uso: ${prefix}*\n\n` +
-        `Todos os comandos começam com *${prefix}*\n` +
-        `Ex: *${prefix}menu* · *${prefix}play* · *${prefix}ia*`;
-      try {
-        const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
-        const m = generateWAMessageFromContent(ctx.remoteJid, {
-          interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-            body:   proto.Message.InteractiveMessage.Body.fromObject({ text: msgTxt }),
-            footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
-            header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-            nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-              buttons: [{
-                name: 'cta_copy',
-                buttonParamsJson: JSON.stringify({ display_text: '📋 Copiar prefixo: ' + prefix, copy_code: prefix }),
-              }],
-            }),
-          }),
-        }, { userJid: sock.user?.id, quoted: msg });
-        await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
-      } catch {
-        await sock.sendMessage(ctx.remoteJid, { text: msgTxt }, { quoted: msg });
-      }
-      return true;
-    }
-
-    // CASO 2: "aura" já foi tratado → aqui silencia tudo o resto
     return false;
   }
 
