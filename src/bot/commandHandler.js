@@ -592,13 +592,28 @@ async function handle(sock, msg) {
     (botLid && allMentioned.some(j => j.split(':')[0].split('@')[0] === botLid.split(':')[0].split('@')[0]))
   ));
 
-  const ctxParticipant = msg.message?.extendedTextMessage?.contextInfo?.participant || '';
-  const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum;
+  // ── Resposta directa ao bot — activa SEMPRE (com ou sem texto rico)
+  // isReplyToBot verifica TODOS os tipos de mensagem que podem ser reply
+  const ctxParticipant =
+    msg.message?.extendedTextMessage?.contextInfo?.participant ||
+    msg.message?.imageMessage?.contextInfo?.participant ||
+    msg.message?.videoMessage?.contextInfo?.participant ||
+    msg.message?.audioMessage?.contextInfo?.participant ||
+    msg.message?.buttonsResponseMessage?.contextInfo?.participant ||
+    msg.message?.interactiveResponseMessage?.contextInfo?.participant || '';
+
+  const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum ||
+    // Também detecta pelo stanzaId (quem enviou a mensagem original)
+    (msg.message?.extendedTextMessage?.contextInfo?.remoteJid === botJid);
 
   const textLower = text.toLowerCase().trim();
-  // "aura" exacto OU começa com "aura " → APENAS se a mensagem INTEIRA é sobre aura
-  // Não activa se "aura" aparece no meio: "tenho mais aura que tu" NÃO activa
-  // Aura triggers expandidos — palavras exatas OU frases que começam com elas
+
+  // AURA TRIGGERS — activado por:
+  //  1. Palavra exacta da lista
+  //  2. Frase começa com "aura ..." → citação directa
+  //  3. Referência em 3ª pessoa: "a aura", "da aura", "com a aura", "pra aura"
+  //  4. Nome do bot mencionado por texto (ex: "dark bot disse que...")
+  const botNameLower = (commandConfig.bot?.name || 'dark bot').toLowerCase();
   const AURA_TRIGGERS = [
     'aura', '+aura', '-aura', 'aura?',
     'ativei aura', 'minha aura', 'boost aura', 'dark aura',
@@ -607,19 +622,19 @@ async function handle(sock, msg) {
     'aura ativada', 'aura mode', 'dark side', 'darkside',
     'oi aura', 'ola aura', 'olá aura', 'bom dia aura', 'boa tarde aura', 'boa noite aura',
     'aura me diz', 'aura fala', 'aura responde', 'aura ajuda',
+    'aura o que', 'aura quanto', 'aura quando', 'aura como', 'aura por que',
+    'aura sabe', 'aura conhece', 'aura pode', 'aura vai',
   ];
-  // Activa se:
-  //  1. Palavra exacta da lista
-  //  2. Frase começa com uma das keywords (ex: "aura quantos anos você tem?")
-  //  3. Começa com "aura " (qualquer coisa depois) — citou aura no início
   const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) && (
     AURA_TRIGGERS.includes(textLower) ||
     AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
-    textLower.startsWith('aura ')   // qualquer frase que começa com "aura ..."
+    textLower.startsWith('aura ') ||           // qualquer frase que começa com "aura ..."
+    /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) || // referência 3ª pessoa
+    (botNameLower.length > 3 && textLower.includes(botNameLower)) // nome do bot mencionado
   );
 
-  // isReplyToBot: só activa se a mensagem tem texto real (não stickers/mídias sem texto)
-  const replyHasText = isReplyToBot && text.length > 1;
+  // isReplyToBot: activa SEMPRE que alguém responde ao bot, mesmo sem texto longo
+  const replyHasText = isReplyToBot && text.length > 0;
 
   const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
@@ -631,11 +646,19 @@ async function handle(sock, msg) {
   if (aiActive && (isBotMentioned || replyHasText || isAuraTrigger)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
-      if (!isAuraTrigger && cleanText.length < 2) return false;
 
-      // Prompt natural — sem instruções de bot
-      const prompt = cleanText.length > 1 ? cleanText
-        : (isAuraTrigger ? 'Olá pessoal! Sinto a vossa energia.' : 'Olá!');
+      // Se é resposta directa ao bot: responde SEMPRE (mesmo "kkk", "😂", "ok")
+      // Se é trigger de aura: precisa de pelo menos 1 char
+      // Se é menção: precisa de texto real
+      if (!isReplyToBot && !isAuraTrigger && cleanText.length < 2) return false;
+
+      // Prompt contextual
+      let prompt = cleanText;
+      if (!prompt || prompt.length < 1) {
+        if (isReplyToBot) prompt = '[O utilizador reagiu ou respondeu sem texto — reage naturalmente]';
+        else if (isAuraTrigger) prompt = 'Olá! Sinto a vossa energia aqui.';
+        else prompt = 'Olá!';
+      }
 
       // Sem emojis de processamento — responde directamente como humano
       // (a reacção 🤔 denuncia o bot — removida)
@@ -1034,26 +1057,31 @@ async function handle(sock, msg) {
 
         if (closest.length > 0) {
           const suggestion = closest[0].k;
-          const correctCmd = prefix + suggestion;
+          // Usa SEMPRE o prefixo principal (index 0), não o que o utilizador digitou
+          // Se o utilizador digitou ".menu" com prefixo "." mas o principal é "$",
+          // a sugestão deve mostrar "$menu", não "$.menu"
+          const primaryPrefix = prefixes[0] || prefix;
+          const correctCmd = primaryPrefix + suggestion;
+          const menuCmd    = primaryPrefix + 'menu';
           const warnText = `⚠️ *${prefix}${commandName}* não existe.\n\n💡 Quiseste dizer *${correctCmd}*?`;
           try {
             const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
             const btnMsg = generateWAMessageFromContent(ctx.remoteJid, {
               interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                 body:   proto.Message.InteractiveMessage.Body.fromObject({ text: warnText }),
-                footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name + ' 🕸️' }),
+                footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: commandConfig.bot.name }),
                 header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
                 nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
                   buttons: [
                     { name: 'cta_copy', buttonParamsJson: JSON.stringify({ display_text: '📋 Copiar: ' + correctCmd, copy_code: correctCmd }) },
-                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📜 Ver menu', id: prefix + 'menu' }) },
+                    { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📜 Ver menu', id: menuCmd }) },
                   ],
                 }),
               }),
             }, { userJid: sock.user?.id, quoted: msg });
             await sock.relayMessage(ctx.remoteJid, btnMsg.message, { messageId: btnMsg.key.id });
           } catch {
-            await sock.sendMessage(ctx.remoteJid, { text: warnText + `\n\nUsa *${prefix}menu* para ver todos os comandos.` }, { quoted: msg });
+            await sock.sendMessage(ctx.remoteJid, { text: warnText + `\n\nUsa *${menuCmd}* para ver todos os comandos.` }, { quoted: msg });
           }
         }
         // Sem sugestão → silêncio total (não polui grupos)
