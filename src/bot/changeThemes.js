@@ -284,9 +284,9 @@ const THEMES = {
   // ════════════════════════════════════════════════════════
   //  11. ITADORI  —  Identidade: Jujutsu / Maldição / Força
   // ════════════════════════════════════════════════════════
-  itadori: {
-    name:       'itadori',
-    label:      '⛩️ ITADORI — Jujutsu Kaisen Core',
+  sorcerer: {
+    name: 'sorcerer',
+    label:      '⛩️ RONIN — Caminho do Guerreiro',
     emoji:      '⛩️',
     style:      1,
     frame:      ['┏', '┓', '┗', '┛', '━', '┃'],
@@ -294,12 +294,12 @@ const THEMES = {
     sep:        '☯',
     accent:     '🩸',
     icon:       '⛩️',
-    vibe:       '⛩️ 術式展開 — Jujutsu Core',
+    vibe:       '⛩️ 術式展開 — Ronin Core',
     headerDec:  '⛩☯━〔 {TITLE} 〕━☯⛩',
     react:      '⛩️',
     tip:        '⛩️ A maldição é domada por quem entende o poder.',
-    menuTitle:  '⛩️ ITADORI — Jujutsu Kaisen',
-    menuFooter: '> ⛩️ 術式展開 — Jujutsu Core',
+    menuTitle:  '⛩️ RONIN — Dark Warrior',
+    menuFooter: '> ⛩️ 術式展開 — Ronin Core',
     thumbText:  '⛩️ {BOT}',
     sectionSep: '┣⛩☯━━━━━━━━━━━━━━━━━☯⛩┫',
   },
@@ -307,9 +307,9 @@ const THEMES = {
   // ════════════════════════════════════════════════════════
   //  12. SASUKE  —  Identidade: Sharingan / Uchiha / Sangue
   // ════════════════════════════════════════════════════════
-  sasuke: {
-    name:       'sasuke',
-    label:      '🔴 SASUKE — Sharingan Uchiha',
+  ronin: {
+    name: 'ronin',
+    label:      '🔴 RONIN — Olho Sombrio',
     emoji:      '🔴',
     style:      4,
     frame:      ['╔', '╗', '╚', '╝', '─', '¦'],
@@ -317,12 +317,12 @@ const THEMES = {
     sep:        '🩸',
     accent:     '🔴',
     icon:       '⊗',
-    vibe:       '⊗ SHARINGAN ATIVADO 🔴 UCHIHA',
+    vibe:       '⊗ OLHO SOMBRIO ATIVADO 🔴 RONIN',
     headerDec:  '⊗🩸〔 {TITLE} 〕🩸⊗',
     react:      '🔴',
-    tip:        '🔴 O Sharingan registou — nunca esquece.',
-    menuTitle:  '⊗ SASUKE — Sharingan Uchiha',
-    menuFooter: '> ⊗ SHARINGAN ATIVADO 🔴 UCHIHA',
+    tip:        '🔴 O olho sombrio registou — nunca esquece.',
+    menuTitle:  '⊗ RONIN — Olho Sombrio',
+    menuFooter: '> ⊗ OLHO SOMBRIO ATIVADO 🔴 RONIN',
     thumbText:  '⊗ {BOT}',
     sectionSep: '╚⊗🩸──────────────🩸⊗╝',
   },
@@ -632,13 +632,13 @@ const THEMES = {
   // Cada um usa os caracteres Unicode decorativos exactos
   // ═══════════════════════════════════════════════════════════
 
-  sasuke: {
-    name: 'sasuke', style: 7,
+  ronin: {
+    name: 'ronin', style: 7,
     frame: ['❀ֹ͜','❀ֹ͊╯','╰ܻܻ','֮͜','━⵿໋','┃𝅥࣪'],
     bullet: '⛩️', sep: '', accent: '', icon: '⛩️',
     vibe: '⛩️ ᴀᴜᴋᴇ ᴇɴɢɪɴᴇ 🩸',
     headerDec: '⛩️ ─ ⋆ 🩸 ⋆ ──── ⊰˖°⛩️ ࣪𖤐',
-    react: '⛩️', tip: '🩸 O caminho do shinobi não tem volta.',
+    react: '⛩️', tip: '🩸 O caminho do ronin não tem volta.',
     menuTitle: '⛩️ 𝐄𝐔 𝐑𝐏𝐆 ⛩️',
     menuFooter: '> ⛩️ 𝑺𝑨𝑼𝑲𝑬 𝑩𝑻 🩸',
     thumbText: '⛩️ {BOT}',
@@ -652,33 +652,33 @@ const THEMES = {
     font: 'rpg', personality: 'dark',
   },
 
-  systemzero: {
-    name: 'systemzero', style: 8,
+  cipher: {
+    name: 'cipher', style: 8,
     frame: ['╔━᳀『','』═᳀','╚═','═᳀','═','⌬'],
     bullet: '⌬', sep: '═', accent: '᳀', icon: '⌬',
-    vibe: '𝚂𝚢𝚜𝚝𝚎𝚖 𝚉𝚎𝚛𝚘 𝚅4',
+    vibe: '𝙳𝙰𝚁𝙺 𝙱𝙾𝚃 𝚅6',
     headerDec: '╔━『 *{TITLE}* 』═᳀',
-    react: '⌬', tip: '⌬ System Zero — precisão absoluta.',
-    menuTitle: '⌬ SYSTEM ZERO',
-    menuFooter: '> 𝚂𝚜𝚝𝚖 𝚉𝚛𝚘 𝚅4',
+    react: '⌬', tip: '⌬ Cipher — precisão absoluta.',
+    menuTitle: '⌬ CIPHER',
+    menuFooter: '> 𝙳𝙰 𝙱𝚃 𝚅6',
     thumbText: '⌬ {BOT}',
     topBorder: '╔━᳀『 *{TITLE}* 』═᳀',
     bottomBorder: '╚═━═━═━═━═━═━═━═᳀',
     sectionTop: '᳀═『 *{TITLE}* 』═᳀',
     linePrefix: '⌬ ',
-    footerLine: '> 𝚂𝚜𝚝𝚖 𝚉𝚛𝚘 𝚅4',
+    footerLine: '> 𝙳𝙰𝙺 𝙾𝚃 𝚅6',
     font: 'monospace', personality: 'formal',
   },
 
-  itadori: {
-    name: 'itadori', style: 9,
+  sorcerer: {
+    name: 'sorcerer', style: 9,
     frame: ['╭─ ┄┄─','─⟡','╰─ ͡┄┄─','─⟡','─','║⋆🌀'],
     bullet: '⋆🌀ׁ̟̇·₊˚', sep: '⟡', accent: '🌀', icon: '🌀',
-    vibe: '會ʜɪᴛᴀᴅᴏʀɪ-ʙᴛ ᴠ1',
+    vibe: '🕸️ ᴅᴀ sᴏᴄᴇʀʀ ᴠ6',
     headerDec: '╭─ ͡┄┄───────ׂ─ׅ───ׂ─ׅ─ׅ───ׅ───⟡',
     react: '🌀', tip: '🌀 O poder está dentro de ti.',
-    menuTitle: '🌀 MENU ITADORI',
-    menuFooter: '> 會ʜɪᴛᴀᴅᴏʀ-ʙᴏᴛ ᴠ1',
+    menuTitle: '🌀 MENU SORCERER',
+    menuFooter: '> 🕸️ ᴅᴀᴋ ʙᴏᴛ ᴠ1',
     thumbText: '🌀 {BOT}',
     topBorder: '╭─ ┄┄───────ׂ─ׅ────ׅ─ׅ───ׅ───⟡',
     bottomBorder: '╰─ ͡┄┄───────ׂ─ׅ────ׅ─ׅ───ׅ───⟡',
@@ -690,15 +690,15 @@ const THEMES = {
     font: 'smallcaps', personality: 'cute',
   },
 
-  systemmd: {
-    name: 'systemmd', style: 10,
+  phantom: {
+    name: 'phantom', style: 10,
     frame: ['┌─*̥˚*ੈ─','─┐','└─*˚*ੈ─','─┘','─','╎ '],
     bullet: '', sep: '', accent: '', icon: '👾',
-    vibe: '☩ 𝐒𝐘𝐒𝐄𝐌-𝑴',
+    vibe: '☩ 𝐃𝐀𝐑𝐊-𝐏𝐇𝐀𝐓𝐎𝐌',
     headerDec: '┌─*̥˚˚*ੈ‧₊˚୨⋆ ˚｡⋆『👾』⋆ ˚｡⋆୨୧˚*ੈ‧₊˚*̥˚─┐',
-    react: '👾', tip: '👾 System-MD — domínio total.',
+    react: '👾', tip: '👾 Dark Phantom — domínio total.',
     menuTitle: '👾 MENU PRINCIPAL',
-    menuFooter: '> ☩ 𝐒𝐘𝐒𝐓𝐄𝐌-𝑫',
+    menuFooter: '> ☩ 𝐃𝐀𝐑𝐊-𝐏𝐇𝐀𝐓𝐎𝐌',
     thumbText: '👾 {BOT}',
     topBorder: '┌─*˚˚*ੈ‧₊˚୨୧⋆ ˚｡⋆『{ICON}』⋆ ｡⋆୨˚*ੈ‧₊˚*̥˚─┐',
     bottomBorder: '└─*̥˚˚*ੈ‧₊˚୨୧⋆ ˚｡⋆『{ICON}』⋆ ｡⋆୨˚*ੈ‧₊˚*̥˚─┘',
@@ -707,15 +707,15 @@ const THEMES = {
     font: 'bold', personality: 'aggressive',
   },
 
-  emilly: {
-    name: 'emilly', style: 11,
+  rose: {
+    name: 'rose', style: 11,
     frame: ['╭━━━〔','〕━━━╮','╰━','━╯','━','┃'],
     bullet: '💝', sep: '💝', accent: '💖', icon: '💝',
-    vibe: '💝 Emilly Bot 💝',
+    vibe: '💝 DARK BOT 💝',
     headerDec: '╭━━━〔 💝 {TITLE} 〕━━━╮',
     react: '💝', tip: '💝 Com carinho, sempre.',
     menuTitle: '💝 MENU PRINCIPAL 💝',
-    menuFooter: '> 💝 Emilly Bot 💝',
+    menuFooter: '> 💝 DARK BOT 💝',
     thumbText: '💝 {BOT}',
     topBorder: '╭━━━〔 💝 {TITLE} 〕━━━╮',
     bottomBorder: '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯',
@@ -727,15 +727,15 @@ const THEMES = {
     font: 'normal', personality: 'cute',
   },
 
-  maquinista: {
-    name: 'maquinista', style: 12,
+  steel: {
+    name: 'steel', style: 12,
     frame: ['╭┈ *','*','╰─','─╯','─','┊'],
     bullet: '💔', sep: '💔', accent: '💔', icon: '💔',
-    vibe: '💔 Maquinista Engine',
+    vibe: '💔 Dark Steel Engine',
     headerDec: '╭┈ *💔 {TITLE}*',
     react: '💔', tip: '💔 A máquina não para.',
     menuTitle: '💔 MENU PRINCIPAL',
-    menuFooter: '> 💔 Maquinista',
+    menuFooter: '> 💔 Dark Steel',
     thumbText: '💔 {BOT}',
     topBorder: '╭┈💔 *{ICON} {TITLE}*',
     bottomBorder: '╰─┈┈┈┈┈┈◜◞┈┈┈┈┈┈─╯',
@@ -743,11 +743,11 @@ const THEMES = {
     font: 'normal', personality: 'dark',
   },
 
-  maquinista2: {
-    name: 'maquinista2', style: 13,
+  pixel: {
+    name: 'pixel', style: 13,
     frame: ['╔═════','═════╗','╰═','══ 🌟','═','┃│'],
     bullet: '🖋️', sep: '✨', accent: '✨', icon: '🖋️',
-    vibe: '🖋️ Maquinista Design',
+    vibe: '🖋️ Dark Pixel Design',
     headerDec: '╔═════ ∘◦ ✨ ∘ ═════╗',
     react: '🖋️', tip: '🖋️ Arte em cada pixel.',
     menuTitle: '🖋️ LOGOS & DESIGN',
@@ -776,17 +776,17 @@ function getTheme(name = 'dark') {
 
 // Inferir personalidade pelo nome do tema
 function _inferPersonality(name) {
-  if (/royal|emperor|crown|queen|king/.test(name)) return 'royal';
-  if (/cute|sakura|kawaii|aurora|crystal/.test(name)) return 'cute';
-  if (/blade|storm|fire|dragon|omega|void|ritual/.test(name)) return 'aggressive';
-  if (/formal|diamond|neon|hacker/.test(name)) return 'formal';
+  if (/ronin|sasuke|royal|emperor|crown|queen|king/.test(name)) return 'royal';
+  if (/sorcerer|itadori|rose|emilly|cute|sakura|kawaii|aurora|crystal/.test(name)) return 'cute';
+  if (/phantom|systemmd|steel|maquinista|blade|storm|fire|dragon|omega|void|ritual/.test(name)) return 'aggressive';
+  if (/cipher|systemzero|pixel|maquinista2|formal|diamond|neon|hacker/.test(name)) return 'formal';
   return 'dark';
 }
 
 // Inferir fonte pelo nome do tema
 function _inferFont(name) {
-  if (/hacker|matrix|cyber/.test(name)) return 'monospace';
-  if (/gothic|ritual|ancient|void/.test(name)) return 'smallcaps';
+  if (/cipher|systemzero|hacker|matrix|cyber/.test(name)) return 'monospace';
+  if (/ronin|sasuke|gothic|ritual|ancient|void/.test(name)) return 'smallcaps';
   if (/glitch|storm|neon/.test(name)) return 'glitch';
   if (/royal|emperor|crown/.test(name)) return 'bold';
   if (/cute|sakura|kawaii/.test(name)) return 'tiny';

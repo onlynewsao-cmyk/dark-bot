@@ -82,7 +82,7 @@ function renderInfo(theme, fields = [], opts = {}) {
   const f = t.font || 'smallcaps';
   const icon = t.icon || '🕸️';
 
-  // Usa infoLine do tema se disponível (ex: SasukeRPG)
+  // Usa infoLine do tema se disponível (ex: RoninRPG)
   const linePfx = t.infoLine || t.linePrefix || `┃${icon} `;
 
   const lines = fields.map(([label, value]) => {
