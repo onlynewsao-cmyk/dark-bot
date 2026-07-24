@@ -430,6 +430,7 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   // Tema activo — afecta TODOS os textos visíveis
   const t  = await getActiveTheme(ctx.remoteJid);
   const RE = require('./renderEngine');
+  const submenuData = require('./submenuData');
 
   const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
   const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
@@ -439,22 +440,25 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
     ctx
   );
   const allowed = items.filter(it => visible.some(v => v.id === `${p}${it.cmd}`));
+  // v6.3: classificação automática sel (seleção) vs texto
+  for (const it of allowed) { if (it.sel === undefined) it.sel = submenuData.isSelectable(it.cmd); }
+
 
   if (!allowed.length) return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
 
   // ── Renderiza com o change activo (bordas + fonte + personalidade) ──
-  const textBody = RE.renderSubmenu(t, title, allowed.map(it => ({
+  const textBody = RE.renderSubmenu(t, title, txtCmds.map(it => ({
     name: (useP ? p : '') + it.cmd,
     desc: it.desc || '',
   })), { prefix: useP ? '' : p, botName });
 
-  // ── Lista interativa (single_select) com cmds seleccionáveis ──────
-  // Só inclui na lista os que fazem sentido executar directamente (flag selectable)
-  const selectableCmds = selectable.length
-    ? allowed.filter(it => selectable.includes(it.cmd))
-    : allowed.filter(it => it.selectable !== false);
+  // ── v6.3: separação SEL vs TEXTO ──────────────────────────────────
+  // sel:true → SÓ na lista de seleção (executa directo)
+  // sel:false → SÓ no texto (precisa de dados/args/mention)
+  const selCmds = allowed.filter(it => it.sel === true);
+  const txtCmds = allowed.filter(it => it.sel !== true);
 
-  const rows = selectableCmds.slice(0, 24).map(it => ({
+  const rows = selCmds.slice(0, 24).map(it => ({
     title:       `${it.emoji || t.bullet} ${useP ? p : ''}${it.cmd}`,
     description: (it.desc || '').slice(0, 72),
     id:          `${p}${it.cmd}`,
