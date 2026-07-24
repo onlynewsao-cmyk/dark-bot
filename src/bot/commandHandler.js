@@ -254,11 +254,15 @@ async function handle(sock, msg) {
   }
 
   // Botões de menu chegam com prefixo embutido (ex: "!menup") → processados normalmente
-  // Remove emojis do início dos IDs de botão (ex: "📥!menudownload" → "!menudownload")
+  // Remove emojis do início dos IDs de botão de menu (ex: "📥!menudownload" → "!menudownload")
+  // MAS: não remove se o texto contém URL ou é um ID de pinsticker/imagem
   const EMOJI_STRIP = /^[\u{1F000}-\u{1FFFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F300}-\u{1F9FF}]+/u;
-  if (text && EMOJI_STRIP.test(text)) {
+  if (text && EMOJI_STRIP.test(text) && !text.includes('http') && !text.includes('pinsticker')) {
     const stripped = text.replace(EMOJI_STRIP, '').trim();
-    if (stripped.length > 0) text = stripped;
+    // Só aplica se depois do emoji vem um prefixo válido ou comando conhecido
+    if (stripped.length > 0 && (prefixes.some(p => stripped.startsWith(p)) || /^[a-z]/i.test(stripped))) {
+      text = stripped;
+    }
   }
 
   const firstTokenRaw = String(text || '').trim().split(/\s+/)[0];

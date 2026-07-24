@@ -776,56 +776,95 @@ module.exports = {
       { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🕸️ Canal', url: channelUrl, merchant_url: channelUrl }) },
     ];
 
-    // ── Carousel com logo ─────────────────────────────
-    const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+    // ── Tentar enviar como interactiveMessage com single_select ───────
+    // Estratégia: 1) interactiveMessage nativo  2) lista raw  3) texto rico
+    const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
     const logoPath = require('path').join(__dirname, '..', 'public', 'img', 'logo.jpg');
-    const fs2 = require('fs');
+    const fs2      = require('fs');
 
-    let carouselOk = false;
+    let sent = false;
+
+    // TENTATIVA 1: interactiveMessage com imagem (como a imagem de referência)
     try {
-      let imageMessage = null;
+      let imgBuf = null;
       if (fs2.existsSync(logoPath)) {
-        try {
-          const media = await prepareWAMessageMedia({ image: { url: logoPath } }, { upload: sock.waUploadToServer });
-          imageMessage = media?.imageMessage || null;
-        } catch {}
+        try { imgBuf = fs2.readFileSync(logoPath); } catch {}
       }
 
-      const card = {
-        header: imageMessage ? { hasMediaAttachment: true, imageMessage } : { hasMediaAttachment: false },
-        body:   { text: textok },
-        footer: { text: `🕸️ ${localConfig.bot.name} · ${localConfig.owner.name}` },
-        nativeFlowMessage: { buttons: nativeBtns },
-      };
+      const interactiveMsg = proto.Message.InteractiveMessage.fromObject({
+        body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textok }),
+        footer: proto.Message.InteractiveMessage.Footer.fromObject({
+          text: `${tIcon} ${localConfig.bot.name} · ${localConfig.owner.name}`,
+        }),
+        header: imgBuf
+          ? proto.Message.InteractiveMessage.Header.fromObject({
+              title: '', hasMediaAttachment: true,
+              imageMessage: proto.Message.ImageMessage.fromObject({
+                url: '', mimetype: 'image/jpeg',
+                jpegThumbnail: imgBuf.slice(0, 1024),
+                fileLength: imgBuf.length,
+              }),
+            })
+          : proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+          buttons: [
+            { name: 'single_select', buttonParamsJson: JSON.stringify(listaParams) },
+            { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: `${tIcon} Canal`, url: channelUrl, merchant_url: channelUrl }) },
+          ],
+        }),
+      });
 
       const msgObj = generateWAMessageFromContent(ctx.remoteJid, {
-        interactiveMessage: {
-          contextInfo: { participant: ctx.senderJid },
-          body:   { text: '🕸️ *ᴍᴇɴᴜ*' },
-          footer: { text: localConfig.bot.name },
-          carouselMessage: { cards: [card] },
-        },
+        interactiveMessage: interactiveMsg,
       }, { userJid: sock.user?.id, quoted: msg });
 
       await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
-      carouselOk = true;
+      sent = true;
     } catch (e) {
-      console.warn('[menu Carousel]', e.message?.slice(0, 50));
+      console.warn('[menu interactiveMsg]', e.message?.slice(0, 80));
     }
 
-    if (carouselOk) { logCmd('menu', ctx); return; }
+    if (sent) { logCmd('menu', ctx); return; }
 
-    // Fallback: lista interactiva
+    // TENTATIVA 2: Lista simples sem imagem
     try {
-      await buttonHandler.sendList(sock, ctx.remoteJid, `🕸️ ${localConfig.bot.name}`, textok, '🕸️ Abrir', listaParams.sections, msg);
-      logCmd('menu', ctx); return;
+      const msgObj2 = generateWAMessageFromContent(ctx.remoteJid, {
+        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textok }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: localConfig.bot.name }),
+          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify(listaParams) }],
+          }),
+        }),
+      }, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, msgObj2.message, { messageId: msgObj2.key.id });
+      sent = true;
+    } catch (e2) {
+      console.warn('[menu lista]', e2.message?.slice(0, 80));
+    }
+
+    if (sent) { logCmd('menu', ctx); return; }
+
+    // TENTATIVA 3: sendList do buttonHandler
+    try {
+      await buttonHandler.sendList(sock, ctx.remoteJid, `${tIcon} ${localConfig.bot.name}`, textok, `${tIcon} Abrir`, listaParams.sections, msg);
+      sent = true;
     } catch {}
 
-    // Último fallback: texto
+    if (sent) { logCmd('menu', ctx); return; }
+
+    // ÚLTIMO FALLBACK: texto rico com todos os módulos listados
+    const t  = activeThemeForMenu;
+    const f  = t.frame;
     const allRows = baseRows.concat(extraRows);
-    const fallback = `╭━━━〔 🕸️ *${localConfig.bot.name}* 〕━━━╮\n` +
-      allRows.map((r,i) => `┃ ${String(i+1).padStart(2,'0')} • *${r.title}*`).join('\n') +
-      `\n╰━━━━━━━━━━━━━━━━━━━━━━━━╯`;
+    const fallback =
+      `${t.icon} ─ ⋆⋅ ${t.accent} ⋅⋆ ─ ${t.icon}\n\n` +
+      `${t.headerDec.replace('{TITLE}', localConfig.bot.name)}\n` +
+      textok + '\n' +
+      `${t.sectionSep || f[2] + f[4].repeat(24) + f[3]}\n\n` +
+      allRows.map(r => `${f[5]}${t.bullet} ${t.accent} *${r.title}*\n${f[5]}  _${r.description}_`).join('\n') +
+      `\n\n${t.sectionSep || ''}\n> ${t.vibe}`;
     await reply(sock, msg, ctx, fallback);
     logCmd('menu', ctx);
   },
@@ -926,21 +965,22 @@ module.exports = {
       subtitle: 'Música • Vídeo • Redes Sociais',
       buttonText: '📥 Selecionar',
       items: [
-        { cmd: 'play',        emoji: '🎵', desc: 'Música — busca e baixa áudio (128kbps)' },
-        { cmd: 'play2',       emoji: '🎧', desc: 'Música — resultado alternativo' },
-        { cmd: 'play3',       emoji: '⭐', desc: 'Música — alta qualidade (320kbps)' },
-        { cmd: 'video',       emoji: '🎬', desc: 'Vídeo HD 720p do YouTube' },
-        { cmd: 'video2',      emoji: '📺', desc: 'Vídeo Full HD 1080p' },
-        { cmd: 'statusvideo', emoji: '⭕', desc: 'Vídeo circular / Status / PTV' },
-        { cmd: 'tiktok',      emoji: '🎶', desc: 'TikTok — sem marca dagua' },
-        { cmd: 'instagram',   emoji: '📸', desc: 'Instagram — reels e posts' },
-        { cmd: 'fb',          emoji: '📘', desc: 'Facebook — vídeo' },
-        { cmd: 'twitter',     emoji: '🐦', desc: 'X/Twitter — mídia' },
-        { cmd: 'spotify',     emoji: '💚', desc: 'Spotify — faixa por URL' },
-        { cmd: 'soundcloud',  emoji: '☁️', desc: 'SoundCloud — nome ou URL' },
-        { cmd: 'pinterest',   emoji: '📌', desc: 'Pinterest — imagens em Carousel' },
-        { cmd: 'pinpacks',    emoji: '🎨', desc: 'Pinterest — pack de stickers' },
-        { cmd: 'menuaudio',   emoji: '🎛️', desc: 'Efeitos de áudio (bass, reverb, 8D...)' },
+        // selectable: true → funcionam directamente com título como argumento
+        { cmd: 'play',        emoji: '🎵', desc: 'Música — busca por nome/URL',     selectable: true },
+        { cmd: 'play2',       emoji: '🎧', desc: 'Música — resultado alternativo',   selectable: true },
+        { cmd: 'play3',       emoji: '⭐', desc: 'Música — alta qualidade 320kbps', selectable: true },
+        { cmd: 'video',       emoji: '🎬', desc: 'Vídeo HD 720p YouTube',            selectable: true },
+        { cmd: 'video2',      emoji: '📺', desc: 'Vídeo Full HD 1080p',              selectable: true },
+        { cmd: 'statusvideo', emoji: '⭕', desc: 'Vídeo circular/Status/PTV',        selectable: true },
+        { cmd: 'tiktok',      emoji: '🎶', desc: 'TikTok — sem marca dagua',         selectable: true },
+        { cmd: 'instagram',   emoji: '📸', desc: 'Instagram — reels e posts',        selectable: true },
+        { cmd: 'fb',          emoji: '📘', desc: 'Facebook — vídeo',                 selectable: true },
+        { cmd: 'twitter',     emoji: '🐦', desc: 'X/Twitter — mídia',                selectable: true },
+        { cmd: 'spotify',     emoji: '💚', desc: 'Spotify — URL da faixa',           selectable: true },
+        { cmd: 'soundcloud',  emoji: '☁️', desc: 'SoundCloud — nome ou URL',         selectable: true },
+        { cmd: 'pinterest',   emoji: '📌', desc: 'Pinterest — busca de imagens',     selectable: true },
+        { cmd: 'pinpacks',    emoji: '🎨', desc: 'Pinterest — pack de stickers',     selectable: true },
+        { cmd: 'menuaudio',   emoji: '🎛️', desc: 'Efeitos de áudio',                selectable: true },
       ],
     });
   },
@@ -1279,28 +1319,33 @@ module.exports = {
       subtitle: 'Moderação • Regras • Automação',
       buttonText: '👥 Selecionar',
       items: [
-        { cmd: 'ban',          emoji: '🚫', desc: 'Banir membro marcado' },
-        { cmd: 'kick',         emoji: '🦶', desc: 'Alias de ban' },
-        { cmd: 'promote',      emoji: '👑', desc: 'Promover a admin' },
-        { cmd: 'demote',       emoji: '⬇️', desc: 'Remover admin' },
-        { cmd: 'add',          emoji: '➕', desc: 'Adicionar membro' },
-        { cmd: 'tempban',      emoji: '⏳', desc: 'Ban temporário' },
-        { cmd: 'todos',        emoji: '📢', desc: 'Marcar todos com mensagem' },
-        { cmd: 'hidetag',      emoji: '👻', desc: 'Marcar todos silenciosamente' },
-        { cmd: 'open',         emoji: '🔓', desc: 'Abrir o grupo' },
-        { cmd: 'close',        emoji: '🔒', desc: 'Fechar o grupo' },
-        { cmd: 'link',         emoji: '🔗', desc: 'Link de convite' },
-        { cmd: 'revoke',       emoji: '🔄', desc: 'Resetar link' },
-        { cmd: 'del',          emoji: '🗑️', desc: 'Apagar mensagem marcada' },
-        { cmd: 'warn',         emoji: '⚠️', desc: 'Advertir membro' },
-        { cmd: 'unwarn',       emoji: '✅', desc: 'Remover advertência' },
-        { cmd: 'regras',       emoji: '📜', desc: 'Mostrar regras do grupo' },
-        { cmd: 'setregras',    emoji: '📝', desc: 'Definir regras' },
-        { cmd: 'antilink',     emoji: '🛡️', desc: 'Anti-link (on/off/modo)' },
-        { cmd: 'antispam',     emoji: '🛡️', desc: 'Anti-spam (on/off)' },
-        { cmd: 'welcome',      emoji: '👋', desc: 'Boas-vindas por grupo' },
-        { cmd: 'alugar',       emoji: '🏠', desc: 'Activar hospedagem do bot' },
-        { cmd: 'statusalugar', emoji: '📊', desc: 'Ver estado do aluguel' },
+        // selectable: false → precisa de @menção ou mensagem citada (não funciona directamente da lista)
+        { cmd: 'ban',          emoji: '🚫', desc: 'Banir @membro',                selectable: false },
+        { cmd: 'kick',         emoji: '🦶', desc: 'Expulsar @membro',             selectable: false },
+        { cmd: 'promote',      emoji: '👑', desc: 'Promover @membro a admin',     selectable: false },
+        { cmd: 'demote',       emoji: '⬇️', desc: 'Remover admin @membro',       selectable: false },
+        { cmd: 'add',          emoji: '➕', desc: 'Adicionar número',              selectable: false },
+        { cmd: 'tempban',      emoji: '⏳', desc: 'Ban temporário @membro Xm',    selectable: false },
+        { cmd: 'warn',         emoji: '⚠️', desc: 'Advertir @membro',            selectable: false },
+        { cmd: 'unwarn',       emoji: '✅', desc: 'Remover aviso @membro',        selectable: false },
+        { cmd: 'del',          emoji: '🗑️', desc: 'Apagar msg (citar a msg)',    selectable: false },
+        { cmd: 'silenciar',    emoji: '🔇', desc: 'Silenciar @membro Xm',         selectable: false },
+        { cmd: 'setregras',    emoji: '📝', desc: 'Definir regras do grupo',       selectable: false },
+        // selectable: true → funcionam directamente sem contexto extra
+        { cmd: 'todos',        emoji: '📢', desc: 'Marcar todos c/ mensagem',     selectable: true },
+        { cmd: 'hidetag',      emoji: '👻', desc: 'Marcar todos silenciosamente', selectable: true },
+        { cmd: 'open',         emoji: '🔓', desc: 'Abrir o grupo',                selectable: true },
+        { cmd: 'close',        emoji: '🔒', desc: 'Fechar o grupo',               selectable: true },
+        { cmd: 'link',         emoji: '🔗', desc: 'Ver link de convite',          selectable: true },
+        { cmd: 'revoke',       emoji: '🔄', desc: 'Resetar link de convite',      selectable: true },
+        { cmd: 'regras',       emoji: '📜', desc: 'Mostrar regras do grupo',      selectable: true },
+        { cmd: 'antilink',     emoji: '🛡️', desc: 'Anti-link on/off',            selectable: true },
+        { cmd: 'antispam',     emoji: '🛡️', desc: 'Anti-spam on/off',            selectable: true },
+        { cmd: 'welcome',      emoji: '👋', desc: 'Configurar boas-vindas',       selectable: true },
+        { cmd: 'alugar',       emoji: '🏠', desc: 'Ver planos de hospedagem',     selectable: true },
+        { cmd: 'statusalugar', emoji: '📊', desc: 'Ver estado do aluguel',        selectable: true },
+        { cmd: 'participantes',emoji: '👥', desc: 'Listar membros do grupo',      selectable: true },
+        { cmd: 'admins',       emoji: '⭐', desc: 'Listar admins do grupo',        selectable: true },
       ],
     });
   },
