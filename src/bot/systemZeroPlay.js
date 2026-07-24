@@ -1,19 +1,21 @@
 /**
  * ╔══════════════════════════════════════════════════════════╗
- * ║   DARK BOT — SystemZero Play Engine v1                  ║
- * ║   play / play2 / play3 com ButtonV2 real                ║
- * ║   Usa @systemzero/baileys para botões clicáveis         ║
+ * ║   DARK BOT — SystemZero Play Engine v2 🎵                ║
+ * ║   play / play2 / play3 com ButtonV2 real                 ║
  * ╚══════════════════════════════════════════════════════════╝
  *
  * Fluxo:
- *  1. Busca a música na API ytsearch do systemzone.store
- *  2. Mostra card com thumbnail + 2 botões (Áudio / Vídeo)
- *  3. Quando clica num botão → dispara !ytd (áudio) ou !gyt (vídeo)
- *  4. !ytd e !gyt chamam a API ytmp3 / ytmp4 do systemzone.store
+ *  1. Busca a música: API systemzone.store → fallback yt-search (local)
+ *  2. Mostra card ButtonV2 com thumbnail + 2 botões (Áudio / Vídeo)
+ *  3. Clique no botão → dispara !ytd (áudio) ou !gyt (vídeo)
+ *  4. !ytd / !gyt → API systemzone → fallback yt-dlp local
  *
- * Fallback (se ButtonV2 falhar):
- *  → Envia texto formatado com os comandos para o utilizador copiar
+ * v2: ytsearch() retorna { resultados } (formato exacto do código
+ * de referência) + sendPlayCard com cascata de 3 níveis:
+ *   ButtonV2 → interactive viewOnce → texto formatado
  */
+
+'use strict';
 
 const mediaHandler = require('./mediaHandler');
 const config = require('../config');
@@ -32,26 +34,69 @@ function getButtonV2() {
     _ButtonV2 = mod.ButtonV2;
     return _ButtonV2;
   } catch (e) {
-    console.warn('[SystemZeroPlay] @systemzero/baileys não instalado:', e.message);
+    console.warn('[SystemZeroPlay] MB.cjs indisponível:', e.message);
     return null;
   }
 }
 
 // ─────────────────────────────────────────────
-// API: BUSCA YOUTUBE
+// BUSCA LOCAL — pacote yt-search (sem API externa)
+// ─────────────────────────────────────────────
+let _ytSearchLib = null;
+async function localYtSearch(query) {
+  if (!_ytSearchLib) _ytSearchLib = require('yt-search');
+  const r = await _ytSearchLib(query);
+  const videos = (r.videos || []).slice(0, 10).filter((v) => v.type === 'video' || !v.type);
+  return videos.map((v) => ({
+    title: v.title,
+    youtube_url: v.url || `https://www.youtube.com/watch?v=${v.videoId}`,
+    thumbnail: v.thumbnail || v.image || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+    author: v.author?.name || v.author || '',
+    views: v.views || 0,
+    duration: v.timestamp || v.duration?.toString() || '',
+    source: 'yt-search-local',
+  }));
+}
+
+// ─────────────────────────────────────────────
+// API: BUSCA YOUTUBE (array simples)
 // ─────────────────────────────────────────────
 async function ytSearch(query) {
-  const url = `${SYSTEMZONE_API_URL}/api/ytsearch?text=${encodeURIComponent(query)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
-  const data = await mediaHandler.fetchJson(url, 20000);
-  if (!data?.resultados?.length) throw new Error('Nenhum resultado encontrado para: ' + query);
-  return data.resultados;
+  let lastErr;
+  // 1º — API systemzone
+  try {
+    const url = `${SYSTEMZONE_API_URL}/api/ytsearch?text=${encodeURIComponent(query)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
+    const data = await mediaHandler.fetchJson(url, 20000);
+    if (data?.resultados?.length) return data.resultados;
+    lastErr = new Error('API sem resultados');
+  } catch (e) {
+    lastErr = e;
+    console.warn('[ytSearch] API falhou:', e.message?.slice(0, 80));
+  }
+  // 2º — busca local (yt-search) — nunca depende de API externa
+  try {
+    const local = await localYtSearch(query);
+    if (local.length) return local;
+  } catch (e) {
+    console.warn('[ytSearch] local falhou:', e.message?.slice(0, 80));
+  }
+  throw lastErr || new Error('Nenhum resultado encontrado para: ' + query);
+}
+
+/**
+ * Formato compatível com o código de referência:
+ *   const searchData = await systemZone.ytsearch(text)
+ *   searchData.resultados[0]
+ */
+async function ytsearch(query) {
+  const resultados = await ytSearch(query);
+  return { status: true, resultados };
 }
 
 // ─────────────────────────────────────────────
 // API: DOWNLOAD ÁUDIO
 // ─────────────────────────────────────────────
 async function ytAudio(urlOrQuery) {
-  // Tenta ytmp3
   try {
     const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp3?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
     const data = await mediaHandler.fetchJson(endpoint, 65000);
@@ -101,7 +146,7 @@ async function ytVideo(urlOrQuery, quality = '720') {
 // ─────────────────────────────────────────────
 // HELPER: Texto de fallback formatado
 // ─────────────────────────────────────────────
-function playFallbackText(video, prefix, mode = 'audio') {
+function playFallbackText(video, prefix) {
   const audioCmd = `${prefix}ytd ${video.youtube_url}`;
   const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | 720`;
   return (
@@ -111,49 +156,66 @@ function playFallbackText(video, prefix, mode = 'audio') {
     `▶️ Escolha uma opção:\n` +
     `┃ 🎵 Áudio → \`${audioCmd}\`\n` +
     `┃ 🎬 Vídeo → \`${videoCmd}\`\n\n` +
-    `💡 Clique no texto para copiar e envia o comando desejado.`
+    `💡 Copia o comando e envia, ou espera os botões carregarem.`
   );
 }
 
 // ─────────────────────────────────────────────
-// ENVIAR CARD COM BOTÕES (ButtonV2 real)
+// ENVIAR CARD COM BOTÕES — cascata robusta
+//   1º ButtonV2 (MB.cjs)  2º interactive viewOnce  3º texto
 // ─────────────────────────────────────────────
-async function sendPlayCard(sock, jid, video, prefix, quoted = null) {
-  const ButtonV2 = getButtonV2();
-
+async function sendPlayCard(sock, jid, video, prefix, quoted = null, bodyExtra = '') {
   const audioCmd = `${prefix}ytd ${video.youtube_url}`;
   const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | 720`;
+  const footer = (config.bot?.name ? `${config.bot.name} 🕸️ Dark Net Engine` : '© System Zero V3');
+  const body =
+    `👤 ${video.author || 'Desconhecido'}\n` +
+    `⏱️ ${video.duration || '?'} • 👁️ ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +
+    (bodyExtra || '✦ ݁˖ Selecione o formato desejado ✦ ݁˖');
 
+  // 1º — ButtonV2 (código de referência)
+  const ButtonV2 = getButtonV2();
   if (ButtonV2) {
     try {
       const msg = new ButtonV2(sock);
-      msg.setTitle(video.title?.slice(0, 60) || 'Música');
-      msg.setBody(
-        `👤 ${video.author || 'Desconhecido'}\n` +
-        `⏱️ ${video.duration || '?'} • 👁️ ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +
-        `✦ ݁˖ Selecione o formato desejado ✦ ݁˖`
-      );
-      msg.setFooter(config.bot.name + ' 🕸️ Dark Side Engine');
-
+      msg.setTitle(`${video.title}`.slice(0, 60));
+      msg.setBody(body);
+      msg.setFooter(footer);
       if (video.thumbnail) {
         try { msg.setThumbnail(video.thumbnail); } catch {}
       }
-
       msg.addButton('🎵 Baixar Áudio', audioCmd);
       msg.addButton('🎬 Baixar Vídeo', videoCmd);
-
       await msg.send(jid, { quoted });
-      return true;
+      return 'buttonv2';
     } catch (e) {
-      console.warn('[SystemZeroPlay] ButtonV2 falhou:', e.message);
+      console.warn('[PlayCard] ButtonV2 falhou:', e.message?.slice(0, 80));
     }
   }
 
-  // Fallback: texto formatado
-  await sock.sendMessage(jid, {
-    text: playFallbackText(video, prefix),
-  }, { quoted });
-  return false;
+  // 2º — interactive viewOnce com thumbnail
+  try {
+    const { sendButtonsWithImage, sendButtons } = require('./buttonHandler');
+    const title = `🎵 *${video.title}*\n\n${body}`;
+    const btns = [
+      { text: '🎵 Baixar Áudio', id: audioCmd },
+      { text: '🎬 Baixar Vídeo', id: videoCmd },
+    ];
+    if (video.thumbnail) {
+      try {
+        await sendButtonsWithImage(sock, jid, title, footer, video.thumbnail, btns, quoted);
+        return 'interactive';
+      } catch {}
+    }
+    await sendButtons(sock, jid, title, footer, btns, quoted);
+    return 'interactive';
+  } catch (e) {
+    console.warn('[PlayCard] interactive falhou:', e.message?.slice(0, 80));
+  }
+
+  // 3º — texto
+  await sock.sendMessage(jid, { text: playFallbackText(video, prefix) }, { quoted });
+  return 'text';
 }
 
 // ─────────────────────────────────────────────
@@ -161,10 +223,12 @@ async function sendPlayCard(sock, jid, video, prefix, quoted = null) {
 // ─────────────────────────────────────────────
 module.exports = {
   ytSearch,
+  ytsearch,
   ytAudio,
   ytVideo,
   sendPlayCard,
   playFallbackText,
+  localYtSearch,
   SYSTEMZONE_API_URL,
   SYSTEMZONE_API_KEY,
 };

@@ -339,21 +339,84 @@ module.exports = function registerGroupCases(registerCase) {
     );
     const sub = (args[0] || 'status').toLowerCase();
     let saved = false;
+    let extra = '';
+
     if (['on','ativar','ligar'].includes(sub)) { gs.antilink = true; saved = true; }
     else if (['off','desativar','desligar'].includes(sub)) { gs.antilink = false; saved = true; }
     else if (['modo','mode'].includes(sub)) {
-      const m2 = {'smart':'smart','wa':'whatsapp_only','all':'all_links','todos':'all_links'}[args[1]?.toLowerCase()];
+      const m2 = {'smart':'smart','wa':'whatsapp_only','whatsapp':'whatsapp_only','all':'all_links','todos':'all_links'}[args[1]?.toLowerCase()];
       if (!m2) return reply('❌ Modos: *smart* | *wa* | *all*');
       gs.antilinkMode = m2; saved = true;
     } else if (['acao','action'].includes(sub)) {
       if (!['warn','kick','delete'].includes(args[1]?.toLowerCase())) return reply('❌ Acções: *warn* | *kick* | *delete*');
       gs.antilinkAction = args[1].toLowerCase(); saved = true;
+    } else if (['maxwarns','limit'].includes(sub)) {
+      const n = parseInt(args[1], 10);
+      if (!n || n < 1 || n > 10) return reply('❌ Uso: *' + prefix + 'antilink maxwarns <1-10>*');
+      gs.antilinkMaxWarns = n; saved = true;
+    } else if (sub === 'delete') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink delete on|off*');
+      gs.antilinkDeleteMsg = v === 'on'; saved = true;
+    } else if (['notify','notificar'].includes(sub)) {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink notify on|off*');
+      gs.antilinkNotify = v === 'on'; saved = true;
+    } else if (sub === 'strict') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink strict on|off*\n\n_Detecta links ofuscados (hxxp, [.] , "ponto com")_');
+      gs.antilinkStrict = v === 'on'; saved = true;
+    } else if (sub === 'vip') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink vip on|off*\n\n_Premium fica imune ao anti-link_');
+      gs.antilinkVipImmune = v === 'on'; saved = true;
+    } else if (['whitelist','wl','permitidos'].includes(sub)) {
+      const act = (args[1] || 'list').toLowerCase();
+      const list = Array.isArray(gs.antilinkWhitelist) ? gs.antilinkWhitelist : [];
+      if (act === 'add') {
+        const dom = (args[2] || '').toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').trim();
+        if (!dom || dom.length < 3) return reply('❌ Uso: *' + prefix + 'antilink whitelist add youtube.com*');
+        if (!list.includes(dom)) { list.push(dom); gs.antilinkWhitelist = list; saved = true; }
+        extra = `✅ *${dom}* adicionado à whitelist.`;
+      } else if (['del','remove','rm'].includes(act)) {
+        const dom = (args[2] || '').toLowerCase().trim();
+        gs.antilinkWhitelist = list.filter((d) => d !== dom); saved = true;
+        extra = `🗑️ *${dom}* removido da whitelist.`;
+      } else {
+        return reply(
+          `📋 *Whitelist de domínios:*\n\n` +
+          (list.length ? list.map((d, i) => `${i + 1}. ${d}`).join('\n') : '_(vazia)_') +
+          `\n\n➕ *${prefix}antilink whitelist add youtube.com*\n➖ *${prefix}antilink whitelist del youtube.com*`
+        );
+      }
+    } else if (sub === 'status') {
+      // mostra o estado actual (em baixo)
+    } else {
+      return reply(
+        `🛡️ *DARKSHIELD ANTI-LINK v2* 🕸️\n\n` +
+        `*${prefix}antilink on|off* — ligar/desligar\n` +
+        `*${prefix}antilink modo smart|wa|all* — modo de detecção\n` +
+        `*${prefix}antilink acao warn|kick|delete* — acção\n` +
+        `*${prefix}antilink maxwarns <1-10>* — avisos antes do kick\n` +
+        `*${prefix}antilink delete on|off* — apagar msg com link\n` +
+        `*${prefix}antilink notify on|off* — avisar no grupo\n` +
+        `*${prefix}antilink strict on|off* — links ofuscados\n` +
+        `*${prefix}antilink vip on|off* — premium imune\n` +
+        `*${prefix}antilink whitelist add|del|list* — domínios permitidos`
+      );
     }
+
     if (saved) await gs.save();
+
+    const st = gs.antilinkStats || {};
     reply(
-      `🛡️ *Anti-Link* ${gs.antilink ? '🟢 ON' : '🔴 OFF'}\n` +
-      `Modo: *${gs.antilinkMode||'smart'}* | Acção: *${gs.antilinkAction||'warn'}*\n\n` +
-      `*${prefix}antilink on/off* | *modo smart/wa/all* | *acao warn/kick*`
+      (extra ? extra + '\n\n' : '') +
+      `🛡️ *DARKSHIELD ANTI-LINK v2* ${gs.antilink ? '🟢 ON' : '🔴 OFF'}\n\n` +
+      `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
+      `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
+      `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
+      `📋 Whitelist: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
+      `📊 Stats: 🗑️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`
     );
   });
 

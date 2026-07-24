@@ -19,6 +19,15 @@ const GroupSettingsSchema = new mongoose.Schema({
   antilinkMaxWarns: { type: Number, default: 2 },
   antilinkDeleteMsg: { type: Boolean, default: true },  // apagar a msg com link
   antilinkNotify: { type: Boolean, default: true },     // avisar no grupo
+  // DarkShield v2 (v5.1)
+  antilinkStrict: { type: Boolean, default: true },     // detecta links ofuscados (hxxp, [.] ...)
+  antilinkVipImmune: { type: Boolean, default: false }, // premium imune
+  antilinkStats: {
+    deleted:    { type: Number, default: 0 },
+    warns:      { type: Number, default: 0 },
+    kicks:      { type: Number, default: 0 },
+    lastAction: { type: Date, default: null },
+  },
 
   // ── Anti-spam ────────────────────────────────────────
   antispam: { type: Boolean, default: false },

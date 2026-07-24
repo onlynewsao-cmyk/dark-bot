@@ -15,6 +15,10 @@
 # 2. Add New Monitor → HTTP(s)
 # 3. URL: https://SEU-NOME.onrender.com/ping
 # 4. Interval: 5 minutes
+#
+# NOTA v5.1: o bot também faz keep-alive sozinho (ping interno a
+# cada 14 min quando ligado ao WhatsApp), mas o UptimeRobot é mais
+# fiável no Render Free.
 # =============================================================
 
 services:
@@ -25,7 +29,9 @@ services:
     region: oregon
     autoDeploy: true
 
-    buildCommand: npm ci --omit=dev && (pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true)
+    # yt-dlp é OPCIONAL — se o pip não existir no Render Free, o bot usa os
+    # fallbacks: SystemZone API → @distube/ytdl-core → youtubei.js → Invidious
+    buildCommand: npm ci --omit=dev && (pip3 install --user yt-dlp 2>/dev/null || pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true)
     startCommand: node src/index.js
 
     # Render usa /health para verificar se o serviço está vivo
