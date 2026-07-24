@@ -776,95 +776,61 @@ module.exports = {
       { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '🕸️ Canal', url: channelUrl, merchant_url: channelUrl }) },
     ];
 
-    // ── Tentar enviar como interactiveMessage com single_select ───────
-    // Estratégia: 1) interactiveMessage nativo  2) lista raw  3) texto rico
-    const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+    // ── Carousel com logo (código original do commit 94c1651) ──────────
+    const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
     const logoPath = require('path').join(__dirname, '..', 'public', 'img', 'logo.jpg');
-    const fs2      = require('fs');
+    const fs2 = require('fs');
 
-    let sent = false;
-
-    // TENTATIVA 1: interactiveMessage com imagem (como a imagem de referência)
+    let carouselOk = false;
     try {
-      let imgBuf = null;
+      let imageMessage = null;
       if (fs2.existsSync(logoPath)) {
-        try { imgBuf = fs2.readFileSync(logoPath); } catch {}
+        try {
+          const media = await prepareWAMessageMedia({ image: { url: logoPath } }, { upload: sock.waUploadToServer });
+          imageMessage = media?.imageMessage || null;
+        } catch {}
       }
 
-      const interactiveMsg = proto.Message.InteractiveMessage.fromObject({
-        body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textok }),
-        footer: proto.Message.InteractiveMessage.Footer.fromObject({
-          text: `${tIcon} ${localConfig.bot.name} · ${localConfig.owner.name}`,
-        }),
-        header: imgBuf
-          ? proto.Message.InteractiveMessage.Header.fromObject({
-              title: '', hasMediaAttachment: true,
-              imageMessage: proto.Message.ImageMessage.fromObject({
-                url: '', mimetype: 'image/jpeg',
-                jpegThumbnail: imgBuf.slice(0, 1024),
-                fileLength: imgBuf.length,
-              }),
-            })
-          : proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-          buttons: [
-            { name: 'single_select', buttonParamsJson: JSON.stringify(listaParams) },
-            { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: `${tIcon} Canal`, url: channelUrl, merchant_url: channelUrl }) },
-          ],
-        }),
-      });
+      const card = {
+        header: imageMessage ? { hasMediaAttachment: true, imageMessage } : { hasMediaAttachment: false },
+        body:   { text: textok },
+        footer: { text: `${tIcon} ${localConfig.bot.name} · ${localConfig.owner.name}` },
+        nativeFlowMessage: { buttons: nativeBtns },
+      };
 
       const msgObj = generateWAMessageFromContent(ctx.remoteJid, {
-        interactiveMessage: interactiveMsg,
+        interactiveMessage: {
+          contextInfo: { participant: ctx.senderJid },
+          body:   { text: `${tIcon} *ᴍᴇɴᴜ*` },
+          footer: { text: localConfig.bot.name },
+          carouselMessage: { cards: [card] },
+        },
       }, { userJid: sock.user?.id, quoted: msg });
 
       await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
-      sent = true;
+      carouselOk = true;
     } catch (e) {
-      console.warn('[menu interactiveMsg]', e.message?.slice(0, 80));
+      console.warn('[menu Carousel]', e.message?.slice(0, 80));
     }
 
-    if (sent) { logCmd('menu', ctx); return; }
+    if (carouselOk) { logCmd('menu', ctx); return; }
 
-    // TENTATIVA 2: Lista simples sem imagem
-    try {
-      const msgObj2 = generateWAMessageFromContent(ctx.remoteJid, {
-        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-          body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textok }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: localConfig.bot.name }),
-          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-            buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify(listaParams) }],
-          }),
-        }),
-      }, { userJid: sock.user?.id, quoted: msg });
-      await sock.relayMessage(ctx.remoteJid, msgObj2.message, { messageId: msgObj2.key.id });
-      sent = true;
-    } catch (e2) {
-      console.warn('[menu lista]', e2.message?.slice(0, 80));
-    }
-
-    if (sent) { logCmd('menu', ctx); return; }
-
-    // TENTATIVA 3: sendList do buttonHandler
+    // Fallback: lista interactiva (buttonHandler)
     try {
       await buttonHandler.sendList(sock, ctx.remoteJid, `${tIcon} ${localConfig.bot.name}`, textok, `${tIcon} Abrir`, listaParams.sections, msg);
-      sent = true;
+      logCmd('menu', ctx); return;
     } catch {}
 
-    if (sent) { logCmd('menu', ctx); return; }
-
-    // ÚLTIMO FALLBACK: texto rico com todos os módulos listados
-    const t  = activeThemeForMenu;
-    const f  = t.frame;
+    // Último fallback: texto rico com tema activo
     const allRows = baseRows.concat(extraRows);
+    const t   = activeThemeForMenu;
+    const sep = t.sectionSep || '━━━━━━━━━━━━━━━━━━━━━━━━';
     const fallback =
-      `${t.icon} ─ ⋆⋅ ${t.accent} ⋅⋆ ─ ${t.icon}\n\n` +
-      `${t.headerDec.replace('{TITLE}', localConfig.bot.name)}\n` +
-      textok + '\n' +
-      `${t.sectionSep || f[2] + f[4].repeat(24) + f[3]}\n\n` +
-      allRows.map(r => `${f[5]}${t.bullet} ${t.accent} *${r.title}*\n${f[5]}  _${r.description}_`).join('\n') +
-      `\n\n${t.sectionSep || ''}\n> ${t.vibe}`;
+      `${t.icon} *${localConfig.bot.name}*\n` +
+      `${t.bullet} ${ctx.pushName}  •  🏷️ ${isCargo}\n` +
+      `🔑 Prefixo: *${p}*\n${sep}\n\n` +
+      allRows.map(r => `${t.bullet} *${r.title}* — _${r.description}_`).join('\n') +
+      `\n\n> ${t.vibe}`;
     await reply(sock, msg, ctx, fallback);
     logCmd('menu', ctx);
   },
