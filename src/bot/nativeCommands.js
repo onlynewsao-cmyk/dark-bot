@@ -512,7 +512,15 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
           }),
         }),
       }, { userJid: sock.user?.id, quoted: msg });
-      await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+      await sock.relayMessage(ctx.remoteJid, m.message, {
+        messageId: m.key.id,
+        additionalNodes: [
+          { tag: 'biz', attrs: {}, content: [{
+            tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+            content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+          }]},
+        ],
+      });
       sent = true;
     } catch { /* fallback abaixo */ }
   }

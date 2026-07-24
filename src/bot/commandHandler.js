@@ -1020,7 +1020,12 @@ async function handle(sock, msg) {
           const primaryPrefix = prefixes[0] || prefix;
           const correctCmd = primaryPrefix + suggestion;
           const menuCmd    = primaryPrefix + 'menu';
-          const warnText = `⚠️ *${prefix}${commandName}* não existe.\n\n💡 Quiseste dizer *${correctCmd}*?`;
+          // v5.3: personalidade do change determina o tom da sugestão
+          const { formatResponse } = require('./botPersonality');
+          const _theme = await require('./themeResolver').getThemeForContext(ctx.remoteJid).catch(() => null);
+          const _sugLine = formatResponse(_theme, correctCmd, 'suggestion', { ...ctx, prefix: primaryPrefix });
+          const _errLine = formatResponse(_theme, `${prefix}${commandName}`, 'error', ctx);
+          const warnText = `${_errLine}\n\n${_sugLine}`;
           try {
             const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
             const btnMsg = generateWAMessageFromContent(ctx.remoteJid, {
@@ -1036,7 +1041,13 @@ async function handle(sock, msg) {
                 }),
               }),
             }, { userJid: sock.user?.id, quoted: msg });
-            await sock.relayMessage(ctx.remoteJid, btnMsg.message, { messageId: btnMsg.key.id });
+            await sock.relayMessage(ctx.remoteJid, btnMsg.message, {
+              messageId: btnMsg.key.id,
+              additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+                tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+                content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+              }]}],
+            });
           } catch {
             await sock.sendMessage(ctx.remoteJid, { text: warnText + `\n\nUsa *${menuCmd}* para ver todos os comandos.` }, { quoted: msg });
           }

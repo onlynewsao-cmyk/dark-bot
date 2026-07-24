@@ -632,7 +632,30 @@ const THEMES = {
 
 function getTheme(name = 'dark') {
   const n = String(name || 'dark').toLowerCase().trim();
-  return THEMES[n] || THEMES.dark;
+  const t = THEMES[n] || THEMES.dark;
+  // v5.3: auto-atribui personalidade + fonte se não definidas
+  if (!t.personality) t.personality = _inferPersonality(n);
+  if (!t.font) t.font = _inferFont(n);
+  return t;
+}
+
+// Inferir personalidade pelo nome do tema
+function _inferPersonality(name) {
+  if (/royal|emperor|crown|queen|king/.test(name)) return 'royal';
+  if (/cute|sakura|kawaii|aurora|crystal/.test(name)) return 'cute';
+  if (/blade|storm|fire|dragon|omega|void|ritual/.test(name)) return 'aggressive';
+  if (/formal|diamond|neon|hacker/.test(name)) return 'formal';
+  return 'dark';
+}
+
+// Inferir fonte pelo nome do tema
+function _inferFont(name) {
+  if (/hacker|matrix|cyber/.test(name)) return 'monospace';
+  if (/gothic|ritual|ancient|void/.test(name)) return 'smallcaps';
+  if (/glitch|storm|neon/.test(name)) return 'glitch';
+  if (/royal|emperor|crown/.test(name)) return 'bold';
+  if (/cute|sakura|kawaii/.test(name)) return 'tiny';
+  return 'smallcaps'; // default DARK: smallcaps para tudo
 }
 
 function listThemes() {
