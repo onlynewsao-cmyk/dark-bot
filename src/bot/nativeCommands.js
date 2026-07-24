@@ -384,11 +384,9 @@ async function getButtonMode() {
 /**
  * Retorna o tema activo (changeThemes object)
  */
-async function getActiveTheme() {
-  try {
-    const name = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
-    return changeThemes.getTheme(name || 'dark');
-  } catch { return changeThemes.getTheme('dark'); }
+async function getActiveTheme(groupJid = null) {
+  try { return await require('./themeResolver').getThemeForContext(groupJid); }
+  catch { return changeThemes.getTheme('dark'); }
 }
 
 async function getMenuImage(target = 'menu') {
@@ -430,7 +428,7 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
   const botName = config.bot.name || 'DARK BOT';
 
   // Tema activo — afecta TODOS os textos visíveis
-  const t  = await getActiveTheme();
+  const t  = await getActiveTheme(ctx.remoteJid);
   const f  = t.frame;
   const V  = f[5] || '│';
   const H  = f[4] || '─';
@@ -721,7 +719,7 @@ module.exports = {
 
     // ── Tema activo — o menu acompanha o !change / !temas ──
     let t = { icon: '🕸️', vibe: 'Dark Engine', bullet: '▸' };
-    try { t = await getActiveTheme(); } catch {}
+    try { t = await getActiveTheme(ctx.remoteJid); } catch {}
 
     // ── Dados do utilizador (cargo + VIP) ──
     let isCargo = '🆓 FREE';
@@ -751,7 +749,6 @@ module.exports = {
           title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ',
           highlight_label: 'ᴅᴀʀᴋ ɴᴇᴛ|ᴅᴇᴠ',
           rows: [
-            { header: '🕸️⃞ ᴍᴇɴᴜ-ᴘʀɪɴᴄɪᴘᴀʟ',    title: '_comandos principais e básicos do bot._',       id: p + 'menup' },
             { header: '🕸️⃞ ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs',   title: '_comandos de download e upload._',              id: p + 'down' },
             { header: '🕸️⃞ ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs',  title: '_comandos de figurinhas e criação._',           id: p + 'menufigurinhas' },
             { header: '🕸️⃞ ᴍᴇɴᴜ-ʙʀɪɴᴄᴀғᴇɪʀᴀs', title: '_comandos de diversão e zoeiras para grupo._',  id: p + 'brincadeiras' },
