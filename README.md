@@ -15,7 +15,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/STATUS-ONLINE-8B5CF6?style=for-the-badge&logo=whatsapp&logoColor=white" />
   <img src="https://img.shields.io/badge/OWNER-DARK%20NET-F59E0B?style=for-the-badge&logo=ghostery&logoColor=white" />
-  <img src="https://img.shields.io/badge/VERSION-1.0.0-06B6D4?style=for-the-badge&logo=semver&logoColor=white" />
+  <img src="https://img.shields.io/badge/VERSION-5.1.0-06B6D4?style=for-the-badge&logo=semver&logoColor=white" />
   <img src="https://img.shields.io/badge/LICENSE-PRIVATE-EF4444?style=for-the-badge&logo=lock&logoColor=white" />
 </p>
 
@@ -69,6 +69,37 @@ npm install
 npm test
 npm start
 ```
+
+---
+
+## 🚀 Novidades v5.1.0 (DarkShield Update)
+
+**🛡️ DarkShield Anti-Link v2** — novo módulo dedicado `src/bot/antiLink.js`:
+
+- Corrigido bug grave de fluxo (`goto_spam:`) que fazia o bot apagar/kickar mesmo sem ser admin
+- Comandos do bot já não são apagados pelo anti-link (ex: `!ytd https://...`)
+- Detecção de **links ofuscados**: `hxxp://`, `youtube [.] com`, `exemplo ponto com`, `wa [ponto] me`
+- +30 encurtadores, Discord, Telegram, IPs directos, redes sociais
+- Avisos progressivos com expiração automática (10 min)
+- Estatísticas por grupo (apagados/avisos/kicks) persistidas no MongoDB
+- Novos sub-comandos: `!antilink maxwarns`, `delete on|off`, `notify on|off`, `strict on|off`, `vip on|off`, `whitelist add|del|list`
+
+**🔘 Motor de botões corrigido** — os botões agora renderizam e são clicáveis:
+
+- Nova cascata: `interactive viewOnce + messageContextInfo + additionalNodes` → `ButtonV2 (MB.cjs)` → `direct` → texto
+- Corrigido `patchMessageBeforeSending` (não re-envolve mensagens ButtonV2)
+- `sendList`, `sendUrlButton`, `sendCopyButton` também com wrapper viewOnce
+
+**🎵 play / play2 / play3 reescritos** com o formato de referência exacto:
+
+- `systemZone.ytsearch()` → `resultados[]` (play = #1, play2 = #2, play3 = #3)
+- Card ButtonV2 com thumbnail + botões **Baixar Áudio** (`!ytd`) / **Baixar Vídeo** (`!gyt`)
+- Busca com fallback local (`yt-search`) quando a API falha
+- Downloads com cadeia: SystemZone API → yt-dlp → @distube/ytdl-core → youtubei.js
+
+**🖥️ Render Free:** build mais robusto (yt-dlp opcional via pip com fallback) e keep-alive duplo (interno + UptimeRobot em `/ping`).
+
+---
 
 **Rotas importantes:**
 

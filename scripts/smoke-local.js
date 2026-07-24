@@ -11,6 +11,8 @@ const modules = [
   '../src/bot/botConfigCache',
   '../src/bot/prefixManager',
   '../src/bot/antiSpam',
+  '../src/bot/antiLink',
+  '../src/bot/systemZeroPlay',
   '../src/bot/menuBuilder',
   '../src/bot/menuThemes',
   '../src/bot/scheduler',

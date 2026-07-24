@@ -25,6 +25,7 @@ const mongoose = require('mongoose');
 const messageListener = require('./messageListener');
 const commandHandler  = require('./commandHandler');
 const antispam        = require('./antiSpam');
+const antiLink        = require('./antiLink');
 const groupEvents     = require('./groupEvents');
 
 const AUTH_FOLDER = path.join(__dirname, '..', '..', 'data', 'auth');
@@ -175,7 +176,12 @@ class WhatsAppBot {
         defaultQueryTimeoutMs:      60000,
 
         // Patch de compatibilidade de botões
+        // v5.1: NÃO re-envolve buttonsMessage com viewOnce:true — essas vêm do
+        // ButtonV2 (MB.cjs) que já usa o mecanismo próprio (additionalNodes
+        // native_flow). Re-envolver quebrava a renderização em clientes novos.
         patchMessageBeforeSending: (msg) => {
+          const isMBv2 = msg.buttonsMessage?.viewOnce === true;
+          if (isMBv2) return msg;
           if (!(msg.buttonsMessage || msg.templateMessage || msg.listMessage)) return msg;
           return {
             viewOnceMessage: {
@@ -255,8 +261,10 @@ class WhatsAppBot {
           this.msgCount++;
           messageListener.onUpsert(this.sock, m, this.io).catch(() => {});
           if (msg.key.fromMe) return;
+          // DarkShield Anti-Link v2 corre em paralelo com comandos + anti-spam
           const [handled] = await Promise.all([
             commandHandler.handle(this.sock, msg).catch(() => false),
+            antiLink.check(this.sock, msg).catch(() => {}),
             antispam.check(this.sock, msg).catch(() => {}),
           ]);
           if (handled) this.cmdCount++;
