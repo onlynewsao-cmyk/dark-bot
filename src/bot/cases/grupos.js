@@ -435,6 +435,44 @@ module.exports = function registerGroupCases(registerCase) {
     reply(`🛡️ *Anti-Spam* ${gs.antispam ? '🟢 ON' : '🔴 OFF'}`);
   });
 
+  // ── !setprefix — prefixo POR GRUPO (só dono) ──────────────────
+  registerCase(['setprefix', 'prefixgrupo', 'groupprefix'], async ({ ctx, args, prefix, reply, isOwner }) => {
+    if (!ctx.isGroup) return reply('👥 Só em grupos.');
+    if (!isOwner) return reply('🚫 Só o Dono pode mudar o prefixo do grupo.');
+    const pe = require('../prefixEngine');
+    const sub = (args[0] || '').toLowerCase();
+
+    if (['reset', 'limpar', 'default', 'global'].includes(sub)) {
+      await pe.clearGroupPrefix(ctx.remoteJid);
+      const global = await pe.getActivePrefix();
+      return reply(`🔄 Prefixo deste grupo *resetado* para o global: *${global}*`);
+    }
+
+    const newPrefix = args[0] || '';
+    if (!newPrefix || newPrefix.length > 3) {
+      return reply(
+        `🔑 *Prefixo por grupo*\n\n` +
+        `Uso: *${prefix}setprefix <símbolo>*\n` +
+        `Ex: *${prefix}setprefix /* → prefixo vira "/" neste grupo\n` +
+        `Ex: *${prefix}setprefix reset* → volta ao prefixo global\n\n` +
+        `⚠️ Não altera outros grupos. Máx 3 caracteres.`
+      );
+    }
+
+    try {
+      const set = await pe.setGroupPrefix(ctx.remoteJid, newPrefix);
+      return reply(
+        `✅ *Prefixo deste grupo alterado!*\n\n` +
+        `🔑 Novo prefixo: *${set}*\n` +
+        `📍 Grupo: *${ctx.groupName || ctx.remoteJid}*\n\n` +
+        `Exemplo: *${set}menu* · *${set}play* · *${set}ia*\n\n` +
+        `> Outros grupos continuam com o prefixo global.`
+      );
+    } catch (e) {
+      return reply('❌ Erro: ' + e.message);
+    }
+  });
+
   // !welcome
   registerCase(['welcome', 'boasvindas', 'bv'], async ({ sock, ctx, args, prefix, reply }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
