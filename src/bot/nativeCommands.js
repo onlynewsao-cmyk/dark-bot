@@ -424,7 +424,9 @@ function submenuText(title, subtitle, prefix, items = [], ctx = {}, config = {},
 }
 
 async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, buttonText = 'Abrir', target = 'menu', items = [], selectable = [] }) {
-  const p       = config.bot.prefix;
+  const pe      = require('./prefixEngine');
+  const gp      = await pe.getActivePrefix(ctx.remoteJid).catch(() => null);
+  const p       = gp || config.bot.prefix;
   const botName = config.bot.name || 'DARK BOT';
 
   // Tema activo — afecta TODOS os textos visíveis
@@ -697,7 +699,9 @@ module.exports = {
   // ──────────────────────────────────────────────────────────
   async menu({ sock, msg, ctx, config: cfg, isOwner }) {
     const localConfig = cfg || config;
-    const p           = localConfig.bot.prefix;
+    const pe          = require('./prefixEngine');
+    const gp          = await pe.getActivePrefix(ctx.remoteJid).catch(() => null);
+    const p           = gp || localConfig.bot.prefix;
     const botName     = localConfig.bot.name   || 'DARK BOT';
     const channelUrl  = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
@@ -1922,7 +1926,7 @@ module.exports = {
     }
 
     if (!targetJid) return reply(sock, msg, ctx, `🏠 Use em grupo ou: ${p}alugar <jid_do_grupo> <dias>`);
-    if (dias < 1 || dias > 3650) return reply(sock, msg, ctx, '❌ Dias deve ser entre 1 e 3650.');
+    if (dias < 1 || dias > 3650) return reply(sock, msg, ctx, '❌ Uso: ${localConfig.bot.prefix}alugar <dias> (1-3650)\nEx: ${localConfig.bot.prefix}alugar 30.');
 
     // Verifica limite VIP
     if (!isSubDono && isVip) {
@@ -2261,8 +2265,7 @@ module.exports = {
       const SZ = 'https://api.siputzx.my.id/api';
       const r  = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query + ' aesthetic')}`, 20000);
       const items = (r?.data || [])
-        .filter(x => x?.image_url && /^https?/i.test(x.image_url) && x.type !== 'video')
-        .slice(0, 8);
+        .filter(x => x?.image_url && /^https?/i.test(x.image_url) && x.type !== 'video').slice(0, 29);
 
       if (!items.length) throw new Error('Sem imagens encontradas para este pack.');
 

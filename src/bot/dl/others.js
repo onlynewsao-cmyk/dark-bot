@@ -117,21 +117,20 @@ async function pinterest(url) {
 }
 
 async function pinterestSearch(query) {
-  const sipResults = await siputzxPinterestSearch(query);
-  if (sipResults && sipResults.length) return sipResults;
-
-  try {
-    const r = await mediaHandler.fetchJson('https://api.siputzx.my.id/api/s/pinterest?query=' + encodeURIComponent(query), 25000);
-    const arr = r?.data || r?.result || r?.results;
-    if (Array.isArray(arr) && arr.length) {
-      return arr.map(p => {
-        const u = typeof p === 'string' ? p : (p.image_url || p.image || p.url || p.src || p.download_url);
-        return u ? { url: u } : null;
-      }).filter(Boolean).filter(x => /^https?:\/\//i.test(x.url)).slice(0, 10);
-    }
-  } catch (e) {}
-
-  throw new Error('❌ Pinterest sem resultados.');
+  // FALLBACK v6.5: múltiplas APIs
+  const apis = [
+    { url: 'https://api.siputzx.my.id/api/s/pinterest?query=', extract: r => r?.data },
+    { url: 'https://api.lolhuman.xyz/api/pinterest?query=', key: '&apikey=darkbot', extract: r => r?.result },
+    { url: 'https://api.zahwazein.xyz/searching/pinterest?query=', extract: r => r?.result },
+  ];
+  for (const api of apis) {
+    try {
+      const r = await mediaHandler.fetchJson(api.url + encodeURIComponent(query) + (api.key || ''), 15000);
+      const items = api.extract(r);
+      if (Array.isArray(items) && items.length > 0) return items;
+    } catch {}
+  }
+  return [];
 }
 
 module.exports = { tiktok, instagram, facebook, twitter, spotify, soundcloud, pinterest, pinterestSearch };
