@@ -429,10 +429,7 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
 
   // Tema activo — afecta TODOS os textos visíveis
   const t  = await getActiveTheme(ctx.remoteJid);
-  const f  = t.frame;
-  const V  = f[5] || '│';
-  const H  = f[4] || '─';
-  const tl = f[0], tr = f[1], bl = f[2], br = f[3];
+  const RE = require('./renderEngine');
 
   const showPfx = await botConfigCache.get('menu_show_prefix', false).catch(() => false);
   const useP    = showPfx === true || showPfx === 'true' || showPfx === 'on';
@@ -445,34 +442,11 @@ async function sendStyledCommandList(sock, msg, ctx, config, { title, subtitle, 
 
   if (!allowed.length) return reply(sock, msg, ctx, `${t.icon} Sem comandos em *${title}*.`);
 
-  // ── Cabeçalho do tema ──────────────────────────────────────────────
-  const header  = t.headerDec.replace('{TITLE}', title);
-  const sepLine = t.sectionSep || `${bl}${H.repeat(26)}${br}`;
-
-  // ── Texto rico no estilo do tema (com todos os cmds) ───────────────
-  const lines = [
-    `${t.icon} ─ ⋆⋅ ${t.accent} ⋅⋆ ─ ${t.icon}`,
-    ``,
-    header,
-    `${V}${t.bullet} 𝐁𝐨𝐭: *${botName}*`,
-    `${V}${t.bullet} 𝐔𝐬𝐮á𝐫𝐢𝐨: ${ctx.pushName || 'Membro'}`,
-    `${V}${t.bullet} 𝐏𝐫𝐞𝐟𝐢𝐱𝐨: 『${p}』`,
-    sepLine,
-    ``,
-  ];
-
-  // Agrupa os comandos 1 por linha com descrição
-  for (const it of allowed) {
-    const cmd = `${useP ? p : ''}${it.cmd}`;
-    lines.push(`${V}${t.bullet} ${t.accent} *${cmd}*${it.desc ? ` — _${it.desc}_` : ''}`);
-  }
-
-  lines.push(``);
-  lines.push(sepLine);
-  if (subtitle) lines.push(`> _${subtitle}_`);
-  lines.push(`> ${t.icon} ${botName} ${t.sep} ${t.vibe}`);
-
-  const textBody = lines.join('\n');
+  // ── Renderiza com o change activo (bordas + fonte + personalidade) ──
+  const textBody = RE.renderSubmenu(t, title, allowed.map(it => ({
+    name: (useP ? p : '') + it.cmd,
+    desc: it.desc || '',
+  })), { prefix: useP ? '' : p, botName });
 
   // ── Lista interativa (single_select) com cmds seleccionáveis ──────
   // Só inclui na lista os que fazem sentido executar directamente (flag selectable)
@@ -792,14 +766,16 @@ module.exports = {
       })},
     ];
 
-    // ── Corpo do card (estrutura exacta da referência) ──
-    const textok =
-      '║𝚄𝚂𝚄Á𝚁𝙸𝙾: ' + (ctx.pushName || 'Desconhecido') + '\n' +
-      '║𝙲𝙰𝚁𝙶𝙾: ' + isCargo + '\n' +
-      '║𝚅𝙸𝙿: ' + isChVip + '\n\n' +
-      '*Eu quero que cada usuário tenha uma experiência digna.* ' + t.icon;
+    // ── Corpo do card — usa o change activo (fonte + personalidade) ──
+    const RE = require('./renderEngine');
+    const textok = RE.renderMenuCard(t, {
+      pushName: ctx.pushName || 'Desconhecido',
+      cargo: isCargo,
+      vip: isChVip,
+      prefix: p,
+    }, { botName });
 
-    const footerCard = t.icon + ' ᴅᴀʀᴋ ʙᴏᴛ ᴠ5 · ᴅᴀʀᴋ ɴᴇᴛ ᴇɴɢɪɴᴇ';
+    const footerCard = RE.renderMenuFooter(t, botName);
 
     // ═══ 1º — CAROUSEL com mídia (vídeo GIF preferido, imagem fallback) ═══
     try {

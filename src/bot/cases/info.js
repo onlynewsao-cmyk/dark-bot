@@ -28,24 +28,14 @@ module.exports = function registerInfoCases(registerCase) {
     const bar  = lat < 200 ? '🟢 Excelente' : lat < 500 ? '🟡 Boa' : '🔴 Alta';
     const ram  = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
     const t    = await getActiveTheme(ctx.remoteJid);
-    const f    = t.frame;
-    const H    = f[4], V = f[5];
-    const tl   = f[0], tr = f[1], bl = f[2], br = f[3];
-    const W    = 24;
-    const bar_ = (txt) => `${V} ${String(txt).slice(0, W).padEnd(W)} ${V}`;
-    const sep  = bar_(`${t.sep.repeat(Math.min(4, W))}`);
+    const RE   = require('../renderEngine');
 
-    const txt =
-      `${tl}${H.repeat(W + 2)}${tr}\n` +
-      `${bar_(`${t.icon}  PONG! — ${config.bot.name}`)}\n` +
-      `${bar_(`${t.vibe.slice(0, W)}`)}\n` +
-      sep + '\n' +
-      `${bar_(`${t.bullet} Latência: ${lat}ms  ${bar}`)}\n` +
-      `${bar_(`${t.bullet} RAM: ${ram} MB`)}\n` +
-      `${bar_(`${t.bullet} Bot: ${config.bot.name}`)}\n` +
-      `${bar_(`${t.bullet} Tema: ${t.name.toUpperCase()}`)}\n` +
-      sep + '\n' +
-      `${bl}${H.repeat(W + 2)}${br}`;
+    const txt = RE.renderInfo(t, [
+      ['PONG', `${config.bot.name}`],
+      ['LATÊNCIA', `${lat}ms ${bar}`],
+      ['RAM', `${ram} MB`],
+      ['TEMA', `${t.name.toUpperCase()}`],
+    ], { title: 'PING', botName: config.bot.name });
 
     try {
       await sock.sendMessage(ctx.remoteJid, { text: txt, edit: sent.key });
