@@ -28,7 +28,7 @@ function cacheSet(key, value) {
 }
 
 /**
- * MASTER DECRYPTER CORE v3.0
+ * MASTER DECRYPTER CORE v6
  * Suporta TODOS os formatos VPN conhecidos.
  * Reconhecimento automático por extensão E por conteúdo (blind decrypt).
  */

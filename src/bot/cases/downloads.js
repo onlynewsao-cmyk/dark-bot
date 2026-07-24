@@ -95,7 +95,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     }
 
     const video = searchData.resultados[Math.min(resultIndex, searchData.resultados.length - 1)];
-    const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ Dark Net Engine` : '© System Zero V3');
+    const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ DARK BOT` : '© DARK BOT v6');
     const bodyExtra =
       resultIndex === 0 ? '✦ ݁˖ Selecione o formato desejado. .✦ ݁˖\n\n'
       : resultIndex === 1 ? '✦ ݁˖ Resultado alternativo (#2) ✦ ݁˖\n\n'

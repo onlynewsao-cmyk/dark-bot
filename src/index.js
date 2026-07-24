@@ -168,7 +168,7 @@ async function bootstrap() {
       messages: botStatus.messageCount || 0,
       commands: botStatus.commandCount || 0,
       ts: Date.now(),
-      version: '3.0.0',
+      version: '6.0.0',
     });
   });
 
@@ -246,7 +246,7 @@ async function bootstrap() {
 
   server.listen(config.port, () => {
     console.log(`\n${'='.repeat(55)}`);
-    console.log(`🕸️  ${config.bot.name} v3.0 — DARK NET ENGINE`);
+    console.log(`🕸️  ${config.bot.name} v6 — DARK BOT`);
     console.log(`${'='.repeat(55)}`);
     console.log(`🚀 Servidor:   ${config.appUrl}`);
     console.log(`📊 Dashboard:  ${config.appUrl}/dashboard`);

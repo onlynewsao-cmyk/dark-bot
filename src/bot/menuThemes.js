@@ -212,7 +212,7 @@ function renderMainMenu({ ctx = {}, config = {}, stats = {}, style = 'classic', 
   sections.push(
     `${p.bullet} *${prefix}menubtn*  — menu interactivo com botões\n` +
     `${p.bullet} *${prefix}ia* <pergunta>  — IA com memória\n` +
-    `> ${p.icon} ${botName} × Dark Net Engine  |  ${p.vibe}`
+    `> ${p.icon} ${botName} × DARK BOT  |  ${p.vibe}`
   );
 
   return sections.join('\n\n');

@@ -167,7 +167,7 @@ function playFallbackText(video, prefix) {
 async function sendPlayCard(sock, jid, video, prefix, quoted = null, bodyExtra = '') {
   const audioCmd = `${prefix}ytd ${video.youtube_url}`;
   const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | 720`;
-  const footer = (config.bot?.name ? `${config.bot.name} 🕸️ Dark Net Engine` : '© System Zero V3');
+  const footer = (config.bot?.name ? `${config.bot.name} 🕸️ Dark Net Engine` : '© DARK BOT v6');
   const body =
     `👤 ${video.author || 'Desconhecido'}\n` +
     `⏱️ ${video.duration || '?'} • 👁️ ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +

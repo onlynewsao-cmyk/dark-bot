@@ -237,7 +237,7 @@ async function sendVideoFromUrl(sock, jid, urlOrBuffer, caption, quotedMsg, opts
 
     return sock.sendMessage(jid, {
       video: mp4,
-      caption: `${caption}\n\n✅ MP4 compatível WhatsApp · Dark Net Engine 🕸️`,
+      caption: `${caption}\n\n✅ MP4 compatível WhatsApp · DARK BOT 🕸️`,
       mimetype: 'video/mp4',
       fileName: `${title}.mp4`,
     }, { quoted: quotedMsg });
@@ -954,13 +954,13 @@ module.exports = {
   },
 
   async figubug2({ sock, msg, ctx, args, config }) {
-    const prompt = args.join(' ').trim() || `Dark Net Engine logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
+    const prompt = args.join(' ').trim() || `DARK BOT logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
     await react(sock, msg, '🎨');
     try {
       const img = await ai.generateImage(prompt);
       const stk = await stickerMaker.create(img, {
         botName: config.bot.name,
-        ownerName: 'Dark Net Engine 🕸️',
+        ownerName: 'DARK BOT 🕸️',
         userName: ctx.pushName,
         groupName: ctx.groupName || 'PV',
         isVideo: false,
@@ -1151,7 +1151,7 @@ module.exports = {
       `${f[5]} ${pl.bullet} WhatsApp: wa.me/${num}`,
       `${f[5]} ${pl.bullet} Canal:    ${channelUrl}`,
       `${f[5]} ${pl.sep.repeat(28)}`,
-      `${f[5]} _Bot desenvolvido com 🕸️ Dark Net Engine_`,
+      `${f[5]} _Bot desenvolvido com 🕸️ DARK BOT_`,
       `${f[2]}${f[4].repeat(36)}${f[3]}`,
     ].join('\n');
 
