@@ -1,11 +1,10 @@
 /**
  * DARK BOT v5 — Prefix Manager
- * Prefixo dinâmico global — muda em toda a parte ao mesmo tempo.
- * Suporta múltiplos prefixos separados por vírgula.
+ * Prefixo dinâmico global — UM único prefixo em todo o bot.
+ * Só o Dono pode mudar via !setprefix
  *
- * !setprefix /         → muda para /
- * !setprefix ! .       → muda para ! e .
- * !prefixos            → ver prefixos actuais
+ * !setprefix $   → muda para $
+ * !setprefix /   → muda para /
  */
 'use strict';
 
@@ -16,20 +15,23 @@ let _cached = null;
 let _ts     = 0;
 const TTL   = 30_000; // 30s
 
+/**
+ * Retorna o prefixo actual (sempre array com 1 elemento).
+ */
 async function getPrefixes() {
   const now = Date.now();
   if (_cached && now - _ts < TTL) return _cached;
   try {
     const stored = await BotConfig.findOne({ key: 'prefixes' }).lean();
-    let prefixes;
+    let prefix;
     if (stored?.value) {
-      prefixes = Array.isArray(stored.value)
-        ? stored.value
-        : String(stored.value).split(/[\s,]+/).filter(Boolean);
+      // Aceita string ou array — pega sempre só o primeiro
+      const raw = Array.isArray(stored.value) ? stored.value[0] : String(stored.value).split(/[\s,]+/)[0];
+      prefix = String(raw || '').trim() || config.bot.prefix || '!';
     } else {
-      prefixes = [config.bot.prefix || '!'];
+      prefix = config.bot.prefix || '!';
     }
-    _cached = prefixes.filter(Boolean);
+    _cached = [prefix];
     _ts     = now;
     return _cached;
   } catch {
@@ -37,40 +39,44 @@ async function getPrefixes() {
   }
 }
 
+/**
+ * Define o prefixo global — aceita APENAS 1 prefixo.
+ * @param {string|string[]} prefixes
+ */
 async function setPrefixes(prefixes) {
-  const arr = (Array.isArray(prefixes) ? prefixes : String(prefixes).split(/[\s,]+/))
-    .map(p => String(p).trim())
-    .filter(Boolean)
-    .slice(0, 5); // máx 5 prefixos
-  if (!arr.length) arr.push('!');
-  await BotConfig.findOneAndUpdate({ key: 'prefixes' }, { key: 'prefixes', value: arr }, { upsert: true, new: true });
-  _cached = arr;
+  // Pega sempre só o primeiro token — prefixo único
+  const raw = Array.isArray(prefixes) ? prefixes[0] : String(prefixes).split(/[\s,]+/)[0];
+  const p   = String(raw || '').trim() || '!';
+  await BotConfig.findOneAndUpdate(
+    { key: 'prefixes' },
+    { key: 'prefixes', value: [p] },
+    { upsert: true, new: true }
+  );
+  _cached = [p];
   _ts     = Date.now();
-  return arr;
+  return [p];
 }
 
+/**
+ * Detecta se o texto começa com o prefixo actual.
+ */
 async function detectPrefix(text) {
   if (!text) return null;
-  const prefixes = await getPrefixes();
-  // Ordenar do mais longo para o mais curto (evita ambiguidade)
-  const sorted = [...prefixes].sort((a, b) => b.length - a.length);
-  for (const p of sorted) {
-    if (text.startsWith(p)) {
-      return { prefix: p, rest: text.slice(p.length).trim() };
-    }
+  const [p] = await getPrefixes();
+  if (text.startsWith(p)) {
+    return { prefix: p, rest: text.slice(p.length).trim() };
   }
   return null;
 }
 
 async function getPrimaryPrefix() {
-  const list = await getPrefixes();
-  return list[0] || '!';
+  const [p] = await getPrefixes();
+  return p || '!';
 }
 
-/** Retorna texto de prefixo formatado para exibição */
 async function getPrefixDisplay() {
-  const list = await getPrefixes();
-  return list.length > 1 ? list.join('  •  ') : list[0];
+  const [p] = await getPrefixes();
+  return p;
 }
 
 function clearCache() { _cached = null; _ts = 0; }
