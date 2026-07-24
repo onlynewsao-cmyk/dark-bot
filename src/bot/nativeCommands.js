@@ -2202,7 +2202,13 @@ module.exports = {
         },
       }, { userJid: sock.user?.id, quoted: msg });
 
-      await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
+      await sock.relayMessage(ctx.remoteJid, msgObj.message, {
+        messageId: msgObj.key.id,
+        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+          tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+          content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+        }]}],
+      });
       await react(sock, msg, '✅');
 
     } catch (e) {

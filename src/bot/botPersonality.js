@@ -48,6 +48,37 @@ const FONTS = {
     const tiny = 'ᵃᵇᶜᵈᵉᶠʰⁱʲˡⁿᵒᵖqʳˢᵗᵘᵛʷˣʸ';
     return String(t).replace(/[a-z]/g, c => tiny[map.indexOf(c)] || c);
   },
+
+  rpg: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const b = '𝐀𝐁𝐃𝐄𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐝𝐞𝐟𝐠𝐢𝐣𝐥𝐧𝐨𝐩𝐪𝐬𝐭𝐯𝐰𝐱𝐲𝐳';
+    return String(t).replace(/[A-Za-z]/g, c => b[m.indexOf(c)] || c);
+  },
+  double: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const d = '𝔸ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕘𝕙𝕛𝕜𝕝𝕞𝕠𝕡𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫';
+    return String(t).replace(/[A-Za-z]/g, c => d[m.indexOf(c)] || c);
+  },
+  cursive: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const c = '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫ℛ𝒮𝒯𝒰𝒲𝒳𝒵𝒶𝒷𝒸𝒹ℯ𝒻𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓆𝓇𝓉𝓊𝓋𝓌𝓍𝓎𝓏';
+    return String(t).replace(/[A-Za-z]/g, ch => c[m.indexOf(ch)] || ch);
+  },
+  fraktur: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const f = '𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔑𝔒𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔡𝔢𝔣𝔤𝔥𝔦𝔨𝔩𝔪𝔫𝔬𝔮𝔯𝔱𝔲𝔳𝔴𝔶𝔷';
+    return String(t).replace(/[A-Za-z]/g, c => f[m.indexOf(c)] || c);
+  },
+  circled: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const c = 'ⒶⒷⒹⒺⒼⒽⒾⒿⓀⓁⓂⓃⓄⓆⓇⓉⓊⓋⓌⓎⓏⓑⓒⓔⓕⓗⓘⓚⓛⓜⓝⓞⓠⓡⓣⓤⓥⓦⓨ';
+    return String(t).replace(/[A-Za-z]/g, c => c[m.indexOf(c)] || c);
+  },
+  squared: (t) => {
+    const m = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const s = '🄰🄲🄳🄴🄵🄷🄸🄺🄻🄼🄽🄿🅁🅃🅅🅆🅈';
+    return String(t).replace(/[A-Z]/g, c => s[m.indexOf(c)] || c);
+  },
 };
 
 function applyFont(text, fontName = 'normal') {
