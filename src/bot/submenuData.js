@@ -133,7 +133,7 @@ function categorize(cmd) {
     tikstalk:'search', ttstalk:'search',
     blackhzx:'logos', blood:'logos', cemiterio:'logos', ffavatar:'logos',
     themechange:'owner', themes:'owner',
-    texto:'texto', textosticker:'stickers', textsticker:'stickers', txtsticker:'stickers',
+    texto:'texto', textosticker:'stickers', imagem:'ia', stickers:'info', legendasaiu:'admin', legendabv:'admin', textsticker:'stickers', txtsticker:'stickers',
     baixaraudio:'downloads', baixarvideo:'downloads',
     dlmp3:'downloads', dlmp4:'downloads', ytmp3:'downloads', ytmp4:'downloads',
     ytaudio:'downloads', ytplay4:'downloads', fhd:'downloads', vid:'downloads', vid2:'downloads',
