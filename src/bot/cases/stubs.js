@@ -1,5422 +1,965 @@
-/**
- * DARK BOT v5.5 — Stubs de comandos do ficheiro de referência
- * Gerado automaticamente — 882 comandos organizados por categoria
- * Cada stub responde com o tom da personalidade activa (change)
- */
 'use strict';
+const TR = require('../themeResolver');
+const { applyFont } = require('../botPersonality');
+const sd = require('../submenuData');
+const R = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const P = a => a[Math.floor(Math.random()*a.length)];
+const DH=['Explodindo 🔥','Máximo 💯','Sem limites 🚀','Absurdo 😱'];
+const DM=['Moderado ⚖️','Na média 📊','Equilibrado ☯️'];
+const DL=['Quase zero 📉','Mínimo 🔋','Esperança 🌱'];
+function dg(p){return p>70?P(DH):p>30?P(DM):P(DL);}
 
-const themeResolver = require('../themeResolver');
+async function hZ({sock,msg,ctx,args,command}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  const tgt=args[0]?args.join(' ').replace(/[@+]/g,''):ctx.pushName;
+  const p=R(1,100);
+  const lp=t.linePrefix||'║';
+  const txt=(t.topBorder||'').replace(/{TITLE}/g,command.toUpperCase()).replace(/{ICON}/g,t.icon)+'\n'+lp+' Alvo: @'+tgt+'\n'+lp+' Nível: *'+p+'%*\n'+lp+' '+dg(p)+'\n'+(t.bottomBorder||'').replace(/{ICON}/g,t.icon);
+  return sock.sendMessage(ctx.remoteJid,{text:txt},{quoted:msg});
+}
 
-const CAT_META = {
-  "rpg_perfil": {
-    "icon": "🩸",
-    "label": "PERFIL & RANKING RPG"
-  },
-  "rpg_economia": {
-    "icon": "💰",
-    "label": "ECONOMIA RPG"
-  },
-  "rpg_trabalho": {
-    "icon": "⚒️",
-    "label": "TRABALHOS"
-  },
-  "rpg_evolucao": {
-    "icon": "🧘",
-    "label": "EVOLUÇÃO"
-  },
-  "rpg_cassino": {
-    "icon": "🎰",
-    "label": "CASSINO & APOSTAS"
-  },
-  "rpg_pet": {
-    "icon": "🐾",
-    "label": "PETS & COMPANHEIROS"
-  },
-  "rpg_combate": {
-    "icon": "⚔️",
-    "label": "COMBATE & BATALHAS"
-  },
-  "rpg_craft": {
-    "icon": "🔨",
-    "label": "CRAFTING"
-  },
-  "rpg_social": {
-    "icon": "💝",
-    "label": "SOCIAL RPG"
-  },
-  "rpg_familia": {
-    "icon": "👨‍‍👧",
-    "label": "FAMÍLIA"
-  },
-  "rpg_cla": {
-    "icon": "🏰",
-    "label": "CLÃ & COMUNIDADE"
-  },
-  "rpg_premium": {
-    "icon": "💎",
-    "label": "LOJA PREMIUM"
-  },
-  "rpg_admin": {
-    "icon": "🔧",
-    "label": "ADMIN RPG"
-  },
-  "search": {
-    "icon": "🔎",
-    "label": "SEARCH & STALK"
-  },
-  "ia": {
-    "icon": "🤖",
-    "label": "IAs & CHATBOTS"
-  },
-  "figurinhas": {
-    "icon": "🖼️",
-    "label": "FIGURINHAS"
-  },
-  "random": {
-    "icon": "🎲",
-    "label": "RANDOM & UTILS"
-  },
-  "interacao": {
-    "icon": "💬",
-    "label": "INTERAÇÕES"
-  },
-  "efeitos": {
-    "icon": "🎨",
-    "label": "EFEITOS DE TEXTO"
-  },
-  "audio": {
-    "icon": "🎧",
-    "label": "EFEITOS DE ÁUDIO"
-  },
-  "downloads_extra": {
-    "icon": "📥",
-    "label": "DOWNLOADS EXTRA"
-  },
-  "logos": {
-    "icon": "🖋️",
-    "label": "LOGOTIPOS"
-  },
-  "jogos": {
-    "icon": "🎮",
-    "label": "JOGOS & DIVERSÃO"
-  },
-  "admin": {
-    "icon": "🛡️",
-    "label": "ADMIN & GRUPO"
-  },
-  "perfil_extra": {
-    "icon": "👤",
-    "label": "PERFIL & STATUS"
-  },
-  "flood": {
-    "icon": "💥",
-    "label": "FLOOD"
-  },
-  "antiraid": {
-    "icon": "🛡️",
-    "label": "ANTI RAID"
-  },
-  "relacionamentos": {
-    "icon": "💞",
-    "label": "RELACIONAMENTOS"
-  },
-  "outros": {
-    "icon": "📌",
-    "label": "OUTROS"
-  }
-};
+async function hR({sock,msg,ctx,command,reply}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  if(!ctx.isGroup)return reply('👥 Só em grupos.');
+  const meta=await sock.groupMetadata(ctx.remoteJid);
+  const mbs=meta.participants.filter(p=>!p.admin).slice(0,10).map(p=>({n:p.id.split('@')[0],j:p.id,p:R(1,100)})).sort((a,b)=>b.p-a.p);
+  const lbl=command.replace('rank','').toUpperCase();
+  const lp=t.linePrefix||'║';
+  const ls=mbs.map((r,i)=>lp+' '+(i+1)+'. @'+r.n+' — *'+r.p+'%* '+lbl.toLowerCase());
+  const txt=(t.topBorder||'').replace(/{TITLE}/g,'RANK '+lbl).replace(/{ICON}/g,t.icon)+'\n'+ls.join('\n')+'\n'+(t.bottomBorder||'').replace(/{ICON}/g,t.icon);
+  return sock.sendMessage(ctx.remoteJid,{text:txt,mentions:mbs.map(r=>r.j)},{quoted:msg});
+}
 
-module.exports = function registerStubs(registerCase) {
-  registerCase(['abracarrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ABRACARRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['abraco'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ABRACO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['abv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ABV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aceitarconvite'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cla'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ACEITARCONVITE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aceitatodos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ACEITATODOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addautoadm'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDAUTOADM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addautoadmidia'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDAUTOADMIDIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addblacklist'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDBLACKLIST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addcmdvip'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDCMDVIP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addmod'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDMOD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addparceria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDPARCERIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['addregra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADDREGRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['admins'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADMINS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['adotaruser'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_familia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADOTARUSER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['adv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ADV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['afk'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AFK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['america'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AMERICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['americanflag'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AMERICANFLAG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['amongus'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AMONGUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['analogica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANALOGICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['analogico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANALOGICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['anime2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANIME2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antibtn'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIBTN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antidemote'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIDEMOTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antidoc'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIDOC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antifig'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIFIG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antifigurinha'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIFIGURINHA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antiflood'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIFLOOD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antilinkcanal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTILINKCANAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antilinkgp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTILINKGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antilinkhard'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTILINKHARD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antilinksoft'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTILINKSOFT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antiloc'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTILOC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antipalavra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIPALAVRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antiporn'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIPORN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antiraid'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTIRAID' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antisocial'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTISOCIAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antistatus'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTISTATUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['antitoxic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ANTITOXIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['apps'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'APPS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aprovar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'APROVAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aptoide'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'APTOIDE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['arena'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_combate'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ARENA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['arvore'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_familia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ARVORE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['assaltar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_combate'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ASSALTAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['assistente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ASSISTENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ateia'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ATEIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ateu'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ATEU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['atividade'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ATIVIDADE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['atleta'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ATLETA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['auction'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUCTION' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['autodl'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUTODL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['automsg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUTOMSG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['autorepo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUTOREPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['autorespostas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUTORESPOSTAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['autosticker'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AUTOSTICKER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['avaliar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AVALIAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['avengers'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AVENGERS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aventura'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AVENTURA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aventureira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AVENTUREIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['aventureiro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AVENTUREIRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['azarada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AZARADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['azarado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'AZARADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bagunceira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAGUNCEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bagunceiro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAGUNCEIRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['baichuan'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAICHUAN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ballon'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BALLON' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bam'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ban2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAN2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bandida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BANDIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bandido'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BANDIDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['banghost'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BANGHOST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['batalhanaval'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BATALHANAVAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['baterrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BATERRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['battlefield'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BATTLEFIELD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bau'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BAU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bebada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEBADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bebado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEBADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bebado2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEBADO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['beijarb'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEIJARB' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['beijarrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEIJARRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['beijo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEIJO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['beijob'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEIJOB' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bemvindo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BEMVINDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bilionaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BILIONARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['billionario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BILLIONARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blackhzx'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLACKHZX' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blackpink'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLACKPINK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blockcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLOCKCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blockuser'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLOCKUSER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blood'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLOOD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['blue-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BLUE-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['boba'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOBA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bobo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOBO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bolsonarista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOLSONARISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bombada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOMBADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bombado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOMBADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['boost'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOOST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bossrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BOSSRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['braba'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRABA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brabo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRABO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brat'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRAT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brat2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRAT2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brincadeira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['relacionamentos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRINCADEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brincalhao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRINCALHAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['brincalhona'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BRINCALHONA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bucetuda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BUCETUDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['bug'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BUG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['burra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BURRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['burro2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BURRO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['butterfly'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'BUTTERFLY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ca'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cachorra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CACHORRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cachorro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CACHORRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['caixa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CAIXA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['calma'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CALMA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['calmo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CALMO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cancelar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CANCELAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['candy-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CANDY-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['captain'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CAPTAIN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['captainamerica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CAPTAINAMERICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['captcha'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CAPTCHA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['capturalink'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CAPTURALINK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['carinhosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CARINHOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['carinhoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CARINHOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['carteira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CARTEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['casa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['casais'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASAIS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['casal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['casamento'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['relacionamentos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASAMENTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['caseira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['caseiro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASEIRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cassino'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CASSINO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cemetery'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CEMETERY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cemiterio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CEMITERIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cep'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CEP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cetica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CETICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cetico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CETICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chance'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHANCE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['charada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHARADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['charmosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHARMOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['charmoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHARMOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chata'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHATA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chato'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHATO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['checkativo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHECKATIVO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chefe'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHEFE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chorao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHORAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['chorona'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CHORONA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ciumao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CIUMAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ciumenta'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CIUMENTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ciumento'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CIUMENTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cla'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CLA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['class'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CLASS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['clima'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CLIMA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['closegp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CLOSEGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cloudsky'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CLOUDSKY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cmdlimit'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CMDLIMIT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cmerc'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CMERC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cnpj'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CNPJ' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['codegemma'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CODEGEMMA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cog'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['coinflip'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COINFLIP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['coins'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COINS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['coletar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COLETAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['colher'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COLHER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['colorful'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COLORFUL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comedia'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMEDIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comic-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMIC-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comics'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMICS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comilao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMILAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comilona'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMILONA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comprarpremium'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMPRARPREMIUM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['comunista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COMUNISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['confiante'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONFIANTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['connect4'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONNECT4' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['conquistas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONQUISTAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['conselhobiblico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONSELHOBIBLICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['conselhos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONSELHOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['conservador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONSERVADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['conservadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONSERVADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['convidar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cla'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CONVIDAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cook'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COOK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cool-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COOL-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['copiloto'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COPILOTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['corajosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CORAJOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['corajoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CORAJOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['corna'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CORNA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['corrida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CORRIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['corrigir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CORRIGIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cosmopolita'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COSMOPOLITA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['covarde'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'COVARDE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cprop'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CPROP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cprops'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CPROPS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['crash'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CRASH' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['crente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CRENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['criarcla'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cla'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CRIARCLA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['criativa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CRIATIVA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['criativo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CRIATIVO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['cultivar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'CULTIVAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dados'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DADOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dam'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DAM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['darkgreen'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DARKGREEN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['deadpool'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DEADPOOL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['debater'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DEBATER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['delautoadm'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELAUTOADM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['delblacklist'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELBLACKLIST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['deleting'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELETING' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dellimitmessage'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELLIMITMESSAGE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['delmod'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELMOD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['delparceria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELPARCERIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['delregra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DELREGRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['demitir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DEMITIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['denunciar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DENUNCIAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['denuncias'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DENUNCIAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dep'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DEP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dependente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DEPENDENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desafiomensal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESAFIOMENSAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desafiosemanal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESAFIOSEMANAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desapegado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESAPEGADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['descgrupo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESCGRUPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['deserdar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_familia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESERDAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desmute'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESMUTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desmute2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESMUTE2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['desumilde'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DESUMILDE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['diario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DIARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dicionario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DICIONARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['digital'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DIGITAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['digitar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DIGITAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dismantle'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DISMANTLE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['doar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DOAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['doente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DOENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dono'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DONO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dorminhoca'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DORMINHOCA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dorminhoco'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DORMINHOCO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dorminhoco2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DORMINHOCO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['doubleexposure'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DOUBLEEXPOSURE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dragonfire'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DRAGONFIRE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dueloquiz'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DUELOQUIZ' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['duelrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_combate'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DUELRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['dungeon'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'DUNGEON' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['eat'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EAT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['economica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ECONOMICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['economico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ECONOMICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['elegant-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ELEGANT-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['elogio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ELOGIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['em'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['emprego'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EMPREGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['enchant'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ENCHANT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['engracada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ENGRACADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['engracado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ENGRACADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['equipamentos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EQUIPAMENTOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['equippet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EQUIPPET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['eraser'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ERASER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['esperta'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ESPERTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['esperto'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ESPERTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['estudiosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ESTUDIOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['estudioso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ESTUDIOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['eununca'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EUNUNCA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['eventos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EVENTOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['evoluir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EVOLUIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['evolve'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EVOLVE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['explicar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXPLICAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['explodir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXPLODIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['explorar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXPLORAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['explore'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXPLORE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['extrovertida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXTROVERTIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['extrovertido'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'EXTROVERTIDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['faber'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FABER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['facebook'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FACEBOOK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['falcon'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FALCON' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fazernick'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FAZERNICK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['feed'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FEED' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['feia'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FEIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['feio2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FEIO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ffavatar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FFAVATAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ffgren'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FFGREN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ffrose'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FFROSE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ficha'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FICHA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fiel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figanime'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGANIME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figcoreana'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGCOREANA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figdesenho'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGDESENHO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figemoji'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGEMOJI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figengracada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGENGRACADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figmeme'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGMEME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figraiva'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGRAIVA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['figroblox'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIGROBLOX' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['filme'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FILME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fire-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIRE-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['firework'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FIREWORK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fish'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FISH' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['flag'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FLAG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['flaming'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FLAMING' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['flood'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['flood'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FLOOD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fluffy-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FLUFFY-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fofoqueira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOFOQUEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fofoqueiro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOFOQUEIRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['forge'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FORGE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fortao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FORTAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['forte'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FORTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fortona'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FORTONA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fortune-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FORTUNE-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fotobv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOTOBV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fotogrupo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOTOGRUPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fotomenugrupo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOTOMENUGRUPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fotosaiu'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FOTOSAIU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fraca'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FRACA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['fraco'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FRACO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['frozen'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'FROZEN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['galaxy'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GALAXY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['galaxy-light'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GALAXY-LIGHT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['game'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GAME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gastador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GASTADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gastadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GASTADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gay2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GAY2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gdrive'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GDRIVE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gear'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GEAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gemma'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GEMMA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gemma2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GEMMA2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['genio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GENIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gerarlink'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GERARLINK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['getbio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GETBIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gethtml'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GETHTML' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['getperfil'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GETPERFIL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gif'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GIF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gitbot'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GITBOT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gitubstalk'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GITUBSTALK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['glitter'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GLITTER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['global'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GLOBAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['glossy'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GLOSSY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['glossy-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GLOSSY-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gold-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GOLD-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['goldpink'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GOLDPINK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gostosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GOSTOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['goza'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GOZA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gozar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GOZAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gpt4'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GPT4' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['gradient'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRADIENT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['graffiti'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRAFFITI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['graffitipaint'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRAFFITIPAINT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['graffitistyle'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRAFFITISTYLE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['graffitiwall'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRAFFITIWALL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['grantmodcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRANTMODCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['grupo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GRUPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['guerra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_combate'] || CAT_META.outros;
-    return reply(ic + ' *' + 'GUERRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['habilidades'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HABILIDADES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['hallobat'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HALLOBAT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['halloween'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HALLOWEEN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['harrypotter'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HARRYPOTTER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['historicotraicao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['relacionamentos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HISTORICOTRAICAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['homofobica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HOMOFOBICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['homofobico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HOMOFOBICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['humilde'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'HUMILDE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ice-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ICE-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['idcanal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IDCANAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ideias'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IDEIAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ig'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['igstory'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IGSTORY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['independente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INDEPENDENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['infantil'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INFANTIL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['infiel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INFIEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['info'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INFO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['infoff'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INFOFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['infoperso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INFOPERSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ingredientes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INGREDIENTES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['insegura'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSEGURA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['inseguro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSEGURO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['insone'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSONE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['instagram'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSTAGRAM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['instamp3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSTAMP3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['instamp4'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INSTAMP4' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['inteligente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INTELIGENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['introvertida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INTROVERTIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['introvertido'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INTROVERTIDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['inv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['inveja'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INVEJA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['invejosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INVEJOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['invejoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INVEJOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['investir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'INVESTIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ip'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['irresponsavel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'IRRESPONSAVEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['jeff'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'JEFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['jogodavelha'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'JOGODAVELHA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['kimi'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'KIMI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['kimik2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'KIMIK2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['kwai'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'KWAI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ladra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LADRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ladrao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LADRAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lamber'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LAMBER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lambida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LAMBIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lava-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LAVA-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['legenda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['figurinhas'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LEGENDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['legendabv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LEGENDABV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['legendasaiu'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LEGENDASAIU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['leilao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LEILAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lermais'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LERMAIS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lesbica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LESBICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['levantar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LEVANTAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['liberal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIBERAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lid'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LID' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lider'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIDER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ligatures'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIGATURES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['likeff'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIKEFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['limitmessage'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIMITMESSAGE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['limparrank'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIMPARRANK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['linda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LINDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lindo2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LINDO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['linkgp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LINKGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['list'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LIST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listaddd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTADDD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listaddi'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTADDI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listadv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTADV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listamute'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTAMUTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listautoadm'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTAUTOADM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listblacklist'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTBLACKLIST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listblocksgp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTBLOCKSGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listmodcmds'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTMODCMDS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['listmods'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LISTMODS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['llama'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LLAMA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['llama3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LLAMA3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['local'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LOCAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lojapet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LOJAPET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lojapremium'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LOJAPREMIUM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lolavatar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LOLAVATAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['loteria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LOTERIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['lulista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'LULISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['machista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MACHISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['macho'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MACHO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['madura'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MADURA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['maduro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MADURO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['magistral'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MAGISTRAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['magrela'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MAGRELA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['magrelo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MAGRELO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['malandra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MALANDRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['malandro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MALANDRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mamada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MAMADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mamar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MAMAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mantercontador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MANTERCONTADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['marin'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MARIN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mascote'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MASCOTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mascotemetal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MASCOTEMETAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mascoteneon'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MASCOTENEON' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['masmorra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MASMORRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mata'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MATA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['materiais'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MATERIAIS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mcplugin'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MCPLUGIN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['me'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mediafire'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MEDIAFIRE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['memoria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MEMORIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mention'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MENTION' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['menualt'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MENUALT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['menubn'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MENUBN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['menupets'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MENUPETS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mercado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MERCADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['metal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'METAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['metallic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'METALLIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['meusan'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MEUSAN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['meustats'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MEUSTATS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['meustatus'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MEUSTATUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mine'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MINE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['minerar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MINERAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['minmessage'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MINMESSAGE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['missoes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MISSOES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['misteriosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MISTERIOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['misterioso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MISTERIOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mistral'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MISTRAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mito'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MITO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mm'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['moderna'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODERNA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['moderno'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODERNO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['modobn'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODOBN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['modolite'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODOLITE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['modoparceria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODOPARCERIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['modoraid'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODORAID' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['modorpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MODORPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mordida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MORDIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['motivacional'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MOTIVACIONAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mp4'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MP4' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['multicolor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MULTICOLOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['multiprefixo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MULTIPREFIXO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['mute2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MUTE2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['myinstants'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['audio'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MYINSTANTS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['myvip'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'MYVIP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['namorar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NAMORAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['namoro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['relacionamentos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NAMORO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nano'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NANO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nano2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NANO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['naruto'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NARUTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nazista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NAZISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neon'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEON' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neon-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEON-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neon2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEON2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neonglow'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEONGLOW' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neonmetalic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEONMETALIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['neonparty'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEONPARTY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nerd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NERD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nerd2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NERD2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nervosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NERVOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nervoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NERVOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['newyear'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NEWYEAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nome'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NOME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['nomegp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NOMEGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['norian'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'NORIAN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['off'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['offline'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OFFLINE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['online'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ONLINE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['opengp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OPENGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['organizada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ORGANIZADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['organizado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ORGANIZADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['otaku'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OTAKU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['otaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OTARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['otario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OTARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['otimista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'OTIMISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['padrao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PADRAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['parcerias'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PARCERIAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['patrao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PATRAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['patriotica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PATRIOTICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['patriotico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PATRIOTICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['patroa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PATROA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pecador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PECADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pegador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PEGADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pegadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PEGADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['perfilff'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PERFILFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['perfilpic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PERFILPIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['perfilrpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PERFILRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pessimista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PESSIMISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['petbattle'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PETBATTLE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['petbet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PETBET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['petista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PETISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['petnome'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PETNOME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pets'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PETS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['phi'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PHI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['phi3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PHI3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['phlogo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PHLOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['piada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PIADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pilantra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PILANTRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pintemp3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['audio'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PINTEMP3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pintemp4'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['audio'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PINTEMP4' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pinterest2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PINTEREST2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pirocudo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PIROCUDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pirokudo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PIROKUDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pix'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PIX' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pixel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PIXEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['plantacao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLANTACAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['plantar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLANTAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['playboy'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLAYBOY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['playid'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLAYID' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['playvid'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLAYVID' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['playvid2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PLAYVID2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pobre'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'POBRE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['poderosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PODEROSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['poderoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PODEROSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['popular'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'POPULAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pornhub'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PORNHUB' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['possessivo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'POSSESSIVO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pplx'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PPLX' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pratica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRATICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pratico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRATICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['precos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRECOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['preguicosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PREGUICOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['preguicoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PREGUICOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['presente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRESENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['presidenta'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRESIDENTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['presidente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRESIDENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['prestige'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PRESTIGE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['programador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PROGRAMADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['programadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PROGRAMADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['proibir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PROIBIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['propriedades'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_premium'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PROPRIEDADES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['proteger'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PROTEGER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['psicopata'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PSICOPATA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ptvmsg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PTVMSG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pubg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PUBG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pubgavatar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PUBGAVATAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['pubgvideo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'PUBGVIDEO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['qg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['quando'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QUANDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['qwen'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QWEN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['qwen2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QWEN2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['qwen3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QWEN3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['qwencoder'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'QWENCODER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['racista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RACISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['raidstatus'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['antiraid'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RAIDSTATUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rainbow'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RAINBOW' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rainha'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RAINHA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rakutenai'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RAKUTENAI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankativo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKATIVO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankativos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKATIVOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankbraba'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBRABA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankbrabas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBRABAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankbrabo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBRABO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankbrabos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBRABOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankburra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBURRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankburras'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBURRAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankburro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBURRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankburros'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKBURROS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcharmosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCHARMOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcharmosas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCHARMOSAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcharmoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCHARMOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcharmosos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCHARMOSOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcorna'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCORNA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcornas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCORNAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcorno'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCORNO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankcornos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKCORNOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankengracada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKENGRACADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankengracadas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKENGRACADAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankengracado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKENGRACADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankengracados'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKENGRACADOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankfiel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKFIEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankfiels'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKFIELS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankforte'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKFORTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankfortes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKFORTES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgados'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGADOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgads'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGADS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgays'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGAYS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankglobal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGLOBAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgostosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGOSTOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgostosas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGOSTOSAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgostoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGOSTOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankgostosos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKGOSTOSOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankinativo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKINATIVO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankinfieis'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKINFIEIS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankinfiel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKINFIEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankinteligente'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKINTELIGENTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankinteligentes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKINTELIGENTES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklesbica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLESBICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklesbicas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLESBICAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklinda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLINDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklindas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLINDAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklindos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLINDOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranklvl'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKLVL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmacho'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMACHO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmachos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMACHOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmalandra'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMALANDRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmalandras'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMALANDRAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmalandro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMALANDRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankmalandros'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKMALANDROS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranknerd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKNERD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranknerds'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKNERDS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankotaku'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKOTAKU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankotakus'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKOTAKUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpegador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPEGADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpegadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPEGADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpegadoras'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPEGADORAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpegadores'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPEGADORES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpobre'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPOBRE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpobres'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPOBRES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpoderosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPODEROSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpoderosas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPODEROSAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpoderoso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPODEROSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankpoderosos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKPODEROSOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankrg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKRG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankrica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKRICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankricas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKRICAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankricos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKRICOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranktrabalhador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKTRABALHADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranktrabalhadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKTRABALHADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranktrabalhadoras'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKTRABALHADORAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ranktrabalhadores'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKTRABALHADORES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvencedor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVENCEDOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvencedora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVENCEDORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvencedoras'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVENCEDORAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvencedores'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVENCEDORES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvisionaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVISIONARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvisionarias'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVISIONARIAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvisionario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVISIONARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rankvisionarios'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RANKVISIONARIOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rbxcodes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RBXCODES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['realista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REALISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['receitas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RECEITAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['recomendar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RECOMENDAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['recusarconvite'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cla'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RECUSARCONVITE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['recusarsolic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RECUSARSOLIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['reflexao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REFLEXAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rei'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['reivindicar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REIVINDICAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['relacionamento'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RELACIONAMENTO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['relevar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RELEVAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['religiosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RELIGIOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['religioso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RELIGIOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['renamepet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RENAMEPET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['renomear'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RENOMEAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rep'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['reparar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_craft'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REPARAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['resetrank'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RESETRANK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['responsavel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RESPONSAVEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['resumir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RESUMIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['resumirchat'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RESUMIRCHAT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['resumirurl'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RESUMIRURL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['retro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RETRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['retro-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RETRO-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['revelar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REVELAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['revokemodcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'REVOKEMODCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rmadv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RMADV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rmconvite'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cla'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RMCONVITE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rmfotobv'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RMFOTOBV' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rmfotosaiu'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RMFOTOSAIU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['robloxcodes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROBLOXCODES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rocket'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROCKET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.alterar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.ALTERAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.confirmados'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.CONFIRMADOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.criar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.CRIAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.excluir'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.EXCLUIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.nvou'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.NVOU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['role.vou'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLE.VOU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['roles'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROLES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['romantica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROMANTICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['romantico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROMANTICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['royal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ROYAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgadd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGADD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgadditem'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGADDITEM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgremove'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGREMOVE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgremoveitem'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGREMOVEITEM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgresetglobal'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGRESETGLOBAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgresetplayer'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGRESETPLAYER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgsetlevel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGSETLEVEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rpgstats'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RPGSTATS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rural'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RURAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['rvisu'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'RVISU' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['safada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SAFADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['saida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SAIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['saudavel'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SAUDAVEL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sc'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['scdl'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SCDL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sedentaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEDENTARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sedentario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEDENTARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['seguidor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEGUIDOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['seguidora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEGUIDORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sell'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SELL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sementes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEMENTES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['senhor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SENHOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['senhora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SENHORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['seria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SERIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['serio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SERIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['setbammsg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SETBAMMSG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sexo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SEXO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['shadowsky'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SHADOWSKY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['shazam'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['audio'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SHAZAM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['shipo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SHIPO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['silver-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SILVER-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['simpatica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SIMPATICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['simpatico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SIMPATICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['skate-name'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SKATE-NAME' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['slots'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_cassino'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SLOTS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['smoke'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SMOKE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sn'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['snow'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SNOW' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['soadm'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOADM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['socar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOCAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['social'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOCIAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['solicitacoes'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOLICITACOES' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['solitaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOLITARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['solitario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOLITARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sonhador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SONHADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sonhadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SONHADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sono'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SONO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sorte'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SORTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sorteio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SORTEIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sortuda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SORTUDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sortudo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SORTUDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sortudo2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SORTUDO2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['soundcloud'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SOUNDCLOUD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['speedup'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SPEEDUP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['spotify'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SPOTIFY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['spotify2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SPOTIFY2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stalkff'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STALKFF' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stalkinsta'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STALKINSTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stars'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STARS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stats'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STATS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['status'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STATUS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['statusbot'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STATUSBOT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['statusgp'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STATUSGP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stickers'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STICKERS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stone3d'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STONE3D' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['stop'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STOP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['streak'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_evolucao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'STREAK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['subdono'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUBDONO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['suic'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUIC' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['suicidio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUICIDIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['summerbeach'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUMMERBEACH' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['supersticiosa'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUPERSTICIOSA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['supersticioso'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUPERSTICIOSO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['suporte'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SUPORTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['surubao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SURUBAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['swallow'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SWALLOW' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['sys-img'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SYS-IMG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['system'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'SYSTEM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tabela'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TABELA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['talarica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TALARICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['talarico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TALARICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tapar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TAPAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['techstyle'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TECHSTYLE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tecnologica'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TECNOLOGICA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tecnologico'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TECNOLOGICO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['terminar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_social'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TERMINAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['thor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'THOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tictactoe'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TICTACTOE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tiger'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TIGER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tiktok'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TIKTOK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tiktok2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TIKTOK2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tiktoktxt'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['efeitos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TIKTOKTXT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['titanium'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TITANIUM' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tomate'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['interacao'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOMATE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tomp3'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['audio'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOMP3' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['topcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOPCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['toprep'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOPREP' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['topriqueza'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOPRIQUEZA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['toprpg'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_perfil'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOPRPG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['torneio'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_combate'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TORNEIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['totag'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOTAG' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['totalcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOTALCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['totext'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TOTEXT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['trabalhador'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRABALHADOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['trabalhadora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRABALHADORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tradicional'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRADICIONAL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['traidor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRAIDOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['traidora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRAIDORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['train'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRAIN' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['trair'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['relacionamentos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRAIR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['treinarpet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TREINARPET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tributos'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TRIBUTOS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tt'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ttk'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TTK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ttk2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TTK2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['ttstalk'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TTSTALK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['tw'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TW' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['twitter'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TWITTER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['twitterdl'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TWITTERDL' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['typography'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'TYPOGRAPHY' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['unblockcmd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'UNBLOCKCMD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['unblockuser'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'UNBLOCKUSER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['unequippet'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_pet'] || CAT_META.outros;
-    return reply(ic + ' *' + 'UNEQUIPPET' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['uno'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'UNO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['upload'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'UPLOAD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['urbana'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'URBANA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['urbano'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'URBANO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vab'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VAB' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vagabunda'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VAGABUNDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vagabundo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VAGABUNDO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vagas'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VAGAS' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vazar'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['random'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VAZAR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vencedor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VENCEDOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vencedora'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VENCEDORA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vender'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_economia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VENDER' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vendercomida'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VENDERCOMIDA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vesga'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VESGA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vesgo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VESGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['viajante'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VIAJANTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['viciada'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VICIADA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['viciadao'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VICIADAO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['viciado'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VICIADO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vintage3d'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VINTAGE3D' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['visionaria'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VISIONARIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['visionario'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VISIONARIO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['voltei'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VOLTEI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['vote'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'VOTE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['water-logo'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WATER-LOGO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['watercolor'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WATERCOLOR' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['whitelist'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WHITELIST' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['wikipedia'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['search'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WIKIPEDIA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['wl.lista'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WL.LISTA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['wl.remove'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WL.REMOVE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['wladd'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WLADD' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['wordle'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['jogos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WORDLE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['work'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['rpg_trabalho'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WORK' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['write'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['logos'] || CAT_META.outros;
-    return reply(ic + ' *' + 'WRITE' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['x9'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['admin'] || CAT_META.outros;
-    return reply(ic + ' *' + 'X9' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['yi'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['ia'] || CAT_META.outros;
-    return reply(ic + ' *' + 'YI' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['yt3v2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'YT3V2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['yt4v2'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['downloads_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'YT4V2' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['zipbot'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['perfil_extra'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ZIPBOT' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['zueira'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ZUEIRA' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
-  registerCase(['zueiro'], async ({ ctx, prefix, reply }) => {
-    const t = await themeResolver.getThemeForContext(ctx.remoteJid).catch(() => null);
-    const ic = t?.icon || '⚙️';
-    const m = CAT_META['outros'] || CAT_META.outros;
-    return reply(ic + ' *' + 'ZUEIRO' + '* — ' + m.icon + ' ' + m.label + '\n\n' + (t?.bullet || '▸') + ' Comando registado — lógica em desenvolvimento.\n' + (t?.bullet || '▸') + ' Uso: `' + prefix + safeCmd + '`\n\n> _' + (t?.vibe || 'Dark Engine') + '_');
-  }, true); // true = só se não existir
+async function hT({sock,msg,ctx,args,command,reply,prefix}){
+  const txt=args.join(' ').trim();
+  if(!txt)return reply('✍️ Uso: `'+prefix+command+' texto`');
+  const fm={bold:'bold',bold2:'bold',mini:'tiny',tiny:'tiny',smallcaps:'smallcaps',scaps:'smallcaps',mono:'mono',monospace:'mono',code:'mono',glitch:'glitch',zalgo:'glitch'};
+  return sock.sendMessage(ctx.remoteJid,{text:applyFont(txt,fm[command]||'smallcaps')},{quoted:msg});
+}
+
+async function hI({sock,msg,ctx,args,command}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  const a={soco:'👊 socou',beijar:'💋 beijou',abracar:'🤗 abraçou',tapa:'👋 tapou',morder:'🦷 mordeu',lamber:'👅 lambeu',dancar:'💃 dançou com',cafune:'💆 cafuné em',explodir:'💥 explodiu',matar:'💀 eliminou',sexo:'🔥 levou pra cama',goza:'😏 provocou',mamar:'🍼 deu mamá',beijob:'💋 beijou ousadamente',surubao:'😈 chamou pra suruba',tomate:'🍅 atirou tomate em'};
+  const act=a[command]||'💫 interagiu com';
+  const tgt=args[0]?args.join(' '):'o ar 😂';
+  return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'💫')+' *'+ctx.pushName+'* '+act+' *'+tgt+'*'},{quoted:msg});
+}
+
+async function hE({sock,msg,ctx,args,command}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  const e={trabalhar:'⚒️',minerar:'⛏️',explorar:'🗺️',masmorra:'🏰',pescar:'🎣',fish:'🎣',coletar:'🧺',colher:'🌾',meditar:'🧘',forge:'🔨',enchant:'✨',eat:'🍽️',cook:'🍳',plantar:'🌱',cultivar:'🌿',cacar:'🏹'}[command]||'🎮';
+  const c=R(10,500),x=R(5,100),lp=t.linePrefix||'▸';
+  return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🎮')+' *'+e+' '+command.toUpperCase()+'*\n'+lp+' '+ctx.pushName+' ganhou:\n'+lp+' 💰 *'+c+'* moedas\n'+lp+' ⭐ *'+x+'* XP\n> '+(t.vibe||'Dark Engine')},{quoted:msg});
+}
+
+async function hA({sock,msg,ctx,args,command,reply}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  if(!ctx.isGroup)return reply('👥 Só em grupos.');
+  try{
+    if(command==='open'){await sock.groupSettingUpdate(ctx.remoteJid,'not_announcement');return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🛡️')+' 🔓 Grupo aberto.'},{quoted:msg});}
+    if(command==='close'){await sock.groupSettingUpdate(ctx.remoteJid,'announcement');return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🛡️')+' 🔒 Grupo fechado.'},{quoted:msg});}
+    if(command==='linkgp'){const c=await sock.groupInviteCode(ctx.remoteJid);return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🛡️')+' 🔗 https://chat.whatsapp.com/'+c},{quoted:msg});}
+  }catch(e){return reply((t.icon||'❌')+' Erro: '+e.message);}
+  return reply((t.icon||'🛡️')+' *'+command.toUpperCase()+'*\n'+(t.linePrefix||'▸')+' Comando admin\n> '+(t.vibe||''));
+}
+
+async function hIA({sock,msg,ctx,args,command,reply}){
+  const txt=args.join(' ').trim();
+  if(!txt)return reply('🤖 Uso: `'+command+' <pergunta>`');
+  try{const ai=require('../ai');const a=await ai.chat('['+command+'] '+txt,'',{},false);return sock.sendMessage(ctx.remoteJid,{text:'🤖 *'+command.toUpperCase()+'*\n\n'+a},{quoted:msg});}
+  catch{return reply('🤖 IA indisponível.');}
+}
+
+async function hD({sock,msg,ctx,args,command,reply,prefix}){
+  const t=await TR.getThemeForContext(ctx.remoteJid);
+  const cat=sd.categorize(command);
+  const m=sd.SUBMENU_META[cat]||{icon:'📌',title:'COMANDO'};
+  return reply((t.icon||'📌')+' *'+command.toUpperCase()+'* — '+m.icon+' '+m.title+'\n'+(t.linePrefix||'▸')+' Uso: `'+prefix+command+(args.length?' '+args.join(' '):' <args>')+'`\n> '+(t.vibe||''));
+}
+
+const H={zoeira:hZ,rank:hR,texto:hT,interacoes:hI,economia:hE,admin:hA,ia:hIA};
+
+module.exports = function(registerCase) {
+  registerCase(['abracarrpg'], async c => hI(c), true);
+  registerCase(['abraco'], async c => hD(c), true);
+  registerCase(['abv'], async c => hT(c), true);
+  registerCase(['aceitarconvite'], async c => hI(c), true);
+  registerCase(['aceitatodos'], async c => hA(c), true);
+  registerCase(['addautoadm'], async c => hA(c), true);
+  registerCase(['addautoadmidia'], async c => hA(c), true);
+  registerCase(['addblacklist'], async c => hA(c), true);
+  registerCase(['addcmdvip'], async c => hA(c), true);
+  registerCase(['addmod'], async c => hA(c), true);
+  registerCase(['addparceria'], async c => hA(c), true);
+  registerCase(['addregra'], async c => hA(c), true);
+  registerCase(['admins'], async c => hA(c), true);
+  registerCase(['adotaruser'], async c => hI(c), true);
+  registerCase(['adv'], async c => hA(c), true);
+  registerCase(['afk'], async c => hD(c), true);
+  registerCase(['america'], async c => hD(c), true);
+  registerCase(['americanflag'], async c => hD(c), true);
+  registerCase(['amongus'], async c => hD(c), true);
+  registerCase(['analogica'], async c => hZ(c), true);
+  registerCase(['analogico'], async c => hZ(c), true);
+  registerCase(['anime2'], async c => hD(c), true);
+  registerCase(['antibtn'], async c => hA(c), true);
+  registerCase(['antidemote'], async c => hA(c), true);
+  registerCase(['antidoc'], async c => hA(c), true);
+  registerCase(['antifig'], async c => hA(c), true);
+  registerCase(['antifigurinha'], async c => hA(c), true);
+  registerCase(['antiflood'], async c => hA(c), true);
+  registerCase(['antilinkcanal'], async c => hA(c), true);
+  registerCase(['antilinkgp'], async c => hA(c), true);
+  registerCase(['antilinkhard'], async c => hA(c), true);
+  registerCase(['antilinksoft'], async c => hA(c), true);
+  registerCase(['antiloc'], async c => hA(c), true);
+  registerCase(['antipalavra'], async c => hA(c), true);
+  registerCase(['antiporn'], async c => hA(c), true);
+  registerCase(['antiraid'], async c => hA(c), true);
+  registerCase(['antisocial'], async c => hZ(c), true);
+  registerCase(['antistatus'], async c => hA(c), true);
+  registerCase(['antitoxic'], async c => hA(c), true);
+  registerCase(['apps'], async c => hD(c), true);
+  registerCase(['aprovar'], async c => hA(c), true);
+  registerCase(['aptoide'], async c => hD(c), true);
+  registerCase(['arena'], async c => hE(c), true);
+  registerCase(['arvore'], async c => hI(c), true);
+  registerCase(['assaltar'], async c => hE(c), true);
+  registerCase(['assistente'], async c => hA(c), true);
+  registerCase(['ateia'], async c => hZ(c), true);
+  registerCase(['ateu'], async c => hZ(c), true);
+  registerCase(['atividade'], async c => hA(c), true);
+  registerCase(['atleta'], async c => hZ(c), true);
+  registerCase(['auction'], async c => hE(c), true);
+  registerCase(['autodl'], async c => hA(c), true);
+  registerCase(['automsg'], async c => hA(c), true);
+  registerCase(['autorepo'], async c => hA(c), true);
+  registerCase(['autorespostas'], async c => hA(c), true);
+  registerCase(['autosticker'], async c => hA(c), true);
+  registerCase(['avaliar'], async c => hD(c), true);
+  registerCase(['avengers'], async c => hD(c), true);
+  registerCase(['aventura'], async c => hIA(c), true);
+  registerCase(['aventureira'], async c => hZ(c), true);
+  registerCase(['aventureiro'], async c => hZ(c), true);
+  registerCase(['azarada'], async c => hZ(c), true);
+  registerCase(['azarado'], async c => hZ(c), true);
+  registerCase(['bagunceira'], async c => hZ(c), true);
+  registerCase(['bagunceiro'], async c => hZ(c), true);
+  registerCase(['baichuan'], async c => hIA(c), true);
+  registerCase(['ballon'], async c => hD(c), true);
+  registerCase(['bam'], async c => hA(c), true);
+  registerCase(['ban2'], async c => hA(c), true);
+  registerCase(['bandida'], async c => hA(c), true);
+  registerCase(['bandido'], async c => hA(c), true);
+  registerCase(['banghost'], async c => hA(c), true);
+  registerCase(['batalhanaval'], async c => hD(c), true);
+  registerCase(['baterrpg'], async c => hI(c), true);
+  registerCase(['battlefield'], async c => hD(c), true);
+  registerCase(['bau'], async c => hE(c), true);
+  registerCase(['bebada'], async c => hZ(c), true);
+  registerCase(['bebado'], async c => hZ(c), true);
+  registerCase(['bebado2'], async c => hZ(c), true);
+  registerCase(['beijarb'], async c => hI(c), true);
+  registerCase(['beijarrpg'], async c => hI(c), true);
+  registerCase(['beijo'], async c => hD(c), true);
+  registerCase(['beijob'], async c => hI(c), true);
+  registerCase(['bemvindo'], async c => hA(c), true);
+  registerCase(['bilionaria'], async c => hZ(c), true);
+  registerCase(['billionario'], async c => hZ(c), true);
+  registerCase(['blackhzx'], async c => hD(c), true);
+  registerCase(['blackpink'], async c => hD(c), true);
+  registerCase(['blockcmd'], async c => hA(c), true);
+  registerCase(['blockuser'], async c => hA(c), true);
+  registerCase(['blood'], async c => hD(c), true);
+  registerCase(['blue-logo'], async c => hD(c), true);
+  registerCase(['boba'], async c => hZ(c), true);
+  registerCase(['bobo'], async c => hZ(c), true);
+  registerCase(['bolsonarista'], async c => hZ(c), true);
+  registerCase(['bombada'], async c => hZ(c), true);
+  registerCase(['bombado'], async c => hZ(c), true);
+  registerCase(['boost'], async c => hE(c), true);
+  registerCase(['bossrpg'], async c => hE(c), true);
+  registerCase(['braba'], async c => hZ(c), true);
+  registerCase(['brabo'], async c => hZ(c), true);
+  registerCase(['brat'], async c => hD(c), true);
+  registerCase(['brat2'], async c => hD(c), true);
+  registerCase(['brincadeira'], async c => hI(c), true);
+  registerCase(['brincalhao'], async c => hZ(c), true);
+  registerCase(['brincalhona'], async c => hZ(c), true);
+  registerCase(['bucetuda'], async c => hZ(c), true);
+  registerCase(['bug'], async c => hD(c), true);
+  registerCase(['burra'], async c => hZ(c), true);
+  registerCase(['burro2'], async c => hZ(c), true);
+  registerCase(['butterfly'], async c => hD(c), true);
+  registerCase(['ca'], async c => hD(c), true);
+  registerCase(['cachorra'], async c => hZ(c), true);
+  registerCase(['cachorro'], async c => hZ(c), true);
+  registerCase(['caixa'], async c => hE(c), true);
+  registerCase(['calma'], async c => hZ(c), true);
+  registerCase(['calmo'], async c => hZ(c), true);
+  registerCase(['cancelar'], async c => hE(c), true);
+  registerCase(['candy-logo'], async c => hD(c), true);
+  registerCase(['captain'], async c => hD(c), true);
+  registerCase(['captainamerica'], async c => hD(c), true);
+  registerCase(['captcha'], async c => hA(c), true);
+  registerCase(['capturalink'], async c => hA(c), true);
+  registerCase(['carinhosa'], async c => hZ(c), true);
+  registerCase(['carinhoso'], async c => hZ(c), true);
+  registerCase(['carteira'], async c => hE(c), true);
+  registerCase(['casa'], async c => hE(c), true);
+  registerCase(['casais'], async c => hE(c), true);
+  registerCase(['casal'], async c => hE(c), true);
+  registerCase(['casamento'], async c => hE(c), true);
+  registerCase(['caseira'], async c => hZ(c), true);
+  registerCase(['caseiro'], async c => hZ(c), true);
+  registerCase(['cassino'], async c => hD(c), true);
+  registerCase(['cemetery'], async c => hD(c), true);
+  registerCase(['cemiterio'], async c => hD(c), true);
+  registerCase(['cep'], async c => hD(c), true);
+  registerCase(['cetica'], async c => hZ(c), true);
+  registerCase(['cetico'], async c => hZ(c), true);
+  registerCase(['chance'], async c => hD(c), true);
+  registerCase(['charada'], async c => hT(c), true);
+  registerCase(['charmosa'], async c => hZ(c), true);
+  registerCase(['charmoso'], async c => hZ(c), true);
+  registerCase(['chata'], async c => hZ(c), true);
+  registerCase(['chato'], async c => hZ(c), true);
+  registerCase(['checkativo'], async c => hD(c), true);
+  registerCase(['chefe'], async c => hZ(c), true);
+  registerCase(['chorao'], async c => hZ(c), true);
+  registerCase(['chorona'], async c => hZ(c), true);
+  registerCase(['ciumao'], async c => hZ(c), true);
+  registerCase(['ciumenta'], async c => hZ(c), true);
+  registerCase(['ciumento'], async c => hZ(c), true);
+  registerCase(['cla'], async c => hI(c), true);
+  registerCase(['class'], async c => hE(c), true);
+  registerCase(['clima'], async c => hD(c), true);
+  registerCase(['closegp'], async c => hA(c), true);
+  registerCase(['cloudsky'], async c => hD(c), true);
+  registerCase(['cmdlimit'], async c => hA(c), true);
+  registerCase(['cmerc'], async c => hE(c), true);
+  registerCase(['cnpj'], async c => hD(c), true);
+  registerCase(['codegemma'], async c => hIA(c), true);
+  registerCase(['cog'], async c => hIA(c), true);
+  registerCase(['coinflip'], async c => hD(c), true);
+  registerCase(['coins'], async c => hE(c), true);
+  registerCase(['coletar'], async c => hE(c), true);
+  registerCase(['colher'], async c => hE(c), true);
+  registerCase(['colorful'], async c => hT(c), true);
+  registerCase(['comedia'], async c => hZ(c), true);
+  registerCase(['comic-logo'], async c => hD(c), true);
+  registerCase(['comics'], async c => hD(c), true);
+  registerCase(['comilao'], async c => hZ(c), true);
+  registerCase(['comilona'], async c => hZ(c), true);
+  registerCase(['comprarpremium'], async c => hE(c), true);
+  registerCase(['comunista'], async c => hZ(c), true);
+  registerCase(['confiante'], async c => hZ(c), true);
+  registerCase(['connect4'], async c => hD(c), true);
+  registerCase(['conquistas'], async c => hI(c), true);
+  registerCase(['conselhobiblico'], async c => hT(c), true);
+  registerCase(['conselhos'], async c => hT(c), true);
+  registerCase(['conservador'], async c => hZ(c), true);
+  registerCase(['conservadora'], async c => hZ(c), true);
+  registerCase(['convidar'], async c => hI(c), true);
+  registerCase(['cook'], async c => hE(c), true);
+  registerCase(['cool-logo'], async c => hD(c), true);
+  registerCase(['copiloto'], async c => hIA(c), true);
+  registerCase(['corajosa'], async c => hT(c), true);
+  registerCase(['corajoso'], async c => hT(c), true);
+  registerCase(['corna'], async c => hT(c), true);
+  registerCase(['corrida'], async c => hD(c), true);
+  registerCase(['corrigir'], async c => hIA(c), true);
+  registerCase(['cosmopolita'], async c => hZ(c), true);
+  registerCase(['covarde'], async c => hZ(c), true);
+  registerCase(['cprop'], async c => hE(c), true);
+  registerCase(['cprops'], async c => hE(c), true);
+  registerCase(['crash'], async c => hD(c), true);
+  registerCase(['crente'], async c => hD(c), true);
+  registerCase(['criarcla'], async c => hI(c), true);
+  registerCase(['criativa'], async c => hZ(c), true);
+  registerCase(['criativo'], async c => hZ(c), true);
+  registerCase(['cultivar'], async c => hE(c), true);
+  registerCase(['dados'], async c => hD(c), true);
+  registerCase(['dam'], async c => hA(c), true);
+  registerCase(['darkgreen'], async c => hD(c), true);
+  registerCase(['deadpool'], async c => hD(c), true);
+  registerCase(['debater'], async c => hIA(c), true);
+  registerCase(['delautoadm'], async c => hA(c), true);
+  registerCase(['delblacklist'], async c => hA(c), true);
+  registerCase(['deleting'], async c => hA(c), true);
+  registerCase(['dellimitmessage'], async c => hA(c), true);
+  registerCase(['delmod'], async c => hA(c), true);
+  registerCase(['delparceria'], async c => hA(c), true);
+  registerCase(['delregra'], async c => hA(c), true);
+  registerCase(['demitir'], async c => hE(c), true);
+  registerCase(['denunciar'], async c => hI(c), true);
+  registerCase(['denuncias'], async c => hI(c), true);
+  registerCase(['dep'], async c => hE(c), true);
+  registerCase(['dependente'], async c => hE(c), true);
+  registerCase(['desafiomensal'], async c => hD(c), true);
+  registerCase(['desafiosemanal'], async c => hD(c), true);
+  registerCase(['desapegado'], async c => hZ(c), true);
+  registerCase(['descgrupo'], async c => hA(c), true);
+  registerCase(['deserdar'], async c => hI(c), true);
+  registerCase(['desmute'], async c => hA(c), true);
+  registerCase(['desmute2'], async c => hA(c), true);
+  registerCase(['desumilde'], async c => hZ(c), true);
+  registerCase(['diario'], async c => hE(c), true);
+  registerCase(['dicionario'], async c => hD(c), true);
+  registerCase(['digital'], async c => hZ(c), true);
+  registerCase(['digitar'], async c => hD(c), true);
+  registerCase(['dismantle'], async c => hE(c), true);
+  registerCase(['doar'], async c => hE(c), true);
+  registerCase(['doente'], async c => hZ(c), true);
+  registerCase(['dono'], async c => hD(c), true);
+  registerCase(['dorminhoca'], async c => hZ(c), true);
+  registerCase(['dorminhoco'], async c => hZ(c), true);
+  registerCase(['dorminhoco2'], async c => hZ(c), true);
+  registerCase(['doubleexposure'], async c => hD(c), true);
+  registerCase(['dragonfire'], async c => hD(c), true);
+  registerCase(['dueloquiz'], async c => hD(c), true);
+  registerCase(['duelrpg'], async c => hE(c), true);
+  registerCase(['dungeon'], async c => hE(c), true);
+  registerCase(['eat'], async c => hE(c), true);
+  registerCase(['economica'], async c => hZ(c), true);
+  registerCase(['economico'], async c => hZ(c), true);
+  registerCase(['elegant-logo'], async c => hD(c), true);
+  registerCase(['elogio'], async c => hT(c), true);
+  registerCase(['em'], async c => hA(c), true);
+  registerCase(['emprego'], async c => hA(c), true);
+  registerCase(['enchant'], async c => hE(c), true);
+  registerCase(['engracada'], async c => hZ(c), true);
+  registerCase(['engracado'], async c => hZ(c), true);
+  registerCase(['equipamentos'], async c => hE(c), true);
+  registerCase(['equippet'], async c => hI(c), true);
+  registerCase(['eraser'], async c => hD(c), true);
+  registerCase(['esperta'], async c => hZ(c), true);
+  registerCase(['esperto'], async c => hZ(c), true);
+  registerCase(['estudiosa'], async c => hZ(c), true);
+  registerCase(['estudioso'], async c => hZ(c), true);
+  registerCase(['eununca'], async c => hD(c), true);
+  registerCase(['eventos'], async c => hI(c), true);
+  registerCase(['evoluir'], async c => hE(c), true);
+  registerCase(['evolve'], async c => hI(c), true);
+  registerCase(['explicar'], async c => hIA(c), true);
+  registerCase(['explodir'], async c => hI(c), true);
+  registerCase(['explorar'], async c => hE(c), true);
+  registerCase(['explore'], async c => hD(c), true);
+  registerCase(['extrovertida'], async c => hZ(c), true);
+  registerCase(['extrovertido'], async c => hZ(c), true);
+  registerCase(['faber'], async c => hD(c), true);
+  registerCase(['facebook'], async c => hD(c), true);
+  registerCase(['falcon'], async c => hIA(c), true);
+  registerCase(['fazernick'], async c => hT(c), true);
+  registerCase(['feed'], async c => hI(c), true);
+  registerCase(['feia'], async c => hZ(c), true);
+  registerCase(['feio2'], async c => hZ(c), true);
+  registerCase(['ffavatar'], async c => hD(c), true);
+  registerCase(['ffgren'], async c => hD(c), true);
+  registerCase(['ffrose'], async c => hD(c), true);
+  registerCase(['ficha'], async c => hD(c), true);
+  registerCase(['fiel'], async c => hZ(c), true);
+  registerCase(['figanime'], async c => hD(c), true);
+  registerCase(['figcoreana'], async c => hD(c), true);
+  registerCase(['figdesenho'], async c => hD(c), true);
+  registerCase(['figemoji'], async c => hD(c), true);
+  registerCase(['figengracada'], async c => hD(c), true);
+  registerCase(['figmeme'], async c => hD(c), true);
+  registerCase(['figraiva'], async c => hD(c), true);
+  registerCase(['figroblox'], async c => hD(c), true);
+  registerCase(['filme'], async c => hD(c), true);
+  registerCase(['fire-logo'], async c => hD(c), true);
+  registerCase(['firework'], async c => hD(c), true);
+  registerCase(['fish'], async c => hE(c), true);
+  registerCase(['flag'], async c => hD(c), true);
+  registerCase(['flaming'], async c => hD(c), true);
+  registerCase(['flood'], async c => hD(c), true);
+  registerCase(['fluffy-logo'], async c => hD(c), true);
+  registerCase(['fofoqueira'], async c => hZ(c), true);
+  registerCase(['fofoqueiro'], async c => hZ(c), true);
+  registerCase(['forge'], async c => hE(c), true);
+  registerCase(['fortao'], async c => hZ(c), true);
+  registerCase(['forte'], async c => hZ(c), true);
+  registerCase(['fortona'], async c => hZ(c), true);
+  registerCase(['fortune-logo'], async c => hD(c), true);
+  registerCase(['fotobv'], async c => hA(c), true);
+  registerCase(['fotogrupo'], async c => hA(c), true);
+  registerCase(['fotomenugrupo'], async c => hA(c), true);
+  registerCase(['fotosaiu'], async c => hA(c), true);
+  registerCase(['fraca'], async c => hZ(c), true);
+  registerCase(['fraco'], async c => hZ(c), true);
+  registerCase(['frozen'], async c => hD(c), true);
+  registerCase(['gada'], async c => hZ(c), true);
+  registerCase(['gado'], async c => hZ(c), true);
+  registerCase(['galaxy'], async c => hD(c), true);
+  registerCase(['galaxy-light'], async c => hD(c), true);
+  registerCase(['game'], async c => hD(c), true);
+  registerCase(['gastador'], async c => hZ(c), true);
+  registerCase(['gastadora'], async c => hZ(c), true);
+  registerCase(['gay2'], async c => hZ(c), true);
+  registerCase(['gdrive'], async c => hD(c), true);
+  registerCase(['gear'], async c => hD(c), true);
+  registerCase(['gemma'], async c => hIA(c), true);
+  registerCase(['gemma2'], async c => hIA(c), true);
+  registerCase(['genio'], async c => hD(c), true);
+  registerCase(['gerarlink'], async c => hD(c), true);
+  registerCase(['getbio'], async c => hT(c), true);
+  registerCase(['gethtml'], async c => hD(c), true);
+  registerCase(['getperfil'], async c => hT(c), true);
+  registerCase(['gif'], async c => hD(c), true);
+  registerCase(['gitbot'], async c => hD(c), true);
+  registerCase(['gitubstalk'], async c => hD(c), true);
+  registerCase(['glitter'], async c => hD(c), true);
+  registerCase(['global'], async c => hZ(c), true);
+  registerCase(['glossy'], async c => hD(c), true);
+  registerCase(['glossy-logo'], async c => hD(c), true);
+  registerCase(['gold-logo'], async c => hD(c), true);
+  registerCase(['goldpink'], async c => hD(c), true);
+  registerCase(['gostosa'], async c => hZ(c), true);
+  registerCase(['goza'], async c => hI(c), true);
+  registerCase(['gozar'], async c => hI(c), true);
+  registerCase(['gpt4'], async c => hIA(c), true);
+  registerCase(['gradient'], async c => hD(c), true);
+  registerCase(['graffiti'], async c => hD(c), true);
+  registerCase(['graffitipaint'], async c => hD(c), true);
+  registerCase(['graffitistyle'], async c => hD(c), true);
+  registerCase(['graffitiwall'], async c => hD(c), true);
+  registerCase(['grantmodcmd'], async c => hA(c), true);
+  registerCase(['grupo'], async c => hA(c), true);
+  registerCase(['guerra'], async c => hE(c), true);
+  registerCase(['habilidades'], async c => hE(c), true);
+  registerCase(['hallobat'], async c => hD(c), true);
+  registerCase(['halloween'], async c => hD(c), true);
+  registerCase(['harrypotter'], async c => hD(c), true);
+  registerCase(['historicotraicao'], async c => hI(c), true);
+  registerCase(['homofobica'], async c => hZ(c), true);
+  registerCase(['homofobico'], async c => hZ(c), true);
+  registerCase(['humilde'], async c => hZ(c), true);
+  registerCase(['ice-logo'], async c => hD(c), true);
+  registerCase(['idcanal'], async c => hD(c), true);
+  registerCase(['ideias'], async c => hIA(c), true);
+  registerCase(['ig'], async c => hD(c), true);
+  registerCase(['igstory'], async c => hD(c), true);
+  registerCase(['independente'], async c => hZ(c), true);
+  registerCase(['infantil'], async c => hZ(c), true);
+  registerCase(['infiel'], async c => hZ(c), true);
+  registerCase(['info'], async c => hD(c), true);
+  registerCase(['infoff'], async c => hD(c), true);
+  registerCase(['infoperso'], async c => hA(c), true);
+  registerCase(['ingredientes'], async c => hE(c), true);
+  registerCase(['insegura'], async c => hZ(c), true);
+  registerCase(['inseguro'], async c => hZ(c), true);
+  registerCase(['insone'], async c => hZ(c), true);
+  registerCase(['instagram'], async c => hD(c), true);
+  registerCase(['instamp3'], async c => hD(c), true);
+  registerCase(['instamp4'], async c => hD(c), true);
+  registerCase(['inteligente'], async c => hZ(c), true);
+  registerCase(['introvertida'], async c => hZ(c), true);
+  registerCase(['introvertido'], async c => hZ(c), true);
+  registerCase(['inv'], async c => hE(c), true);
+  registerCase(['inveja'], async c => hE(c), true);
+  registerCase(['invejosa'], async c => hE(c), true);
+  registerCase(['invejoso'], async c => hE(c), true);
+  registerCase(['investir'], async c => hE(c), true);
+  registerCase(['ip'], async c => hD(c), true);
+  registerCase(['irresponsavel'], async c => hZ(c), true);
+  registerCase(['jeff'], async c => hD(c), true);
+  registerCase(['jogodavelha'], async c => hD(c), true);
+  registerCase(['kimi'], async c => hIA(c), true);
+  registerCase(['kimik2'], async c => hIA(c), true);
+  registerCase(['kwai'], async c => hD(c), true);
+  registerCase(['ladra'], async c => hZ(c), true);
+  registerCase(['ladrao'], async c => hZ(c), true);
+  registerCase(['lamber'], async c => hI(c), true);
+  registerCase(['lambida'], async c => hI(c), true);
+  registerCase(['lava-logo'], async c => hD(c), true);
+  registerCase(['legenda'], async c => hD(c), true);
+  registerCase(['legendabv'], async c => hD(c), true);
+  registerCase(['legendasaiu'], async c => hD(c), true);
+  registerCase(['leilao'], async c => hD(c), true);
+  registerCase(['lermais'], async c => hT(c), true);
+  registerCase(['lesbica'], async c => hZ(c), true);
+  registerCase(['levantar'], async c => hE(c), true);
+  registerCase(['liberal'], async c => hZ(c), true);
+  registerCase(['lid'], async c => hD(c), true);
+  registerCase(['lider'], async c => hD(c), true);
+  registerCase(['ligatures'], async c => hD(c), true);
+  registerCase(['likeff'], async c => hD(c), true);
+  registerCase(['limitmessage'], async c => hA(c), true);
+  registerCase(['limparrank'], async c => hA(c), true);
+  registerCase(['linda'], async c => hZ(c), true);
+  registerCase(['lindo2'], async c => hZ(c), true);
+  registerCase(['linkgp'], async c => hA(c), true);
+  registerCase(['list'], async c => hD(c), true);
+  registerCase(['lista'], async c => hA(c), true);
+  registerCase(['listaddd'], async c => hA(c), true);
+  registerCase(['listaddi'], async c => hA(c), true);
+  registerCase(['listadv'], async c => hA(c), true);
+  registerCase(['listamute'], async c => hA(c), true);
+  registerCase(['listar'], async c => hA(c), true);
+  registerCase(['listautoadm'], async c => hA(c), true);
+  registerCase(['listblacklist'], async c => hA(c), true);
+  registerCase(['listblocksgp'], async c => hA(c), true);
+  registerCase(['listmodcmds'], async c => hA(c), true);
+  registerCase(['listmods'], async c => hA(c), true);
+  registerCase(['llama'], async c => hIA(c), true);
+  registerCase(['llama3'], async c => hIA(c), true);
+  registerCase(['local'], async c => hZ(c), true);
+  registerCase(['lojapet'], async c => hE(c), true);
+  registerCase(['lojapremium'], async c => hE(c), true);
+  registerCase(['lolavatar'], async c => hD(c), true);
+  registerCase(['loteria'], async c => hD(c), true);
+  registerCase(['lulista'], async c => hZ(c), true);
+  registerCase(['machista'], async c => hZ(c), true);
+  registerCase(['macho'], async c => hZ(c), true);
+  registerCase(['madura'], async c => hZ(c), true);
+  registerCase(['maduro'], async c => hZ(c), true);
+  registerCase(['magistral'], async c => hIA(c), true);
+  registerCase(['magrela'], async c => hZ(c), true);
+  registerCase(['magrelo'], async c => hZ(c), true);
+  registerCase(['malandra'], async c => hZ(c), true);
+  registerCase(['malandro'], async c => hZ(c), true);
+  registerCase(['mamada'], async c => hI(c), true);
+  registerCase(['mamar'], async c => hI(c), true);
+  registerCase(['mantercontador'], async c => hA(c), true);
+  registerCase(['marin'], async c => hIA(c), true);
+  registerCase(['mascote'], async c => hD(c), true);
+  registerCase(['mascotemetal'], async c => hD(c), true);
+  registerCase(['mascoteneon'], async c => hD(c), true);
+  registerCase(['masmorra'], async c => hE(c), true);
+  registerCase(['mata'], async c => hD(c), true);
+  registerCase(['materiais'], async c => hE(c), true);
+  registerCase(['mcplugin'], async c => hD(c), true);
+  registerCase(['me'], async c => hD(c), true);
+  registerCase(['mediafire'], async c => hD(c), true);
+  registerCase(['memoria'], async c => hD(c), true);
+  registerCase(['mention'], async c => hD(c), true);
+  registerCase(['menualt'], async c => hD(c), true);
+  registerCase(['menubn'], async c => hD(c), true);
+  registerCase(['menupets'], async c => hD(c), true);
+  registerCase(['mercado'], async c => hE(c), true);
+  registerCase(['metal'], async c => hD(c), true);
+  registerCase(['metallic'], async c => hD(c), true);
+  registerCase(['meusan'], async c => hE(c), true);
+  registerCase(['meustats'], async c => hE(c), true);
+  registerCase(['meustatus'], async c => hD(c), true);
+  registerCase(['mine'], async c => hE(c), true);
+  registerCase(['minerar'], async c => hE(c), true);
+  registerCase(['minmessage'], async c => hA(c), true);
+  registerCase(['missoes'], async c => hI(c), true);
+  registerCase(['misteriosa'], async c => hZ(c), true);
+  registerCase(['misterioso'], async c => hZ(c), true);
+  registerCase(['mistral'], async c => hIA(c), true);
+  registerCase(['mito'], async c => hZ(c), true);
+  registerCase(['mm'], async c => hD(c), true);
+  registerCase(['moderna'], async c => hZ(c), true);
+  registerCase(['moderno'], async c => hZ(c), true);
+  registerCase(['modobn'], async c => hA(c), true);
+  registerCase(['modolite'], async c => hA(c), true);
+  registerCase(['modoparceria'], async c => hA(c), true);
+  registerCase(['modoraid'], async c => hA(c), true);
+  registerCase(['modorpg'], async c => hA(c), true);
+  registerCase(['mordida'], async c => hI(c), true);
+  registerCase(['motivacional'], async c => hT(c), true);
+  registerCase(['mp4'], async c => hD(c), true);
+  registerCase(['multicolor'], async c => hD(c), true);
+  registerCase(['multiprefixo'], async c => hA(c), true);
+  registerCase(['mute2'], async c => hA(c), true);
+  registerCase(['myinstants'], async c => hD(c), true);
+  registerCase(['myvip'], async c => hD(c), true);
+  registerCase(['namorar'], async c => hI(c), true);
+  registerCase(['namoro'], async c => hI(c), true);
+  registerCase(['nano'], async c => hIA(c), true);
+  registerCase(['nano2'], async c => hIA(c), true);
+  registerCase(['naruto'], async c => hD(c), true);
+  registerCase(['nazista'], async c => hZ(c), true);
+  registerCase(['neon'], async c => hD(c), true);
+  registerCase(['neon-logo'], async c => hD(c), true);
+  registerCase(['neon2'], async c => hD(c), true);
+  registerCase(['neonglow'], async c => hD(c), true);
+  registerCase(['neonmetalic'], async c => hD(c), true);
+  registerCase(['neonparty'], async c => hD(c), true);
+  registerCase(['nerd'], async c => hZ(c), true);
+  registerCase(['nerd2'], async c => hZ(c), true);
+  registerCase(['nervosa'], async c => hZ(c), true);
+  registerCase(['nervoso'], async c => hZ(c), true);
+  registerCase(['newyear'], async c => hD(c), true);
+  registerCase(['nome'], async c => hD(c), true);
+  registerCase(['nomegp'], async c => hA(c), true);
+  registerCase(['norian'], async c => hD(c), true);
+  registerCase(['off'], async c => hD(c), true);
+  registerCase(['offline'], async c => hZ(c), true);
+  registerCase(['online'], async c => hZ(c), true);
+  registerCase(['opengp'], async c => hA(c), true);
+  registerCase(['organizada'], async c => hZ(c), true);
+  registerCase(['organizado'], async c => hZ(c), true);
+  registerCase(['otaku'], async c => hZ(c), true);
+  registerCase(['otaria'], async c => hZ(c), true);
+  registerCase(['otario'], async c => hZ(c), true);
+  registerCase(['otimista'], async c => hZ(c), true);
+  registerCase(['padrao'], async c => hZ(c), true);
+  registerCase(['parcerias'], async c => hA(c), true);
+  registerCase(['patrao'], async c => hZ(c), true);
+  registerCase(['patriotica'], async c => hZ(c), true);
+  registerCase(['patriotico'], async c => hZ(c), true);
+  registerCase(['patroa'], async c => hZ(c), true);
+  registerCase(['pecador'], async c => hZ(c), true);
+  registerCase(['pegador'], async c => hZ(c), true);
+  registerCase(['pegadora'], async c => hZ(c), true);
+  registerCase(['perfilff'], async c => hD(c), true);
+  registerCase(['perfilpic'], async c => hD(c), true);
+  registerCase(['perfilrpg'], async c => hE(c), true);
+  registerCase(['pessimista'], async c => hZ(c), true);
+  registerCase(['pet'], async c => hD(c), true);
+  registerCase(['petbattle'], async c => hI(c), true);
+  registerCase(['petbet'], async c => hI(c), true);
+  registerCase(['petista'], async c => hZ(c), true);
+  registerCase(['petnome'], async c => hI(c), true);
+  registerCase(['pets'], async c => hI(c), true);
+  registerCase(['phi'], async c => hIA(c), true);
+  registerCase(['phi3'], async c => hIA(c), true);
+  registerCase(['phlogo'], async c => hD(c), true);
+  registerCase(['piada'], async c => hT(c), true);
+  registerCase(['pilantra'], async c => hZ(c), true);
+  registerCase(['pintemp3'], async c => hD(c), true);
+  registerCase(['pintemp4'], async c => hD(c), true);
+  registerCase(['pinterest2'], async c => hD(c), true);
+  registerCase(['pirocudo'], async c => hZ(c), true);
+  registerCase(['pirokudo'], async c => hZ(c), true);
+  registerCase(['pix'], async c => hE(c), true);
+  registerCase(['pixel'], async c => hE(c), true);
+  registerCase(['plantacao'], async c => hE(c), true);
+  registerCase(['plantar'], async c => hE(c), true);
+  registerCase(['playboy'], async c => hD(c), true);
+  registerCase(['playid'], async c => hD(c), true);
+  registerCase(['playvid'], async c => hD(c), true);
+  registerCase(['playvid2'], async c => hD(c), true);
+  registerCase(['pobre'], async c => hZ(c), true);
+  registerCase(['poderosa'], async c => hZ(c), true);
+  registerCase(['poderoso'], async c => hZ(c), true);
+  registerCase(['popular'], async c => hZ(c), true);
+  registerCase(['pornhub'], async c => hD(c), true);
+  registerCase(['possessivo'], async c => hZ(c), true);
+  registerCase(['pplx'], async c => hIA(c), true);
+  registerCase(['pratica'], async c => hZ(c), true);
+  registerCase(['pratico'], async c => hZ(c), true);
+  registerCase(['precos'], async c => hE(c), true);
+  registerCase(['preguicosa'], async c => hZ(c), true);
+  registerCase(['preguicoso'], async c => hZ(c), true);
+  registerCase(['presente'], async c => hE(c), true);
+  registerCase(['presidenta'], async c => hZ(c), true);
+  registerCase(['presidente'], async c => hZ(c), true);
+  registerCase(['prestige'], async c => hE(c), true);
+  registerCase(['programador'], async c => hZ(c), true);
+  registerCase(['programadora'], async c => hZ(c), true);
+  registerCase(['proibir'], async c => hA(c), true);
+  registerCase(['propriedades'], async c => hE(c), true);
+  registerCase(['proteger'], async c => hI(c), true);
+  registerCase(['psicopata'], async c => hZ(c), true);
+  registerCase(['ptvmsg'], async c => hD(c), true);
+  registerCase(['pubg'], async c => hD(c), true);
+  registerCase(['pubgavatar'], async c => hD(c), true);
+  registerCase(['pubgvideo'], async c => hD(c), true);
+  registerCase(['qg'], async c => hD(c), true);
+  registerCase(['quando'], async c => hD(c), true);
+  registerCase(['qwen'], async c => hIA(c), true);
+  registerCase(['qwen2'], async c => hIA(c), true);
+  registerCase(['qwen3'], async c => hIA(c), true);
+  registerCase(['qwencoder'], async c => hIA(c), true);
+  registerCase(['racista'], async c => hZ(c), true);
+  registerCase(['raidstatus'], async c => hA(c), true);
+  registerCase(['rainbow'], async c => hD(c), true);
+  registerCase(['rainha'], async c => hZ(c), true);
+  registerCase(['rakutenai'], async c => hIA(c), true);
+  registerCase(['rankativo'], async c => hD(c), true);
+  registerCase(['rankativos'], async c => hD(c), true);
+  registerCase(['rankbraba'], async c => hR(c), true);
+  registerCase(['rankbrabas'], async c => hR(c), true);
+  registerCase(['rankbrabo'], async c => hR(c), true);
+  registerCase(['rankbrabos'], async c => hR(c), true);
+  registerCase(['rankburra'], async c => hR(c), true);
+  registerCase(['rankburras'], async c => hR(c), true);
+  registerCase(['rankburro'], async c => hR(c), true);
+  registerCase(['rankburros'], async c => hR(c), true);
+  registerCase(['rankcharmosa'], async c => hR(c), true);
+  registerCase(['rankcharmosas'], async c => hR(c), true);
+  registerCase(['rankcharmoso'], async c => hR(c), true);
+  registerCase(['rankcharmosos'], async c => hR(c), true);
+  registerCase(['rankcorna'], async c => hR(c), true);
+  registerCase(['rankcornas'], async c => hR(c), true);
+  registerCase(['rankcorno'], async c => hR(c), true);
+  registerCase(['rankcornos'], async c => hR(c), true);
+  registerCase(['rankengracada'], async c => hR(c), true);
+  registerCase(['rankengracadas'], async c => hR(c), true);
+  registerCase(['rankengracado'], async c => hR(c), true);
+  registerCase(['rankengracados'], async c => hR(c), true);
+  registerCase(['rankfiel'], async c => hR(c), true);
+  registerCase(['rankfiels'], async c => hR(c), true);
+  registerCase(['rankforte'], async c => hR(c), true);
+  registerCase(['rankfortes'], async c => hR(c), true);
+  registerCase(['rankgada'], async c => hR(c), true);
+  registerCase(['rankgado'], async c => hR(c), true);
+  registerCase(['rankgados'], async c => hR(c), true);
+  registerCase(['rankgads'], async c => hR(c), true);
+  registerCase(['rankgays'], async c => hR(c), true);
+  registerCase(['rankglobal'], async c => hE(c), true);
+  registerCase(['rankgostosa'], async c => hR(c), true);
+  registerCase(['rankgostosas'], async c => hR(c), true);
+  registerCase(['rankgostoso'], async c => hR(c), true);
+  registerCase(['rankgostosos'], async c => hR(c), true);
+  registerCase(['rankinativo'], async c => hD(c), true);
+  registerCase(['rankinfieis'], async c => hR(c), true);
+  registerCase(['rankinfiel'], async c => hR(c), true);
+  registerCase(['rankinteligente'], async c => hR(c), true);
+  registerCase(['rankinteligentes'], async c => hR(c), true);
+  registerCase(['ranklesbica'], async c => hR(c), true);
+  registerCase(['ranklesbicas'], async c => hR(c), true);
+  registerCase(['ranklinda'], async c => hR(c), true);
+  registerCase(['ranklindas'], async c => hR(c), true);
+  registerCase(['ranklindos'], async c => hR(c), true);
+  registerCase(['ranklvl'], async c => hE(c), true);
+  registerCase(['rankmacho'], async c => hR(c), true);
+  registerCase(['rankmachos'], async c => hR(c), true);
+  registerCase(['rankmalandra'], async c => hR(c), true);
+  registerCase(['rankmalandras'], async c => hR(c), true);
+  registerCase(['rankmalandro'], async c => hR(c), true);
+  registerCase(['rankmalandros'], async c => hR(c), true);
+  registerCase(['ranknerd'], async c => hR(c), true);
+  registerCase(['ranknerds'], async c => hR(c), true);
+  registerCase(['rankotaku'], async c => hR(c), true);
+  registerCase(['rankotakus'], async c => hR(c), true);
+  registerCase(['rankpegador'], async c => hR(c), true);
+  registerCase(['rankpegadora'], async c => hR(c), true);
+  registerCase(['rankpegadoras'], async c => hR(c), true);
+  registerCase(['rankpegadores'], async c => hR(c), true);
+  registerCase(['rankpobre'], async c => hR(c), true);
+  registerCase(['rankpobres'], async c => hR(c), true);
+  registerCase(['rankpoderosa'], async c => hR(c), true);
+  registerCase(['rankpoderosas'], async c => hR(c), true);
+  registerCase(['rankpoderoso'], async c => hR(c), true);
+  registerCase(['rankpoderosos'], async c => hR(c), true);
+  registerCase(['rankrg'], async c => hR(c), true);
+  registerCase(['rankrica'], async c => hR(c), true);
+  registerCase(['rankricas'], async c => hR(c), true);
+  registerCase(['rankricos'], async c => hR(c), true);
+  registerCase(['ranktrabalhador'], async c => hR(c), true);
+  registerCase(['ranktrabalhadora'], async c => hR(c), true);
+  registerCase(['ranktrabalhadoras'], async c => hR(c), true);
+  registerCase(['ranktrabalhadores'], async c => hR(c), true);
+  registerCase(['rankvencedor'], async c => hR(c), true);
+  registerCase(['rankvencedora'], async c => hR(c), true);
+  registerCase(['rankvencedoras'], async c => hR(c), true);
+  registerCase(['rankvencedores'], async c => hR(c), true);
+  registerCase(['rankvisionaria'], async c => hR(c), true);
+  registerCase(['rankvisionarias'], async c => hR(c), true);
+  registerCase(['rankvisionario'], async c => hR(c), true);
+  registerCase(['rankvisionarios'], async c => hR(c), true);
+  registerCase(['rbxcodes'], async c => hD(c), true);
+  registerCase(['realista'], async c => hZ(c), true);
+  registerCase(['receitas'], async c => hE(c), true);
+  registerCase(['recomendar'], async c => hIA(c), true);
+  registerCase(['recusarconvite'], async c => hI(c), true);
+  registerCase(['recusarsolic'], async c => hA(c), true);
+  registerCase(['reflexao'], async c => hT(c), true);
+  registerCase(['rei'], async c => hZ(c), true);
+  registerCase(['reivindicar'], async c => hE(c), true);
+  registerCase(['relacionamento'], async c => hI(c), true);
+  registerCase(['relevar'], async c => hT(c), true);
+  registerCase(['religiosa'], async c => hZ(c), true);
+  registerCase(['religioso'], async c => hZ(c), true);
+  registerCase(['renamepet'], async c => hI(c), true);
+  registerCase(['renomear'], async c => hT(c), true);
+  registerCase(['rep'], async c => hI(c), true);
+  registerCase(['reparar'], async c => hE(c), true);
+  registerCase(['resetrank'], async c => hA(c), true);
+  registerCase(['responsavel'], async c => hD(c), true);
+  registerCase(['resumir'], async c => hIA(c), true);
+  registerCase(['resumirchat'], async c => hIA(c), true);
+  registerCase(['resumirurl'], async c => hIA(c), true);
+  registerCase(['retro'], async c => hD(c), true);
+  registerCase(['retro-logo'], async c => hD(c), true);
+  registerCase(['revelar'], async c => hD(c), true);
+  registerCase(['revokemodcmd'], async c => hA(c), true);
+  registerCase(['rg'], async c => hD(c), true);
+  registerCase(['rica'], async c => hZ(c), true);
+  registerCase(['rmadv'], async c => hA(c), true);
+  registerCase(['rmconvite'], async c => hI(c), true);
+  registerCase(['rmfotobv'], async c => hA(c), true);
+  registerCase(['rmfotosaiu'], async c => hA(c), true);
+  registerCase(['robloxcodes'], async c => hD(c), true);
+  registerCase(['rocket'], async c => hIA(c), true);
+  registerCase(['role.alterar'], async c => hD(c), true);
+  registerCase(['role.confirmados'], async c => hD(c), true);
+  registerCase(['role.criar'], async c => hD(c), true);
+  registerCase(['role.excluir'], async c => hD(c), true);
+  registerCase(['role.nvou'], async c => hD(c), true);
+  registerCase(['role.vou'], async c => hD(c), true);
+  registerCase(['roles'], async c => hD(c), true);
+  registerCase(['romantica'], async c => hZ(c), true);
+  registerCase(['romantico'], async c => hZ(c), true);
+  registerCase(['royal'], async c => hD(c), true);
+  registerCase(['rpgadd'], async c => hE(c), true);
+  registerCase(['rpgadditem'], async c => hE(c), true);
+  registerCase(['rpgremove'], async c => hE(c), true);
+  registerCase(['rpgremoveitem'], async c => hE(c), true);
+  registerCase(['rpgresetglobal'], async c => hE(c), true);
+  registerCase(['rpgresetplayer'], async c => hE(c), true);
+  registerCase(['rpgsetlevel'], async c => hE(c), true);
+  registerCase(['rpgstats'], async c => hE(c), true);
+  registerCase(['rural'], async c => hZ(c), true);
+  registerCase(['rvisu'], async c => hD(c), true);
+  registerCase(['safada'], async c => hZ(c), true);
+  registerCase(['saida'], async c => hA(c), true);
+  registerCase(['saudavel'], async c => hZ(c), true);
+  registerCase(['sc'], async c => hD(c), true);
+  registerCase(['scdl'], async c => hD(c), true);
+  registerCase(['sedentaria'], async c => hZ(c), true);
+  registerCase(['sedentario'], async c => hZ(c), true);
+  registerCase(['seguidor'], async c => hZ(c), true);
+  registerCase(['seguidora'], async c => hZ(c), true);
+  registerCase(['sell'], async c => hE(c), true);
+  registerCase(['sementes'], async c => hE(c), true);
+  registerCase(['senhor'], async c => hZ(c), true);
+  registerCase(['senhora'], async c => hZ(c), true);
+  registerCase(['seria'], async c => hZ(c), true);
+  registerCase(['serio'], async c => hZ(c), true);
+  registerCase(['setbammsg'], async c => hA(c), true);
+  registerCase(['sexo'], async c => hI(c), true);
+  registerCase(['shadowsky'], async c => hD(c), true);
+  registerCase(['shazam'], async c => hD(c), true);
+  registerCase(['shipo'], async c => hD(c), true);
+  registerCase(['silver-logo'], async c => hD(c), true);
+  registerCase(['simpatica'], async c => hZ(c), true);
+  registerCase(['simpatico'], async c => hZ(c), true);
+  registerCase(['skate-name'], async c => hD(c), true);
+  registerCase(['slots'], async c => hD(c), true);
+  registerCase(['smoke'], async c => hD(c), true);
+  registerCase(['sn'], async c => hD(c), true);
+  registerCase(['snow'], async c => hD(c), true);
+  registerCase(['soadm'], async c => hA(c), true);
+  registerCase(['socar'], async c => hI(c), true);
+  registerCase(['social'], async c => hZ(c), true);
+  registerCase(['solicitacoes'], async c => hA(c), true);
+  registerCase(['solitaria'], async c => hZ(c), true);
+  registerCase(['solitario'], async c => hZ(c), true);
+  registerCase(['sonhador'], async c => hZ(c), true);
+  registerCase(['sonhadora'], async c => hZ(c), true);
+  registerCase(['sono'], async c => hZ(c), true);
+  registerCase(['sorte'], async c => hZ(c), true);
+  registerCase(['sorteio'], async c => hA(c), true);
+  registerCase(['sortuda'], async c => hZ(c), true);
+  registerCase(['sortudo'], async c => hZ(c), true);
+  registerCase(['sortudo2'], async c => hZ(c), true);
+  registerCase(['soundcloud'], async c => hD(c), true);
+  registerCase(['speedup'], async c => hE(c), true);
+  registerCase(['spotify'], async c => hD(c), true);
+  registerCase(['spotify2'], async c => hD(c), true);
+  registerCase(['stalkff'], async c => hD(c), true);
+  registerCase(['stalkinsta'], async c => hD(c), true);
+  registerCase(['stars'], async c => hD(c), true);
+  registerCase(['stats'], async c => hD(c), true);
+  registerCase(['status'], async c => hD(c), true);
+  registerCase(['statusbot'], async c => hD(c), true);
+  registerCase(['statusgp'], async c => hD(c), true);
+  registerCase(['stickers'], async c => hD(c), true);
+  registerCase(['stone3d'], async c => hD(c), true);
+  registerCase(['stop'], async c => hD(c), true);
+  registerCase(['streak'], async c => hE(c), true);
+  registerCase(['subdono'], async c => hD(c), true);
+  registerCase(['suic'], async c => hD(c), true);
+  registerCase(['suicidio'], async c => hD(c), true);
+  registerCase(['summerbeach'], async c => hD(c), true);
+  registerCase(['supersticiosa'], async c => hZ(c), true);
+  registerCase(['supersticioso'], async c => hZ(c), true);
+  registerCase(['suporte'], async c => hD(c), true);
+  registerCase(['surubao'], async c => hI(c), true);
+  registerCase(['swallow'], async c => hIA(c), true);
+  registerCase(['sys-img'], async c => hIA(c), true);
+  registerCase(['system'], async c => hD(c), true);
+  registerCase(['tabela'], async c => hT(c), true);
+  registerCase(['talarica'], async c => hZ(c), true);
+  registerCase(['talarico'], async c => hZ(c), true);
+  registerCase(['tapar'], async c => hI(c), true);
+  registerCase(['techstyle'], async c => hD(c), true);
+  registerCase(['tecnologica'], async c => hD(c), true);
+  registerCase(['tecnologico'], async c => hZ(c), true);
+  registerCase(['terminar'], async c => hI(c), true);
+  registerCase(['thor'], async c => hD(c), true);
+  registerCase(['tictactoe'], async c => hD(c), true);
+  registerCase(['tiger'], async c => hD(c), true);
+  registerCase(['tiktok'], async c => hD(c), true);
+  registerCase(['tiktok2'], async c => hD(c), true);
+  registerCase(['tiktoktxt'], async c => hD(c), true);
+  registerCase(['titanium'], async c => hD(c), true);
+  registerCase(['tomate'], async c => hI(c), true);
+  registerCase(['tomp3'], async c => hD(c), true);
+  registerCase(['topcmd'], async c => hD(c), true);
+  registerCase(['toprep'], async c => hI(c), true);
+  registerCase(['topriqueza'], async c => hE(c), true);
+  registerCase(['toprpg'], async c => hE(c), true);
+  registerCase(['torneio'], async c => hE(c), true);
+  registerCase(['totag'], async c => hA(c), true);
+  registerCase(['totalcmd'], async c => hD(c), true);
+  registerCase(['totext'], async c => hD(c), true);
+  registerCase(['trabalhador'], async c => hZ(c), true);
+  registerCase(['trabalhadora'], async c => hZ(c), true);
+  registerCase(['tradicional'], async c => hZ(c), true);
+  registerCase(['traidor'], async c => hZ(c), true);
+  registerCase(['traidora'], async c => hZ(c), true);
+  registerCase(['train'], async c => hI(c), true);
+  registerCase(['trair'], async c => hI(c), true);
+  registerCase(['treinarpet'], async c => hI(c), true);
+  registerCase(['tributos'], async c => hE(c), true);
+  registerCase(['tt'], async c => hD(c), true);
+  registerCase(['ttk'], async c => hD(c), true);
+  registerCase(['ttk2'], async c => hD(c), true);
+  registerCase(['ttstalk'], async c => hD(c), true);
+  registerCase(['tw'], async c => hD(c), true);
+  registerCase(['twitter'], async c => hD(c), true);
+  registerCase(['twitterdl'], async c => hD(c), true);
+  registerCase(['typography'], async c => hD(c), true);
+  registerCase(['unblockcmd'], async c => hA(c), true);
+  registerCase(['unblockuser'], async c => hA(c), true);
+  registerCase(['unequippet'], async c => hI(c), true);
+  registerCase(['uno'], async c => hD(c), true);
+  registerCase(['upload'], async c => hT(c), true);
+  registerCase(['urbana'], async c => hZ(c), true);
+  registerCase(['urbano'], async c => hZ(c), true);
+  registerCase(['vab'], async c => hD(c), true);
+  registerCase(['vagabunda'], async c => hZ(c), true);
+  registerCase(['vagabundo'], async c => hZ(c), true);
+  registerCase(['vagas'], async c => hE(c), true);
+  registerCase(['vazar'], async c => hT(c), true);
+  registerCase(['vencedor'], async c => hZ(c), true);
+  registerCase(['vencedora'], async c => hZ(c), true);
+  registerCase(['vender'], async c => hE(c), true);
+  registerCase(['vendercomida'], async c => hE(c), true);
+  registerCase(['vesga'], async c => hZ(c), true);
+  registerCase(['vesgo'], async c => hZ(c), true);
+  registerCase(['viajante'], async c => hZ(c), true);
+  registerCase(['viciada'], async c => hZ(c), true);
+  registerCase(['viciadao'], async c => hZ(c), true);
+  registerCase(['viciado'], async c => hZ(c), true);
+  registerCase(['vintage3d'], async c => hD(c), true);
+  registerCase(['visionaria'], async c => hZ(c), true);
+  registerCase(['visionario'], async c => hZ(c), true);
+  registerCase(['voltei'], async c => hD(c), true);
+  registerCase(['vote'], async c => hI(c), true);
+  registerCase(['water-logo'], async c => hD(c), true);
+  registerCase(['watercolor'], async c => hD(c), true);
+  registerCase(['whitelist'], async c => hD(c), true);
+  registerCase(['wikipedia'], async c => hD(c), true);
+  registerCase(['wl.lista'], async c => hA(c), true);
+  registerCase(['wl.remove'], async c => hA(c), true);
+  registerCase(['wladd'], async c => hA(c), true);
+  registerCase(['wordle'], async c => hD(c), true);
+  registerCase(['work'], async c => hE(c), true);
+  registerCase(['write'], async c => hD(c), true);
+  registerCase(['x9'], async c => hA(c), true);
+  registerCase(['yi'], async c => hIA(c), true);
+  registerCase(['yt3v2'], async c => hD(c), true);
+  registerCase(['yt4v2'], async c => hD(c), true);
+  registerCase(['zipbot'], async c => hD(c), true);
+  registerCase(['zueira'], async c => hZ(c), true);
+  registerCase(['zueiro'], async c => hZ(c), true);
 };
