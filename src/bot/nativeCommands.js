@@ -2395,7 +2395,7 @@ module.exports = {
     await react(sock, msg, '📦');
     for (let i = 0; i < stickers.length; i++) {
       await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
-      if (i < stickers.length - 1) await new Promise(r => setTimeout(r, 200));
+      // Sem delay — WhatsApp agrupa como pack instantaneamente
     }
     const RE = require('./renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);

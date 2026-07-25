@@ -120,7 +120,42 @@ module.exports = function registerChangeCases(registerCase) {
       }
 
       // ── Aplicar tema por nome ───────────────────────────────────────
-      if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema do bot.');
+      // v6.13: ADM do grupo pode mudar o tema DO GRUPO
+      // Dono muda o tema GLOBAL
+      const GroupSettings = require('../../database/models/GroupSettings');
+      if (!isOwner && ctx.isGroup) {
+        // Verificar se é admin do grupo
+        try {
+          const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+          const snum = ctx.senderNumber;
+          const isAdm = meta?.participants?.some(pt =>
+            pt.id.split('@')[0].replace(/\D/g, '') === snum &&
+            (pt.admin === 'admin' || pt.admin === 'superadmin'));
+          if (!isAdm) return reply('🚫 Só o Dono ou ADM do grupo pode mudar o tema.');
+          // ADM muda só o tema do grupo
+          const themeName = args[0].toLowerCase().trim();
+          const found = changeThemes.listThemes().find(t => t.name === themeName);
+          if (!found) {
+            const list = changeThemes.listThemes().map(t => (t.icon || '🕸️') + ' ' + t.name).join(', ');
+            return reply('❓ Tema não encontrado.\nDisponíveis: ' + list);
+          }
+          await GroupSettings.findOneAndUpdate(
+            { groupJid: ctx.remoteJid },
+            { groupTheme: found.name },
+            { upsert: true }
+          );
+          const t = changeThemes.getTheme(found.name);
+          return reply(
+            t.icon + ' *TEMA DO GRUPO ALTERADO*\n\n' +
+            t.bullet + ' Tema: *' + found.name.toUpperCase() + '*\n' +
+            t.bullet + ' Grupo: *' + (ctx.groupName || ctx.remoteJid) + '*\n\n' +
+            '> ' + t.vibe
+          );
+        } catch (e) {
+          return reply('❌ Erro: ' + e.message);
+        }
+      }
+      if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema global.');
 
       const themeName = args[0].toLowerCase().trim();
       const found = changeThemes.listThemes().find(t => t.name === themeName);
