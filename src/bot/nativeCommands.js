@@ -773,26 +773,31 @@ module.exports = {
           title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ',
           highlight_label: (botName || 'DARK BOT') + '|DEV',
           rows: [
-            { header: `${t.icon} ᴍᴇɴᴜ-ᴅᴏᴡɴʟᴏᴀᴅs`,   title: '_comandos de download e upload._',              id: p + 'down' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ғɪɢᴜʀɪɴʜᴀs`,  title: '_comandos de figurinhas e criação._',           id: p + 'menufigurinhas' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ʙʀɪɴᴄᴀғᴇɪʀᴀs`, title: '_comandos de diversão e zoeiras para grupo._',  id: p + 'brincadeiras' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ᴄᴏɪɴs`,        title: '_comandos de coins, aventura e diversão._',     id: p + 'menucoins' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ᴀʟᴛᴇʀᴀᴅᴏʀᴇs`, title: '_edição de música e alteradores._',             id: p + 'alteradores' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ʟᴏɢᴏs`,        title: '_criação de logos e imagens._',                 id: p + 'menulogos' },
-            { header: `${t.icon} ᴍᴇɴᴜ+18`,           title: '_comandos para adultos, só VIPs têm acesso._',  id: p + 'menu18' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ᴀᴅᴍ`,          title: '_comandos para grupo, só ADM tem acesso._',     id: p + 'menuadm' },
-            { header: `${t.icon} ᴍᴇɴᴜ-ᴅᴏɴᴏ`,         title: '_apenas dono._',                                id: p + 'menudono' },
+            { header: `${t.icon} ᴅᴏᴡɴʟᴏᴅs`,       title: '_música, vídeo, redes sociais._',           id: p + 'down' },
+            { header: `${t.icon} ғɪɢᴜʀɴʜᴀs`,    title: '_stickers, packs, arte visual._',           id: p + 'menufigurinhas' },
+            { header: `${t.icon} ɪᴀ & ᴄʜᴀᴛᴏᴛs`,  title: '_IA com memória, GPT, Claude, Gemini._',    id: p + 'menuia' },
+            { header: `${t.icon} ᴊᴏᴏs & sᴏᴄɪᴀ`, title: '_quiz, forca, casino, mini-games._',       id: p + 'menujogos' },
+            { header: `${t.icon} ᴇᴄᴏɴᴏᴍᴀ & ʀɢ`, title: '_coins, bank, RPG, crafting._',            id: p + 'menueconomia' },
+            { header: `${t.icon} ɪɴᴛᴇʀᴀᴄçõᴇs`,     title: '_abraçar, beijar, casar, família._',       id: p + 'menuinteracoes' },
+            { header: `${t.icon} ᴢᴏɪʀ & ʀɴᴋ`,  title: '_medidores, rankings, brincadeiras._',      id: p + 'menuzoeira' },
+            { header: `${t.icon} ᴛᴇxᴛᴏ & ғᴏɴᴛᴇs`, title: '_bold, mini, glitch, calc, frases._',      id: p + 'menutexto' },
+            { header: `${t.icon} sᴇᴀʀᴄʜ & sᴛᴀʟ`, title: '_pesquisas, stalk, consultas._',           id: p + 'menusearch' },
           ],
         },
         {
           title: 'ғᴜɴᴄ̧ᴏᴇs ᴇxᴛʀᴀs ',
           highlight_label: (botName || 'DARK BOT') + '|DEV',
           rows: [
-            { header: `${t.icon}  ᴄʀɪᴀᴅᴏʀ`,   title: '_informações do criador do bot._',           id: p + 'criador' },
-            { header: `${t.icon}  ᴘᴇʀғɪʟ`,     title: '_dados e cargo do usuário._',                id: p + 'perfil' },
-            { header: `${t.icon}  ᴘɪɴɢ`,       title: '_informação e latência do bot._',            id: p + 'ping' },
-            { header: `${t.icon}  ᴅᴏɴᴏs`,      title: '_lista de dono e sub-donos._',               id: p + 'donos' },
-            { header: `${t.icon}  ᴀʟᴜɢᴀʀ ʙᴏᴛ`, title: '_informações de planos de aluguel do bot._', id: p + 'alugar' },
+            { header: `${t.icon} ᴀᴜᴅɪᴏ & ғᴇᴛᴏs`, title: '_bass, reverb, 8d, slowed, voz._',        id: p + 'menuaudio' },
+            { header: `${t.icon} ʟᴏɢᴏs & ᴇғᴇɪᴛᴏs`, title: '_naruto, rainbow, neon, graffiti._',     id: p + 'menulogos' },
+            { header: `${t.icon} ᴀᴅᴍ & ɢʀᴜᴘᴏs`,   title: '_moderação, regras, automação._',         id: p + 'menuadm' },
+            { header: `${t.icon} ɪɴғᴏ & sᴛᴀᴛs`,  title: '_ping, perfil, diagnóstico._',            id: p + 'menustatus' },
+            { header: `${t.icon} ᴍᴇɴᴜ+18`,        title: '_comandos adultos, só VIPs._',             id: p + 'menu18' },
+            { header: `${t.icon} ᴄᴍᴅs ᴄᴜʟᴛᴏs`,   title: '_comandos secretos do dono._',             id: p + 'cmdsocultos' },
+            { header: `${t.icon} ᴍᴀs ᴄᴍs`,      title: '_comandos avançados e utilitários._',      id: p + 'maiscmds' },
+            { header: `${t.icon} ᴄʀɪᴀᴏʀ`,        title: '_informações do criador do bot._',         id: p + 'criador' },
+            { header: `${t.icon} ᴅᴏɴᴏ & sʏsᴛᴇᴍ`, title: '_broadcast, eval, config, cases._',       id: p + 'menudono' },
+            { header: `${t.icon} ᴠɪᴘ & ᴀʟᴜɢᴀ`,   title: '_planos premium e hospedagem._',           id: p + 'vip' },
           ],
         },
       ],
@@ -1146,37 +1151,63 @@ module.exports = {
   // ── !criador — Informações do criador ────────────────────────────
   async criador({ sock, msg, ctx, config: cfg }) {
     const localConfig = cfg || config;
-    const p = localConfig.bot.prefix;
+    const RE = require('./renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
     const num = localConfig.owner.number;
-    const waLink = `https://wa.me/${num}`;
+    const waLink = 'https://wa.me/' + num;
     const channelUrl = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
 
-    const style = await botConfigCache.get('menu_style', 'classic').catch(() => 'classic');
-    const { menuThemes: mt } = (() => { try { return { menuThemes: require('./menuThemes') }; } catch { return { menuThemes: null }; } })();
-    const st = mt ? mt.getStyle(style) : { frame: ['╭','╮','╰','╯','─','│'], palette: { icon:'🕸️', bullet:'▹', sep:'⌁' } };
-    const { frame: f, palette: pl } = st;
-
-    const txt = [
-      `${f[0]}${f[4].repeat(6)}〔 🕸️ *CRIADOR* 〕${f[4].repeat(6)}${f[1]}`,
-      `${f[5]} ${pl.bullet} Nome:    *${localConfig.owner.name}*`,
-      `${f[5]} ${pl.bullet} Role:    *Dono & Dev 👑*`,
-      `${f[5]} ${pl.bullet} Bot:     *${localConfig.bot.name}*`,
-      `${f[5]} ${pl.sep.repeat(28)}`,
-      `${f[5]} ${pl.bullet} WhatsApp: wa.me/${num}`,
-      `${f[5]} ${pl.bullet} Canal:    ${channelUrl}`,
-      `${f[5]} ${pl.sep.repeat(28)}`,
-      `${f[5]} _Bot desenvolvido com 🕸️ DARK BOT_`,
-      `${f[2]}${f[4].repeat(36)}${f[3]}`,
-    ].join('\n');
-
-    // Tenta enviar com botão de link para o canal
+    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@systemzero/baileys');
+    let headerMedia = null;
     try {
-      await buttonHandler.sendUrlButton(sock, ctx.remoteJid, txt, '🕸️ Canal WhatsApp', channelUrl, msg);
+      const fs2 = require('fs');
+      const path = require('path');
+      const imgPath = path.join(__dirname, '..', 'public', 'img', 'logo.jpg');
+      if (fs2.existsSync(imgPath)) {
+        const imgBuf = fs2.readFileSync(imgPath);
+        const media = await prepareWAMessageMedia({ image: imgBuf }, { upload: sock.waUploadToServer });
+        headerMedia = media?.imageMessage;
+      }
+    } catch {}
+
+    const body = RE.renderBlock(t, 'CRIADOR', [
+      '\uD83D\uDC51 *Nome:* ' + localConfig.owner.name,
+      '\uD83E\uDD16 *Bot:* ' + localConfig.bot.name,
+      '\uD83D\uDCBB *Role:* Dono & Desenvolvedor',
+      '',
+      '\uD83D\uDCF1 *WhatsApp:* wa.me/' + num,
+      '\uD83D\uDCE2 *Canal:* WhatsApp Channel',
+      '',
+      '> ' + (t.vibe || 'Dark Engine'),
+    ], { botName: localConfig.bot.name });
+
+    const msgContent = {
+      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+        header: headerMedia
+          ? proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: true, imageMessage: headerMedia })
+          : proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: false, title: '\uD83D\uDC51 ' + localConfig.owner.name }),
+        body: proto.Message.InteractiveMessage.Body.fromObject({ text: body }),
+        footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: (t.icon || '\uD83D\uDD78\uFE0F') + ' ' + localConfig.bot.name }),
+        nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+          buttons: [
+            { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '\uD83D\uDCF1 WhatsApp', url: waLink, merchant_url: waLink }) },
+            { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '\uD83D\uDCE2 Canal', url: channelUrl, merchant_url: channelUrl }) },
+          ],
+        }),
+      }),
+    };
+
+    try {
+      const m = generateWAMessageFromContent(ctx.remoteJid, msgContent, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, m.message, {
+        messageId: m.key.id,
+        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{ tag: 'interactive', attrs: { type: 'native_flow', v: '1' }, content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }] }] }],
+      });
     } catch {
-      await reply(sock, msg, ctx, txt);
+      await reply(sock, msg, ctx, body);
     }
-    logCmd('criador', ctx);
   },
+
 
     async menujogos({ sock, msg, ctx, config }) {
     return sendStyledCommandList(sock, msg, ctx, config, {
