@@ -144,6 +144,7 @@ function categorize(cmd) {
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
+  if (/^(down|downloads)$/.test(c)) return 'info'; // navegação de submenu
   if (/^(play|video|ytd|gyt|tiktok|instagram|fb|twitter|spotify|soundcloud|pinterest|pinpack|pinmp4|pinsticker|statusvideo|yt3v2|yt4v2|playid|playhq|tomp3|shazam|myinstants|pintemp|instamp|letra|kwai|igstory|gdrive|mediafire|mcplugin|ttk|scdl|spotify2|twitterdl|playvid|pinterest2|sc$)/.test(c)) return 'downloads';
   // Stickers & Imagens
   if (/^(sticker|sfull|figubug|toimg|attp|ttp|imagem|figura|gimage|stickerrename|brat|legenda|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada|aisticker|jeff|faber|norian|totext|ptvmsg|gerarlink|rvisu|8d$)/.test(c)) return 'stickers';

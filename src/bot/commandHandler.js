@@ -792,7 +792,7 @@ async function handle(sock, msg) {
   const aliasMap = {
     help: 'menu', cmds: 'menu', comandos: 'menu', menubtn: 'menu', menup: 'menu',
     s: 'sticker', fig: 'sticker', owner: 'dono', bot: 'info', portal18: 'cmdsocultos', ocultos: 'cmdsocultos', hidden: 'cmdsocultos', adultvid: 'adultvideo', adultmp4: 'adultvideo',
-    yt: 'play', musica: 'play', music: 'play', ytmp3: 'play', ytmp4: 'video', ptv: 'statusvideo', videostatus: 'statusvideo', circular: 'statusvideo', statusvideo: 'statusvideo',
+    yt: 'play', musica: 'play', music: 'play', ptv: 'statusvideo', videostatus: 'statusvideo', circular: 'statusvideo', statusvideo: 'statusvideo',
     yt2: 'play2', musica2: 'play2', savefrom: 'play2',
     yt3: 'play3', musica3: 'play3', auto: 'play3',
     tt: 'tiktok', ig: 'instagram', x: 'twitter',
@@ -840,7 +840,17 @@ async function handle(sock, msg) {
     cry: 'mimimi', llorar: 'mimimi', happy: 'dancar', feliz: 'dancar', kill: 'matar', laugh: 'fofocar', reirse: 'fofocar',
     wink: 'flertar', seducir: 'flertar', shy: 'flertar', smile: 'dancar', highfive: 'paparico', wave: 'dancar', hola: 'dono', ola: 'dono',
     regrasword: 'regrasword', reglasword: 'regrasword', menufreefire: 'menufreefire', horoscopo: 'horoscopo',
-  };
+  
+    // v6.16: aliases de download
+    yta: 'ytd', ytv: 'gyt', mp3: 'ytd', mp4: 'gyt',
+    tiktokdl: 'tiktok', ttdl: 'tiktok', igdl: 'instagram',
+    fbdl: 'facebook', fbd: 'facebook', twdl: 'twitter',
+    spdl: 'spotify', spotifydl: 'spotify',
+    pindl: 'pinterest', pint: 'pinterest',
+    gdr: 'gdrive', mfire: 'mediafire', kw: 'kwai',
+    b: 'bold', m: 'mini', g: 'glitch',
+    kik: 'kick', banir: 'kick', promover: 'promote', rebaixar: 'demote',
+};
   const canonicalCommand = aliasMap[commandName] || commandName;
   reactions.reactStart(sock, msg, canonicalCommand).catch(() => {});
 
