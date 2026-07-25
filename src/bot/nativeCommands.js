@@ -48,6 +48,10 @@ const reply = async (sock, msg, ctx, text) => {
 };
 const react = (sock, msg, emoji) => sock.sendMessage(msg.key.remoteJid, { react: { text: emoji, key: msg.key } });
 
+// ── Cache de packs temporário (10 min TTL) ──
+const _packCache = new Map();
+setInterval(() => { const now = Date.now(); for (const [k,v] of _packCache) if (now - v.ts > 600000) _packCache.delete(k); }, 60000);
+
 /**
  * Envia áudio MP3 com card de descrição visível no WhatsApp.
  *
@@ -2237,28 +2241,30 @@ module.exports = {
   async pinpacks({ sock, msg, ctx, args, config: cfg }) {
     const localConfig = cfg || config;
     const query = args.join(' ').trim();
+    const RE = require('./renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
+    const pe = require('./prefixEngine');
+    const pfx = await pe.getActivePrefix(ctx.remoteJid).catch(() => localConfig.bot.prefix);
+
     if (!query) return reply(sock, msg, ctx,
-      `╭━━━〔 🎨 *PINPACKS* 〕━━━╮\n` +
-      `┃ Busca no Pinterest e cria\n` +
-      `┃ um *Pack de Stickers* completo!\n` +
-      `┣━━━━━━━━━━━━━━━━━━━━━━━━┫\n` +
-      `┃ *${localConfig.bot.prefix}pinpacks* <nome>\n` +
-      `┃ Ex: *${localConfig.bot.prefix}pinpacks* anime dark\n` +
-      `╰━━━━━━━━━━━━━━━━━━━━━━━━╯`
+      RE.renderBlock(t, 'PINPACKS', [
+        'Busca no Pinterest e cria',
+        'um *Pack de Stickers* completo!',
+        '',
+        `*${pfx}pinpacks* <nome>`,
+        `Ex: *${pfx}pinpacks* anime dark`,
+      ], { botName: localConfig.bot.name })
     );
 
-    await react(sock, msg, '⏳');
-
-    // ── Mensagem de progresso (editável) ──
+    await react(sock, msg, t.react || '⏳');
     const packName = `📌 ${query.slice(0, 20)}`;
     const packAuthor = `${localConfig.bot.name} • ${ctx.pushName}`;
-    
-    const progressMsg = await sock.sendMessage(ctx.remoteJid, {
-      text: `🎨 *CRIANDO PACK: ${query}*\n\n⏳ A buscar imagens...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*`,
+
+    const progMsg = await sock.sendMessage(ctx.remoteJid, {
+      text: RE.renderBlock(t, 'PINPACKS', [`Pack: *${query}*`, '⏳ A buscar imagens...'], { botName: localConfig.bot.name }),
     }, { quoted: msg });
 
     try {
-      // ── Buscar imagens (múltiplas APIs) ──
       let items = [];
       const apis = [
         { url: 'https://api.siputzx.my.id/api/s/pinterest?query=', ext: r => r?.data },
@@ -2274,75 +2280,96 @@ module.exports = {
       items = items.slice(0, 29);
       if (!items.length) throw new Error('Sem imagens encontradas.');
 
-      // ── Actualizar progresso ──
       await sock.sendMessage(ctx.remoteJid, {
-        text: `🎨 *CRIANDO PACK: ${query}*\n\n📥 ${items.length} imagens encontradas\n⚙️ A converter em stickers...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*\n\n⏳ [░░░░░░░░░░] 0%`,
-        edit: progressMsg.key,
+        text: RE.renderBlock(t, 'PINPACKS', [`Pack: *${query}*`, `📥 ${items.length} imagens`, '⚙️ A converter...'], { botName: localConfig.bot.name }),
+        edit: progMsg.key,
       });
 
-      // ── Criar TODOS os stickers em memória ──
       const stickers = [];
+      const thumbBufs = [];
       for (let i = 0; i < items.length; i++) {
         try {
           const imgBuf = await mediaHandler.fetchBuffer(items[i].image_url);
           if (!imgBuf || imgBuf.length < 1000) continue;
-
           const stk = await stickerMaker.create(imgBuf, {
-            packName,
-            authorName: packAuthor,
-            botName: localConfig.bot.name,
-            ownerName: localConfig.owner.name,
-            userName: ctx.pushName,
-            groupName: ctx.groupName || 'Pack',
-            isVideo: false,
+            packName, authorName: packAuthor,
+            botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+            userName: ctx.pushName, groupName: ctx.groupName || 'Pack', isVideo: false,
           });
           if (stk && stk.length > 50) {
             stickers.push(stk);
-          }
-
-          // Actualizar progresso a cada 3 stickers
-          if ((i + 1) % 3 === 0 || i === items.length - 1) {
-            const pct = Math.round(((i + 1) / items.length) * 100);
-            const filled = Math.round(pct / 10);
-            const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
-            await sock.sendMessage(ctx.remoteJid, {
-              text: `🎨 *CRIANDO PACK: ${query}*\n\n📥 ${items.length} imagens\n⚙️ ${stickers.length} stickers prontos\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*\n\n⏳ [${bar}] ${pct}%`,
-              edit: progressMsg.key,
-            });
+            if (thumbBufs.length < 4) thumbBufs.push(imgBuf);
           }
         } catch {}
       }
+      if (!stickers.length) throw new Error('Nenhuma imagem convertida.');
 
-      if (!stickers.length) throw new Error('Não consegui converter nenhuma imagem.');
+      // Collage 2x2
+      let collageBuf = null;
+      try {
+        const sharp = require('sharp');
+        const sz = 256;
+        const thumbs = await Promise.all(thumbBufs.slice(0, 4).map(buf => sharp(buf).resize(sz, sz, { fit: 'cover' }).toBuffer()));
+        while (thumbs.length < 4) thumbs.push(await sharp({ create: { width: sz, height: sz, channels: 4, background: { r: 40, g: 40, b: 40, alpha: 1 } } }).png().toBuffer());
+        collageBuf = await sharp({ create: { width: sz * 2, height: sz * 2, channels: 4, background: { r: 30, g: 30, b: 30, alpha: 1 } } })
+          .composite([{ input: thumbs[0], left: 0, top: 0 }, { input: thumbs[1], left: sz, top: 0 }, { input: thumbs[2], left: 0, top: sz }, { input: thumbs[3], left: sz, top: sz }])
+          .jpeg({ quality: 80 }).toBuffer();
+      } catch {}
 
-      // ── Actualizar: pronto para enviar ──
-      await sock.sendMessage(ctx.remoteJid, {
-        text: `🎨 *PACK PRONTO: ${query}*\n\n✅ ${stickers.length} stickers criados\n📤 A enviar pack...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*`,
-        edit: progressMsg.key,
-      });
+      // Cache
+      const packId = 'pk_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      _packCache.set(packId, { stickers, info: { name: packName, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
 
-      // ── Enviar TODOS os stickers rapidamente (sem quoted, para formar pack) ──
-      for (let i = 0; i < stickers.length; i++) {
-        await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
-        // Delay mínimo para WhatsApp processar (mas rápido o suficiente para agrupar)
-        if (i < stickers.length - 1) await new Promise(r => setTimeout(r, 300));
+      // Card interativo com preview
+      const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@systemzero/baileys');
+      let headerMedia = null;
+      if (collageBuf) {
+        try { const media = await prepareWAMessageMedia({ image: collageBuf }, { upload: sock.waUploadToServer }); headerMedia = media?.imageMessage; } catch {}
       }
 
-      // ── Mensagem final ──
-      await sock.sendMessage(ctx.remoteJid, {
-        text: `✅ *PACK ENVIADO!*\n\n📦 *${packName}*\n👤 ${packAuthor}\n🎨 ${stickers.length} stickers\n\n💡 Os stickers estão agrupados como pack no WhatsApp!\n📌 Guarda qualquer sticker para ver o pack completo.`,
-        edit: progressMsg.key,
+      const cardBody = `📦 *Pack:* ${packName}\n🤖 *Bot:* ${localConfig.bot.name}\n👥 *Grupo:* ${ctx.groupName || 'PV'}\n🎨 *Stickers:* ${stickers.length}\n👤 *Autor:* ${ctx.pushName}`;
+      const cardFooter = `${t.icon || '🕸️'} ${localConfig.bot.name}`;
+
+      const msgContent = {
+        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          header: headerMedia
+            ? proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: true, imageMessage: headerMedia })
+            : proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: false, title: '📦 ' + packName }),
+          body: proto.Message.InteractiveMessage.Body.fromObject({ text: cardBody }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: cardFooter }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📦 Ver pacote de figurinhas', id: pfx + 'takepack ' + packId }) }],
+          }),
+        }),
+      };
+
+      const finalMsg = generateWAMessageFromContent(ctx.remoteJid, msgContent, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, finalMsg.message, {
+        messageId: finalMsg.key.id,
+        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{ tag: 'interactive', attrs: { type: 'native_flow', v: '1' }, content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }] }] }],
       });
-
-      await react(sock, msg, '✅');
-
+      await react(sock, msg, t.react || '✅');
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, {
-        text: `❌ *ERRO AO CRIAR PACK*\n\n${e.message}`,
-        edit: progressMsg.key,
-      });
+      await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, 'ERRO', ['❌ ' + e.message], { botName: localConfig.bot.name }), edit: progMsg.key });
       await react(sock, msg, '❌');
     }
+  },
+
+  // ── takepack: envia os stickers do cache ──
+  async takepack({ sock, msg, ctx, args, config: cfg }) {
+    const localConfig = cfg || config;
+    const packId = args[0]?.trim();
+    if (!packId || !_packCache.has(packId)) return reply(sock, msg, ctx, '❌ Pack expirado. Usa !pinpacks <nome> para criar um novo.');
+    const { stickers, info } = _packCache.get(packId);
+    await react(sock, msg, '📦');
+    for (let i = 0; i < stickers.length; i++) {
+      await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
+      if (i < stickers.length - 1) await new Promise(r => setTimeout(r, 200));
+    }
+    const RE = require('./renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
+    await reply(sock, msg, ctx, RE.renderBlock(t, 'PACK ENVIADO', [`📦 *${info.name}*`, `🎨 ${info.count} stickers`, `👤 ${info.author}`, '', '💡 Guarda qualquer sticker para ver o pack completo!'], { botName: localConfig.bot.name }));
+    _packCache.delete(packId);
   },
 
   // !pinvd <nome> — busca vídeo no Pinterest por nome
