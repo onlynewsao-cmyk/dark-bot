@@ -223,14 +223,19 @@ async function handle(sock, msg) {
     const BotConfig    = require('../database/models/BotConfig');
     const found = changeThemes.getTheme(themeName);
     if (found && found.name === themeName) {
-      const [ownerLidB, extraOwners] = await Promise.all([
+      const [ownerLidB, extraOwners, ownerNumDB] = await Promise.all([
         botConfigCache.get('owner_lid', '').catch(() => ''),
         botConfigCache.get('extra_owners', []).catch(() => []),
+        botConfigCache.get('owner_number', '').catch(() => ''),
       ]);
       const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
+      const dbNum = String(ownerNumDB || '').replace(/\D/g, '');
       const senderNum = ctx.senderNumber;
+      const senderJid = msg.key.participant || msg.key.remoteJid || '';
       const isOwner = senderNum === ownerNum ||
-        (Array.isArray(extraOwners) && extraOwners.includes(senderNum));
+        (dbNum && senderNum === dbNum) ||
+        (Array.isArray(extraOwners) && extraOwners.includes(senderNum)) ||
+        (ownerLidB && senderJid.includes(ownerLidB));
       if (!isOwner) {
         await sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono pode mudar o tema.' }, { quoted: msg });
         return true;
@@ -276,24 +281,29 @@ async function handle(sock, msg) {
   ctx.prefixSource = prefixInfo?.source || null; // 'group'|'global'|'button_ns'|'button_exact'
 
   // ── Dono + Blacklist em paralelo (1 round-trip ao invés de 2) ──
-  const [ownerLid, blacklist, extraOwners, disabledUsers, disabledGroups] = await Promise.all([
+  const [ownerLid, blacklist, extraOwners, disabledUsers, disabledGroups, ownerNumDB] = await Promise.all([
     botConfigCache.get('owner_lid', ''),
     botConfigCache.get('blacklist', []),
     botConfigCache.get('owner_numbers', []),
     botConfigCache.get('disabled_users', []),
     botConfigCache.get('disabled_groups', []),
+    botConfigCache.get('owner_number', ''),
   ]);
 
   const senderJidFull = msg.key.participant || msg.key.remoteJid || '';
   const ownerNumbers = Array.isArray(extraOwners)
     ? extraOwners.map(userManager.normalizeNumber).filter(Boolean)
     : String(extraOwners || '').split(/[\s,]+/).map(userManager.normalizeNumber).filter(Boolean);
-  const isOwner = ctx.senderNumber === userManager.normalizeNumber(config.owner.number) ||
+  // v6.14: verifica número do env + número do dashboard (BotConfig) + LID + extra owners
+  const envOwnerNum = userManager.normalizeNumber(config.owner.number);
+  const dbOwnerNum = userManager.normalizeNumber(String(ownerNumDB || ''));
+  const isOwner = ctx.senderNumber === envOwnerNum ||
+                  (dbOwnerNum && ctx.senderNumber === dbOwnerNum) ||
                   ownerNumbers.includes(ctx.senderNumber) ||
                   (ownerLid && senderJidFull.includes(ownerLid)) ||
                   (ownerLid && ctx.senderNumber === ownerLid.split('@')[0]);
   ctx.isOwner = isOwner;
-  ctx.isPrimaryOwner = ctx.senderNumber === userManager.normalizeNumber(config.owner.number);
+  ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
 
   if ((blacklist.includes(ctx.senderNumber) || (Array.isArray(disabledUsers) && disabledUsers.map(String).includes(ctx.senderNumber))) && !isOwner) return false;
   if (ctx.isGroup && Array.isArray(disabledGroups) && disabledGroups.includes(ctx.remoteJid) && !isOwner) return false;
