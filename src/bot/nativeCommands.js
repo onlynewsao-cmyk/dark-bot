@@ -648,6 +648,32 @@ function processAudioEffect(buffer, filter, name) {
   } finally { try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {} }
 }
 
+
+/**
+ * v6.8: Submenu dinâmico — lê TODOS os comandos da categoria
+ * do submenuData e passa para sendStyledCommandList.
+ */
+async function dynamicSubmenu(sock, msg, ctx, config, category) {
+  const sd = require('./submenuData');
+  const meta = sd.SUBMENU_META[category];
+  if (!meta) return reply(sock, msg, ctx, '❌ Categoria não encontrada.');
+  
+  // Obter TODOS os comandos registados
+  const ch = require('./caseHandler');
+  const allCmds = [...ch.CASES.keys()];
+  const items = sd.buildItems(allCmds, category);
+  
+  if (!items.length) return reply(sock, msg, ctx, meta.icon + ' Sem comandos nesta categoria.');
+  
+  return sendStyledCommandList(sock, msg, ctx, config, {
+    title: meta.title,
+    subtitle: meta.sub,
+    buttonText: meta.btn,
+    target: 'menu_' + category,
+    items,
+  });
+}
+
 module.exports = {
   // ============ INFO ============
   async start({ sock, msg, ctx, config: cfg }) {
@@ -953,7 +979,7 @@ module.exports = {
       });
 
       // Envia como sticker mas com flag de visualização única as vezes ou alta prioridade
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
       await react(sock, msg, '✨');
     } catch (e) {
       await react(sock, msg, '❌');
@@ -974,7 +1000,7 @@ module.exports = {
         isVideo: false,
         ...(await getStickerWatermarkConfig(config, ctx)),
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
       await react(sock, msg, '✅');
     } catch (e) {
       await react(sock, msg, '❌');
@@ -989,31 +1015,7 @@ module.exports = {
   // ══════════════════════════════════════════════════════════════════════
 
 
-  async menudownload({ sock, msg, ctx, config: cfg }) {
-    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
-      title: '📥 DOWNLOADS', target: 'menudownload',
-      subtitle: 'Música • Vídeo • Redes Sociais',
-      buttonText: '📥 Selecionar',
-      items: [
-        // selectable: true → funcionam directamente com título como argumento
-        { cmd: 'play',        emoji: '🎵', desc: 'Música — busca por nome/URL',     selectable: true },
-        { cmd: 'play2',       emoji: '🎧', desc: 'Música — resultado alternativo',   selectable: true },
-        { cmd: 'play3',       emoji: '⭐', desc: 'Música — alta qualidade 320kbps', selectable: true },
-        { cmd: 'video',       emoji: '🎬', desc: 'Vídeo HD 720p YouTube',            selectable: true },
-        { cmd: 'video2',      emoji: '📺', desc: 'Vídeo Full HD 1080p',              selectable: true },
-        { cmd: 'statusvideo', emoji: '⭕', desc: 'Vídeo circular/Status/PTV',        selectable: true },
-        { cmd: 'tiktok',      emoji: '🎶', desc: 'TikTok — sem marca dagua',         selectable: true },
-        { cmd: 'instagram',   emoji: '📸', desc: 'Instagram — reels e posts',        selectable: true },
-        { cmd: 'fb',          emoji: '📘', desc: 'Facebook — vídeo',                 selectable: true },
-        { cmd: 'twitter',     emoji: '🐦', desc: 'X/Twitter — mídia',                selectable: true },
-        { cmd: 'spotify',     emoji: '💚', desc: 'Spotify — URL da faixa',           selectable: true },
-        { cmd: 'soundcloud',  emoji: '☁️', desc: 'SoundCloud — nome ou URL',         selectable: true },
-        { cmd: 'pinterest',   emoji: '📌', desc: 'Pinterest — busca de imagens',     selectable: true },
-        { cmd: 'pinpacks',    emoji: '🎨', desc: 'Pinterest — pack de stickers',     selectable: true },
-        { cmd: 'menuaudio',   emoji: '🎛️', desc: 'Efeitos de áudio',                selectable: true },
-      ],
-    });
-  },
+  async menudownload(a) { return dynamicSubmenu(a.sock, a.msg, a.ctx, a.cfg || a.config, 'downloads'); },
 
   // ── !menup — Menu Principal ──────────────────────────────────────────
 
@@ -1324,24 +1326,7 @@ module.exports = {
     });
   },
 
-  async menustickers({ sock, msg, ctx, config: cfg }) {
-    return sendStyledCommandList(sock, msg, ctx, cfg || config, {
-      title: '🎨 STICKERS', target: 'menustickers',
-      subtitle: 'Figurinhas • Packs • Arte Visual',
-      buttonText: '🎨 Selecionar',
-      items: [
-        { cmd: 'sticker',      emoji: '🎨', desc: 'Foto/Vídeo → Sticker' },
-        { cmd: 'sfull',        emoji: '🖼️', desc: 'Sticker sem cortar (imagem completa)' },
-        { cmd: 'figubug',      emoji: '👾', desc: 'Sticker lendário por mídia' },
-        { cmd: 'figubug2',     emoji: '✨', desc: 'Sticker gerado por IA' },
-        { cmd: 'toimg',        emoji: '🖼️', desc: 'Sticker → Imagem' },
-        { cmd: 'attp',         emoji: '✍️', desc: 'Texto animado em sticker' },
-        { cmd: 'ttp',          emoji: '📝', desc: 'Texto simples em sticker' },
-        { cmd: 'pinpacks',     emoji: '📌', desc: 'Pinterest → Pack de Stickers' },
-        { cmd: 'stickerrename',emoji: '💧', desc: 'Renomear pack/autor do sticker' },
-      ],
-    });
-  },
+  async menustickers(a) { return dynamicSubmenu(a.sock, a.msg, a.ctx, a.cfg || a.config, 'stickers'); },
 
   async menugrupo({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
@@ -2101,7 +2086,7 @@ module.exports = {
         groupName: ctx.groupName || 'PV',
         isVideo: false,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
       await react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ Sticker renomeado!\n📦 Pack: *${pack}*\n👤 Autor: *${author || ctx.pushName}*`);
     } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
@@ -2240,7 +2225,7 @@ module.exports = {
         isVideo:   false,
         full:      true,   // sfull — preenche formato completo sem cortar
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
       await react(sock, msg, '✅');
     } catch (e) {
       await react(sock, msg, '❌');
@@ -2290,7 +2275,8 @@ module.exports = {
 
           // Converter em sticker com metadados do pack
           const stk = await stickerMaker.create(imgBuf, {
-            botName:   `📌 ${query.slice(0,15)}`,
+            packName:  `📌 ${query.slice(0,20)}`,
+            botName:   `📌 ${query.slice(0,20)}`,
             ownerName: localConfig.owner.name,
             userName:  ctx.pushName,
             groupName: ctx.groupName || 'Pack',
@@ -2298,9 +2284,10 @@ module.exports = {
           });
           if (!stk || stk.length < 50) continue;
 
-          await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+          // Enviar SEM quoted para WhatsApp agrupar como pack
+          await sock.sendMessage(ctx.remoteJid, { sticker: stk });
           success++;
-          await new Promise(r => setTimeout(r, 600));
+          await new Promise(r => setTimeout(r, 800));
         } catch {}
       }
 
