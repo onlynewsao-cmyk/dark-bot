@@ -2239,68 +2239,109 @@ module.exports = {
     const query = args.join(' ').trim();
     if (!query) return reply(sock, msg, ctx,
       `╭━━━〔 🎨 *PINPACKS* 〕━━━╮\n` +
-      `┃ Busca no Pinterest e converte\n` +
-      `┃ imagens em pack de *Stickers*!\n` +
+      `┃ Busca no Pinterest e cria\n` +
+      `┃ um *Pack de Stickers* completo!\n` +
       `┣━━━━━━━━━━━━━━━━━━━━━━━━┫\n` +
       `┃ *${localConfig.bot.prefix}pinpacks* <nome>\n` +
       `┃ Ex: *${localConfig.bot.prefix}pinpacks* anime dark\n` +
-      `┃ Ex: *${localConfig.bot.prefix}pinpacks* peaky blinders\n` +
       `╰━━━━━━━━━━━━━━━━━━━━━━━━╯`
     );
+
     await react(sock, msg, '⏳');
+
+    // ── Mensagem de progresso (editável) ──
+    const packName = `📌 ${query.slice(0, 20)}`;
+    const packAuthor = `${localConfig.bot.name} • ${ctx.pushName}`;
+    
+    const progressMsg = await sock.sendMessage(ctx.remoteJid, {
+      text: `🎨 *CRIANDO PACK: ${query}*\n\n⏳ A buscar imagens...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*`,
+    }, { quoted: msg });
+
     try {
-      const SZ = 'https://api.siputzx.my.id/api';
-      const r  = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query + ' aesthetic')}`, 20000);
-      const items = (r?.data || [])
-        .filter(x => x?.image_url && /^https?/i.test(x.image_url) && x.type !== 'video').slice(0, 29);
+      // ── Buscar imagens (múltiplas APIs) ──
+      let items = [];
+      const apis = [
+        { url: 'https://api.siputzx.my.id/api/s/pinterest?query=', ext: r => r?.data },
+        { url: 'https://api.lolhuman.xyz/api/pinterest?query=', key: '&apikey=darkbot', ext: r => r?.result },
+      ];
+      for (const api of apis) {
+        try {
+          const r = await mediaHandler.fetchJson(api.url + encodeURIComponent(query + ' aesthetic') + (api.key || ''), 15000);
+          items = (api.ext(r) || []).filter(x => x?.image_url && /^https?/i.test(x.image_url) && x.type !== 'video');
+          if (items.length >= 4) break;
+        } catch {}
+      }
+      items = items.slice(0, 29);
+      if (!items.length) throw new Error('Sem imagens encontradas.');
 
-      if (!items.length) throw new Error('Sem imagens encontradas para este pack.');
+      // ── Actualizar progresso ──
+      await sock.sendMessage(ctx.remoteJid, {
+        text: `🎨 *CRIANDO PACK: ${query}*\n\n📥 ${items.length} imagens encontradas\n⚙️ A converter em stickers...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*\n\n⏳ [░░░░░░░░░░] 0%`,
+        edit: progressMsg.key,
+      });
 
-      // Cabeçalho
-      await reply(sock, msg, ctx,
-        `╭━━━〔 🎨 *PINPACKS* 〕━━━╮\n` +
-        `┃ Pack: *${query}*\n` +
-        `┃ Stickers: *${items.length}* a criar...\n` +
-        `┃ Pack: *${localConfig.bot.name}*\n` +
-        `┃ Autor: *${ctx.pushName}*\n` +
-        `╰━━━━━━━━━━━━━━━━━━━━━━━━╯`
-      );
-
-      let success = 0;
+      // ── Criar TODOS os stickers em memória ──
+      const stickers = [];
       for (let i = 0; i < items.length; i++) {
         try {
-          // Baixar imagem
           const imgBuf = await mediaHandler.fetchBuffer(items[i].image_url);
           if (!imgBuf || imgBuf.length < 1000) continue;
 
-          // Converter em sticker com metadados do pack
           const stk = await stickerMaker.create(imgBuf, {
-            packName:  `📌 ${query.slice(0,20)}`,
-            botName:   `📌 ${query.slice(0,20)}`,
+            packName,
+            authorName: packAuthor,
+            botName: localConfig.bot.name,
             ownerName: localConfig.owner.name,
-            userName:  ctx.pushName,
+            userName: ctx.pushName,
             groupName: ctx.groupName || 'Pack',
-            isVideo:   false,
+            isVideo: false,
           });
-          if (!stk || stk.length < 50) continue;
+          if (stk && stk.length > 50) {
+            stickers.push(stk);
+          }
 
-          // Enviar SEM quoted para WhatsApp agrupar como pack
-          await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-          success++;
-          await new Promise(r => setTimeout(r, 800));
+          // Actualizar progresso a cada 3 stickers
+          if ((i + 1) % 3 === 0 || i === items.length - 1) {
+            const pct = Math.round(((i + 1) / items.length) * 100);
+            const filled = Math.round(pct / 10);
+            const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+            await sock.sendMessage(ctx.remoteJid, {
+              text: `🎨 *CRIANDO PACK: ${query}*\n\n📥 ${items.length} imagens\n⚙️ ${stickers.length} stickers prontos\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*\n\n⏳ [${bar}] ${pct}%`,
+              edit: progressMsg.key,
+            });
+          }
         } catch {}
       }
 
-      if (success === 0) throw new Error('Não consegui converter nenhuma imagem em sticker.');
+      if (!stickers.length) throw new Error('Não consegui converter nenhuma imagem.');
+
+      // ── Actualizar: pronto para enviar ──
+      await sock.sendMessage(ctx.remoteJid, {
+        text: `🎨 *PACK PRONTO: ${query}*\n\n✅ ${stickers.length} stickers criados\n📤 A enviar pack...\n\n📦 Pack: *${packName}*\n👤 Autor: *${packAuthor}*`,
+        edit: progressMsg.key,
+      });
+
+      // ── Enviar TODOS os stickers rapidamente (sem quoted, para formar pack) ──
+      for (let i = 0; i < stickers.length; i++) {
+        await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
+        // Delay mínimo para WhatsApp processar (mas rápido o suficiente para agrupar)
+        if (i < stickers.length - 1) await new Promise(r => setTimeout(r, 300));
+      }
+
+      // ── Mensagem final ──
+      await sock.sendMessage(ctx.remoteJid, {
+        text: `✅ *PACK ENVIADO!*\n\n📦 *${packName}*\n👤 ${packAuthor}\n🎨 ${stickers.length} stickers\n\n💡 Os stickers estão agrupados como pack no WhatsApp!\n📌 Guarda qualquer sticker para ver o pack completo.`,
+        edit: progressMsg.key,
+      });
 
       await react(sock, msg, '✅');
-      await reply(sock, msg, ctx,
-        `✅ *Pack criado!* ${success}/${items.length} stickers\n` +
-        `📦 Pack: *${localConfig.bot.name}*  •  🎨 *${query}*`
-      );
+
     } catch (e) {
+      await sock.sendMessage(ctx.remoteJid, {
+        text: `❌ *ERRO AO CRIAR PACK*\n\n${e.message}`,
+        edit: progressMsg.key,
+      });
       await react(sock, msg, '❌');
-      return reply(sock, msg, ctx, `❌ ${e.message}`);
     }
   },
 
