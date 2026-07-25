@@ -138,6 +138,10 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'rank');
   });
   
+    registerCase(['maiscmds', 'menumais'], async ({ sock, msg, ctx, config }) => {
+    return dynSub(sock, msg, ctx, config, 'owner');
+  });
+
   registerCase(['menudono', 'menuowner', 'cmdsocultos', 'portal18'], async ({ sock, msg, ctx, config, isOwner }) => {
     if (!isOwner) return;
     return dynSub(sock, msg, ctx, config, 'owner');
