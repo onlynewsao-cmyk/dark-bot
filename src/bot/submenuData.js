@@ -113,6 +113,36 @@ function isSelectable(cmd) {
 // ── CATEGORIAS POR PADRÃO DE NOME ────────────────────────────
 function categorize(cmd) {
   const c = cmd.toLowerCase();
+  // v6.15: overrides explícitos (prioridade máxima)
+  const OVERRIDES = {
+    pinpacks:'stickers', pinpack:'stickers', pinsticker:'stickers',
+    casar:'interacoes', divorciar:'interacoes', namorar:'interacoes',
+    '8d':'audio', '8d2':'audio', '8d3':'audio',
+    abraco:'interacoes', beijo:'interacoes',
+    ficha:'economia', explore:'economia',
+    cantada:'texto', bible:'texto', versiculo:'texto', filosofo:'texto',
+    coin:'jogos', dice:'jogos', d6:'jogos',
+    vip:'info', assinar:'info',
+    cmdsocultos:'owner', portal18:'owner',
+    copilot:'ia', chat:'ia', ask:'ia',
+    unmute:'admin', unadmin:'admin', calar:'admin',
+    fechar:'admin', 'fechar-grupo':'admin', abrir:'admin', 'abrir-grupo':'admin',
+    everyone:'admin', all:'admin', whitelist:'admin',
+    facebook:'downloads', tt:'downloads', tw:'downloads',
+    fig:'stickers', figurinha:'stickers',
+    tikstalk:'search', ttstalk:'search',
+    blackhzx:'logos', blood:'logos', cemiterio:'logos', ffavatar:'logos',
+    themechange:'owner', themes:'owner',
+    texto:'texto', textosticker:'stickers', textsticker:'stickers', txtsticker:'stickers',
+    baixaraudio:'downloads', baixarvideo:'downloads',
+    dlmp3:'downloads', dlmp4:'downloads', ytmp3:'downloads', ytmp4:'downloads',
+    ytaudio:'downloads', ytplay4:'downloads', fhd:'downloads', vid:'downloads', vid2:'downloads',
+    down:'downloads', downloads:'downloads',
+    boasvindas:'admin', bv:'admin',
+    equipe:'info', subdono:'info',
+    tempoonline:'info', uptime:'info',
+  };
+  if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
   if (/^(play|video|ytd|gyt|tiktok|instagram|fb|twitter|spotify|soundcloud|pinterest|pinpack|pinmp4|pinsticker|statusvideo|yt3v2|yt4v2|playid|playhq|tomp3|shazam|myinstants|pintemp|instamp|letra|kwai|igstory|gdrive|mediafire|mcplugin|ttk|scdl|spotify2|twitterdl|playvid|pinterest2|sc$)/.test(c)) return 'downloads';
   // Stickers & Imagens
@@ -149,7 +179,9 @@ function categorize(cmd) {
   if (/^flood/.test(c)) return 'admin';
   // Relacionamentos
   if (/^(brincadeira|namoro|casamento|trair|historicotraicao|namorar|terminar|relacionamento|casais|casar|divorciar)/.test(c)) return 'interacoes';
-  // Default
+  // v6.15: fallback para padrões adicionais
+  const extra = categorizeExtra(c);
+  if (extra) return extra;
   return 'outros';
 }
 
@@ -239,6 +271,38 @@ function getMainMenuSections(allSubmenus) {
   }
 
   return sections;
+}
+
+
+// ── PADRÕES ADICIONAIS (v6.15) ──────────────────────────────────
+function categorizeExtra(c) {
+  // Downloads extras
+  if (/^(baixaraudio|baixarvideo|dlmp3|dlmp4|dlmp3s|dlmp4s|ytaudio|ytmp3|ytmp4|ytmp3s|ytmp4s|ytplay4|yt4k|yt4|fhd|vid|vid2|down|downloads|facebook|fbvideo|fbfoto|fbpost|fbstory|fbstatus|tw|tt|tiktok2|instagram2|pinterest2|pinmp4|pinvd|spotify2|scdl|soundcloud2|letra|kwai|igstory|gdrive|mediafire|mcplugin|tomp3|shazam|myinstants|pintemp3|pintemp4|instamp3|instamp4|playid|playhq|yt3v2|yt4v2|sc$)/.test(c)) return 'downloads';
+  // Stickers extras
+  if (/^(fig|figurinha|textosticker|textsticker|txtsticker|pinpacks|pinpack|pinsticker|stickerwm|watermark|sfull2|figubug3|aisticker|jeff|faber|norian|totext|ptvmsg|gerarlink|rvisu|brat2|legenda|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada)/.test(c)) return 'stickers';
+  // IA extras
+  if (/^(copilot|copiloto|chat|ask|chatgpt2|gpt3|gpt4|gpt5|checkia|clearmemory|addai|addmetaai)/.test(c)) return 'ia';
+  // Admin extras
+  if (/^(unmute|unadmin|calar|fechar|fechar-grupo|abrir|abrir-grupo|everyone|all|whitelist|wladd|wldel|wllist|definirregras|setregras|regras|avisos|aviso|chamar|clearwarn|verwarns|fakeedit|fakemsg|editarmsg|copiar|copymsg|citar|blacklist|unblacklist|antidemote|antiflood|antifigurinha|antistatus|antidoc|antiloc|antifig|antibtn|antilinkgp|antilinkcanal|antilinkhard|antilinksoft|antiporn|antitoxic|antipalavra|x9|captcha|aceitatodos|proibir|multiprefixo|setbammsg|limparrank|resetrank|mantercontador|blockuser|unblockuser|addblacklist|delblacklist|blockcmd|unblockcmd|automsg|banghost|limitmessage|dellimitmessage|aprovar|recusarsolic|addmod|delmod|grantmodcmd|revokemodcmd|listmods|listmodcmds|listautoadm|autorespostas|raidstatus|solicitacoes|antiraid|capturalink|modoraid|parcerias|addparceria|delparceria|addautoadm|addautoadmidia|delautoadm|autorepo|autodl|minmessage|assistente|modobn|modoparceria|modorpg|modolite|autosticker|cmdlimit|fotomenugrupo|infoperso|legendasaiu|legendabv|fotobv|rmfotobv|fotosaiu|rmfotosaiu|soadm|opengp|closegp|actgp|adv|rmadv|listadv|listamute|listblocksgp|listblacklist|apagar|deletar|delete|del|dam|limpar|marcar|totag|sorteio|nomegp|descgrupo|fotogrupo|addregra|delregra|setdesc|setnomegrupo|add|adicionar|addmembro|tempban|tempkick|advertir|warn|unwarn|warnings|resetwarn|inativos|inatividade|atividade|participantes|jid|getjid|convite|link|linkgp|admins|tagadmins|hidetag|out|sair|leave|bye|setprefix|prefixgrupo|groupprefix|settheme|temagrupo|grouptheme|boasvindas|bv|welcome|goodbye|saida|bemvindo)/.test(c)) return 'admin';
+  // Jogos extras
+  if (/^(coin|dice|d6|dado2|moeda2|ppt2|quiz2|forca2|jogodavelha2|tictactoe2|connect4|uno|memoria|wordle|digitar|batalhanaval|stop|anagrama|dueloquiz|cacapalavras|eununca|vab|chance|quando|sn|cassino|blackjack|slots|crash|apostar|loteria|corrida|leilao|dados|coinflip)/.test(c)) return 'jogos';
+  // Economia/RPG extras
+  if (/^(ficha|explore|explorar2|rg|perfilrpg|rankrg|nome|rankricos|carteira|inv|equipamentos|toprpg|rankglobal|ranklvl|rpgstats|rpgadd|rpgremove|rpgsetlevel|rpgadditem|rpgremoveitem|rpgresetplayer|rpgresetglobal|dep|sacar|pix|loja|comprar|vender|emprego|demitir|investir|sell|topriqueza|diario|caixa|rara|lendaria|presente|lojapremium|comprarpremium|boost|propriedades|cprop|cprops|tributos|meustats|dungeon|class|casa|auction|mercado|listar|cmerc|meusan|cancelar|duelrpg|arena|torneio|assaltar|crime|guerra|forge|enchant|dismantle|reparar|materiais|precos|receitas|ingredientes|sementes|plantacao|vagas|habilidades|desafiosemanal|desafiomensal|meditar|gear|qg|masmorra|bossrpg|eventos|missoes|conquistas|streak|reivindicar|speedup|prestige|evoluir|pescar|fish|coletar|colher|cacar|plantar|cultivar|cook|eat|vendercomida|trabalhar|minerar|work|mine)/.test(c)) return 'economia';
+  // Interações extras
+  if (/^(abraco|beijo|casar|divorciar|namorar|terminar|proteger|baterrpg|adotaruser|deserdar|criarcla|convidar|aceitarconvite|recusarconvite|expulsar|rmconvite|casamento|trair|historicotraicao|brincadeira|namoro|relacionamento|casais|familia|arvore|cla|pets|adotar|feed|train|evolve|petbattle|renamepet|petbet|equippet|unequippet|petnome|treinarpet|lojapet|rep|vote|toprep|denunciar|denuncias)/.test(c)) return 'interacoes';
+  // Texto extras
+  if (/^(cantada|bible|versiculo|filosofo|filosofia2|piada2|charada2|motivacional2|elogio2|reflexao2|fato2|conselho2|conselhobiblico|horoscopo2|cor2|color2|randomcolor|base2|baseconv|encurtar2|short2|curto2|fakequote2|fq2|tagme2|tagme2|mgs2|spoiler|secret|lermais2|upload2|vazar2|renomear2|relevar2|tabela2|conselhos2|getperfil2|getbio2|fazernick2|listaddi2|listaddd2|abv2|bold2|mini2|tiny2|smallcaps2|scaps2|mono2|monospace2|code2|glitch2|zalgo2|calc2|calcular2|math2)/.test(c)) return 'texto';
+  // Search extras
+  if (/^(tikstalk|ttstalk|gitubstalk|stalkinsta|stalkff|anime2|filme2|aptoide|rbxcodes|gethtml|idcanal|cep|cnpj|ip|clima2|google|noticias|apps|dicionario|wikipedia|pesquisar|resumir|notícias)/.test(c)) return 'search';
+  // Logos extras
+  if (/^(blackhzx|blood|cemiterio|ffavatar|lolavatar|pubgavatar|amongus|captain|deadpool|blackpink|thor|stone3d|neon2|graffiti2|harrypotter|neonparty|neonglow|neonmetalic|tiktoktxt|battlefield|pubg|naruto|rainbow|shadowsky|smoke|stars|metal|butterfly|cemetery|flaming|gradient|darkgreen|write|advanced|typography|pixel|flag|americanflag|deleting|pornhub|avengers|captainamerica)/.test(c)) return 'logos';
+  // Info extras
+  if (/^(vip|assinar|myvip|statusbot|statusgp|system|stats|uptime|tempoonline|aiapis|lid|perfilpic|avaliar|suporte|bug|zipbot|gitbot|likeff|infoff|me|dados|meustatus|totalcmd|topcmd|rankativo|rankinativo|rankativos|checkativo|roles|mention|afk|voltei|equipe|subdono|donos|criador|dono|info|perfil|ping)/.test(c)) return 'info';
+  // Audio extras
+  if (/^(8d|8d2|8d3|bass2|bass3|grave2|grave3|reverb2|reverb3|slowed2|slowed3|slowedreverb2|slowedreverb3|chorus2|chorus3|nightcore|vaporwave|hardcore|robot|chipmunk|squirrel|monster|whisper|pitch|deep|echo|stadium|cave|underwater|telephone|radio|lofi|flanger|phaser|tremolo|vibrato|reverse|karaoke|blown|earrape|fat|smooth|fast|slow|menuaudio)/.test(c)) return 'audio';
+  // Owner extras
+  if (/^(cmdsocultos|portal18|themechange|themes|broadcast|send|eval|shell|execcase|testcase|viewcase|listcases|downcase|addcase|removicase|reloadcases|runcase|panel|restart|autodecrypt|prefixos|blackhzx|espiar|antidelete)/.test(c)) return 'owner';
+  return null;
 }
 
 module.exports = {
