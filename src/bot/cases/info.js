@@ -173,3 +173,4 @@ module.exports = function registerInfoCases(registerCase) {
     ].join('\n'));
   });
 };
+
