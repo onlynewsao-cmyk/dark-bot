@@ -138,7 +138,11 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'rank');
   });
   
-    registerCase(['maiscmds', 'menumais'], async ({ sock, msg, ctx, config }) => {
+      registerCase(['submenuRPG', 'menurpg', 'menurpg2'], async ({ sock, msg, ctx, config }) => {
+    return dynSub(sock, msg, ctx, config, 'economia');
+  });
+
+  registerCase(['maiscmds', 'menumais'], async ({ sock, msg, ctx, config }) => {
     return dynSub(sock, msg, ctx, config, 'owner');
   });
 
