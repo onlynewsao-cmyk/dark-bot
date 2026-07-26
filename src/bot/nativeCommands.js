@@ -1134,9 +1134,9 @@ module.exports = {
     const p = localConfig.bot.prefix;
     const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
     const isVip = u && u.isPremium && u.isPremium();
+    const isPrimaryOwner = ctx.senderNumber === String(localConfig.owner.number || '').replace(/\D/g, '');
 
     if (!isVip && !ctx.isOwner) {
-      // Não VIP → mostra mensagem de upgrade no grupo
       const RE = require('./renderEngine');
       const t = await RE.getTheme(ctx.remoteJid);
       return reply(sock, msg, ctx, RE.renderBlock(t, '🔞 MENU +18', [
@@ -1147,51 +1147,76 @@ module.exports = {
       ], { botName: localConfig.bot.name }));
     }
 
-    // VIP ou Dono → envia menu 18+ no PV
-    const pvJid = ctx.senderJid;
     const RE = require('./renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);
-    const menuText = RE.renderBlock(t, '🔞 MENU +18', [
-      '⚠️ *Conteúdo adulto — exclusivo VIP*',
+    const menuText = RE.renderBlock(t, '🔞 PORTAL 18+ COMPLETO', [
+      '⚠️ *Conteúdo adulto — exclusivo VIP/Dono*',
       '',
-      '📸 *IMAGENS*',
-      p + 'hentai [tags] — anime adulto',
-      p + 'ximg [tags] — busca por tags',
+      '📸 *IMAGENS ADULTAS*',
+      p + 'hentai [tags] — anime adulto aleatório',
+      p + 'ximg [tags] — busca por tags específicas',
       p + 'adultsearch [t] — busca multi-fonte',
+      p + 'nekos — nekos.life aleatório',
+      p + 'yande [tags] — yande.re alta qualidade',
+      p + 'kona [tags] — konachan.com',
+      p + 'e621 [tags] — e621.net',
       '',
       '🎬 *VÍDEOS*',
-      p + 'xvideo [termo] — busca vídeo',
+      p + 'xvideo [termo] — busca vídeo adulto',
+      p + 'xvideodl <url> — download directo',
       '',
-      '💬 *CHAT HOT*',
+      '💬 *CHAT HOT COM IA*',
       p + 'hotchat [tema] — chat sensual',
       p + 'hotchat [t] picante — mais ousado',
-      p + 'hotchat [t] conto — conto 18+',
+      p + 'hotchat [t] conto — conto erótico',
+      p + 'hotchat [t] conversa — flerte',
+      p + 'hotchat [t] roleplay — roleplay',
+      p + 'hotchat [t] fantasia — fantasia',
       '',
-      '📚 *LIVROS*',
+      '📚 *LIVROS & CONTEÚDO*',
       p + 'buscalivro [nome] — busca livros',
-      p + 'livros18 — top 18+',
+      p + 'livros18 — top livros 18+',
+      p + 'livro <id> — link de download',
       '',
-      '⚙️ *CONTROLO*',
-      p + 'adultmode on/off — liga/desliga',
+      '🎭 *FIGURINHAS 18+*',
+      p + 'fig18 [tags] — sticker adulto',
+      p + 'pack18 [tags] — pack de stickers 18+',
+      '',
+      '⚙️ *CONTROLO (só Dono)*',
+      p + 'adultmode on/off — liga/desliga portal',
+      p + 'adultapi <url> — configura API vídeo',
+      '',
+      '📊 *ESTATÍSTICAS*',
+      p + 'adultstats — uso do portal',
       '',
       '> 🔞 Conteúdo enviado no PV por segurança',
     ], { botName: localConfig.bot.name });
 
-    // Envia no PV
-    try {
-      await sock.sendMessage(pvJid, { text: menuText });
-      // Confirma no grupo
+    // PV robusto: tenta múltiplos formatos de JID
+    const pvJids = [
+      ctx.senderJid,
+      ctx.senderNumber + '@s.whatsapp.net',
+      ctx.senderNumber.replace(/\D/g, '') + '@s.whatsapp.net',
+    ];
+
+    let pvSent = false;
+    for (const jid of pvJids) {
+      try {
+        await sock.sendMessage(jid, { text: menuText });
+        pvSent = true;
+        break;
+      } catch {}
+    }
+
+    if (pvSent) {
       await sock.sendMessage(ctx.remoteJid, {
-        text: '🔞 *Menu 18+ enviado no teu PV!*',
+        text: '🔞 *Menu 18+ enviado no teu PV!*\n📬 Verifica as tuas mensagens privadas.',
         mentions: [ctx.senderJid],
       }, { quoted: msg });
-    } catch (e) {
-      // Se falhar PV, envia no grupo (só se for dono)
-      if (ctx.isOwner) {
-        await reply(sock, msg, ctx, menuText);
-      } else {
-        await reply(sock, msg, ctx, '❌ Não consegui enviar no PV. Abre o chat comigo primeiro!');
-      }
+    } else if (isPrimaryOwner) {
+      await reply(sock, msg, ctx, menuText);
+    } else {
+      await reply(sock, msg, ctx, '❌ Não consegui enviar no PV.\n💡 Abre o chat comigo primeiro e tenta de novo!');
     }
   },
 

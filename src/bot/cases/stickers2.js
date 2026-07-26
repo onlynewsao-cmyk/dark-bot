@@ -98,35 +98,52 @@ module.exports = function registerStickers2(registerCase) {
     }
   }, true);
 
-  // ═══ BRAT2 (texto animado — verde brat style) ═══
+  // ═══ BRAT2 (typewriter — letra por letra animado) ═══
   registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
-    const text = args.join(' ').trim() || 'brat';
+    const text = (args.join(' ').trim() || 'brat').toUpperCase().slice(0, 15);
     try {
       const sharp = require('sharp');
       const fontSize = text.length > 10 ? 48 : text.length > 6 ? 64 : 80;
-      const offsets = [{x:0,y:0}, {x:3,y:2}, {x:-2,y:3}, {x:2,y:-2}];
+      // Typewriter: cada frame adiciona uma letra
       const frames = [];
-      for (const off of offsets) {
+      for (let i = 1; i <= text.length; i++) {
+        const partial = text.slice(0, i);
+        const cursor = i < text.length ? '|' : '';
         const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
           '<rect width="512" height="512" fill="#84CC16"/>' +
-          '<text x="' + (256 + off.x) + '" y="' + (256 + off.y) + '" text-anchor="middle" dominant-baseline="middle" ' +
+          '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
           'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
-          'font-weight="900" fill="black" opacity="0.8">' +
-          text.slice(0, 20).toUpperCase() + '</text></svg>';
+          'font-weight="900" fill="black" opacity="0.85">' +
+          partial + cursor + '</text></svg>';
         const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
         frames.push(png);
       }
-      // WebP animado
+      // Adicionar 2 frames finais com texto completo (pausa)
+      const finalSvg = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
+        '<rect width="512" height="512" fill="#84CC16"/>' +
+        '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
+        'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
+        'font-weight="900" fill="black" opacity="0.85">' +
+        text + '</text></svg>';
+      const finalPng = await sharp(Buffer.from(finalSvg)).png().toBuffer();
+      frames.push(finalPng, finalPng);
+
+      // Criar WebP animado com delays variados
+      const delays = [];
+      for (let i = 0; i < frames.length; i++) {
+        delays.push(i < text.length ? 120 : 500); // 120ms por letra, 500ms pausa final
+      }
+
       let finalBuf;
       try {
         finalBuf = await sharp(frames[0], { animated: true })
-          .webp({ quality: 70, loop: 0, delay: [150, 100, 120, 80] })
+          .webp({ quality: 70, loop: 0, delay: delays })
           .toBuffer();
       } catch {
-        // Fallback estático com fundo verde
-        finalBuf = frames[0];
+        finalBuf = finalPng; // fallback estático
       }
+
       const stk = await stickerMaker.create(finalBuf, {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: true,
