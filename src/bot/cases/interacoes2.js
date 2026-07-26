@@ -8,6 +8,38 @@ const config = require('../../config');
 const R = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const P = a => a[Math.floor(Math.random() * a.length)];
 
+// ── GIFs para interações (Tenor fallback + URLs directas) ──
+const INTERACTION_GIFS = {
+  soco: ['https://media.tenor.com/images/8b88e0e0e0e0e0e0e0e0e0e0e0e0e0e0/tenor.gif'],
+  beijar: ['https://media.tenor.com/images/kiss-anime.gif'],
+  abracar: ['https://media.tenor.com/images/hug-anime.gif'],
+  tapa: ['https://media.tenor.com/images/slap-anime.gif'],
+  morder: ['https://media.tenor.com/images/bite-anime.gif'],
+  lamber: ['https://media.tenor.com/images/lick-anime.gif'],
+  dancar: ['https://media.tenor.com/images/dance-anime.gif'],
+  cafune: ['https://media.tenor.com/images/pat-anime.gif'],
+  explodir: ['https://media.tenor.com/images/explosion-anime.gif'],
+  matar: ['https://media.tenor.com/images/kill-anime.gif'],
+  proteger: ['https://media.tenor.com/images/protect-anime.gif'],
+  baterrpg: ['https://media.tenor.com/images/sword-fight-anime.gif'],
+};
+
+async function getInteractionGif(action) {
+  // Tentar Tenor API primeiro
+  if (config.tenorApiKey) {
+    try {
+      const axios = require('axios');
+      const r = await axios.get('https://tenor.googleapis.com/v2/search?q=' + encodeURIComponent(action + ' anime') + '&key=' + config.tenorApiKey + '&limit=1&media_filter=gif', { timeout: 5000 });
+      const url = r.data?.results?.[0]?.media_formats?.gif?.url;
+      if (url) return url;
+    } catch {}
+  }
+  // Fallback: URL directa
+  const gifs = INTERACTION_GIFS[action] || INTERACTION_GIFS[action.replace(/r$/, '')];
+  return gifs ? gifs[0] : null;
+}
+
+
 // ── Cache de relacionamentos, famílias, clãs, pets ──
 const _rels = new Map();     // senderNumber → { partner, status, marriedAt }
 const _families = new Map(); // senderNumber → { parent, children: [] }

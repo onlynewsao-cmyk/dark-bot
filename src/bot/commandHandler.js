@@ -305,6 +305,29 @@ async function handle(sock, msg) {
   ctx.isOwner = isOwner;
   ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
 
+  // v6.37: Regras de resposta por tipo de grupo
+  // Grupo COM aluguel activo → responde a TODOS
+  // Grupo SEM aluguel → só dono, subdono, VIP
+  // Free sem trial → silêncio total
+  if (ctx.isGroup && !isOwner) {
+    const GroupSettings = require('../database/models/GroupSettings');
+    const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
+    const hasRental = gs?.isHosted && (!gs.hostedUntil || new Date(gs.hostedUntil) > new Date());
+    const hasTrial = gs?.trialExpiresAt && new Date(gs.trialExpiresAt) > new Date();
+    
+    if (!hasRental && !hasTrial) {
+      // Sem aluguel nem trial → só VIP responde
+      const uCheck = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
+      const isVipCheck = uCheck && uCheck.isPremium && uCheck.isPremium();
+      if (!isVipCheck) return false; // silêncio para free
+    }
+    // Trial activo → verifica limite de 500 cmds
+    if (hasTrial && !hasRental) {
+      const cmdsToday = gs?.commandsUsedToday || 0;
+      if (cmdsToday >= 500) return false; // limite atingido
+    }
+  }
+
   if ((blacklist.includes(ctx.senderNumber) || (Array.isArray(disabledUsers) && disabledUsers.map(String).includes(ctx.senderNumber))) && !isOwner) return false;
   if (ctx.isGroup && Array.isArray(disabledGroups) && disabledGroups.includes(ctx.remoteJid) && !isOwner) return false;
 
@@ -783,6 +806,9 @@ async function handle(sock, msg) {
 
 
   const args = prefixInfo.rest.split(/\s+/);
+  // v6.37: prefixo deve estar COLADO ao comando (.play ✅, . play ❌)
+  const rawFirst = (args[0] || '');
+  if (rawFirst.startsWith(' ') || rawFirst === '') return false;
   const commandName = (args.shift() || '').replace(/^[^a-z0-9]+/i, '').toLowerCase();
   if (!commandName) return false;
 
