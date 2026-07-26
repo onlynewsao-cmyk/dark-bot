@@ -2340,6 +2340,8 @@ module.exports = {
     await react(sock, msg, t.react || '⏳');
     const packName = `📌 ${query.slice(0, 20)}`;
     const packAuthor = `${localConfig.bot.name} • ${ctx.pushName}`;
+    // UM pack ID para TODOS os stickers → WhatsApp agrupa como pack NATIVO
+    const packId = 'darkbot-pack-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 
     const progMsg = await sock.sendMessage(ctx.remoteJid, {
       text: RE.renderBlock(t, 'PINPACKS', [`Pack: *${query}*`, '⏳ A buscar imagens...'], { botName: localConfig.bot.name }),
@@ -2377,15 +2379,15 @@ module.exports = {
             packName, authorName: packAuthor,
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName, groupName: ctx.groupName || 'Pack', isVideo: false,
+            packId, // ← MESMO ID para todos → pack NATIVO
           });
           if (stk && stk.length > 50) {
             stickers.push(stk);
             if (thumbBufs.length < 4) thumbBufs.push(imgBuf);
           }
         } catch {}
-        // Barra de progresso visual (a cada 3 stickers ou no último)
+        // Barra de progresso visual
         if ((i + 1) % 3 === 0 || i === total - 1) {
-          const done = stickers.length;
           const pct = Math.round(((i + 1) / total) * 100);
           const filled = Math.round(pct / 5);
           const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
@@ -2400,53 +2402,35 @@ module.exports = {
       }
       if (!stickers.length) throw new Error('Nenhuma imagem convertida.');
 
-      // Collage 2x2
-      let collageBuf = null;
-      try {
-        const sharp = require('sharp');
-        const sz = 256;
-        const thumbs = await Promise.all(thumbBufs.slice(0, 4).map(buf => sharp(buf).resize(sz, sz, { fit: 'cover' }).toBuffer()));
-        while (thumbs.length < 4) thumbs.push(await sharp({ create: { width: sz, height: sz, channels: 4, background: { r: 40, g: 40, b: 40, alpha: 1 } } }).png().toBuffer());
-        collageBuf = await sharp({ create: { width: sz * 2, height: sz * 2, channels: 4, background: { r: 30, g: 30, b: 30, alpha: 1 } } })
-          .composite([{ input: thumbs[0], left: 0, top: 0 }, { input: thumbs[1], left: sz, top: 0 }, { input: thumbs[2], left: 0, top: sz }, { input: thumbs[3], left: sz, top: sz }])
-          .jpeg({ quality: 80 }).toBuffer();
-      } catch {}
-
-      // Cache
-      const packId = 'pk_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      // Cache para takepack
       _packCache.set(packId, { stickers, info: { name: packName, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
 
-      // Card interativo com preview
-      const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@systemzero/baileys');
-      let headerMedia = null;
-      if (collageBuf) {
-        try { const media = await prepareWAMessageMedia({ image: collageBuf }, { upload: sock.waUploadToServer }); headerMedia = media?.imageMessage; } catch {}
+      // Enviar TODOS os stickers (sem delay — WhatsApp agrupa pelo packId)
+      for (let i = 0; i < stickers.length; i++) {
+        await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
       }
 
-      const cardBody = `📦 *Pack:* ${packName}\n🤖 *Bot:* ${localConfig.bot.name}\n👥 *Grupo:* ${ctx.groupName || 'PV'}\n🎨 *Stickers:* ${stickers.length}\n👤 *Autor:* ${ctx.pushName}`;
-      const cardFooter = `${t.icon || '🕸️'} ${localConfig.bot.name}`;
+      // Mensagem final SIMPLES — o botão "Ver pacote de figurinhas"
+      // aparece NATIVAMENTE no WhatsApp quando o utilizador toca num sticker
+      await sock.sendMessage(ctx.remoteJid, {
+        text: RE.renderBlock(t, 'PINPACKS', [
+          '✅ Pack de "' + query + '"',
+          'enviado com ' + stickers.length + ' figurinha(s)!',
+          '',
+          '📦 Pack: *' + localConfig.bot.name + '*',
+          '👤 Autor: *' + ctx.pushName + '*',
+          '👥 Grupo: *' + (ctx.groupName || '') + '*',
+          '',
+          '> Toca num sticker para ver o pack completo!',
+        ], { botName: localConfig.bot.name }),
+      }, { quoted: msg });
 
-      const msgContent = {
-        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-          header: headerMedia
-            ? proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: true, imageMessage: headerMedia })
-            : proto.Message.InteractiveMessage.Header.fromObject({ hasMediaAttachment: false, title: '📦 ' + packName }),
-          body: proto.Message.InteractiveMessage.Body.fromObject({ text: cardBody }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: cardFooter }),
-          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-            buttons: [{ name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📦 Ver pacote de figurinhas', id: pfx + 'takepack ' + packId }) }],
-          }),
-        }),
-      };
-
-      const finalMsg = generateWAMessageFromContent(ctx.remoteJid, msgContent, { userJid: sock.user?.id, quoted: msg });
-      await sock.relayMessage(ctx.remoteJid, finalMsg.message, {
-        messageId: finalMsg.key.id,
-        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{ tag: 'interactive', attrs: { type: 'native_flow', v: '1' }, content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }] }] }],
-      });
       await react(sock, msg, t.react || '✅');
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, 'ERRO', ['❌ ' + e.message], { botName: localConfig.bot.name }), edit: progMsg.key });
+      await sock.sendMessage(ctx.remoteJid, {
+        text: RE.renderBlock(t, 'ERRO', ['❌ ' + e.message], { botName: localConfig.bot.name }),
+        edit: progMsg.key,
+      });
       await react(sock, msg, '❌');
     }
   },

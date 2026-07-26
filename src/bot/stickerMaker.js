@@ -138,7 +138,7 @@ async function imageToWebpSquare(buffer, watermarkText = '') {
 }
 
 /* ─── Injeta metadados via Sticker (pack/author) ─────────────── */
-async function injectMeta(webpBuf, pack, author) {
+async function injectMeta(webpBuf, pack, author, packId) {
   // Usa wa-sticker-formatter apenas para injetar metadados no WebP
   // type: FULL = não redimensiona (já está 512x512 e correcto)
   const stk = new Sticker(webpBuf, {
@@ -146,7 +146,7 @@ async function injectMeta(webpBuf, pack, author) {
     author,
     type: StickerTypes.FULL,
     quality: 100,   // sem recompressão — já está optimizado
-    id: `darkbot-${Date.now()}`,
+    id: packId || `darkbot-${Date.now()}`,
     categories: ['🤖'],
   });
   return stk.toBuffer();
@@ -164,7 +164,7 @@ async function injectMeta(webpBuf, pack, author) {
  * @param {string} opts.groupName
  * @param {boolean} opts.isVideo  - true se for vídeo/GIF
  */
-async function create(buffer, { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false }) {
+async function create(buffer, { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId = null }) {
   const pack   = packName || `${botName} • ${ownerName}`;
   const author = authorName || `${userName} | ${groupName || 'PV'}`;
 
@@ -293,7 +293,7 @@ async function createFull(buffer, { botName, ownerName, userName, groupName, isV
   if ((isGif || isVid) && FFMPEG_OK) {
     try {
       const webp = videoToWebpFull(buffer);
-      const out = await injectMeta(webp, pack, author);
+      const out = await injectMeta(webp, pack, author, packId);
       if (out && out.length > 200) return out;
     } catch (e) {}
   }
