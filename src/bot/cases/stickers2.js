@@ -70,26 +70,67 @@ module.exports = function registerStickers2(registerCase) {
     }, true);
   }
 
-  // ═══ BRAT (sticker com texto "brat") ═══
-  registerCase(['brat', 'brat2'], async ({ sock, msg, ctx, args }) => {
+  // ═══ BRAT (texto em fundo branco — estático) ═══
+  registerCase(['brat'], async ({ sock, msg, ctx, args }) => {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const text = args.join(' ').trim() || 'brat';
-    const buf = await getImageBuffer(msg);
-    if (!buf) return sock.sendMessage(ctx.remoteJid, { text: '📸 Envie ou marque uma imagem!' }, { quoted: msg });
     try {
       const sharp = require('sharp');
-      // Adicionar overlay verde "brat"
-      const img = sharp(buf).resize(512, 512, { fit: 'cover' });
-      const metadata = await img.metadata();
-      const svgOverlay = Buffer.from(`<svg width="${metadata.width}" height="${metadata.height}">
-        <rect width="100%" height="100%" fill="rgba(132,204,22,0.7)"/>
-        <text x="50%" y="50%" font-family="Arial" font-size="80" font-weight="bold" fill="black" text-anchor="middle" dominant-baseline="middle">${text.slice(0, 15)}</text>
-      </svg>`);
-      const composited = await img.composite([{ input: svgOverlay }]).webp({ quality: 80 }).toBuffer();
-      const stk = await stickerMaker.create(composited, {
+      const fontSize = text.length > 10 ? 48 : text.length > 6 ? 64 : 80;
+      const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
+        '<rect width="512" height="512" fill="white"/>' +
+        '<defs><filter id="blur"><feGaussianBlur stdDeviation="1.5"/></filter></defs>' +
+        '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
+        'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
+        'font-weight="900" fill="black" opacity="0.85" filter="url(#blur)">' +
+        text.slice(0, 20).toUpperCase() + '</text></svg>';
+      const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
+      const stk = await stickerMaker.create(png, {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
         packName: ' brat', authorName: ctx.pushName,
+      });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) {
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      return sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
+    }
+  }, true);
+
+  // ═══ BRAT2 (texto animado — verde brat style) ═══
+  registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    const text = args.join(' ').trim() || 'brat';
+    try {
+      const sharp = require('sharp');
+      const fontSize = text.length > 10 ? 48 : text.length > 6 ? 64 : 80;
+      const offsets = [{x:0,y:0}, {x:3,y:2}, {x:-2,y:3}, {x:2,y:-2}];
+      const frames = [];
+      for (const off of offsets) {
+        const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
+          '<rect width="512" height="512" fill="#84CC16"/>' +
+          '<text x="' + (256 + off.x) + '" y="' + (256 + off.y) + '" text-anchor="middle" dominant-baseline="middle" ' +
+          'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
+          'font-weight="900" fill="black" opacity="0.8">' +
+          text.slice(0, 20).toUpperCase() + '</text></svg>';
+        const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
+        frames.push(png);
+      }
+      // WebP animado
+      let finalBuf;
+      try {
+        finalBuf = await sharp(frames[0], { animated: true })
+          .webp({ quality: 70, loop: 0, delay: [150, 100, 120, 80] })
+          .toBuffer();
+      } catch {
+        // Fallback estático com fundo verde
+        finalBuf = frames[0];
+      }
+      const stk = await stickerMaker.create(finalBuf, {
+        botName: config.bot.name, ownerName: config.owner.name,
+        userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: true,
+        packName: ' brat2', authorName: ctx.pushName,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
