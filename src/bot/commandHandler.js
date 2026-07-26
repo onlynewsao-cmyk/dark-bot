@@ -775,6 +775,8 @@ async function handle(sock, msg) {
   );
 
   const replyHasText = isReplyToBot && text.length > 0;
+  const replyHasMedia = isReplyToBot && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
+  const mentionedWithMedia = isBotMentioned && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage);
 
   const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
@@ -782,11 +784,12 @@ async function handle(sock, msg) {
   // ════════════════════════════════════════════════════════════════════════
   // AURA RESPONDE — com personalidade completa, memória, emoções
   // ════════════════════════════════════════════════════════════════════════
-  if (aiActive && (isBotMentioned || replyHasText || isAuraTrigger)) {
+  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || isAuraTrigger)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
-      if (!isReplyToBot && !isAuraTrigger && cleanText.length < 2) return false;
+      const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
+      if (!isReplyToBot && !isAuraTrigger && cleanText.length < 2 && !hasMedia) return false;
 
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
@@ -837,6 +840,34 @@ async function handle(sock, msg) {
         await mem.save().catch(() => {});
       } catch {}
 
+      // Contexto de mídia — a Aura vê/ouve tudo
+      let mediaContext = '';
+      let isAudio = false, isImage = false, isVideo = false;
+      const msgObj = msg.message;
+      if (msgObj?.imageMessage) {
+        isImage = true;
+        const caption = msgObj.imageMessage.caption || '';
+        mediaContext = `📸 Alguém enviou uma FOTO.${caption ? ` Legenda: "${caption}"` : ''} Comenta sobre ela como pessoa real.`;
+      } else if (msgObj?.videoMessage) {
+        isVideo = true;
+        const caption = msgObj.videoMessage.caption || '';
+        const isGif = msgObj.videoMessage.gifPlayback;
+        mediaContext = isGif
+          ? `🎞️ Alguém enviou um GIF. Reage naturalmente.`
+          : `🎬 Alguém enviou um VÍDEO.${caption ? ` Legenda: "${caption}"` : ''} Comenta como pessoa real.`;
+      } else if (msgObj?.audioMessage || msgObj?.documentMessage?.mimetype?.startsWith('audio')) {
+        isAudio = true;
+        const isPtt = msgObj.audioMessage?.ptt;
+        mediaContext = isPtt
+          ? `🎧 Alguém enviou um ÁUDIO DE VOZ. Ouve e responde ao que foi dito.`
+          : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
+      } else if (msgObj?.stickerMessage) {
+        mediaContext = `🎨 Alguém enviou um STICKER. Reage naturalmente — podes achar engraçado, estranho, lindo, etc.`;
+      } else if (msgObj?.documentMessage) {
+        const fname = msgObj.documentMessage.fileName || 'arquivo';
+        mediaContext = `📄 Alguém enviou um DOCUMENTO: ${fname}. Comenta se relevante.`;
+      }
+
       // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
       const answer = await aura.auraRespond(prompt, {
         isOwner,
@@ -850,6 +881,10 @@ async function handle(sock, msg) {
         isReplyToAura: isReplyToBot,
         darkAttacked,
         darkMentioned,
+        mediaContext,
+        isAudio,
+        isImage,
+        isVideo,
       });
 
       // Salva resposta na memória
