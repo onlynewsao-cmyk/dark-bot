@@ -133,7 +133,7 @@ function categorize(cmd) {
     tikstalk:'search', ttstalk:'search',
     blackhzx:'logos', blood:'logos', cemiterio:'logos', ffavatar:'logos',
     themechange:'owner', themes:'owner',
-    texto:'texto', textosticker:'stickers', inveja:'zoeira',invejosa:'zoeira',invejoso:'zoeira',invisible:'admin',invite:'admin',pixel:'logos',casal:'interacoes',casamento:'interacoes',nome:'economia',rg:'economia',ficha:'economia', imagem:'ia', stickers:'info', legendasaiu:'admin', legendabv:'admin', textsticker:'stickers', txtsticker:'stickers',
+    texto:'texto', textosticker:'stickers', fight:'jogos',advanced:'logos',deleting:'logos',emprego:'economia',deepai:'ia',deepsearch:'search',menuaudio:'info', inveja:'zoeira',invejosa:'zoeira',invejoso:'zoeira',invisible:'admin',invite:'admin',pixel:'logos',casal:'interacoes',casamento:'interacoes',nome:'economia',rg:'economia',ficha:'economia', imagem:'ia', stickers:'info', legendasaiu:'admin', legendabv:'admin', textsticker:'stickers', txtsticker:'stickers',
     baixaraudio:'downloads', baixarvideo:'downloads',
     dlmp3:'downloads', dlmp4:'downloads', ytmp3:'downloads', ytmp4:'downloads',
     ytaudio:'downloads', ytplay4:'downloads', fhd:'downloads', vid:'downloads', vid2:'downloads',
