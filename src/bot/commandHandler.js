@@ -895,7 +895,60 @@ async function handle(sock, msg) {
       } catch {}
 
       // Responde como pessoa real — sem emojis de bot
-      await sock.sendMessage(ctx.remoteJid, { text: answer }, { quoted: msg });
+      // ⚡ Parser de acções da Aura: [STICKER:xxx], [IMAGE:xxx], [CMD:xxx]
+      let finalAnswer = answer;
+      const actionSticker = finalAnswer.match(/\[STICKER:([^\]]+)\]/);
+      const actionImage = finalAnswer.match(/\[IMAGE:([^\]]+)\]/);
+      const actionCmd = finalAnswer.match(/\[CMD:([^\]]+)\]/);
+      
+      // Remove os marcadores do texto visível
+      finalAnswer = finalAnswer.replace(/\[STICKER:[^\]]+\]/g, '').replace(/\[IMAGE:[^\]]+\]/g, '').replace(/\[CMD:[^\]]+\]/g, '').trim();
+      
+      // Envia o texto (se houver)
+      if (finalAnswer.length > 0) {
+        await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg });
+      }
+      
+      // Executa acções de mídia (sem bloquear se falhar)
+      if (actionSticker) {
+        try {
+          const ai2 = require('./ai');
+          const desc = actionSticker[1].trim();
+          const imgBuf = await ai2.generateImage(desc + ', sticker style, white background, cute anime style');
+          if (imgBuf && imgBuf.length > 100) {
+            const stk = await stickerMaker.create(imgBuf, {
+              botName: config.bot.name, ownerName: config.owner.name,
+              userName: 'Aura', groupName: ctx.groupName || 'PV', isVideo: false,
+            });
+            if (stk && stk.length > 50) {
+              await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+            }
+          }
+        } catch (e) { /* silêncio — não quebra o fluxo */ }
+      }
+      
+      if (actionImage) {
+        try {
+          const ai2 = require('./ai');
+          const desc = actionImage[1].trim();
+          const imgBuf = await ai2.generateImage(desc);
+          if (imgBuf && imgBuf.length > 100) {
+            await sock.sendMessage(ctx.remoteJid, { image: imgBuf, caption: '' }, { quoted: msg });
+          }
+        } catch (e) { /* silêncio */ }
+      }
+      
+      if (actionCmd && isOwner) {
+        // Só o Dark pode fazer a Aura executar comandos via [CMD:]
+        try {
+          const cmdText = actionCmd[1].trim();
+          const [cmdName, ...cmdArgs] = cmdText.split(/\s+/);
+          const fakeCtx = { ...ctx, args: cmdArgs, prefix: config.bot.prefix || '.' };
+          const caseCtx = { sock, msg, ctx: fakeCtx, args: cmdArgs, text: cmdArgs.join(' '), prefix: fakeCtx.prefix, command: cmdName.toLowerCase(), isOwner: true, config: commandConfig };
+          await caseHandler.runCase(cmdName.toLowerCase(), caseCtx);
+        } catch (e) { /* silêncio */ }
+      }
+      
       return true;
 
     } catch (e) {
