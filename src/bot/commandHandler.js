@@ -783,13 +783,14 @@ async function handle(sock, msg) {
 
 
   const args = prefixInfo.rest.split(/\s+/);
-  const commandName = args.shift().toLowerCase();
+  const commandName = (args.shift() || '').replace(/^[^a-z0-9]+/i, '').toLowerCase();
   if (!commandName) return false;
 
   ctx.fullText = text; // Adiciona o texto completo ao contexto
   ctx.args = args;
 
   const aliasMap = {
+    bater: 'baterrpg',
     help: 'menu', cmds: 'menu', comandos: 'menu', menubtn: 'menu', menup: 'menu',
     s: 'sticker', fig: 'sticker', owner: 'dono', bot: 'info', portal18: 'cmdsocultos', ocultos: 'cmdsocultos', hidden: 'cmdsocultos', adultvid: 'adultvideo', adultmp4: 'adultvideo',
     yt: 'play', musica: 'play', music: 'play', ptv: 'statusvideo', videostatus: 'statusvideo', circular: 'statusvideo', statusvideo: 'statusvideo',
@@ -1043,8 +1044,8 @@ async function handle(sock, msg) {
           // v5.3: personalidade do change determina o tom da sugestão
           const { formatResponse } = require('./botPersonality');
           const _theme = await require('./themeResolver').getThemeForContext(ctx.remoteJid).catch(() => null);
-          const _sugLine = formatResponse(_theme, correctCmd, 'suggestion', { ...ctx, prefix: primaryPrefix });
-          const _errLine = formatResponse(_theme, `${prefix}${commandName}`, 'error', ctx);
+          const _sugLine = formatResponse(_theme, suggestion, 'suggestion', { ...ctx, prefix: primaryPrefix });
+          const _errLine = formatResponse(_theme, commandName, 'error', ctx);
           const warnText = `${_errLine}\n\n${_sugLine}`;
           try {
             const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
