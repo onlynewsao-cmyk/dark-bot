@@ -869,23 +869,55 @@ async function handle(sock, msg) {
       }
 
       // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
-      const answer = await aura.auraRespond(prompt, {
-        isOwner,
-        isVip,
-        pushName: ctx.pushName,
-        senderNumber: ctx.senderNumber,
-        isGroup: ctx.isGroup,
-        groupName: ctx.groupName,
-        groupContext,
-        historyArray,
-        isReplyToAura: isReplyToBot,
-        darkAttacked,
-        darkMentioned,
-        mediaContext,
-        isAudio,
-        isImage,
-        isVideo,
+      // Construir system prompt da Aura (necessário para vision)
+      const auraModule = require('./auraPersonality');
+      const personMem = ctx.senderNumber ? auraModule.recallPerson(ctx.senderNumber) : null;
+      const userCountry = ctx.senderNumber ? auraModule.detectCountry(ctx.senderNumber) : null;
+      const systemPrompt = auraModule.buildAuraSystemPrompt({
+        isOwner, isVip, userName: ctx.pushName, userGender: personMem?.gender,
+        userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
+        groupContext, conversationHistory: '', personMemory: personMem,
+        isPrivateChat: !ctx.isGroup, isReplyToAura: isReplyToBot,
+        darkAttacked, darkMentioned, mood: auraModule.getMood().mood,
+        userCountry, mediaContext, isAudio, isImage, isVideo,
       });
+      
+      // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
+      let answer;
+      if (isImage && msg.message?.imageMessage) {
+        try {
+          const { downloadMediaMessage } = require('@systemzero/baileys');
+          const imgBuf = await downloadMediaMessage(msg, 'buffer', {});
+          if (imgBuf && imgBuf.length > 500) {
+            const aiMod = require('./ai');
+            const visionPrompt = prompt + '\n\n[Tu ESTÁS a ver a imagem agora. Analisa-a e responde naturalmente como pessoa real. Se te perguntaram quem é na foto, identifica. Se é uma selfie, comenta. Se é um meme, ri. NUNCA digas "não tem foto" — tu ESTÁS a ver!]';
+            answer = await aiMod.chatWithImage(visionPrompt, systemPrompt, imgBuf);
+          }
+        } catch (e) {
+          console.warn('[Aura Vision]', e.message?.slice(0, 60));
+        }
+      }
+      
+      // Se não há imagem ou vision falhou → usa chat normal
+      if (!answer) {
+        answer = await aura.auraRespond(prompt, {
+          isOwner,
+          isVip,
+          pushName: ctx.pushName,
+          senderNumber: ctx.senderNumber,
+          isGroup: ctx.isGroup,
+          groupName: ctx.groupName,
+          groupContext,
+          historyArray,
+          isReplyToAura: isReplyToBot,
+          darkAttacked,
+          darkMentioned,
+          mediaContext,
+          isAudio,
+          isImage,
+          isVideo,
+        });
+      }
 
       // Salva resposta na memória
       try {

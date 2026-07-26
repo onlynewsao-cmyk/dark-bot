@@ -435,12 +435,112 @@ async function generateImage(prompt) {
 }
 
 // ─────────────────────────────────────────────
+// VISÃO — Gemini Vision (analisa imagens reais)
+// ─────────────────────────────────────────────
+/**
+ * Analisa uma imagem usando Gemini Vision.
+ * @param {Buffer} imageBuffer — buffer da imagem
+ * @param {string} question — pergunta sobre a imagem (ex: "quem é esta pessoa?")
+ * @returns {string} descrição/resposta da IA
+ */
+async function describeImage(imageBuffer, question = 'Descreve esta imagem em detalhe. Se houver pessoas, identifica-as se possível.') {
+  if (!config.ai.geminiApiKey) throw new Error('sem chave Gemini');
+  if (!imageBuffer || imageBuffer.length < 100) throw new Error('imagem vazia');
+  
+  // Detecta mime type
+  const header = imageBuffer.slice(0, 12);
+  let mimeType = 'image/jpeg';
+  if (header[0] === 0x89 && header[1] === 0x50) mimeType = 'image/png';
+  else if (header[0] === 0x47 && header[1] === 0x49) mimeType = 'image/gif';
+  else if (header[0] === 0x52 && header[1] === 0x49) mimeType = 'image/webp';
+  
+  const base64 = imageBuffer.toString('base64');
+  
+  const body = {
+    contents: [{
+      parts: [
+        { text: question },
+        { inlineData: { mimeType, data: base64 } },
+      ],
+    }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
+  };
+  
+  // Tenta Gemini 2.5-flash (suporta visão)
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  for (const model of models) {
+    try {
+      const data = await withTimeout(
+        post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
+          body
+        ),
+        15000
+      );
+      const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+      if (out) return out;
+    } catch (e) {
+      if (/401|invalid/i.test(e.message)) break;
+    }
+  }
+  throw new Error('Gemini Vision falhou');
+}
+
+/**
+ * Chat com imagem — envia texto + imagem para o Gemini Vision
+ * e retorna a resposta da IA com a personalidade/system prompt
+ */
+async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {}) {
+  if (!config.ai.geminiApiKey) throw new Error('sem chave Gemini');
+  if (!imageBuffer || imageBuffer.length < 100) throw new Error('imagem vazia');
+  
+  const header = imageBuffer.slice(0, 12);
+  let mimeType = 'image/jpeg';
+  if (header[0] === 0x89 && header[1] === 0x50) mimeType = 'image/png';
+  else if (header[0] === 0x47 && header[1] === 0x49) mimeType = 'image/gif';
+  else if (header[0] === 0x52 && header[1] === 0x49) mimeType = 'image/webp';
+  
+  const base64 = imageBuffer.toString('base64');
+  
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType, data: base64 } },
+      ],
+    }],
+    generationConfig: { temperature: 0.8, maxOutputTokens: 800 },
+  };
+  
+  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  for (const model of models) {
+    try {
+      const data = await withTimeout(
+        post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
+          body
+        ),
+        15000
+      );
+      const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+      if (out) return out;
+    } catch (e) {
+      if (/401|invalid/i.test(e.message)) break;
+    }
+  }
+  throw new Error('Gemini Vision chat falhou');
+}
+
+// ─────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────
 module.exports = {
   chat,
   chatGroq,
   chatGemini,
+  chatWithImage,
+  describeImage,
   generateImage,
   getWebContext,
   getPrettyNewsDigest,
