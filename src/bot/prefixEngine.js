@@ -31,15 +31,15 @@ const config = require('../config');
 const BotConfig = require('../database/models/BotConfig');
 const GroupSettings = require('../database/models/GroupSettings');
 const { mongoose } = require('../database/connection');
-const perf = require('./performance');
 
 function _dbUp() { return mongoose.connection.readyState === 1; }
 
-// ── Cache ULTRA-RÁPIDO (usa performance engine) ────────────────
-const groupPrefixCache = perf.caches.prefixes;
+// ── Cache ────────────────────────────────────────────────
 let _globalCache = null;
 let _globalTs = 0;
+const groupPrefixCache = new Map(); // groupJid → { prefix, ts }
 const TTL_GLOBAL = 30_000;
+const TTL_GROUP = 60_000;
 
 // Símbolos comuns que as pessoas usam como prefixo (mas podem não ser o activo)
 const COMMON_PREFIX_CHARS = new Set([

@@ -10,7 +10,6 @@
 'use strict';
 
 const config = require('../config');
-const perf = require('./performance'); // ⚡ PERFORMANCE ENGINE
 
 // ─────────────────────────────────────────────────────────────────────────
 // IDENTIDADE COMPLETA DA AURA

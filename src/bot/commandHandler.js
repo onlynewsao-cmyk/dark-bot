@@ -14,7 +14,6 @@ const economy = require('./packages/economy');
 const games = require('./packages/games');
 const cheats = require('./packages/cheats');
 const reactions = require('./reactions');
-const perf = require('./performance'); // ⚡ PERFORMANCE ENGINE
 
 // Unifica todos os pacotes num só objeto (pre-loaded)
 const packageCommands = { ...interactions, ...family, ...economy, ...games, ...cheats };
@@ -211,7 +210,6 @@ async function userIsPremiumOrOwner(number, isOwner) {
 }
 
 async function handle(sock, msg) {
-  const _perfStart = Date.now(); // ⚡ Performance tracking
   let text = extractText(msg).trim();
   if (!text && !msg.message?.documentMessage && !msg.message?.documentWithCaptionMessage) return false;
 
@@ -768,7 +766,13 @@ async function handle(sock, msg) {
     'qual minha aura', 'mede minha aura', 'quanta aura',
     'tô com aura', 'to com aura', 'tenho aura', 'aura ativada',
   ];
-  const isAuraTrigger = !startsWithAnyPrefix(text, prefixes) && perf.fastAuraTrigger(text);
+  const isAuraTrigger = !startsWithAnyPrefix(text, prefixes) && (
+    AURA_TRIGGERS.includes(textLower) ||
+    AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
+    textLower.startsWith('aura ') ||
+    /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) ||
+    (botNameLower.length > 3 && textLower.includes(botNameLower))
+  );
 
   const replyHasText = isReplyToBot && text.length > 0;
   const replyHasMedia = isReplyToBot && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
