@@ -435,6 +435,75 @@ async function generateImage(prompt) {
 }
 
 // ─────────────────────────────────────────────
+// TRANSCRIÇÃO DE ÁUDIO — Groq Whisper (gratuito)
+// ─────────────────────────────────────────────
+/**
+ * Transcreve áudio usando Groq Whisper API.
+ * @param {Buffer} audioBuffer — buffer do áudio (ogg, mp3, mp4, etc.)
+ * @param {string} [language] — código da língua (pt, en, etc.)
+ * @returns {string} texto transcrito
+ */
+async function transcribeAudio(audioBuffer, language = 'pt') {
+  if (!config.ai.groqApiKey) throw new Error('sem chave Groq para Whisper');
+  if (!audioBuffer || audioBuffer.length < 100) throw new Error('áudio vazio');
+  
+  // Groq Whisper aceita multipart/form-data
+  const boundary = '----DarkBot' + Date.now();
+  const bodyParts = [];
+  
+  // Campo model
+  bodyParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-large-v3-turbo\r\n`);
+  // Campo language
+  bodyParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\n${language}\r\n`);
+  // Campo response_format
+  bodyParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="response_format"\r\n\r\ntext\r\n`);
+  // Ficheiro de áudio
+  bodyParts.push(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="audio.ogg"\r\nContent-Type: audio/ogg\r\n\r\n`);
+  
+  const header = Buffer.from(bodyParts.join(''));
+  const footer = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const body = Buffer.concat([header, audioBuffer, footer]);
+  
+  return new Promise((resolve, reject) => {
+    const https = require('https');
+    const req = https.request({
+      hostname: 'api.groq.com',
+      path: '/openai/v1/audio/transcriptions',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.ai.groqApiKey}`,
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        'Content-Length': body.length,
+      },
+      timeout: 20000,
+    }, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const txt = Buffer.concat(chunks).toString('utf-8');
+        if (res.statusCode >= 400) {
+          return reject(new Error('Whisper HTTP ' + res.statusCode + ': ' + txt.slice(0, 100)));
+        }
+        // response_format=text retorna texto directo
+        const text = txt.trim();
+        if (text) return resolve(text);
+        // Se for JSON, extrai text
+        try {
+          const j = JSON.parse(txt);
+          return resolve(j.text || j.transcript || '');
+        } catch {
+          return resolve(text);
+        }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('Whisper timeout')); });
+    req.write(body);
+    req.end();
+  });
+}
+
+// ─────────────────────────────────────────────
 // VISÃO — Gemini Vision (analisa imagens reais)
 // ─────────────────────────────────────────────
 /**
@@ -541,6 +610,7 @@ module.exports = {
   chatGemini,
   chatWithImage,
   describeImage,
+  transcribeAudio,
   generateImage,
   getWebContext,
   getPrettyNewsDigest,

@@ -733,6 +733,20 @@ async function handle(sock, msg) {
           };
         }
       }
+      // ── PUXAR NO OFF / PV ──
+      else if (/puxa.*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv)/i.test(auraClean) ||
+               /puxa.*no.*off/i.test(auraCmdText)) {
+        auraAction = async () => {
+          // Envia mensagem no PV do sender
+          const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
+          const pvMsg = isOwner 
+            ? `Oi meu Dark 🌹 *aparece no teu PV* ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
+            : `Oi ${ctx.pushName}! 🌹 A Aura chamou-te no PV.`;
+          await sock.sendMessage(pvJid, { text: pvMsg });
+          // Confirma no grupo
+          await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '📩 *Te chamei no PV, meu amor!* 🌹' : `📩 Chamei ${ctx.pushName} no PV!` }, { quoted: msg });
+        };
+      }
       
       if (auraAction) {
         try {
@@ -858,9 +872,34 @@ async function handle(sock, msg) {
       } else if (msgObj?.audioMessage || msgObj?.documentMessage?.mimetype?.startsWith('audio')) {
         isAudio = true;
         const isPtt = msgObj.audioMessage?.ptt;
-        mediaContext = isPtt
-          ? `🎧 Alguém enviou um ÁUDIO DE VOZ. Ouve e responde ao que foi dito.`
-          : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
+        // ⚡ Transcrever áudio com Whisper — a Aura OUVE!
+        try {
+          const { downloadMediaMessage } = require('@systemzero/baileys');
+          const audioBuf = await downloadMediaMessage(msg, 'buffer', {});
+          if (audioBuf && audioBuf.length > 500) {
+            const aiMod = require('./ai');
+            const lang = (ctx.senderNumber || '').startsWith('244') ? 'pt' : 
+                         (ctx.senderNumber || '').startsWith('55') ? 'pt' :
+                         (ctx.senderNumber || '').startsWith('351') ? 'pt' : 'pt';
+            const transcribed = await aiMod.transcribeAudio(audioBuf, lang);
+            if (transcribed && transcribed.length > 0) {
+              mediaContext = isPtt
+                ? `🎧 ÁUDIO DE VOZ transcrito: "${transcribed}" — Responde ao que foi dito como pessoa real.`
+                : `🎵 ÁUDIO/MÚSICA transcrito: "${transcribed}" — Comenta naturalmente.`;
+              // Adiciona a transcrição ao prompt para a Aura saber o que foi dito
+              prompt = (prompt || '') + ` [O áudio que recebi diz: "${transcribed}"]`;
+            } else {
+              mediaContext = isPtt
+                ? `🎧 Alguém enviou um ÁUDIO DE VOZ mas não consegui transcrever. Reage naturalmente.`
+                : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
+            }
+          }
+        } catch (e) {
+          console.warn('[Aura Audio]', e.message?.slice(0, 60));
+          mediaContext = isPtt
+            ? `🎧 Alguém enviou um ÁUDIO DE VOZ. Não consegui transcrever mas reage como se tivesses ouvido.`
+            : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
+        }
       } else if (msgObj?.stickerMessage) {
         mediaContext = `🎨 Alguém enviou um STICKER. Reage naturalmente — podes achar engraçado, estranho, lindo, etc.`;
       } else if (msgObj?.documentMessage) {
