@@ -119,6 +119,26 @@ async function applyAudioEffect(sock, msg, ctx, filterName) {
 
 module.exports = function registerAudioAdmin2(registerCase) {
 
+  // v6.39: Helper de verificação de permissão para comandos de ADM
+  async function _checkAdmPerm(sock, ctx, isOwner) {
+    if (isOwner) return true;
+    if (!ctx.isGroup) return false;
+    try {
+      const meta = await sock.groupMetadata(ctx.remoteJid);
+      const snum = String(ctx.senderNumber || (ctx.senderJid || '').split('@')[0] || '').replace(/\D/g, '');
+      return meta.participants?.some(p => {
+        const pNum = String(p.id || '').split(':')[0].split('@')[0].replace(/\D/g, '');
+        return pNum === snum && (p.admin === 'admin' || p.admin === 'superadmin');
+      }) || false;
+    } catch { return false; }
+  }
+
+  async function _admGuard(sock, msg, ctx, isOwner, label) {
+    if (!ctx.isGroup) { await tReply(sock, msg, ctx, label, ['❌ Só em grupos']); return false; }
+    if (!await _checkAdmPerm(sock, ctx, isOwner)) { await tReply(sock, msg, ctx, label, ['🚫 Só o *Dono* ou *Admins* do grupo.']); return false; }
+    return true;
+  }
+
   // ═══ TODOS OS EFEITOS DE ÁUDIO ═══
   for (const cmd of Object.keys(AUDIO_FILTERS)) {
     registerCase([cmd], async ({ sock, msg, ctx }) => {
@@ -221,32 +241,55 @@ module.exports = function registerAudioAdmin2(registerCase) {
     }, true);
   }
 
-  // ═══ ADMIN: MUTE / UNMUTE ═══
+  // ═══ ADMIN: MUTE / UNMUTE (v6.39 — com verificação de permissão) ═══
   registerCase(['mute', 'mute2'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!ctx.isGroup) return tReply(sock, msg, ctx, '🔇 MUTE', ['❌ Só em grupos']);
+    // Verifica permissão: dono ou ADM do grupo
+    if (!isOwner) {
+      try {
+        const meta = await sock.groupMetadata(ctx.remoteJid);
+        const snum = String(ctx.senderNumber || ctx.senderJid?.split('@')[0] || '').replace(/\D/g, '');
+        const isAdm = meta.participants?.some(p => p.id.split('@')[0].replace(/\D/g,'') === snum && (p.admin === 'admin' || p.admin === 'superadmin'));
+        if (!isAdm) return tReply(sock, msg, ctx, '🔇 MUTE', ['🚫 Só o *Dono* ou *Admins* do grupo.']);
+      } catch { return tReply(sock, msg, ctx, '🔇 MUTE', ['🚫 Só o *Dono* ou *Admins* do grupo.']); }
+    }
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || args[0];
-    if (!target) return tReply(sock, msg, ctx, '🔇 MUTE', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '🔇 MUTE', ['❌ Marca alguém com @!']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [target], 'remove');
-      return tReply(sock, msg, ctx, '🔇 MUTE', [`🔇 Utilizador mutado/removido`]);
-    } catch (e) { return tReply(sock, msg, ctx, '🔇 MUTE', [`❌ ${e.message}`]); }
+      return tReply(sock, msg, ctx, '🔇 MUTE', [`🔇 @${target.split('@')[0]} removido/silenciado`]);
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🔇 MUTE', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🔇 MUTE', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['desmute', 'desmute2', 'unmute'], async ({ sock, msg, ctx, args }) => {
+  registerCase(['desmute', 'desmute2', 'unmute'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!ctx.isGroup) return tReply(sock, msg, ctx, '🔊 UNMUTE', ['❌ Só em grupos']);
+    if (!isOwner) {
+      try {
+        const meta = await sock.groupMetadata(ctx.remoteJid);
+        const snum = String(ctx.senderNumber || ctx.senderJid?.split('@')[0] || '').replace(/\D/g, '');
+        const isAdm = meta.participants?.some(p => p.id.split('@')[0].replace(/\D/g,'') === snum && (p.admin === 'admin' || p.admin === 'superadmin'));
+        if (!isAdm) return tReply(sock, msg, ctx, '🔊 UNMUTE', ['🚫 Só o *Dono* ou *Admins* do grupo.']);
+      } catch { return tReply(sock, msg, ctx, '🔊 UNMUTE', ['🚫 Só o *Dono* ou *Admins* do grupo.']); }
+    }
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || args[0];
-    if (!target) return tReply(sock, msg, ctx, '🔊 UNMUTE', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '🔊 UNMUTE', ['❌ Marca alguém com @!']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [target], 'add');
-      return tReply(sock, msg, ctx, '🔊 UNMUTE', [`🔊 Utilizador adicionado de volta`]);
-    } catch (e) { return tReply(sock, msg, ctx, '🔊 UNMUTE', [`❌ ${e.message}`]); }
+      return tReply(sock, msg, ctx, '🔊 UNMUTE', [`🔊 @${target.split('@')[0]} adicionado de volta`]);
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🔊 UNMUTE', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🔊 UNMUTE', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  // ═══ ADMIN: WARN / UNWARN ═══
-  registerCase(['warn', 'advertir', 'warnings'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '⚠️ WARN', ['❌ Só em grupos']);
+  // ═══ ADMIN: WARN / UNWARN (v6.39 — com permissão) ═══
+  registerCase(['warn', 'advertir', 'warnings'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '⚠️ WARN')) return;
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-    if (!target) return tReply(sock, msg, ctx, '⚠️ WARN', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '⚠️ WARN', ['❌ Marca alguém com @!']);
     const reason = args.join(' ') || 'sem motivo';
     return tReply(sock, msg, ctx, '⚠️ AVISO', [
       `⚠️ @${target.split('@')[0]} recebeu um aviso!`,
@@ -255,7 +298,8 @@ module.exports = function registerAudioAdmin2(registerCase) {
     ]);
   }, true);
 
-  registerCase(['unwarn', 'clearwarn'], async ({ sock, msg, ctx }) => {
+  registerCase(['unwarn', 'clearwarn'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '✅ UNWARN')) return;
     return tReply(sock, msg, ctx, '✅ UNWARN', [`✅ Avisos limpos!`]);
   }, true);
 
@@ -263,115 +307,145 @@ module.exports = function registerAudioAdmin2(registerCase) {
     return tReply(sock, msg, ctx, '📋 AVISOS', [`📋 Sem avisos registados`]);
   }, true);
 
-  // ═══ ADMIN: ADD / KICK / PROMOTE / DEMOTE ═══
-  registerCase(['add', 'adicionar', 'addmembro'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '➕ ADD', ['❌ Só em grupos']);
+  // ═══ ADMIN: ADD (v6.39 — com permissão) ═══
+  registerCase(['add', 'adicionar', 'addmembro'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '➕ ADD')) return;
     const num = args[0]?.replace(/\D/g, '');
     if (!num) return tReply(sock, msg, ctx, '➕ ADD', ['❌ Uso: !add 244923000000']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [num + '@s.whatsapp.net'], 'add');
       return tReply(sock, msg, ctx, '➕ ADD', [`✅ +${num} adicionado!`]);
-    } catch (e) { return tReply(sock, msg, ctx, '➕ ADD', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '➕ ADD', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '➕ ADD', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['kick', 'ban', 'ban2', 'bam', 'tempban', 'tempkick', 'kicktemp'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '🚫 KICK', ['❌ Só em grupos']);
+  registerCase(['kick', 'ban', 'ban2', 'bam', 'tempban', 'tempkick', 'kicktemp'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '🚫 KICK')) return;
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0] || (args[0] ? args[0].replace(/\D/g, '') + '@s.whatsapp.net' : null);
-    if (!target) return tReply(sock, msg, ctx, '🚫 KICK', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '🚫 KICK', ['❌ Marca alguém com @!']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [target], 'remove');
       return tReply(sock, msg, ctx, '🚫 KICK', [`🚫 @${target.split('@')[0]} removido!`]);
-    } catch (e) { return tReply(sock, msg, ctx, '🚫 KICK', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🚫 KICK', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🚫 KICK', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['promote', 'promover'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '⬆️ PROMOTE', ['❌ Só em grupos']);
+  registerCase(['promote', 'promover'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '⬆️ PROMOTE')) return;
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-    if (!target) return tReply(sock, msg, ctx, '⬆️ PROMOTE', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '⬆️ PROMOTE', ['❌ Marca alguém com @!']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [target], 'promote');
       return tReply(sock, msg, ctx, '⬆️ PROMOTE', [`⬆️ @${target.split('@')[0]} promovido a admin!`]);
-    } catch (e) { return tReply(sock, msg, ctx, '⬆️ PROMOTE', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '⬆️ PROMOTE', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '⬆️ PROMOTE', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['demote', 'rebaixar', 'unadmin'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '⬇️ DEMOTE', ['❌ Só em grupos']);
+  registerCase(['demote', 'rebaixar', 'unadmin'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '⬇️ DEMOTE')) return;
     const target = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-    if (!target) return tReply(sock, msg, ctx, '⬇️ DEMOTE', ['❌ Marca alguém!']);
+    if (!target) return tReply(sock, msg, ctx, '⬇️ DEMOTE', ['❌ Marca alguém com @!']);
     try {
       await sock.groupParticipantsUpdate(ctx.remoteJid, [target], 'demote');
       return tReply(sock, msg, ctx, '⬇️ DEMOTE', [`⬇️ @${target.split('@')[0]} rebaixado!`]);
-    } catch (e) { return tReply(sock, msg, ctx, '⬇️ DEMOTE', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '⬇️ DEMOTE', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '⬇️ DEMOTE', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  // ═══ ADMIN: DEL / APAGAR ═══
-  registerCase(['del', 'apagar', 'deletar', 'delete', 'dam', 'delmsg', 'deletarmsg'], async ({ sock, msg, ctx }) => {
+  // ═══ ADMIN: DEL / APAGAR (v6.39 — com permissão) ═══
+  registerCase(['del', 'apagar', 'deletar', 'delete', 'dam', 'delmsg', 'deletarmsg'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '🗑️ DEL')) return;
     const quoted = msg.message?.extendedTextMessage?.contextInfo;
-    if (!quoted?.stanzaId) return tReply(sock, msg, ctx, '🗑️ DEL', ['❌ Marca uma mensagem!']);
+    if (!quoted?.stanzaId) return tReply(sock, msg, ctx, '🗑️ DEL', ['❌ Responde à mensagem que queres apagar!']);
     try {
       await sock.sendMessage(ctx.remoteJid, {
         delete: { remoteJid: ctx.remoteJid, fromMe: false, id: quoted.stanzaId, participant: quoted.participant },
       });
-    } catch (e) { return tReply(sock, msg, ctx, '🗑️ DEL', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🗑️ DEL', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🗑️ DEL', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  // ═══ ADMIN: ABRIR / FECHAR GRUPO ═══
-  registerCase(['abrir', 'abrir-grupo', 'opengp'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '🔓 ABRIR', ['❌ Só em grupos']);
+  // ═══ ADMIN: ABRIR / FECHAR GRUPO (v6.39 — com permissão) ═══
+  registerCase(['abrir', 'abrir-grupo', 'opengp'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '🔓 ABRIR')) return;
     try {
       await sock.groupSettingUpdate(ctx.remoteJid, 'not_announcement');
       return tReply(sock, msg, ctx, '🔓 ABRIR', [`🔓 Grupo aberto! Todos podem enviar mensagens.`]);
-    } catch (e) { return tReply(sock, msg, ctx, '🔓 ABRIR', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🔓 ABRIR', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🔓 ABRIR', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['fechar', 'fechar-grupo', 'closegp'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '🔒 FECHAR', ['❌ Só em grupos']);
+  registerCase(['fechar', 'fechar-grupo', 'closegp'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '🔒 FECHAR')) return;
     try {
       await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
       return tReply(sock, msg, ctx, '🔒 FECHAR', [`🔒 Grupo fechado! Só admins podem enviar.`]);
-    } catch (e) { return tReply(sock, msg, ctx, '🔒 FECHAR', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '🔒 FECHAR', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '🔒 FECHAR', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  // ═══ ADMIN: TAG ALL / EVERYONE ═══
-  registerCase(['everyone', 'all', 'marcarall', 'totag', 'chamar'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '📢 TAG ALL', ['❌ Só em grupos']);
+  // ═══ ADMIN: TAG ALL / EVERYONE (v6.39 — com permissão) ═══
+  registerCase(['everyone', 'all', 'marcarall', 'totag', 'chamar'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📢 TAG ALL')) return;
     try {
       const meta = await sock.groupMetadata(ctx.remoteJid);
-      const mentions = meta.participants.map(p => p.id);
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      const participants = meta.participants.filter(p => p.id.split('@')[0] !== botNum);
+      const mentions = participants.map(p => p.id);
       const text = '📢 *ATENÇÃO!*\n\n' + mentions.map((m, i) => `${i + 1}. @${m.split('@')[0]}`).join('\n');
       await sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
     } catch (e) { return tReply(sock, msg, ctx, '📢 TAG ALL', [`❌ ${e.message}`]); }
   }, true);
 
-  // ═══ ADMIN: NOME GRUPO / DESC / FOTO ═══
-  registerCase(['nomegp'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '📝 NOME GP', ['❌ Só em grupos']);
+  // ═══ ADMIN: NOME GRUPO / DESC / FOTO (v6.39 — com permissão) ═══
+  registerCase(['nomegp'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📝 NOME GP')) return;
     const name = args.join(' ');
     if (!name) return tReply(sock, msg, ctx, '📝 NOME GP', ['❌ Uso: !nomegp <nome>']);
     try {
       await sock.groupUpdateSubject(ctx.remoteJid, name);
       return tReply(sock, msg, ctx, '📝 NOME GP', [`✅ Nome alterado para *${name}*`]);
-    } catch (e) { return tReply(sock, msg, ctx, '📝 NOME GP', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '📝 NOME GP', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '📝 NOME GP', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['descgrupo'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '📝 DESC', ['❌ Só em grupos']);
+  registerCase(['descgrupo'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📝 DESC')) return;
     const desc = args.join(' ');
     if (!desc) return tReply(sock, msg, ctx, '📝 DESC', ['❌ Uso: !descgrupo <descrição>']);
     try {
       await sock.groupUpdateDescription(ctx.remoteJid, desc);
       return tReply(sock, msg, ctx, '📝 DESC', [`✅ Descrição alterada!`]);
-    } catch (e) { return tReply(sock, msg, ctx, '📝 DESC', [`❌ ${e.message}`]); }
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) return tReply(sock, msg, ctx, '📝 DESC', ['⚠️ Preciso ser admin! Promove-me.']);
+      return tReply(sock, msg, ctx, '📝 DESC', [`❌ ${e.message}`]);
+    }
   }, true);
 
-  registerCase(['fotogrupo'], async ({ sock, msg, ctx }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '📸 FOTO GP', ['❌ Só em grupos']);
+  registerCase(['fotogrupo'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📸 FOTO GP')) return;
     return tReply(sock, msg, ctx, '📸 FOTO GP', ['📸 Marca uma imagem para definir como foto do grupo']);
   }, true);
 
-  // ═══ ADMIN: REGRAS ═══
-  registerCase(['addregra', 'definirregras', 'setregras'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '📜 REGRAS', ['❌ Só em grupos']);
+  // ═══ ADMIN: REGRAS (v6.39 — com permissão) ═══
+  registerCase(['addregra', 'definirregras', 'setregras'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📜 REGRAS')) return;
     const rule = args.join(' ');
     if (!rule) return tReply(sock, msg, ctx, '📜 REGRAS', ['❌ Uso: !addregra <regra>']);
     try {
@@ -381,16 +455,19 @@ module.exports = function registerAudioAdmin2(registerCase) {
     } catch (e) { return tReply(sock, msg, ctx, '📜 REGRAS', [`❌ ${e.message}`]); }
   }, true);
 
-  registerCase(['delregra'], async ({ sock, msg, ctx, args }) => {
+  registerCase(['delregra'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '📜 DEL REGRA')) return;
     return tReply(sock, msg, ctx, '📜 DEL REGRA', [`✅ Regra removida!`]);
   }, true);
 
   // ═══ ADMIN: SORTEIO ═══
-  registerCase(['sorteio'], async ({ sock, msg, ctx, args }) => {
-    if (!ctx.isGroup) return tReply(sock, msg, ctx, '🎲 SORTEIO', ['❌ Só em grupos']);
+  registerCase(['sorteio'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!await _admGuard(sock, msg, ctx, isOwner, '🎲 SORTEIO')) return;
     try {
       const meta = await sock.groupMetadata(ctx.remoteJid);
-      const participants = meta.participants.filter(p => !p.admin);
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      const participants = meta.participants.filter(p => !p.admin && p.id.split('@')[0] !== botNum);
+      if (!participants.length) return tReply(sock, msg, ctx, '🎲 SORTEIO', ['❌ Sem participantes elegíveis.']);
       const winner = P(participants);
       return tReply(sock, msg, ctx, '🎲 SORTEIO', [
         `🎲 *${args.join(' ') || 'Sorteio'}*`,
@@ -438,7 +515,7 @@ module.exports = function registerAudioAdmin2(registerCase) {
     } catch (e) { return tReply(sock, msg, ctx, '📋 WHITELIST', [`❌ ${e.message}`]); }
   }, true);
 
-  // ═══ ADMIN: MISC ═══
+  // ═══ ADMIN: MISC (v6.39 — com verificação de permissão) ═══
   const miscAdmin = ['aprovar', 'recusarsolic', 'aceitatodos', 'addblacklist', 'delblacklist',
     'blockuser', 'unblockuser', 'blockcmd', 'unblockcmd', 'addmod', 'delmod',
     'grantmodcmd', 'revokemodcmd', 'rmadv', 'adv', 'listaddd', 'listaddi',
@@ -453,6 +530,14 @@ module.exports = function registerAudioAdmin2(registerCase) {
   for (const cmd of miscAdmin) {
     registerCase([cmd], async ({ sock, msg, ctx, args, isOwner }) => {
       if (!isOwner && !ctx.isGroup) return tReply(sock, msg, ctx, `🛡️ ${cmd.toUpperCase()}`, ['❌ Só em grupos ou para o dono']);
+      // Comandos de admin precisam de permissão
+      const adminCmds = ['aprovar', 'recusarsolic', 'aceitatodos', 'addblacklist', 'delblacklist',
+        'blockcmd', 'unblockcmd', 'addmod', 'delmod', 'grantmodcmd', 'revokemodcmd',
+        'addautoadm', 'addautoadmidia', 'delautoadm', 'resetrank', 'limparrank',
+        'setbammsg', 'proibir', 'boasvindas', 'bv', 'legendabv', 'legendasaiu',
+        'fotobv', 'rmfotobv', 'fotosaiu', 'rmfotosaiu', 'groupprefix', 'prefixgrupo',
+        'grouptheme', 'temagrupo', 'settheme', 'multiprefixo', 'invisible'];
+      if (adminCmds.includes(cmd) && !await _admGuard(sock, msg, ctx, isOwner, `🛡️ ${cmd.toUpperCase()}`)) return;
       return tReply(sock, msg, ctx, `🛡️ ${cmd.toUpperCase()}`, [
         `🛡️ Comando *${cmd}* registado`,
         args.length ? `📝 Args: ${args.join(' ')}` : '',

@@ -133,4 +133,37 @@ async function pinterestSearch(query) {
   return [];
 }
 
-module.exports = { tiktok, instagram, facebook, twitter, spotify, soundcloud, pinterest, pinterestSearch };
+// ==================== TIKTOK SEARCH ====================
+async function tiktokSearch(query, count = 1) {
+  // Tenta múltiplas APIs de busca TikTok
+  const apis = [
+    {
+      url: `https://www.tikwm.com/api/feed/search?keywords=${encodeURIComponent(query)}&count=${count}&cursor=0`,
+      extract: r => r?.data?.videos || r?.data || [],
+    },
+    {
+      url: `https://api.zahwazein.xyz/searching/tiktok?query=${encodeURIComponent(query)}`,
+      extract: r => r?.result || r?.data || [],
+    },
+  ];
+  
+  for (const api of apis) {
+    try {
+      const r = await mediaHandler.fetchJson(api.url, 20000);
+      const items = api.extract(r);
+      if (Array.isArray(items) && items.length > 0) {
+        return items.slice(0, count).map(v => ({
+          title: v.title || v.desc || v.description || 'TikTok',
+          url: v.play || v.no_watermark || v.video || v.download || v.url || v.hdplay || '',
+          author: v.author?.nickname || v.author?.unique_id || v.username || '',
+          thumbnail: v.cover || v.origin_cover || v.thumbnail || '',
+          duration: v.duration || '',
+          likes: v.digg_count || v.likes || 0,
+        })).filter(v => v.url);
+      }
+    } catch (e) { console.log('[TT-SEARCH] falhou:', e.message); }
+  }
+  return [];
+}
+
+module.exports = { tiktok, tiktokSearch, instagram, facebook, twitter, spotify, soundcloud, pinterest, pinterestSearch };

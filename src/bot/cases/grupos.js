@@ -1,6 +1,13 @@
 /**
- * DARK BOT v5 — Cases de Grupos/ADM
- * Todos os comandos de moderação completos
+ * DARK BOT v6.39 — Cases de Grupos/ADM REDEFINIDOS
+ * ═══════════════════════════════════════════════════
+ * 
+ * REGRAS DE PODER (v6.39):
+ *  ✅ Dono do bot → SEMPRE pode usar comandos de ADM (mesmo sem ser ADM do grupo)
+ *  ✅ ADM do grupo → SEMPRE pode usar comandos de ADM
+ *  ✅ Bot tenta executar → se falhar por falta de admin, avisa claramente
+ *  ✅ Menções usam @número visível (JID normal), nunca LID
+ *  ❌ Membro normal → "🚫 Só Dono ou Admins do grupo."
  */
 'use strict';
 
@@ -9,15 +16,17 @@ const botConfigCache = require('../botConfigCache');
 
 module.exports = function registerGroupCases(registerCase) {
 
-  // ── Helper para obter metadata fresca (nunca usa cache antigo) ─────
+  // ── Helper para obter metadata fresca ─────────────────────────────
   async function getGroupMeta(sock, ctx) {
     try { return await sock.groupMetadata(ctx.remoteJid); }
     catch { return ctx.groupMeta || null; }
   }
 
-  // ── Helper isAdmin (utilizador que enviou o comando) ─────────────
-  async function isAdm(sock, ctx) {
+  // ── Helper: o SENDER é dono ou ADM do grupo? ────────────────────
+  async function senderIsAdmOrOwner(sock, ctx) {
+    // Dono sempre tem poder
     if (ctx.isOwner) return true;
+    if (!ctx.isGroup) return false;
     try {
       const meta = await getGroupMeta(sock, ctx);
       if (!meta?.participants) return false;
@@ -29,72 +38,90 @@ module.exports = function registerGroupCases(registerCase) {
     } catch { return false; }
   }
 
-  // ── Helper botIsAdmin ───────────────────────────────────────────────
-  // Mesma lógica exacta de groupEvents.js (que funciona correctamente)
+  // ── Helper: o BOT é admin? (só para info, não bloqueia) ──────────
   async function botIsAdm(sock, ctx) {
     try {
       const meta = await getGroupMeta(sock, ctx);
       if (!meta?.participants?.length) return false;
-
-      // Extrai número puro do bot — split(':')[0] remove :device, split('@')[0] remove @domain
       const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
       if (!botNum) return false;
-
       const botEntry = meta.participants.find(p => {
         const pNum = String(p.id || '').split(':')[0].split('@')[0];
         return pNum === botNum;
       });
-
-      // Log de debug (remover após confirmar)
-      if (process.env.DEBUG_ADMIN) {
-        console.log('[botIsAdm] botNum:', botNum, '| found:', botEntry?.id, '| admin:', botEntry?.admin);
-      }
-
       return !!(botEntry && (botEntry.admin === 'admin' || botEntry.admin === 'superadmin'));
+    } catch { return false; }
+  }
+
+  // ── Helper: obtém mencionados (JID normal, nunca LID) ────────────
+  function getMentions(msg) {
+    const raw = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
+           msg.message?.interactiveResponseMessage?.contextInfo?.mentionedJid || [];
+    // Converte LIDs para JIDs normais se necessário
+    return raw.map(jid => {
+      // Se é LID (termina com @lid), tenta converter
+      if (jid.includes('@lid')) {
+        // Não conseguimos converter LID→JID sem API adicional
+        // Mas o WhatsApp já resolve internamente ao enviar
+        return jid;
+      }
+      return jid;
+    });
+  }
+
+  // ── Helper: formata menção visível (@número) ─────────────────────
+  function mentionTag(jid) {
+    // Extrai o número visível do JID
+    const num = String(jid || '').split(':')[0].split('@')[0];
+    return `@${num}`;
+  }
+
+  // ── Helper: verifica permissão do SENDER (não do bot) ────────────
+  async function requireSenderAdmin(sock, ctx, reply) {
+    if (!ctx.isGroup) { await reply('👥 Só em grupos.'); return false; }
+    if (!await senderIsAdmOrOwner(sock, ctx)) {
+      await reply('🚫 Só o *Dono* ou *Admins* do grupo podem usar este comando.');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Helper: tenta executar acção admin, avisa se bot não é admin ─
+  async function tryAdminAction(sock, ctx, action, reply) {
+    try {
+      await action();
+      return true;
     } catch (e) {
-      console.warn('[botIsAdm] erro:', e?.message?.slice(0, 60));
+      const errMsg = String(e?.message || e || '');
+      if (/not admin|forbidden|403|unauthorized|não.*admin|precisa.*admin/i.test(errMsg)) {
+        await reply('⚠️ *Eu não sou admin deste grupo!*\n\nPromove-me a admin para eu poder executar esta acção. 🙏');
+      } else {
+        await reply('❌ ' + errMsg.slice(0, 200));
+      }
       return false;
     }
   }
 
-  // ── Helper: obtém mencionados ───────────────────────────────────────
-  function getMentions(msg) {
-    return msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
-           msg.message?.interactiveResponseMessage?.contextInfo?.mentionedJid || [];
-  }
-
-  // ── Helper: garante que é grupo com bot admin ───────────────────────
-  async function requireGroupAdmin(sock, ctx, reply) {
-    if (!ctx.isGroup) { await reply('👥 Só em grupos.'); return false; }
-    if (!await isAdm(sock, ctx)) { await reply('🚫 Só admins.'); return false; }
-    if (!await botIsAdm(sock, ctx)) { await reply('⚠️ Preciso ser admin para isso.'); return false; }
-    return true;
-  }
-
   // ══════════════════════════════════════════════════════════════════
-  // !del — Apaga mensagem citada e apaga o comando
+  // !del — Apaga mensagem citada
   // ══════════════════════════════════════════════════════════════════
   registerCase(['del', 'delete', 'apagar', 'deletar', 'd'], async ({ m, sock, ctx, isOwner, reply }) => {
     if (!ctx.isGroup && !isOwner) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await senderIsAdmOrOwner(sock, ctx)) return reply('🚫 Só o *Dono* ou *Admins* podem apagar mensagens.');
     if (!m.quoted) return reply('❌ Responde à mensagem que queres apagar.');
-    try {
+    await tryAdminAction(sock, ctx, async () => {
       await sock.sendMessage(ctx.remoteJid, {
         delete: { remoteJid: ctx.remoteJid, id: m.quoted.id, fromMe: false, participant: m.quoted.sender },
       });
-      // Apaga também o comando
       await sock.sendMessage(ctx.remoteJid, { delete: m.key }).catch(() => {});
-    } catch (e) {
-      reply('❌ Não consegui apagar. Preciso ser admin.');
-    }
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !hidetag — Menciona todos sem aparecer
   // ══════════════════════════════════════════════════════════════════
   registerCase(['hidetag', 'invisible', 'silent-tag'], async ({ m, sock, ctx, args, isOwner, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     try {
       const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
       const mentions = meta.participants.map(p => p.id);
@@ -107,116 +134,135 @@ module.exports = function registerGroupCases(registerCase) {
   // !ban / !kick — Remove membro
   // ══════════════════════════════════════════════════════════════════
   registerCase(['ban', 'kick', 'remove'], async ({ m, sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || { message: {} });
-    if (!mentioned.length) return reply('❌ Marca o utilizador com @.');
-    try {
+    if (!mentioned.length) return reply('❌ Marca o utilizador com @.\nEx: `.ban @pessoa`');
+    
+    // Verifica se está a tentar banir o dono do grupo
+    const meta = await getGroupMeta(sock, ctx);
+    const ownerJid = meta?.owner || meta?.participants?.find(p => p.admin === 'superadmin')?.id;
+    if (ownerJid && mentioned.includes(ownerJid) && !ctx.isOwner) {
+      return reply('🚫 Não posso remover o *criador* do grupo!');
+    }
+    
+    const tags = mentioned.map(mentionTag).join(' ');
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'remove');
-      reply(`✅ *${mentioned.length}* utilizador(es) removido(s).`);
+      await reply(`✅ ${tags} *removido(s)* do grupo.`);
       await sock.sendMessage(ctx.remoteJid, { delete: m.key }).catch(() => {});
-    } catch (e) { reply('❌ ' + e.message); }
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !tempban — Remove temporariamente
   // ══════════════════════════════════════════════════════════════════
   registerCase(['tempban', 'tempkick', 'kicktemp'], async ({ m, sock, ctx, args, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || {});
     const minutos = parseInt(args.find(a => /^\d+$/.test(a)) || '5');
-    if (!mentioned.length) return reply(`❌ Usa: !tempban @user <minutos>\nEx: !tempban @user 10`);
-    try {
+    if (!mentioned.length) return reply(`❌ Usa: \`${ctx.prefix}tempban @user <minutos>\`\nEx: \`${ctx.prefix}tempban @user 10\``);
+    
+    const tags = mentioned.map(mentionTag).join(' ');
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'remove');
-      reply(`⏳ @${mentioned[0].split('@')[0]} removido por *${minutos} min*. Voltará automaticamente.`);
+      await reply(`⏳ ${tags} removido(s) por *${minutos} min*. Voltará automaticamente.`);
       setTimeout(async () => {
         try { await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'add'); } catch {}
       }, minutos * 60 * 1000);
-    } catch (e) { reply('❌ ' + e.message); }
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !add — Adiciona membro
   // ══════════════════════════════════════════════════════════════════
   registerCase(['add', 'adicionar', 'addmembro'], async ({ m, sock, ctx, args, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const num = args[0]?.replace(/\D/g, '');
-    if (!num || num.length < 8) return reply('❌ Usa: !add 244XXXXXXXXX');
-    try {
+    if (!num || num.length < 8) return reply(`❌ Usa: \`${ctx.prefix}add 244XXXXXXXXX\``);
+    await tryAdminAction(sock, ctx, async () => {
       const jid = num + '@s.whatsapp.net';
       await sock.groupParticipantsUpdate(ctx.remoteJid, [jid], 'add');
-      reply(`✅ +${num} adicionado!`);
-    } catch (e) {
-      reply('❌ Não consegui adicionar. Possível: privacidade ou não existe.');
-    }
+      await reply(`✅ +${num} adicionado ao grupo!`);
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !promote — Promove a admin
   // ══════════════════════════════════════════════════════════════════
   registerCase(['promote', 'admin', 'promover'], async ({ m, sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || {});
-    if (!mentioned.length) return reply('❌ Marca o utilizador.');
-    try {
+    if (!mentioned.length) return reply('❌ Marca o utilizador com @.');
+    const tags = mentioned.map(mentionTag).join(' ');
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'promote');
-      reply('✅ Promovido a admin!');
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply(`👑 ${tags} *promovido(s)* a admin!`);
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !demote — Remove admin
   // ══════════════════════════════════════════════════════════════════
   registerCase(['demote', 'unadmin', 'rebaixar'], async ({ m, sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || {});
-    if (!mentioned.length) return reply('❌ Marca o utilizador.');
-    try {
+    if (!mentioned.length) return reply('❌ Marca o utilizador com @.');
+    
+    // Não permite rebaixar o criador do grupo
+    const meta = await getGroupMeta(sock, ctx);
+    const ownerJid = meta?.owner || meta?.participants?.find(p => p.admin === 'superadmin')?.id;
+    if (ownerJid && mentioned.includes(ownerJid) && !ctx.isOwner) {
+      return reply('🚫 Não posso rebaixar o *criador* do grupo!');
+    }
+    
+    const tags = mentioned.map(mentionTag).join(' ');
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'demote');
-      reply('✅ Admin removido.');
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply(`⬇️ ${tags} *rebaixado(s)* de admin.`);
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !open / !close — Abre ou fecha o grupo
   // ══════════════════════════════════════════════════════════════════
   registerCase(['open', 'abrir', 'abrir-grupo'], async ({ sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
-    try {
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupSettingUpdate(ctx.remoteJid, 'not_announcement');
-      reply('🔓 Grupo *aberto*! Todos podem enviar mensagens.');
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply('🔓 Grupo *aberto*! Todos podem enviar mensagens.');
+    }, reply);
   });
 
   registerCase(['close', 'fechar', 'fechar-grupo'], async ({ sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
-    try {
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
-      reply('🔒 Grupo *fechado*! Só admins podem enviar.');
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply('🔒 Grupo *fechado*! Só admins podem enviar.');
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !silenciar — Liga/desliga modo só admins
   // ══════════════════════════════════════════════════════════════════
   registerCase(['silenciar', 'mute', 'unmute', 'calar'], async ({ sock, ctx, args, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const on = ['on','sim','ligar','ativar','1'].includes((args[0]||'').toLowerCase());
-    try {
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupSettingUpdate(ctx.remoteJid, on ? 'announcement' : 'not_announcement');
-      reply(on ? '🔇 Grupo silenciado! Só admins falam.' : '🔊 Silêncio removido! Todos podem falar.');
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply(on ? '🔇 Grupo *silenciado*! Só admins falam.' : '🔊 Silêncio *removido*! Todos podem falar.');
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
   // !revoke — Reseta o link do grupo
   // ══════════════════════════════════════════════════════════════════
   registerCase(['revoke', 'resetlink', 'novo-link'], async ({ sock, ctx, isOwner, reply }) => {
-    if (!await requireGroupAdmin(sock, ctx, reply)) return;
-    try {
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
+    await tryAdminAction(sock, ctx, async () => {
       await sock.groupRevokeInvite(ctx.remoteJid);
       const newCode = await sock.groupInviteCode(ctx.remoteJid);
-      reply(`🔄 Link renovado!\nhttps://chat.whatsapp.com/${newCode}`);
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply(`🔄 Link *renovado*!\nhttps://chat.whatsapp.com/${newCode}`);
+    }, reply);
   });
 
   // ══════════════════════════════════════════════════════════════════
@@ -224,36 +270,46 @@ module.exports = function registerGroupCases(registerCase) {
   // ══════════════════════════════════════════════════════════════════
   registerCase(['link', 'convite', 'invite'], async ({ sock, ctx, isOwner, reply }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await senderIsAdmOrOwner(sock, ctx)) return reply('🚫 Só o *Dono* ou *Admins* podem ver o link.');
     try {
       const code = await sock.groupInviteCode(ctx.remoteJid);
-      reply(`🔗 *Link do grupo:*\nhttps://chat.whatsapp.com/${code}`);
-    } catch (e) { reply('❌ ' + e.message); }
+      await reply(`🔗 *Link do grupo:*\nhttps://chat.whatsapp.com/${code}`);
+    } catch (e) {
+      if (/not admin|forbidden|403/i.test(e?.message || '')) {
+        await reply('⚠️ Preciso ser admin para gerar o link. Promove-me!');
+      } else {
+        await reply('❌ ' + e.message);
+      }
+    }
   });
 
   // ══════════════════════════════════════════════════════════════════
-  // !todos / !all — Marca todos
+  // !todos / !all — Marca todos (com @número visível)
   // ══════════════════════════════════════════════════════════════════
   registerCase(['todos', 'all', 'everyone', 'marcarall'], async ({ m, sock, ctx, args, isOwner, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     try {
       const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const mentions = meta.participants.map(p => p.id);
-      const txt = (args.join(' ') || '📢 Atenção!') + '\n\n' + mentions.map(j=>`@${j.split('@')[0]}`).join(' ');
+      // Filtra o bot da lista
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      const participants = meta.participants.filter(p => {
+        const pNum = String(p.id || '').split(':')[0].split('@')[0];
+        return pNum !== botNum;
+      });
+      const mentions = participants.map(p => p.id);
+      const txt = (args.join(' ') || '📢 Atenção!') + '\n\n' + mentions.map(j => mentionTag(j)).join(' ');
       await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
     } catch (e) { reply('❌ ' + e.message); }
   });
 
   // ══════════════════════════════════════════════════════════════════
-  // !warn — Advertir membro
+  // !warn — Advertir membro (com @número visível)
   // ══════════════════════════════════════════════════════════════════
   registerCase(['warn', 'advertir', 'aviso'], async ({ m, sock, ctx, args, isOwner, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || {});
-    const motivo = args.filter(a=>!a.startsWith('@')).join(' ') || 'Sem motivo especificado';
-    if (!mentioned.length) return reply('❌ Usa: !warn @user <motivo>');
+    const motivo = args.filter(a => !a.startsWith('@')).join(' ') || 'Sem motivo especificado';
+    if (!mentioned.length) return reply(`❌ Usa: \`${ctx.prefix}warn @user <motivo>\``);
 
     const gs = await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
@@ -261,32 +317,34 @@ module.exports = function registerGroupCases(registerCase) {
       { upsert: true, new: true }
     );
     const warnLimit = gs?.warnLimit || 3;
-    // Guardar avisos em BotConfig (simples)
     const BotConfig = require('../../database/models/BotConfig');
     const warnKey = `warn_${ctx.remoteJid}_${mentioned[0].split('@')[0]}`;
     const currentWarns = (await BotConfig.get(warnKey, 0).catch(() => 0)) + 1;
     await BotConfig.set(warnKey, currentWarns);
 
-    const txt = `⚠️ *AVISO ${currentWarns}/${warnLimit}*\n\n@${mentioned[0].split('@')[0]} foi advertido.\n📋 Motivo: _${motivo}_`;
+    const tag = mentionTag(mentioned[0]);
+    const txt = `⚠️ *AVISO ${currentWarns}/${warnLimit}*\n\n${tag} foi advertido.\n📋 Motivo: _${motivo}_`;
     await sock.sendMessage(ctx.remoteJid, { text: txt, mentions: mentioned }, { quoted: m });
 
     if (currentWarns >= warnLimit) {
-      await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'remove').catch(() => {});
-      await sock.sendMessage(ctx.remoteJid, { text: `🚫 @${mentioned[0].split('@')[0]} removido após ${warnLimit} avisos.`, mentions: mentioned });
+      await tryAdminAction(sock, ctx, async () => {
+        await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'remove');
+        await sock.sendMessage(ctx.remoteJid, { text: `🚫 ${tag} removido após ${warnLimit} avisos.`, mentions: mentioned });
+      }, reply);
       await BotConfig.set(warnKey, 0);
     }
   });
 
   // !unwarn — Remove avisos
   registerCase(['unwarn', 'removeaviso', 'clearwarn'], async ({ m, sock, ctx, isOwner, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const mentioned = getMentions(m.msg || {});
-    if (!mentioned.length) return reply('❌ Marca o utilizador.');
+    if (!mentioned.length) return reply('❌ Marca o utilizador com @.');
     const BotConfig = require('../../database/models/BotConfig');
     const warnKey = `warn_${ctx.remoteJid}_${mentioned[0].split('@')[0]}`;
     await BotConfig.set(warnKey, 0);
-    reply(`✅ Avisos de @${mentioned[0].split('@')[0]} removidos.`);
+    const tag = mentionTag(mentioned[0]);
+    await reply(`✅ Avisos de ${tag} *removidos*.`);
   });
 
   // !warnings — Ver avisos
@@ -299,7 +357,8 @@ module.exports = function registerGroupCases(registerCase) {
     const warnLimit = gs?.warnLimit || 3;
     const warnKey = `warn_${ctx.remoteJid}_${target.split('@')[0]}`;
     const warns = await BotConfig.get(warnKey, 0).catch(() => 0);
-    reply(`📋 @${target.split('@')[0]}: *${warns}/${warnLimit}* avisos.`);
+    const tag = mentionTag(target);
+    await reply(`📋 ${tag}: *${warns}/${warnLimit}* avisos.`);
   });
 
   // ══════════════════════════════════════════════════════════════════
@@ -308,30 +367,28 @@ module.exports = function registerGroupCases(registerCase) {
   registerCase(['regras', 'rules', 'normas'], async ({ sock, ctx, reply }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
     const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
-    if (!gs?.rulesText) return reply('📜 Sem regras definidas.\nAdmin usa: *!setregras <texto>*');
-    reply(`╔━᳀『 📜 REGRAS 』═᳀\n\n${gs.rulesText}\n\n╚═━═━═━═━═━═━═━═᳀`);
+    if (!gs?.rulesText) return reply(`📜 Sem regras definidas.\nAdmin usa: *${ctx.prefix}setregras <texto>*`);
+    await reply(`╔━᳀『 📜 REGRAS 』═᳀\n\n${gs.rulesText}\n\n╚═━═━═━═━═━═━═━═᳀`);
   });
 
   // !setregras — Definir regras
   registerCase(['setregras', 'setrules', 'definirregras'], async ({ sock, ctx, args, isOwner, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const txt = args.join(' ').trim();
-    if (!txt) return reply('❌ Usa: !setregras <regras do grupo>');
+    if (!txt) return reply(`❌ Usa: \`${ctx.prefix}setregras <regras do grupo>\``);
     await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { rulesText: txt.slice(0, 1000) },
       { upsert: true, new: true }
     );
-    reply('✅ Regras definidas!\nUsa *!regras* para ver.');
+    await reply(`✅ Regras definidas!\nUsa *${ctx.prefix}regras* para ver.`);
   });
 
   // ══════════════════════════════════════════════════════════════════
-  // !antilink — Anti-link
+  // !antilink — Anti-link v2
   // ══════════════════════════════════════════════════════════════════
   registerCase(['antilink'], async ({ sock, ctx, args, prefix, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const gs = await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { $setOnInsert: { groupJid: ctx.remoteJid } },
@@ -364,11 +421,11 @@ module.exports = function registerGroupCases(registerCase) {
       gs.antilinkNotify = v === 'on'; saved = true;
     } else if (sub === 'strict') {
       const v = (args[1] || '').toLowerCase();
-      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink strict on|off*\n\n_Detecta links ofuscados (hxxp, [.] , "ponto com")_');
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink strict on|off*');
       gs.antilinkStrict = v === 'on'; saved = true;
     } else if (sub === 'vip') {
       const v = (args[1] || '').toLowerCase();
-      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink vip on|off*\n\n_Premium fica imune ao anti-link_');
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink vip on|off*');
       gs.antilinkVipImmune = v === 'on'; saved = true;
     } else if (['whitelist','wl','permitidos'].includes(sub)) {
       const act = (args[1] || 'list').toLowerCase();
@@ -409,21 +466,20 @@ module.exports = function registerGroupCases(registerCase) {
     if (saved) await gs.save();
 
     const st = gs.antilinkStats || {};
-    reply(
+    await reply(
       (extra ? extra + '\n\n' : '') +
       `🛡️ *DARKSHIELD ANTI-LINK v2*\n${gs.antilink ? '🟢 ON  ━━━━●' : '🔴 OFF ●━━━━'}\n\n` +
       `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
       `📋 Whitelist: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
-      `📊 Stats: 🗑️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`
+      `📊 Stats: ️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`
     );
   });
 
   // !antispam
   registerCase(['antispam'], async ({ sock, ctx, args, prefix, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const gs = await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { $setOnInsert: { groupJid: ctx.remoteJid } },
@@ -432,13 +488,13 @@ module.exports = function registerGroupCases(registerCase) {
     const sub = (args[0]||'status').toLowerCase();
     if (['on','ativar'].includes(sub)) { gs.antispam = true; await gs.save(); }
     else if (['off','desativar'].includes(sub)) { gs.antispam = false; await gs.save(); }
-    reply(`🛡️ *ANTI-SPAM*\n${gs.antispam ? '🟢 ON  ━━━━●' : '🔴 OFF ●━━━━'}\n\n> Usa !antispam on/off para alternar`);
+    await reply(`🛡️ *ANTI-SPAM*\n${gs.antispam ? '🟢 ON  ━━━●' : '🔴 OFF ●━━━━'}\n\n> Usa ${prefix}antispam on/off para alternar`);
   });
 
   // ── !setprefix — prefixo POR GRUPO (só dono) ──────────────────
   registerCase(['setprefix', 'prefixgrupo', 'groupprefix'], async ({ ctx, args, prefix, reply, isOwner }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!isOwner) return reply('🚫 Só o Dono pode mudar o prefixo do grupo.');
+    if (!isOwner) return reply('🚫 Só o *Dono* pode mudar o prefixo do grupo.');
     const pe = require('../prefixEngine');
     const sub = (args[0] || '').toLowerCase();
 
@@ -476,7 +532,7 @@ module.exports = function registerGroupCases(registerCase) {
   // ── !out — Bot sai do grupo (só dono) ─────────────────────────
   registerCase(['out', 'sair', 'leave', 'bye'], async ({ sock, ctx, reply, isOwner, prefix }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!isOwner) return reply('🚫 Só o Dono pode remover o bot do grupo.');
+    if (!isOwner) return reply('🚫 Só o *Dono* pode remover o bot do grupo.');
     const t = await require('../changeThemes').getTheme(
       await require('../botConfigCache').get('active_theme', 'dark').catch(() => 'dark')
     );
@@ -496,7 +552,7 @@ module.exports = function registerGroupCases(registerCase) {
   // ── !settheme — tema POR GRUPO (só dono) ──────────────────────
   registerCase(['settheme', 'temagrupo', 'grouptheme'], async ({ ctx, args, reply, isOwner, prefix }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema do grupo.');
+    if (!isOwner) return reply('🚫 Só o *Dono* pode mudar o tema do grupo.');
     const ct = require('../changeThemes');
     const sub = (args[0] || '').toLowerCase();
 
@@ -532,8 +588,7 @@ module.exports = function registerGroupCases(registerCase) {
       { groupTheme: found.name },
       { upsert: true }
     );
-    // Limpa cache de tema por grupo
-    try { require('../bot/botConfigCache').clear(); } catch {}
+    try { require('../botConfigCache').clear(); } catch {}
 
     return reply(
       `${found.icon} *Tema deste grupo alterado!*\n\n` +
@@ -546,8 +601,7 @@ module.exports = function registerGroupCases(registerCase) {
 
   // !welcome
   registerCase(['welcome', 'boasvindas', 'bv'], async ({ sock, ctx, args, prefix, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    if (!await isAdm(sock, ctx)) return reply('🚫 Só admins.');
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
     const gs = await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { $setOnInsert: { groupJid: ctx.remoteJid } },
@@ -563,6 +617,43 @@ module.exports = function registerGroupCases(registerCase) {
       gs.customWelcomeMsg = t.slice(0,500); saved = true;
     }
     if (saved) await gs.save();
-    reply(`👋 Welcome: ${gs.welcomeEnabled !== false ? '🟢 ON' : '🔴 OFF'}\nTexto: _${(gs.customWelcomeMsg||'padrão').slice(0,50)}_`);
+    await reply(`👋 Welcome: ${gs.welcomeEnabled !== false ? '🟢 ON' : '🔴 OFF'}\nTexto: _${(gs.customWelcomeMsg||'padrão').slice(0,50)}_`);
+  });
+
+  // ══════════════════════════════════════════════════════════════════
+  // !setnomegrupo — Altera nome do grupo
+  // ══════════════════════════════════════════════════════════════════
+  registerCase(['setnomegrupo', 'nomegp', 'setsubject'], async ({ sock, ctx, args, isOwner, reply }) => {
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
+    const name = args.join(' ').trim();
+    if (!name) return reply(`❌ Usa: \`${ctx.prefix}setnomegrupo <novo nome>\``);
+    await tryAdminAction(sock, ctx, async () => {
+      await sock.groupUpdateSubject(ctx.remoteJid, name);
+      await reply(`✅ Nome do grupo alterado para *${name}*`);
+    }, reply);
+  });
+
+  // !setdesc — Altera descrição do grupo
+  registerCase(['setdesc', 'setdescricao', 'descgrupo'], async ({ sock, ctx, args, isOwner, reply }) => {
+    if (!await requireSenderAdmin(sock, ctx, reply)) return;
+    const desc = args.join(' ').trim();
+    if (!desc) return reply(`❌ Usa: \`${ctx.prefix}setdesc <descrição>\``);
+    await tryAdminAction(sock, ctx, async () => {
+      await sock.groupUpdateDescription(ctx.remoteJid, desc);
+      await reply('✅ Descrição do grupo alterada!');
+    }, reply);
+  });
+
+  // !tagadmins — Marca todos os admins
+  registerCase(['tagadmins', 'admins', 'marcaradmins'], async ({ m, sock, ctx, reply }) => {
+    if (!ctx.isGroup) return reply('👥 Só em grupos.');
+    try {
+      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+      const admins = meta.participants.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
+      if (!admins.length) return reply('📋 Sem admins detectados.');
+      const mentions = admins.map(p => p.id);
+      const txt = '👑 *Admins do grupo:*\n\n' + admins.map(p => mentionTag(p.id)).join(' ');
+      await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
+    } catch (e) { reply('❌ ' + e.message); }
   });
 };
