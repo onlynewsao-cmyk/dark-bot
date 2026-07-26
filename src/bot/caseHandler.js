@@ -105,14 +105,59 @@ function buildM(sock, msg, ctx) {
 // ─────────────────────────────────────────────
 // COMPILAR CÓDIGO JS → FUNÇÃO ASYNC
 // ─────────────────────────────────────────────
+function adaptCaseCode(code) {
+  // Adapta código de outros bots para o DARK BOT
+  let c = code;
+  // Variáveis de socket
+  c = c.replace(/\bsystemZR\b/g, 'sock');
+  c = c.replace(/\bconn\b(?![a-zA-Z])/g, 'sock');
+  c = c.replace(/\bclient\b(?![a-zA-Z])/g, 'sock');
+  c = c.replace(/\bthis\.sock\b/g, 'sock');
+  // m.reply → reply (já disponível no contexto)
+  c = c.replace(/\bm\.reply\(/g, 'reply(');
+  // m.chat → ctx.remoteJid
+  c = c.replace(/\bm\.chat\b/g, 'ctx.remoteJid');
+  // m.key → msg.key
+  c = c.replace(/\bm\.key\b/g, 'msg.key');
+  // m.sender → ctx.senderJid
+  c = c.replace(/\bm\.sender\b/g, 'ctx.senderJid');
+  // m.pushName → ctx.pushName
+  c = c.replace(/\bm\.pushName\b/g, 'ctx.pushName');
+  // m.quoted → quoted
+  c = c.replace(/\bm\.quoted\b/g, 'quoted');
+  // m.react → react
+  c = c.replace(/\bm\.react\(/g, 'react(');
+  // m.from → ctx.remoteJid
+  c = c.replace(/\bm\.from\b/g, 'ctx.remoteJid');
+  // m.isGroup → ctx.isGroup
+  c = c.replace(/\bm\.isGroup\b/g, 'ctx.isGroup');
+  // m.isOwner → isOwner
+  c = c.replace(/\bm\.isOwner\b/g, 'isOwner');
+  // m.mention → mentions
+  c = c.replace(/\bm\.mention\(/g, '// mention: ');
+  // systemZR.sendMessage(m.chat, → sock.sendMessage(ctx.remoteJid,
+  c = c.replace(/sock\.sendMessage\(ctx\.remoteJid/g, 'sock.sendMessage(ctx.remoteJid');
+  // Remove 'break;' no final
+  c = c.replace(/\bbreak\s*;?\s*$/m, '');
+  // Adiciona axios se usado mas não importado
+  if (c.includes('axios') && !c.includes('require') && !c.includes('import ')) {
+    c = 'const axios = require("axios");\n' + c;
+  }
+  // albumMessage → enviar cada item individualmente
+  c = c.replace(/\{\s*albumMessage\s*\}/g, '/* albumMessage handled below */');
+  return c;
+}
+
 function compileCase(code) {
-  // Envolve o código numa função async com todas as variáveis
+  const adapted = adaptCaseCode(code);
   const wrapped = `
-    (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info }) {
-      ${code}
+    (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted }) {
+      const axios = require('axios');
+      const systemZR = sock;
+      const conn = sock;
+      ${adapted}
     })
   `;
-  // eslint-disable-next-line no-new-func
   return eval(wrapped);
 }
 
