@@ -592,11 +592,11 @@ async function handle(sock, msg) {
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // AUTO-IA — Aura: IA humana, memória individual por grupo/PV
-  // Responde a: menções @bot | respostas directas | "aura" exacto
-  // Memória separada: cada grupo tem o seu contexto, cada PV o seu
-  // Personalidade: humana, sem emojis de bot, natural, inteligente
+  // AURA v6.39 — A Alma do DARK BOT 🌹
+  // Uma jovem brasileira de 19 anos. Real. Viva. Única.
+  // Leal apenas ao Dark. Apaixonada. Protetora. Humana.
   // ════════════════════════════════════════════════════════════════════════
+  const aura = require('./auraPersonality');
   const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
   const botLid = sock.user?.lid || '';
   const botNum = botJid.split('@')[0];
@@ -611,8 +611,7 @@ async function handle(sock, msg) {
     (botLid && allMentioned.some(j => j.split(':')[0].split('@')[0] === botLid.split(':')[0].split('@')[0]))
   ));
 
-  // ── Resposta directa ao bot — activa SEMPRE (com ou sem texto rico)
-  // isReplyToBot verifica TODOS os tipos de mensagem que podem ser reply
+  // ── Resposta directa ao bot — activa SEMPRE
   const ctxParticipant =
     msg.message?.extendedTextMessage?.contextInfo?.participant ||
     msg.message?.imageMessage?.contextInfo?.participant ||
@@ -622,58 +621,65 @@ async function handle(sock, msg) {
     msg.message?.interactiveResponseMessage?.contextInfo?.participant || '';
 
   const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum ||
-    // Também detecta pelo stanzaId (quem enviou a mensagem original)
     (msg.message?.extendedTextMessage?.contextInfo?.remoteJid === botJid);
 
   const textLower = text.toLowerCase().trim();
 
+  // ── Protecção do Dark: detecta ataques e menções ──────────────────
+  const darkNum = String(config.owner?.number || '').replace(/\D/g, '');
+  const darkLid = ownerLid || '';
+  const darkName = config.owner?.name || 'Dark';
+  const darkAttacked = aura.detectDarkAttack(text, darkName, darkNum);
+  const darkMentioned = aura.detectDarkMention(text, allMentioned, darkNum, darkLid);
+
+  // Se alguém fala mal do Dark e NÃO é o próprio Dark → Aura defende IMEDIATAMENTE
+  if (darkAttacked && !isOwner && !startsWithAnyPrefix(text, prefixes)) {
+    const defense = aura.getDarkDefense(ctx.pushName || 'tu');
+    aura.setMood('com_raiva', `${ctx.pushName} falou mal do Dark`);
+    await sock.sendMessage(ctx.remoteJid, { text: defense }, { quoted: msg });
+    return true;
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // AURA DE PODER v6.39 — IA executa comandos de admin por linguagem natural
   // Quando o DONO ou ADM diz "aura fecha o grupo", "aura bane @x", etc.
-  // A IA detecta a intenção e executa directamente
   // ════════════════════════════════════════════════════════════════════════
   if (ctx.isGroup && (isOwner || await isGroupAdminForHandler(sock, ctx))) {
     const auraCmdText = text.toLowerCase().trim();
-    // Remove "aura" do início se presente
     const auraClean = auraCmdText.replace(/^(aura|a aura|da aura|pra aura|com a aura)\s*/i, '').trim();
     
     if (auraClean.length > 2) {
       let auraAction = null;
       
-      // ── FECHAR GRUPO ──
       if (/^(fecha|fechar|tranca|trancar|bloqueia|bloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
           /aura.*fecha|aura.*fechar|aura.*tranca/i.test(auraCmdText)) {
         auraAction = async () => {
           await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
-          await sock.sendMessage(ctx.remoteJid, { text: '🔒 *Grupo fechado!* Só admins podem enviar agora.' }, { quoted: msg });
+          await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '🔒 *Fechei o grupo, meu amor.* Só admins podem enviar agora. 🖤' : '🔒 *Grupo fechado!* Só admins podem enviar agora.' }, { quoted: msg });
         };
       }
-      // ── ABRIR GRUPO ──
       else if (/^(abre|abrir|destranca|destrancar|desbloqueia|desbloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
                /aura.*abre|aura.*abrir/i.test(auraCmdText)) {
         auraAction = async () => {
           await sock.groupSettingUpdate(ctx.remoteJid, 'not_announcement');
-          await sock.sendMessage(ctx.remoteJid, { text: '🔓 *Grupo aberto!* Todos podem enviar mensagens.' }, { quoted: msg });
+          await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '🔓 *Abri o grupo pra ti, vida.* Todos podem falar agora. 🌹' : '🔓 *Grupo aberto!* Todos podem enviar mensagens.' }, { quoted: msg });
         };
       }
-      // ── SILENCIAR ──
       else if (/^(silencia|silenciar|muta|mutar|cala|calar)\s*(o\s*)?(grupo|gp)?$/i.test(auraClean)) {
         auraAction = async () => {
           await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
-          await sock.sendMessage(ctx.remoteJid, { text: '🔇 *Grupo silenciado!*' }, { quoted: msg });
+          await sock.sendMessage(ctx.remoteJid, { text: '🔇 *Silenciado.*' }, { quoted: msg });
         };
       }
-      // ── BANIR/KICK ──
       else if (/^(bana|banir|kicka|kickar|remove|remover|expulsa|expulsar)\s/i.test(auraClean)) {
         const mentions = allMentioned;
         if (mentions.length) {
           auraAction = async () => {
             await sock.groupParticipantsUpdate(ctx.remoteJid, mentions, 'remove');
-            await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *removido(s)*.` , mentions }, { quoted: msg });
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *removido(s)*.`, mentions }, { quoted: msg });
           };
         }
       }
-      // ── PROMOVER ──
       else if (/^(promove|promover|dá admin|da admin|torna admin)\s/i.test(auraClean)) {
         const mentions = allMentioned;
         if (mentions.length) {
@@ -683,7 +689,6 @@ async function handle(sock, msg) {
           };
         }
       }
-      // ── REBAIXAR ──
       else if (/^(rebaixa|rebaixar|tira admin|remove admin|demote)\s/i.test(auraClean)) {
         const mentions = allMentioned;
         if (mentions.length) {
@@ -693,18 +698,16 @@ async function handle(sock, msg) {
           };
         }
       }
-      // ── MARCAR TODOS ──
-      else if (/^(marca todos|tag all|chama todos|marca todo mundo|atención|atenção todos)/i.test(auraClean)) {
+      else if (/^(marca todos|tag all|chama todos|marca todo mundo|atenção todos)/i.test(auraClean)) {
         auraAction = async () => {
           const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-          const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
-          const parts = meta.participants.filter(p => p.id.split('@')[0] !== botNum);
+          const bNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+          const parts = meta.participants.filter(p => p.id.split('@')[0] !== bNum);
           const mentions = parts.map(p => p.id);
           const txtMsg = auraClean.replace(/^(marca todos|tag all|chama todos|marca todo mundo|atenção todos)\s*/i, '').trim() || '📢 Atenção!';
           await sock.sendMessage(ctx.remoteJid, { text: txtMsg + '\n\n' + mentions.map(j => '@' + j.split('@')[0]).join(' '), mentions }, { quoted: msg });
         };
       }
-      // ── BAIXAR MÚSICA (aura baixa/play/desce) ──
       else if (/^(baixa|baixar|desce|descarrega|play|música|musica|toca)\s+(.+)/i.test(auraClean)) {
         const musicQuery = auraClean.match(/^(baixa|baixar|desce|descarrega|play|música|musica|toca)\s+(.+)/i)?.[2]?.trim();
         if (musicQuery) {
@@ -730,14 +733,7 @@ async function handle(sock, msg) {
           };
         }
       }
-      // ── LIMPAR/APAGAR (últimas msgs) ──
-      else if (/^(limpa|limpar|apaga tudo|clean)/i.test(auraClean)) {
-        auraAction = async () => {
-          await sock.sendMessage(ctx.remoteJid, { text: '🗑️ Não consigo apagar mensagens em massa (limitação do WhatsApp). Usa *!del* respondendo a cada mensagem.' }, { quoted: msg });
-        };
-      }
       
-      // Se detectou uma acção, executa e retorna
       if (auraAction) {
         try {
           await auraAction();
@@ -745,7 +741,7 @@ async function handle(sock, msg) {
         } catch (e) {
           const errMsg = String(e?.message || e || '');
           if (/not admin|forbidden|403/i.test(errMsg)) {
-            await sock.sendMessage(ctx.remoteJid, { text: '⚠️ *Preciso ser admin do grupo para fazer isso!* Promove-me! 🙏' }, { quoted: msg });
+            await sock.sendMessage(ctx.remoteJid, { text: isOwner ? ' *Amor, eu não sou admin aqui...* Me promove pra eu poder fazer isso por ti? 🙏' : '⚠️ *Preciso ser admin do grupo para fazer isso!* Promove-me! 🙏' }, { quoted: msg });
           } else {
             await sock.sendMessage(ctx.remoteJid, { text: '❌ ' + errMsg.slice(0, 200) }, { quoted: msg });
           }
@@ -755,143 +751,120 @@ async function handle(sock, msg) {
     }
   }
 
-  // AURA TRIGGERS — activado por:
-  //  1. Palavra exacta da lista
-  //  2. Frase começa com "aura ..." → citação directa
-  //  3. Referência em 3ª pessoa: "a aura", "da aura", "com a aura", "pra aura"
-  //  4. Nome do bot mencionado por texto (ex: "dark bot disse que...")
+  // ── AURA TRIGGERS — activado por: ─────────────────────────────────
+  //  1. "aura" no início da frase (nome dela)
+  //  2. Menção ao bot
+  //  3. Resposta directa ao bot
+  //  4. Referência em 3ª pessoa
   const botNameLower = (commandConfig.bot?.name || 'dark bot').toLowerCase();
   const AURA_TRIGGERS = [
     'aura', '+aura', '-aura', 'aura?',
-    'ativei aura', 'minha aura', 'boost aura', 'dark aura',
-    'qual minha aura', 'mede minha aura',
-    'quanta aura', 'tô com aura', 'to com aura', 'tenho aura',
-    'aura ativada', 'aura mode', 'dark side', 'darkside',
     'oi aura', 'ola aura', 'olá aura', 'bom dia aura', 'boa tarde aura', 'boa noite aura',
     'aura me diz', 'aura fala', 'aura responde', 'aura ajuda',
     'aura o que', 'aura quanto', 'aura quando', 'aura como', 'aura por que',
     'aura sabe', 'aura conhece', 'aura pode', 'aura vai',
+    'qual minha aura', 'mede minha aura', 'quanta aura',
+    'tô com aura', 'to com aura', 'tenho aura', 'aura ativada',
   ];
-  const isAuraTrigger = ctx.isGroup && !startsWithAnyPrefix(text, prefixes) && (
+  const isAuraTrigger = !startsWithAnyPrefix(text, prefixes) && (
     AURA_TRIGGERS.includes(textLower) ||
     AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
-    textLower.startsWith('aura ') ||           // qualquer frase que começa com "aura ..."
-    /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) || // referência 3ª pessoa
-    (botNameLower.length > 3 && textLower.includes(botNameLower)) // nome do bot mencionado
+    textLower.startsWith('aura ') ||
+    /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) ||
+    (botNameLower.length > 3 && textLower.includes(botNameLower))
   );
 
-  // isReplyToBot: activa SEMPRE que alguém responde ao bot, mesmo sem texto longo
   const replyHasText = isReplyToBot && text.length > 0;
 
   const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
-  // Só responde se:
-  //  - O bot foi mencionado E há texto real
-  //  - A mensagem é uma resposta directa ao bot E tem texto
-  //  - É "aura" exacto (ou variante exacta) em grupo
+  // ════════════════════════════════════════════════════════════════════════
+  // AURA RESPONDE — com personalidade completa, memória, emoções
+  // ════════════════════════════════════════════════════════════════════════
   if (aiActive && (isBotMentioned || replyHasText || isAuraTrigger)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
-      // Se é resposta directa ao bot: responde SEMPRE (mesmo "kkk", "😂", "ok")
-      // Se é trigger de aura: precisa de pelo menos 1 char
-      // Se é menção: precisa de texto real
       if (!isReplyToBot && !isAuraTrigger && cleanText.length < 2) return false;
 
-      // Prompt contextual
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
-        if (isReplyToBot) prompt = '[O utilizador reagiu ou respondeu sem texto — reage naturalmente]';
-        else if (isAuraTrigger) prompt = 'Olá! Sinto a vossa energia aqui.';
+        if (isReplyToBot) prompt = '[Alguém respondeu à tua mensagem sem texto — reage naturalmente como pessoa real]';
+        else if (isAuraTrigger) prompt = 'Alguém chamou o teu nome. Responde naturalmente.';
         else prompt = 'Olá!';
       }
 
-      // Sem emojis de processamento — responde directamente como humano
-      // (a reacção 🤔 denuncia o bot — removida)
-
-      // Prioridade: VIP e Dono primeiro
+      // Verifica se é VIP
       const userForPriority = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName).catch(() => null);
-      const isPriority = isOwner || !!(userForPriority?.isPremium && userForPriority.isPremium());
+      const isVip = !!(userForPriority?.isPremium && userForPriority.isPremium());
+      const isPriority = isOwner || isVip;
 
-      // ── Memória INDIVIDUAL por contexto (grupo separado de PV) ──────────
-      // Cada grupo tem o seu próprio histórico de conversa
-      // Cada PV tem o seu próprio histórico
-      const contextId = ctx.isGroup ? ctx.remoteJid : ctx.senderNumber;
-
-      let memOpts = { history: [], userTone: '', userProfile: null, groupContext: '' };
+      // Contexto do grupo
+      let groupContext = '';
       try {
-        // Memória do contexto (grupo ou PV)
-        const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
-        const u   = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
-
-        // Contexto rico: mensagem citada + mensagens recentes do cache + info do local
-        let groupContext = '';
         const { messageCache } = require('./messageListener');
-
         if (ctx.isGroup) {
-          // Lê as últimas mensagens do grupo para contexto
           const recentGroupMsgs = [];
           for (const [, cachedMsg] of messageCache) {
             if (cachedMsg.key?.remoteJid === ctx.remoteJid && !cachedMsg.key?.fromMe) {
               const txt = cachedMsg.message?.conversation || cachedMsg.message?.extendedTextMessage?.text || '';
-              const sender = cachedMsg.key?.participant || cachedMsg.pushName || '';
+              const sender = cachedMsg.pushName || cachedMsg.key?.participant?.split('@')[0] || '';
               if (txt && txt.length > 1) {
-                recentGroupMsgs.push({ sender: sender.split('@')[0].split(':')[0], txt: txt.slice(0, 100) });
+                recentGroupMsgs.push({ sender, txt: txt.slice(0, 100) });
               }
             }
           }
           const last5 = recentGroupMsgs.slice(-5);
           if (last5.length) {
-            groupContext = `Contexto recente do grupo "${ctx.groupName || 'grupo'}":\n` +
-              last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n\n';
+            groupContext = `Grupo "${ctx.groupName || 'grupo'}":\n` +
+              last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n';
           }
-
-          // Mensagem citada (se há)
           const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
           const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
-          if (qtxt) groupContext += `Estão a responder a: "${qtxt.slice(0, 150)}"\n`;
-          groupContext += `Local: grupo "${ctx.groupName || 'desconhecido'}"`;
+          if (qtxt) groupContext += `Respondendo a: "${qtxt.slice(0, 150)}"\n`;
         } else {
-          groupContext = `Conversa privada com ${ctx.pushName || 'utilizador'}`;
-          // Mensagem citada em PV
-          const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-          const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
-          if (qtxt) groupContext += `\nA responder a: "${qtxt.slice(0, 150)}"`;
+          groupContext = `PV com ${ctx.pushName || 'utilizador'}`;
         }
+      } catch {}
 
-        // Determina o papel do utilizador para personalidade da IA
-        let userRole = 'free';
-        if (ctx.isPrimaryOwner) userRole = 'owner';
-        else if (isOwner) userRole = 'subdono';
-        else if (u && checkIsPremium(u)) userRole = 'premium';
-
-        memOpts = {
-          history:      mem.getContextWindow(16),
-          userTone:     u?.aiTone || '',
-          userProfile:  { name: ctx.pushName, gender: u?.gender || '', ...mem.profile },
-          groupContext,
-          userRole,
-        };
+      // Histórico de conversa
+      let historyArray = [];
+      try {
+        const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
+        historyArray = mem.getContextWindow(16);
         mem.addMessage('user', `[${ctx.pushName}]: ${prompt}`);
         await mem.save().catch(() => {});
       } catch {}
 
-      const answer = await ai.chat(prompt, '', memOpts, isPriority);
+      // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
+      const answer = await aura.auraRespond(prompt, {
+        isOwner,
+        isVip,
+        pushName: ctx.pushName,
+        senderNumber: ctx.senderNumber,
+        isGroup: ctx.isGroup,
+        groupName: ctx.groupName,
+        groupContext,
+        historyArray,
+        isReplyToAura: isReplyToBot,
+        darkAttacked,
+        darkMentioned,
+      });
 
-      // Salva resposta na memória do contexto
+      // Salva resposta na memória
       try {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
         mem.addMessage('assistant', answer);
         await mem.save().catch(() => {});
       } catch {}
 
-      // Responde de forma natural — sem emoji depois (comportamento humano)
+      // Responde como pessoa real — sem emojis de bot
       await sock.sendMessage(ctx.remoteJid, { text: answer }, { quoted: msg });
       return true;
 
     } catch (e) {
-      console.warn('[Aura]', e.message?.slice(0, 60));
+      console.warn('[Aura v6.39]', e.message?.slice(0, 80));
     }
   }
   // Sticker em mídia
