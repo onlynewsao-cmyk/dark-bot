@@ -8,7 +8,6 @@
 const mediaHandler   = require('./mediaHandler');
 const config         = require('../config');
 const botConfigCache = require('./botConfigCache');
-const perf           = require('./performance'); // ⚡ PERFORMANCE ENGINE
 
 // ─────────────────────────────────────────────
 // MODELOS (Julho 2026)
@@ -324,11 +323,6 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     userRole     = 'free',
   } = memoryOpts;
 
-  // ⚡ CACHE DE RESPOSTAS (pergunta idêntica recente)
-  const cacheKey = `ai:${prompt.slice(0, 100)}:${userRole}`;
-  const cached = perf.caches.aiResponses.get(cacheKey);
-  if (cached) return cached;
-
   const hasAny = !!(
     config.ai.groqApiKey || config.ai.geminiApiKey ||
     config.ai.openrouterApiKey || config.ai.openaiApiKey
@@ -354,38 +348,31 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   }));
   const messages = [...histMsgs, { role: 'user', content: finalPrompt }];
 
-  // Timeout ULTRA-AGRESSIVO para velocidade máxima ⚡
-  const TIMEOUT = isPriority ? 8000 : 12000; // 8s para VIP/Dono, 12s para normal
+  // Timeout menor para VIP/Dono (prioridade de resposta)
+  const TIMEOUT = isPriority ? 15000 : 22000;
 
-  // ⚡ RACE ALL PROVIDERS — o primeiro a responder ganha
-  const providers = [];
-  if (config.ai.groqApiKey) providers.push(withTimeout(chatGroq(messages, system), TIMEOUT));
-  if (config.ai.geminiApiKey) providers.push(withTimeout(chatGemini(messages, system), TIMEOUT));
-  if (config.ai.openrouterApiKey) providers.push(withTimeout(chatRouter(messages, system), TIMEOUT));
-  
-  if (providers.length > 0) {
-    try {
-      const result = await Promise.any(providers);
-      if (result) {
-        perf.caches.aiResponses.set(cacheKey, result, 60000); // Cache 1min
-        return result;
-      }
-    } catch (e) {
-      // Todos falharam — tenta fallback
-      console.warn('[IA] All providers failed:', e.errors?.map(e => shortErr(e)).join(', '));
-    }
+  // 1. Groq (mais rápido)
+  if (config.ai.groqApiKey) {
+    try { return await withTimeout(chatGroq(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Groq:', shortErr(e)); }
   }
-  
-  // Fallback público (último recurso)
+  // 2. Gemini
+  if (config.ai.geminiApiKey) {
+    try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
+  }
+  // 3. OpenRouter
+  if (config.ai.openrouterApiKey) {
+    try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Router:', shortErr(e)); }
+  }
+  // 4. Fallback público
   try {
     const r = await withTimeout(
       mediaHandler.fetchJson(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(prompt)}&owner=${encodeURIComponent(config.owner.name)}&botname=${encodeURIComponent(config.bot.name)}`),
-      4000 // 4s max
+      6000
     );
-    if (r?.response && !/timed\s*out/i.test(r.response)) {
-      perf.caches.aiResponses.set(cacheKey, r.response, 60000);
-      return r.response;
-    }
+    if (r?.response && !/timed\s*out/i.test(r.response)) return r.response;
   } catch {}
 
   return '❌ IA offline agora. Tente de novo.';
