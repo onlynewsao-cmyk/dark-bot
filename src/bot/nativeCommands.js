@@ -1143,7 +1143,31 @@ module.exports = {
         );
       }
     }
-    return module.exports.cmdsocultos({ sock, msg, ctx, config: cfg });
+    // Menu 18+ próprio — mostra comandos adultos para VIP
+    const RE = require('./renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
+    const localConfig = cfg || config;
+    const p = localConfig.bot.prefix;
+    return reply(sock, msg, ctx, RE.renderBlock(t, '🔞 MENU +18', [
+      '⚠️ *Conteúdo adulto — só VIPs*',
+      '',
+      '📸 *IMAGENS*',
+      `${p}hentai [tags] — anime adulto`,
+      `${p}ximg [tags] — busca por tags`,
+      `${p}adultsearch [t] — busca multi-fonte`,
+      '',
+      '🎬 *VÍDEOS*',
+      `${p}xvideo [termo] — busca vídeo`,
+      '',
+      '💬 *CHAT HOT*',
+      `${p}hotchat [tema] — chat sensual`,
+      '',
+      '📚 *LIVROS*',
+      `${p}buscalivro [nome] — busca livros`,
+      `${p}livros18 — top 18+`,
+      '',
+      '> ⭐ !vip para aceder',
+    ], { botName: localConfig.bot.name }));
   },
 
   // ── !menuadm — Menu ADM de grupo ─────────────────────────────────
