@@ -98,51 +98,59 @@ module.exports = function registerStickers2(registerCase) {
     }
   }, true);
 
-  // ═══ BRAT2 (typewriter — letra por letra animado) ═══
+  // ═══ BRAT2 (adaptativo: palavra=letra/letra, frase=palavra/palavra) ═══
   registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
-    const text = (args.join(' ').trim() || 'brat').toUpperCase().slice(0, 15);
+    const input = args.join(' ').trim() || 'brat';
     try {
       const sharp = require('sharp');
-      const fontSize = text.length > 10 ? 48 : text.length > 6 ? 64 : 80;
-      // Typewriter: cada frame adiciona uma letra
+      const words = input.split(/\s+/);
+      const isSingleWord = words.length === 1;
+      const fontSize = input.length > 12 ? 40 : input.length > 8 ? 52 : input.length > 5 ? 64 : 80;
+      const text = input.toUpperCase().slice(0, 20);
+
+      // Gerar frames: palavra única = letra por letra, frase = palavra por palavra
       const frames = [];
-      for (let i = 1; i <= text.length; i++) {
-        const partial = text.slice(0, i);
-        const cursor = i < text.length ? '|' : '';
+      if (isSingleWord) {
+        // Letra por letra
+        for (let i = 1; i <= text.length; i++) {
+          const partial = text.slice(0, i);
+          const cursor = i < text.length ? '|' : '';
+          frames.push({ text: partial + cursor, delay: 120 });
+        }
+      } else {
+        // Palavra por palavra
+        for (let i = 1; i <= words.length; i++) {
+          const partial = words.slice(0, i).join(' ').toUpperCase();
+          const cursor = i < words.length ? '|' : '';
+          frames.push({ text: partial + cursor, delay: 200 });
+        }
+      }
+      // Pausa final
+      frames.push({ text: text, delay: 600 });
+      frames.push({ text: text, delay: 600 });
+
+      // Renderizar SVGs
+      const pngFrames = [];
+      const delays = [];
+      for (const frame of frames) {
         const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
           '<rect width="512" height="512" fill="#84CC16"/>' +
           '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
           'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
           'font-weight="900" fill="black" opacity="0.85">' +
-          partial + cursor + '</text></svg>';
+          frame.text.slice(0, 20) + '</text></svg>';
         const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
-        frames.push(png);
-      }
-      // Adicionar 2 frames finais com texto completo (pausa)
-      const finalSvg = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
-        '<rect width="512" height="512" fill="#84CC16"/>' +
-        '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
-        'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
-        'font-weight="900" fill="black" opacity="0.85">' +
-        text + '</text></svg>';
-      const finalPng = await sharp(Buffer.from(finalSvg)).png().toBuffer();
-      frames.push(finalPng, finalPng);
-
-      // Criar WebP animado com delays variados
-      const delays = [];
-      for (let i = 0; i < frames.length; i++) {
-        delays.push(i < text.length ? 120 : 500); // 120ms por letra, 500ms pausa final
+        pngFrames.push(png);
+        delays.push(frame.delay);
       }
 
       let finalBuf;
       try {
-        finalBuf = await sharp(frames[0], { animated: true })
+        finalBuf = await sharp(pngFrames[0], { animated: true })
           .webp({ quality: 70, loop: 0, delay: delays })
           .toBuffer();
-      } catch {
-        finalBuf = finalPng; // fallback estático
-      }
+      } catch { finalBuf = pngFrames[pngFrames.length - 1]; }
 
       const stk = await stickerMaker.create(finalBuf, {
         botName: config.bot.name, ownerName: config.owner.name,
