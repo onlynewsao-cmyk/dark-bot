@@ -753,17 +753,17 @@ async function handle(sock, msg) {
         }
       }
       // ── PUXAR NO OFF / PV ──
-      else if (/puxa.*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv)/i.test(auraClean) ||
-               /puxa.*no.*off/i.test(auraCmdText)) {
+      else if (/(puxa|chama|manda|fala|vem|quero).*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv|no pv|me pv)/i.test(auraClean) ||
+               /(puxa|chama|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
         auraAction = async () => {
           // Envia mensagem no PV do sender
           const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
           const pvMsg = isOwner 
-            ? `Oi meu Dark 🌹 *aparece no teu PV* ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
+            ? `Oi meu Dark 🌹 _aparece no teu PV_ ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
             : `Oi ${ctx.pushName}! 🌹 A Aura chamou-te no PV.`;
           await sock.sendMessage(pvJid, { text: pvMsg });
           // Confirma no grupo
-          await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '📩 *Te chamei no PV, meu amor!* 🌹' : `📩 Chamei ${ctx.pushName} no PV!` }, { quoted: msg });
+          await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '📩 _Te chamei no PV, meu amor!_ 🌹' : `📩 Chamei ${ctx.pushName} no PV!` }, { quoted: msg });
         };
       }
       
