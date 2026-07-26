@@ -109,50 +109,53 @@ const NSFW_ACTIONS = {
 
 module.exports = function registerInteracoes2(registerCase) {
 
-  // ═══ ACÇÕES FÍSICAS (com GIF) ═══
+  // ═══ ACÇÕES FÍSICAS (GIF + MENCÕES + REPLY) ═══
   for (const [cmd, data] of Object.entries(ACTIONS)) {
     registerCase([cmd], async ({ sock, msg, ctx, args }) => {
+      const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
       const target = args[0] ? args.join(' ') : 'o ar 😂';
       const verb = P(data.verbs);
-      const gifUrl = await getGif(data.gif);
-      
+      const gifUrl = await getGif(data.gif || cmd);
+      const mentions = [...mentionedJids];
+      const tNum = target.replace(/\D/g, '');
+      if (tNum.length >= 8 && !mentions.some(m => m.includes(tNum))) mentions.push(tNum + '@s.whatsapp.net');
+      const caption = data.emoji + ' *' + ctx.pushName + '* ' + verb + ' *' + target + '*';
       if (gifUrl) {
-        await sock.sendMessage(ctx.remoteJid, {
-          video: { url: gifUrl }, gifPlayback: true,
-          caption: `${data.emoji} *${ctx.pushName}* ${verb} *${target}*`,
-        }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { video: { url: gifUrl }, gifPlayback: true, caption, mentions }, { quoted: msg });
       } else {
         const RE = require('../renderEngine');
         const t = await RE.getTheme(ctx.remoteJid);
-        await sock.sendMessage(ctx.remoteJid, {
-          text: RE.renderBlock(t, data.emoji + ' INTERAÇÃO', [
-            `${data.emoji} *${ctx.pushName}* ${verb} *${target}*`,
-          ], { botName: config.bot.name }),
-        }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' INTERAÇÃO', [caption], { botName: config.bot.name }), mentions }, { quoted: msg });
       }
       await sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
     }, true);
   }
 
-  // ═══ ACÇÕES NSFW ═══
+  // ═══ ACÇÕES NSFW (GIF + MENCÕES + REPLY) ═══
   for (const [cmd, data] of Object.entries(NSFW_ACTIONS)) {
     registerCase([cmd], async ({ sock, msg, ctx, args }) => {
+      const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
       const target = args[0] ? args.join(' ') : 'alguém 😏';
       const verb = P(data.verbs);
-      const RE = require('../renderEngine');
-      const t = await RE.getTheme(ctx.remoteJid);
-      await sock.sendMessage(ctx.remoteJid, {
-        text: RE.renderBlock(t, data.emoji + ' INTERAÇÃO', [
-          `${data.emoji} *${ctx.pushName}* ${verb} *${target}*`,
-          '',
-          '> 🔞 Conteúdo adulto',
-        ], { botName: config.bot.name }),
-      }, { quoted: msg });
+      const gifUrl = await getGif(data.gif || cmd);
+      const mentions = [...mentionedJids];
+      const tNum = target.replace(/\D/g, '');
+      if (tNum.length >= 8 && !mentions.some(m => m.includes(tNum))) mentions.push(tNum + '@s.whatsapp.net');
+      const caption = data.emoji + ' *' + ctx.pushName + '* ' + verb + ' *' + target + '*';
+      if (gifUrl) {
+        await sock.sendMessage(ctx.remoteJid, { video: { url: gifUrl }, gifPlayback: true, caption, mentions }, { quoted: msg });
+      } else {
+        const RE = require('../renderEngine');
+        const t = await RE.getTheme(ctx.remoteJid);
+        await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' NSFW', [caption, '', '> 🔞 Conteúdo adulto'], { botName: config.bot.name }), mentions }, { quoted: msg });
+      }
+      await sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
     }, true);
   }
 
   // ═══ RELACIONAMENTOS ═══
   registerCase(['namorar'], async ({ sock, msg, ctx, args }) => {
+    const gifUrl = await getGif('love anime couple');
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
     const rel = getRel(ctx.senderNumber);
     if (rel.partner) return tReply(sock, msg, ctx, '💕 NAMORAR', [`❌ Já estás a namorar com ${rel.partner}!`]);
@@ -166,6 +169,7 @@ module.exports = function registerInteracoes2(registerCase) {
   }, true);
 
   registerCase(['casar', 'casamento'], async ({ sock, msg, ctx, args }) => {
+    const gifUrl = await getGif('wedding anime');
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
     const rel = getRel(ctx.senderNumber);
     if (rel.status === 'casado') return tReply(sock, msg, ctx, '💒 CASAR', [`❌ Já estás casado(a)!`]);
@@ -180,6 +184,7 @@ module.exports = function registerInteracoes2(registerCase) {
   }, true);
 
   registerCase(['terminar'], async ({ sock, msg, ctx }) => {
+    const gifUrl = await getGif('breakup anime sad');
     const rel = getRel(ctx.senderNumber);
     if (!rel.partner) return tReply(sock, msg, ctx, '💔 TERMINAR', [`❌ Não estás num relacionamento`]);
     const ex = rel.partner;
@@ -192,6 +197,7 @@ module.exports = function registerInteracoes2(registerCase) {
   }, true);
 
   registerCase(['trair'], async ({ sock, msg, ctx, args }) => {
+    const gifUrl = await getGif('cheating anime drama');
     const rel = getRel(ctx.senderNumber);
     if (!rel.partner) return tReply(sock, msg, ctx, '😈 TRAIR', [`❌ Não tens parceiro(a) para trair`]);
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
