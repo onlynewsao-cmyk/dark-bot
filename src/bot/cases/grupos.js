@@ -411,7 +411,7 @@ module.exports = function registerGroupCases(registerCase) {
     const st = gs.antilinkStats || {};
     reply(
       (extra ? extra + '\n\n' : '') +
-      `🛡️ *DARKSHIELD ANTI-LINK v2* ${gs.antilink ? '🟢 ON' : '🔴 OFF'}\n\n` +
+      `🛡️ *DARKSHIELD ANTI-LINK v2*\n${gs.antilink ? '🟢 ON  ━━━━●' : '🔴 OFF ●━━━━'}\n\n` +
       `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
@@ -432,7 +432,7 @@ module.exports = function registerGroupCases(registerCase) {
     const sub = (args[0]||'status').toLowerCase();
     if (['on','ativar'].includes(sub)) { gs.antispam = true; await gs.save(); }
     else if (['off','desativar'].includes(sub)) { gs.antispam = false; await gs.save(); }
-    reply(`🛡️ *Anti-Spam* ${gs.antispam ? '🟢 ON' : '🔴 OFF'}`);
+    reply(`🛡️ *ANTI-SPAM*\n${gs.antispam ? '🟢 ON  ━━━━●' : '🔴 OFF ●━━━━'}\n\n> Usa !antispam on/off para alternar`);
   });
 
   // ── !setprefix — prefixo POR GRUPO (só dono) ──────────────────

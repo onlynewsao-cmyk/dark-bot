@@ -206,11 +206,17 @@ module.exports = function registerAudioAdmin2(registerCase) {
           { [cmd]: isOn },
           { upsert: true }
         );
-        return tReply(sock, msg, ctx, `🛡️ ${cmd.toUpperCase()}`, [
-          `${isOn ? '🟢' : '🔴'} *${cmd}* ${isOn ? 'ACTIVADO' : 'DESACTIVADO'}`,
+        const label = cmd.replace('anti', 'ANTI-').replace(/([A-Z])/g, ' $1').toUpperCase().replace('  ', ' ');
+        const sw = isOn
+          ? '🟢 ON  ━━━━●'
+          : '🔴 OFF ●━━━━';
+        return tReply(sock, msg, ctx, '🛡️ ' + label, [
+          sw,
+          '',
+          '> Usa !' + cmd + ' on/off para alternar',
         ]);
       } catch (e) {
-        return tReply(sock, msg, ctx, `🛡️ ${cmd.toUpperCase()}`, [`❌ ${e.message}`]);
+        return tReply(sock, msg, ctx, '🛡️ ' + cmd.toUpperCase(), ['❌ ' + e.message]);
       }
     }, true);
   }
