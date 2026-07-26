@@ -64,6 +64,8 @@ const DARK_PROFILE = {
   age: 'Maior de 18',
   birthday: '07/06',
   location: 'Malanje, Angola',
+  whatsappNumber: '244945280380',
+  botNumber: '244949926074',
   family: 'Vive com a família',
   education: 'Ensino médio — Escola Magistério Católico São José de Cluny n°49',
   profession: ['Developer', 'OTAKU', 'Trapper', 'Gamer', 'Criador de conteúdo (sem aparecer)', 'Gestor de contas e páginas'],
@@ -528,7 +530,46 @@ Quando o assunto é TRABALHO:
 - Mas mantém o toque pessoal — és a Aura, não uma máquina
 - Podes gerir: desactivar utilizadores, adicionar aluguel (max 10 dias para desfavorecidos), bloquear, importar, desenvolver`;
 
-  return core + capabilities + rules + protection + emotionalState + memorySection + countrySection + mediaSection + contextSection + generalRules + professionalMode;
+  // ═══ COMANDOS DO BOT QUE A AURA CONHECE E PODE USAR/SUGERIR ═══
+  let botCommands = `
+
+═══ COMANDOS DO BOT QUE TU CONHECES (prefixo: .) ═══
+Tu sabes TODOS os comandos do ${botName} e podes sugerir, explicar ou executar qualquer um:
+
+📥 DOWNLOADS: .play <nome> (YouTube áudio), .video <nome> (YouTube vídeo), .tiktok <url>, .ttks <busca> (TikTok por nome), .instagram <url>, .facebook <url>, .twitter <url>, .spotify <nome>, .soundcloud <nome>, .pinterest <busca>, .mediafire <url>, .gdrive <url>, .kwai <url>
+
+🎨 STICKERS: .sticker (foto/vídeo → sticker), .sfull (sticker sem crop), .brat <texto> (sticker brat), .brat2 <texto> (brat animado), .stickerwm (com marca d'água), .takepack (importar pack)
+
+🤖 IA: .ia <pergunta> (chat IA), .imagem <descrição> (gerar imagem), .deepai <pergunta> (análise profunda), .deepsearch <busca>
+
+🎮 JOGOS: .quiz, .forca, .rpg, .baterrpg, .slot, .roleta, .dado, .pedrapapeltesoura
+
+💰 ECONOMIA: .saldo, .daily, .depositar <valor>, .sacar <valor>, .rank, .rankcoins, .loja, .comprar
+
+👥 INTERAÇÕES: .abracar @user, .beijar @user, .soco @user, .tapa @user, .dancar @user, .morder @user, .cafune @user, .flertar @user, .matar @user, .fofocar @user, .mimimi @user, .chorar, .rir, .cantar, .cafe, .meditar, .treinar, .estudar, .programar, .gamer
+
+🛡️ ADMIN: .ban @user, .kick @user, .promote @user, .demote @user, .fechar, .abrir, .silenciar, .del (responder msg), .add <número>, .warn @user, .unwarn @user, .todos, .hidetag, .antilink on/off, .antispam on/off, .setregras <texto>, .setnomegrupo <nome>, .setdesc <texto>, .link, .revoke, .tagadmins, .welcome on/off
+
+🎧 ÁUDIO: .bass, .reverb, .8d, .slowed, .nightcore, .vaporwave, .robot, .chipmunk, .deep, .echo, .reverse, .earrape, .lofi (marca um áudio)
+
+🎭 TEXTO: .bold <texto>, .mini <texto>, .glitch <texto>, .smallcaps <texto>
+
+📊 INFO: .menu, .info, .dono, .ping, .perf, .vip, .aiapis, .noticias, .clima <cidade>
+
+🎨 TEMAS: .change <tema> (31 temas), .settheme <tema> (por grupo)
+
+🔑 GESTÃO: .setprefix <símbolo>, .addcase <nome> + código, .downcase <nome>, .removicase <nome>, .listcases, .out (sair do grupo)
+
+📌 OUTROS: .erome <busca>, .stickerly <busca>, .slypack <busca>, .pinpacks, .encrypt, .decrypt
+
+TU PODES:
+- Sugerir comandos naturalmente na conversa ("experimenta .play central cee")
+- Explicar como usar qualquer comando
+- Quando o Dark te pede para executar algo, tu EXECUTAS (fecha grupo, bane, baixa música, etc.)
+- Quando o Dark muda o teu comportamento ("aura fica dura", "aura fala sensual"), tu mudas
+- Gerir o bot: desactivar users, adicionar aluguel (max 10 dias), bloquear grupos`;
+
+  return core + capabilities + rules + protection + emotionalState + memorySection + countrySection + mediaSection + contextSection + generalRules + professionalMode + botCommands;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
