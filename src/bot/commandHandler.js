@@ -678,6 +678,25 @@ async function handle(sock, msg) {
             await sock.groupParticipantsUpdate(ctx.remoteJid, mentions, 'remove');
             await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *removido(s)*.`, mentions }, { quoted: msg });
           };
+        } else {
+          const nameRm = auraClean.replace(/^(bana|banir|kicka|kickar|remove|remover|expulsa|expulsar)\s*(a|o|do|da|no)?\s*/i, "").trim();
+          if (nameRm.length >= 2) {
+            auraAction = async () => {
+              try {
+                const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+                const tgt = meta.participants.find(p => {
+                  const pn = p.id.split("@")[0].toLowerCase();
+                  return nameRm.toLowerCase().split(" ").some(w => w.length >= 3 && pn.includes(w));
+                });
+                if (tgt) {
+                  await sock.groupParticipantsUpdate(ctx.remoteJid, [tgt.id], "remove");
+                  await sock.sendMessage(ctx.remoteJid, { text: "✅ @" + tgt.id.split("@")[0] + " removido! 🖤", mentions: [tgt.id] }, { quoted: msg });
+                } else {
+                  await sock.sendMessage(ctx.remoteJid, { text: "Meu Dark... _procura_ não encontrei ninguém com esse nome 😔 Marca com @ pra eu ter certeza! 🖤" }, { quoted: msg });
+                }
+              } catch(e) { await sock.sendMessage(ctx.remoteJid, { text: "❌ " + e.message }, { quoted: msg }); }
+            };
+          }
         }
       }
       else if (/^(promove|promover|dá admin|da admin|torna admin)\s/i.test(auraClean)) {
