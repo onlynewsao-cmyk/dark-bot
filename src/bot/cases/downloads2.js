@@ -302,6 +302,41 @@ module.exports = function registerDownloads2(registerCase) {
     } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MCPlugin: ' + e.message); }
   });
 
+  // ═══ TIKTOK SEARCH POR NOME (ttks) ═══
+  registerCase(['ttks', 'ttsearch', 'tiktoksearch', 'tts'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+    const query = args.join(' ').trim();
+    if (!query) return reply(`🎶 Uso: \`${prefix}ttks <nome da música ou busca>\`\nEx: \`${prefix}ttks central cee band4band\``);
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
+    try {
+      const dl = require('../dl/others');
+      const results = await dl.tiktokSearch(query, 3);
+      if (!results.length) throw new Error('Nenhum vídeo encontrado para: ' + query);
+      
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      
+      // Envia o primeiro resultado como vídeo
+      const r = results[0];
+      if (r.url) {
+        await sendVideo(sock, ctx.remoteJid, msg, r);
+      } else {
+        throw new Error('Sem URL de download');
+      }
+      
+      // Se há mais resultados, informa
+      if (results.length > 1) {
+        const RE = require('../renderEngine');
+        const t = await RE.getTheme(ctx.remoteJid);
+        const extra = results.slice(1).map((v, i) => `${i + 2}. ${v.title?.slice(0, 50) || 'TikTok'} — @${v.author || '?'}`).join('\n');
+        await reply(RE.renderBlock(t, 'TIKTOK', [`🎬 Mais resultados para "${query}":`, extra, `> Usa ${prefix}ttks <número> para baixar outro`], { botName: config.bot.name }));
+      }
+      
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) {
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      return errReply(sock, msg, ctx, 'TikTok Search: ' + e.message);
+    }
+  });
+
   // ═══ TIKTOK STALK ═══
   registerCase(['tiktoktxt'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const user = args.join(' ').trim();

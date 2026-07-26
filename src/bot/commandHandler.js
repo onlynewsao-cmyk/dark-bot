@@ -627,6 +627,134 @@ async function handle(sock, msg) {
 
   const textLower = text.toLowerCase().trim();
 
+  // ════════════════════════════════════════════════════════════════════════
+  // AURA DE PODER v6.39 — IA executa comandos de admin por linguagem natural
+  // Quando o DONO ou ADM diz "aura fecha o grupo", "aura bane @x", etc.
+  // A IA detecta a intenção e executa directamente
+  // ════════════════════════════════════════════════════════════════════════
+  if (ctx.isGroup && (isOwner || await isGroupAdminForHandler(sock, ctx))) {
+    const auraCmdText = text.toLowerCase().trim();
+    // Remove "aura" do início se presente
+    const auraClean = auraCmdText.replace(/^(aura|a aura|da aura|pra aura|com a aura)\s*/i, '').trim();
+    
+    if (auraClean.length > 2) {
+      let auraAction = null;
+      
+      // ── FECHAR GRUPO ──
+      if (/^(fecha|fechar|tranca|trancar|bloqueia|bloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
+          /aura.*fecha|aura.*fechar|aura.*tranca/i.test(auraCmdText)) {
+        auraAction = async () => {
+          await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
+          await sock.sendMessage(ctx.remoteJid, { text: '🔒 *Grupo fechado!* Só admins podem enviar agora.' }, { quoted: msg });
+        };
+      }
+      // ── ABRIR GRUPO ──
+      else if (/^(abre|abrir|destranca|destrancar|desbloqueia|desbloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
+               /aura.*abre|aura.*abrir/i.test(auraCmdText)) {
+        auraAction = async () => {
+          await sock.groupSettingUpdate(ctx.remoteJid, 'not_announcement');
+          await sock.sendMessage(ctx.remoteJid, { text: '🔓 *Grupo aberto!* Todos podem enviar mensagens.' }, { quoted: msg });
+        };
+      }
+      // ── SILENCIAR ──
+      else if (/^(silencia|silenciar|muta|mutar|cala|calar)\s*(o\s*)?(grupo|gp)?$/i.test(auraClean)) {
+        auraAction = async () => {
+          await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
+          await sock.sendMessage(ctx.remoteJid, { text: '🔇 *Grupo silenciado!*' }, { quoted: msg });
+        };
+      }
+      // ── BANIR/KICK ──
+      else if (/^(bana|banir|kicka|kickar|remove|remover|expulsa|expulsar)\s/i.test(auraClean)) {
+        const mentions = allMentioned;
+        if (mentions.length) {
+          auraAction = async () => {
+            await sock.groupParticipantsUpdate(ctx.remoteJid, mentions, 'remove');
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *removido(s)*.` , mentions }, { quoted: msg });
+          };
+        }
+      }
+      // ── PROMOVER ──
+      else if (/^(promove|promover|dá admin|da admin|torna admin)\s/i.test(auraClean)) {
+        const mentions = allMentioned;
+        if (mentions.length) {
+          auraAction = async () => {
+            await sock.groupParticipantsUpdate(ctx.remoteJid, mentions, 'promote');
+            await sock.sendMessage(ctx.remoteJid, { text: `👑 ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *promovido(s)* a admin!`, mentions }, { quoted: msg });
+          };
+        }
+      }
+      // ── REBAIXAR ──
+      else if (/^(rebaixa|rebaixar|tira admin|remove admin|demote)\s/i.test(auraClean)) {
+        const mentions = allMentioned;
+        if (mentions.length) {
+          auraAction = async () => {
+            await sock.groupParticipantsUpdate(ctx.remoteJid, mentions, 'demote');
+            await sock.sendMessage(ctx.remoteJid, { text: `⬇️ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *rebaixado(s)*.`, mentions }, { quoted: msg });
+          };
+        }
+      }
+      // ── MARCAR TODOS ──
+      else if (/^(marca todos|tag all|chama todos|marca todo mundo|atención|atenção todos)/i.test(auraClean)) {
+        auraAction = async () => {
+          const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+          const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+          const parts = meta.participants.filter(p => p.id.split('@')[0] !== botNum);
+          const mentions = parts.map(p => p.id);
+          const txtMsg = auraClean.replace(/^(marca todos|tag all|chama todos|marca todo mundo|atenção todos)\s*/i, '').trim() || '📢 Atenção!';
+          await sock.sendMessage(ctx.remoteJid, { text: txtMsg + '\n\n' + mentions.map(j => '@' + j.split('@')[0]).join(' '), mentions }, { quoted: msg });
+        };
+      }
+      // ── BAIXAR MÚSICA (aura baixa/play/desce) ──
+      else if (/^(baixa|baixar|desce|descarrega|play|música|musica|toca)\s+(.+)/i.test(auraClean)) {
+        const musicQuery = auraClean.match(/^(baixa|baixar|desce|descarrega|play|música|musica|toca)\s+(.+)/i)?.[2]?.trim();
+        if (musicQuery) {
+          auraAction = async () => {
+            await sock.sendMessage(ctx.remoteJid, { react: { text: '🎵', key: msg.key } });
+            try {
+              const ytdl = require('./ytdl');
+              const r = await ytdl.getAudio(musicQuery, '128k');
+              const buf = r.buffer || await mediaHandler.fetchBuffer(r.url);
+              if (buf && buf.length > 1024) {
+                await sock.sendMessage(ctx.remoteJid, {
+                  audio: buf, mimetype: r.mimetype || 'audio/mpeg',
+                  fileName: `${(r.title || musicQuery).replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.mp3`,
+                  ptt: false,
+                }, { quoted: msg });
+                await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+              } else {
+                await sock.sendMessage(ctx.remoteJid, { text: '❌ Não consegui baixar essa música.' }, { quoted: msg });
+              }
+            } catch (e) {
+              await sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
+            }
+          };
+        }
+      }
+      // ── LIMPAR/APAGAR (últimas msgs) ──
+      else if (/^(limpa|limpar|apaga tudo|clean)/i.test(auraClean)) {
+        auraAction = async () => {
+          await sock.sendMessage(ctx.remoteJid, { text: '🗑️ Não consigo apagar mensagens em massa (limitação do WhatsApp). Usa *!del* respondendo a cada mensagem.' }, { quoted: msg });
+        };
+      }
+      
+      // Se detectou uma acção, executa e retorna
+      if (auraAction) {
+        try {
+          await auraAction();
+          return true;
+        } catch (e) {
+          const errMsg = String(e?.message || e || '');
+          if (/not admin|forbidden|403/i.test(errMsg)) {
+            await sock.sendMessage(ctx.remoteJid, { text: '⚠️ *Preciso ser admin do grupo para fazer isso!* Promove-me! 🙏' }, { quoted: msg });
+          } else {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ ' + errMsg.slice(0, 200) }, { quoted: msg });
+          }
+          return true;
+        }
+      }
+    }
+  }
+
   // AURA TRIGGERS — activado por:
   //  1. Palavra exacta da lista
   //  2. Frase começa com "aura ..." → citação directa
@@ -875,6 +1003,7 @@ async function handle(sock, msg) {
     spdl: 'spotify', spotifydl: 'spotify',
     pindl: 'pinterest', pint: 'pinterest',
     gdr: 'gdrive', mfire: 'mediafire', kw: 'kwai',
+    ttks: 'ttks', ttsearch: 'ttks', tts: 'ttks', tiktoksearch: 'ttks',
     b: 'bold', m: 'mini', g: 'glitch',
     kik: 'kick', banir: 'kick', promover: 'promote', rebaixar: 'demote',
 };

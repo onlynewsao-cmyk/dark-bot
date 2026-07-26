@@ -182,7 +182,9 @@ async function detect(text, groupJid = null) {
   const sorted = [...activePrefixes].sort((a, b) => b.length - a.length);
   for (const p of sorted) {
     if (trimmed.startsWith(p)) {
-      return { prefix: p, rest: trimmed.slice(p.length).trim(), source: groupPrefix ? 'group' : 'global' };
+      // v6.39: NÃO faz trimLeft no rest — ". Play" deve ter rest=" Play" (com espaço)
+      // para que o commandHandler detecte e rejeite (prefixo separado do comando)
+      return { prefix: p, rest: trimmed.slice(p.length).trimEnd(), source: groupPrefix ? 'group' : 'global' };
     }
   }
 
