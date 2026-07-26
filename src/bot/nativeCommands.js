@@ -792,6 +792,7 @@ module.exports = {
             { header: `${t.icon} ʟᴏɢᴏs & ᴇғᴇɪᴛᴏs`, title: '_naruto, rainbow, neon, graffiti._',     id: p + 'menulogos' },
             { header: `${t.icon} ᴀᴅᴍ & ɢʀᴜᴘᴏs`,   title: '_moderação, regras, automação._',         id: p + 'menuadm' },
             { header: `${t.icon} ɪɴғᴏ & sᴛᴀᴛs`,  title: '_ping, perfil, diagnóstico._',            id: p + 'menustatus' },
+            { header: `${t.icon} ʀᴘɢ & ᴀᴠᴇɴᴛᴜʀᴀ`, title: '_trabalhar, minerar, explorar, masmorra._', id: p + 'submenuRPG' },
             { header: `${t.icon} ᴍᴇɴᴜ+18`,        title: '_comandos adultos, só VIPs._',             id: p + 'menu18' },
             { header: `${t.icon} ᴄᴍᴅs ᴄᴜʟᴛᴏs`,   title: '_comandos secretos do dono._',             id: p + 'cmdsocultos' },
             { header: `${t.icon} ᴍᴀs ᴄᴍs`,      title: '_comandos avançados e utilitários._',      id: p + 'maiscmds' },
