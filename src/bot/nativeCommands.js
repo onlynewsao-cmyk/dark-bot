@@ -1130,44 +1130,69 @@ module.exports = {
 
   // ── !menu18 — Portal 18+ (só VIP) ───────────────────────────────
   async menu18({ sock, msg, ctx, config: cfg }) {
-    if (!isPrimaryOwnerOnly(ctx)) {
-      // Para utilizadores não-dono: mostra card informativo sem revelar conteúdo
-      const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
-      const isVip = u && u.isPremium && u.isPremium();
-      if (!isVip) {
-        return reply(sock, msg, ctx,
-          `🔞 *MENU +18*\n\n` +
-          `Este menu é exclusivo para utilizadores *VIP/Premium*.\n\n` +
-          `⭐ Acede ao plano Premium com *${(cfg||config).bot.prefix}vip*\n` +
-          `👑 Ou contacta o dono: wa.me/${(cfg||config).owner.number}`
-        );
-      }
-    }
-    // Menu 18+ próprio — mostra comandos adultos para VIP
-    const RE = require('./renderEngine');
-    const t = await RE.getTheme(ctx.remoteJid);
     const localConfig = cfg || config;
     const p = localConfig.bot.prefix;
-    return reply(sock, msg, ctx, RE.renderBlock(t, '🔞 MENU +18', [
-      '⚠️ *Conteúdo adulto — só VIPs*',
+    const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
+    const isVip = u && u.isPremium && u.isPremium();
+
+    if (!isVip && !ctx.isOwner) {
+      // Não VIP → mostra mensagem de upgrade no grupo
+      const RE = require('./renderEngine');
+      const t = await RE.getTheme(ctx.remoteJid);
+      return reply(sock, msg, ctx, RE.renderBlock(t, '🔞 MENU +18', [
+        '⚠️ *Conteúdo exclusivo para VIPs*',
+        '',
+        '⭐ Acede com *' + p + 'vip*',
+        '📲 Ou contacta: wa.me/' + String(localConfig.owner.number || '').replace(/\D/g, ''),
+      ], { botName: localConfig.bot.name }));
+    }
+
+    // VIP ou Dono → envia menu 18+ no PV
+    const pvJid = ctx.senderJid;
+    const RE = require('./renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
+    const menuText = RE.renderBlock(t, '🔞 MENU +18', [
+      '⚠️ *Conteúdo adulto — exclusivo VIP*',
       '',
       '📸 *IMAGENS*',
-      `${p}hentai [tags] — anime adulto`,
-      `${p}ximg [tags] — busca por tags`,
-      `${p}adultsearch [t] — busca multi-fonte`,
+      p + 'hentai [tags] — anime adulto',
+      p + 'ximg [tags] — busca por tags',
+      p + 'adultsearch [t] — busca multi-fonte',
       '',
       '🎬 *VÍDEOS*',
-      `${p}xvideo [termo] — busca vídeo`,
+      p + 'xvideo [termo] — busca vídeo',
       '',
       '💬 *CHAT HOT*',
-      `${p}hotchat [tema] — chat sensual`,
+      p + 'hotchat [tema] — chat sensual',
+      p + 'hotchat [t] picante — mais ousado',
+      p + 'hotchat [t] conto — conto 18+',
       '',
       '📚 *LIVROS*',
-      `${p}buscalivro [nome] — busca livros`,
-      `${p}livros18 — top 18+`,
+      p + 'buscalivro [nome] — busca livros',
+      p + 'livros18 — top 18+',
       '',
-      '> ⭐ !vip para aceder',
-    ], { botName: localConfig.bot.name }));
+      '⚙️ *CONTROLO*',
+      p + 'adultmode on/off — liga/desliga',
+      '',
+      '> 🔞 Conteúdo enviado no PV por segurança',
+    ], { botName: localConfig.bot.name });
+
+    // Envia no PV
+    try {
+      await sock.sendMessage(pvJid, { text: menuText });
+      // Confirma no grupo
+      await sock.sendMessage(ctx.remoteJid, {
+        text: '🔞 *Menu 18+ enviado no teu PV!*',
+        mentions: [ctx.senderJid],
+      }, { quoted: msg });
+    } catch (e) {
+      // Se falhar PV, envia no grupo (só se for dono)
+      if (ctx.isOwner) {
+        await reply(sock, msg, ctx, menuText);
+      } else {
+        await reply(sock, msg, ctx, '❌ Não consegui enviar no PV. Abre o chat comigo primeiro!');
+      }
+    }
   },
 
   // ── !menuadm — Menu ADM de grupo ─────────────────────────────────
