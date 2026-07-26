@@ -2368,7 +2368,8 @@ module.exports = {
 
       const stickers = [];
       const thumbBufs = [];
-      for (let i = 0; i < items.length; i++) {
+      const total = items.length;
+      for (let i = 0; i < total; i++) {
         try {
           const imgBuf = await mediaHandler.fetchBuffer(items[i].image_url);
           if (!imgBuf || imgBuf.length < 1000) continue;
@@ -2382,6 +2383,20 @@ module.exports = {
             if (thumbBufs.length < 4) thumbBufs.push(imgBuf);
           }
         } catch {}
+        // Barra de progresso visual (a cada 3 stickers ou no último)
+        if ((i + 1) % 3 === 0 || i === total - 1) {
+          const done = stickers.length;
+          const pct = Math.round(((i + 1) / total) * 100);
+          const filled = Math.round(pct / 5);
+          const bar = '█'.repeat(filled) + '░'.repeat(20 - filled);
+          await sock.sendMessage(ctx.remoteJid, {
+            text: RE.renderBlock(t, 'PINPACKS', [
+              '⏳ Montando pack de *' + query + '*',
+              '[' + bar + '] ' + pct + '% (' + (i + 1) + '/' + total + ')',
+            ], { botName: localConfig.bot.name }),
+            edit: progMsg.key,
+          }).catch(() => {});
+        }
       }
       if (!stickers.length) throw new Error('Nenhuma imagem convertida.');
 
