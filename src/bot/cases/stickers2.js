@@ -70,20 +70,29 @@ module.exports = function registerStickers2(registerCase) {
     }, true);
   }
 
-  // ═══ BRAT (texto em fundo branco — estático) ═══
+  // ═══ BRAT (fundo branco + auto-scale para não overflow) ═══
   registerCase(['brat'], async ({ sock, msg, ctx, args }) => {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const text = args.join(' ').trim() || 'brat';
     try {
       const sharp = require('sharp');
-      const fontSize = text.length > 10 ? 48 : text.length > 6 ? 64 : 80;
+      // Auto-scale: calcula font size para caber em 480px (margem 16px cada lado)
+      const maxW = 480;
+      let fontSize = 120;
+      // Estimar largura: cada char ≈ 0.6 * fontSize
+      while (text.length * fontSize * 0.6 > maxW && fontSize > 20) fontSize -= 4;
+      // Se texto muito longo, reduzir mais
+      if (text.length > 15) fontSize = Math.min(fontSize, 36);
+      if (text.length > 20) fontSize = Math.min(fontSize, 28);
+
       const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
         '<rect width="512" height="512" fill="white"/>' +
-        '<defs><filter id="blur"><feGaussianBlur stdDeviation="1.5"/></filter></defs>' +
+        '<defs><filter id="blur"><feGaussianBlur stdDeviation="1.2"/></filter></defs>' +
         '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
         'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
-        'font-weight="900" fill="black" opacity="0.85" filter="url(#blur)">' +
-        text.slice(0, 20).toUpperCase() + '</text></svg>';
+        'font-weight="900" fill="black" opacity="0.85" filter="url(#blur)" ' +
+        'textLength="' + Math.min(text.length * fontSize * 0.6, maxW) + '" lengthAdjust="spacingAndGlyphs">' +
+        text.slice(0, 25).toUpperCase() + '</text></svg>';
       const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
       const stk = await stickerMaker.create(png, {
         botName: config.bot.name, ownerName: config.owner.name,
@@ -98,57 +107,57 @@ module.exports = function registerStickers2(registerCase) {
     }
   }, true);
 
-  // ═══ BRAT2 (adaptativo: palavra=letra/letra, frase=palavra/palavra) ═══
+  // ═══ BRAT2 (SEMPRE palavra por palavra) ═══
   registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const input = args.join(' ').trim() || 'brat';
     try {
       const sharp = require('sharp');
       const words = input.split(/\s+/);
-      const isSingleWord = words.length === 1;
-      const fontSize = input.length > 12 ? 40 : input.length > 8 ? 52 : input.length > 5 ? 64 : 80;
-      const text = input.toUpperCase().slice(0, 20);
+      const text = input.toUpperCase().slice(0, 25);
+      // Auto-scale font
+      const maxW = 480;
+      let fontSize = 100;
+      while (text.length * fontSize * 0.6 > maxW && fontSize > 16) fontSize -= 4;
+      if (text.length > 15) fontSize = Math.min(fontSize, 32);
 
-      // Gerar frames: palavra única = letra por letra, frase = palavra por palavra
+      // SEMPRE palavra por palavra (mesmo para 1 palavra, faz letra por letra)
       const frames = [];
-      if (isSingleWord) {
-        // Letra por letra
+      const delays = [];
+      if (words.length === 1) {
+        // 1 palavra → letra por letra
         for (let i = 1; i <= text.length; i++) {
-          const partial = text.slice(0, i);
-          const cursor = i < text.length ? '|' : '';
-          frames.push({ text: partial + cursor, delay: 120 });
+          frames.push(text.slice(0, i) + (i < text.length ? '|' : ''));
+          delays.push(130);
         }
       } else {
-        // Palavra por palavra
+        // 2+ palavras → palavra por palavra
         for (let i = 1; i <= words.length; i++) {
           const partial = words.slice(0, i).join(' ').toUpperCase();
-          const cursor = i < words.length ? '|' : '';
-          frames.push({ text: partial + cursor, delay: 200 });
+          frames.push(partial + (i < words.length ? '|' : ''));
+          delays.push(250);
         }
       }
-      // Pausa final
-      frames.push({ text: text, delay: 600 });
-      frames.push({ text: text, delay: 600 });
+      // Pausa final (2 frames)
+      frames.push(text, text);
+      delays.push(700, 700);
 
-      // Renderizar SVGs
       const pngFrames = [];
-      const delays = [];
-      for (const frame of frames) {
+      for (const frameText of frames) {
         const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
           '<rect width="512" height="512" fill="#84CC16"/>' +
           '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
           'font-family="Arial Black, Arial" font-size="' + fontSize + '" ' +
-          'font-weight="900" fill="black" opacity="0.85">' +
-          frame.text.slice(0, 20) + '</text></svg>';
-        const png = await sharp(Buffer.from(svgStr)).png().toBuffer();
-        pngFrames.push(png);
-        delays.push(frame.delay);
+          'font-weight="900" fill="black" opacity="0.85" ' +
+          'textLength="' + Math.min(frameText.length * fontSize * 0.55, maxW) + '" lengthAdjust="spacingAndGlyphs">' +
+          frameText.slice(0, 25) + '</text></svg>';
+        pngFrames.push(await sharp(Buffer.from(svgStr)).png().toBuffer());
       }
 
       let finalBuf;
       try {
         finalBuf = await sharp(pngFrames[0], { animated: true })
-          .webp({ quality: 70, loop: 0, delay: delays })
+          .webp({ quality: 68, loop: 0, delay: delays })
           .toBuffer();
       } catch { finalBuf = pngFrames[pngFrames.length - 1]; }
 

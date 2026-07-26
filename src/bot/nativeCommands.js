@@ -2515,7 +2515,7 @@ module.exports = {
     const { stickers, info } = _packCache.get(packId);
     await react(sock, msg, '📦');
     for (let i = 0; i < stickers.length; i++) {
-      await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
+      await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i], packId: packId, isPremium: false });
       // Sem delay — WhatsApp agrupa como pack instantaneamente
     }
     const RE = require('./renderEngine');
