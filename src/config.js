@@ -62,6 +62,13 @@ module.exports = {
     openrouterApiKey: env('OPENROUTER_API_KEY', ''),
     openaiApiKey:     env('OPENAI_API_KEY', ''),
     model:            env('AI_MODEL', ''),
+    // v6.55: Novos providers
+    cerebrasApiKey:   env('CEREBRAS_API_KEY', ''),
+    apifreellmKey:    env('APIFREELLM_KEY', ''),
+    assemblyaiKey:    env('ASSEMBLYAI_API_KEY', ''),
+    elevenlabsKey:    env('ELEVENLABS_API_KEY', ''),
+    tavilyKey:        env('TAVILY_API_KEY', ''),
+    huggingfaceKey:   env('HUGGINGFACE_API_KEY', ''),
     // aliases para compatibilidade
     groqKey:       env('GROQ_API_KEY', ''),
     geminiKey:     env('GEMINI_API_KEY', ''),
