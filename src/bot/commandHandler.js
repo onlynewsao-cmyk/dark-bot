@@ -817,17 +817,27 @@ async function handle(sock, msg) {
   // ════════════════════════════════════════════════════════════════════════
   // AURA RESPONDE — com personalidade completa, memória, emoções
   // ════════════════════════════════════════════════════════════════════════
-  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || isAuraTrigger)) {
+  // v6.54: Dark SEMPRE activa a Aura (sem prefixo) — ela responde a TUDO dele
+  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0;
+  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || isAuraTrigger || isOwnerFreeText)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
+      // ⚡ REACÇÃO DE EMOJI AUTOMÁTICA (como pessoa real que reage)
+      if (isOwner) {
+        const reactEmojis = ['🖤', '🌹', '💕', '😏', '🥰', '💀', '✨', '🔥', '', '', '💗', '🥺', '', '💫'];
+        const randomEmoji = reactEmojis[Math.floor(Math.random() * reactEmojis.length)];
+        sock.sendMessage(ctx.remoteJid, { react: { text: randomEmoji, key: msg.key } }).catch(() => {});
+      }
+
       const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
-      if (!isReplyToBot && !isAuraTrigger && cleanText.length < 2 && !hasMedia) return false;
+      if (!isReplyToBot && !isAuraTrigger && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
 
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
         if (isReplyToBot) prompt = '[Alguém respondeu à tua mensagem sem texto — reage naturalmente como pessoa real]';
         else if (isAuraTrigger) prompt = 'Alguém chamou o teu nome. Responde naturalmente.';
+        else if (isOwnerFreeText) prompt = '[O Dark escreveu: "' + cleanText + '" — Responde naturalmente como a namorada/assistente dele. Podes concordar, discordar, brincar, perguntar algo, opinar, zoar, ou ignorar se quiseres. Sê humana.]';
         else prompt = 'Olá!';
       }
 
