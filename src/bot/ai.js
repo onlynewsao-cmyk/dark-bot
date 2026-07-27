@@ -22,6 +22,11 @@ const GEMINI_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.5-flash-lite',
 ];
+const CEREBRAS_MODELS = [
+  'llama-3.3-70b',
+  'qwen-3-32b',
+  'gemma-3-27b-it',
+];
 
 // ─────────────────────────────────────────────
 // CACHE DE CONTEXTO WEB
@@ -361,10 +366,20 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
   }
-  // 3. OpenRouter
+  // 3. Cerebras (2100 tokens/sec!)
+  if (config.ai.cerebrasApiKey) {
+    try { return await withTimeout(chatCerebras(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Cerebras:', shortErr(e)); }
+  }
+  // 4. OpenRouter
   if (config.ai.openrouterApiKey) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Router:', shortErr(e)); }
+  }
+  // 5. ApiFreeLLM (ILIMITADO grátis)
+  if (config.ai.apifreellmKey) {
+    try { return await withTimeout(chatApiFreeLLM(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
   }
   // 4. Fallback público
   try {
@@ -504,6 +519,123 @@ async function transcribeAudio(audioBuffer, language = 'pt') {
 }
 
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// CEREBRAS (2100 tokens/sec — o mais rápido!)
+// ─────────────────────────────────────────────
+async function chatCerebras(messages, system) {
+  if (!config.ai.cerebrasApiKey) throw new Error('sem chave Cerebras');
+  let lastErr;
+  for (const model of CEREBRAS_MODELS) {
+    try {
+      const data = await post('https://api.cerebras.ai/v1/chat/completions', {
+        model, messages: [{ role: 'system', content: system }, ...messages],
+        temperature: 0.7, max_completion_tokens: 1024, stream: false,
+      }, { Authorization: `Bearer ${config.ai.cerebrasApiKey}` });
+      const out = data.choices?.[0]?.message?.content;
+      if (out) return out;
+    } catch (e) { lastErr = e; if (/401|invalid/i.test(e.message)) break; }
+  }
+  throw lastErr || new Error('sem resposta Cerebras');
+}
+
+// ─────────────────────────────────────────────
+// APIFREELLM (ILIMITADO, grátis, 200B+ params)
+// ─────────────────────────────────────────────
+async function chatApiFreeLLM(messages, system) {
+  if (!config.ai.apifreellmKey) throw new Error('sem chave ApiFreeLLM');
+  try {
+    const data = await post('https://apifreellm.com/api/v1/chat', {
+      messages: [{ role: 'system', content: system }, ...messages], stream: false,
+    }, { Authorization: `Bearer ${config.ai.apifreellmKey}` });
+    const out = data.choices?.[0]?.message?.content || data.message || data.response;
+    if (out) return out;
+  } catch (e) { throw e; }
+  throw new Error('sem resposta ApiFreeLLM');
+}
+
+// ─────────────────────────────────────────────
+// ELEVENLABS TTS (voz mais realista do mundo 🗣️)
+// ─────────────────────────────────────────────
+async function speakElevenLabs(text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
+  if (!config.ai.elevenlabsKey) throw new Error('sem chave ElevenLabs');
+  if (!text || text.length < 1) throw new Error('texto vazio');
+  const https = require('https');
+  const body = JSON.stringify({
+    text: text.slice(0, 2500), model_id: 'eleven_multilingual_v2',
+    voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.elevenlabs.io', path: `/v1/text-to-speech/${voiceId}`, method: 'POST',
+      headers: { 'xi-api-key': config.ai.elevenlabsKey, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg', 'Content-Length': Buffer.byteLength(body) },
+      timeout: 15000,
+    }, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        if (res.statusCode >= 400) return reject(new Error('ElevenLabs HTTP ' + res.statusCode));
+        if (buf.length < 500) return reject(new Error('ElevenLabs áudio vazio'));
+        resolve(buf);
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('ElevenLabs timeout')); });
+    req.write(body); req.end();
+  });
+}
+
+// ─────────────────────────────────────────────
+// TAVILY (pesquisa web optimizada para IA 🌐)
+// ─────────────────────────────────────────────
+async function searchTavily(query, maxResults = 5) {
+  if (!config.ai.tavilyKey) throw new Error('sem chave Tavily');
+  const data = await post('https://api.tavily.com/search', {
+    api_key: config.ai.tavilyKey, query: query.slice(0, 500),
+    max_results: maxResults, search_depth: 'basic', include_answer: true,
+  });
+  const answer = data.answer || '';
+  const results = (data.results || []).map(r => '• ' + r.title + ': ' + (r.content || '').slice(0, 200)).join('\n');
+  return answer ? answer + '\n\nFontes:\n' + results : results || 'Sem resultados';
+}
+
+// ─────────────────────────────────────────────
+// ASSEMBLYAI (transcrição + sentimento 🎧)
+// ─────────────────────────────────────────────
+async function transcribeAssemblyAI(audioBuffer, language) {
+  if (!config.ai.assemblyaiKey) throw new Error('sem chave AssemblyAI');
+  if (!audioBuffer || audioBuffer.length < 100) throw new Error('áudio vazio');
+  const hdrs = { 'authorization': config.ai.assemblyaiKey };
+  // Upload
+  const uploadRes = await new Promise((resolve, reject) => {
+    const https = require('https');
+    const req = https.request({ hostname: 'api.assemblyai.com', path: '/v2/upload', method: 'POST',
+      headers: { ...hdrs, 'Content-Type': 'application/octet-stream', 'Content-Length': audioBuffer.length }, timeout: 30000,
+    }, res => { const ch = []; res.on('data', c => ch.push(c)); res.on('end', () => { try { resolve(JSON.parse(Buffer.concat(ch).toString())); } catch(e) { reject(e); } }); });
+    req.on('error', reject); req.write(audioBuffer); req.end();
+  });
+  if (!uploadRes.upload_url) throw new Error('upload falhou');
+  // Transcribe
+  const tr = await post('https://api.assemblyai.com/v2/transcript', {
+    audio_url: uploadRes.upload_url, language_code: language || 'pt', sentiment_analysis: true,
+  }, hdrs);
+  if (!tr.id) throw new Error('transcrição falhou');
+  // Poll
+  const start = Date.now();
+  while (Date.now() - start < 60000) {
+    await new Promise(r => setTimeout(r, 2000));
+    const poll = await new Promise((resolve, reject) => {
+      const https = require('https');
+      https.get('https://api.assemblyai.com/v2/transcript/' + tr.id, { headers: hdrs, timeout: 10000 }, res => {
+        const ch = []; res.on('data', c => ch.push(c)); res.on('end', () => { try { resolve(JSON.parse(Buffer.concat(ch).toString())); } catch(e) { reject(e); } });
+      }).on('error', reject);
+    });
+    if (poll.status === 'completed') return { text: poll.text || '', sentiment: poll.sentiment_analysis_results?.[0]?.sentiment || '', confidence: poll.confidence };
+    if (poll.status === 'error') throw new Error(poll.error || 'erro');
+  }
+  throw new Error('timeout');
+}
+
 // VISÃO — Gemini Vision (analisa imagens reais)
 // ─────────────────────────────────────────────
 /**
@@ -605,6 +737,11 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // EXPORTS
 // ─────────────────────────────────────────────
 module.exports = {
+  chatCerebras,
+  chatApiFreeLLM,
+  speakElevenLabs,
+  searchTavily,
+  transcribeAssemblyAI,
   chat,
   chatGroq,
   chatGemini,
