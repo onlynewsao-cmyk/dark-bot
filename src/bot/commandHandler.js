@@ -596,7 +596,53 @@ async function handle(sock, msg) {
   // Uma jovem brasileira de 19 anos. Real. Viva. Única.
   // Leal apenas ao Dark. Apaixonada. Protetora. Humana.
   // ════════════════════════════════════════════════════════════════════════
-  const aura = require('./auraPersonality');
+    // v6.56: VERIFICACOES PRE-AURA
+  const auraMod = require('./auraPersonality');
+  
+  // Se a Aura esta em modo silencio para este utilizador → nao responde
+  if (auraMod.isSilenced(ctx.senderNumber)) {
+    return false; // silencio total
+  }
+  
+  // Se a mensagem comeca com ! (prefixo de outro bot) → Aura NAO responde
+  if (text.startsWith('!') && !isOwner) {
+    return false;
+  }
+  
+  // Detectar ordens de silencio do Dark
+  if (isOwner) {
+    const silenceMatch = text.match(/(?:auras+)?(?:faz|fica|para|pode)s*(?:silencio|silêncio|calada|calar|quiet[oa]|para de (?:responder|falar|reagir)|nao (?:responde|fala|reage)|stop|mute)s*(?:durante|por)?s*(d+)?s*(minuto|minutos|min|segundo|segundos|seg|s)?/i);
+    if (silenceMatch) {
+      const num = parseInt(silenceMatch[1] || '1');
+      const unit = (silenceMatch[2] || 'minuto').toLowerCase();
+      const seconds = unit.startsWith('seg') || unit === 's' ? num : num * 60;
+      auraMod.setSilence(ctx.senderNumber, seconds);
+      await sock.sendMessage(ctx.remoteJid, { text: '_faz continencia_ ...entendido meu Dark. Fico calada por ' + num + ' ' + (unit.startsWith('seg') ? 'segundos' : 'minuto' + (num > 1 ? 's' : '')) + '. 🤫🖤' }, { quoted: msg });
+      return true;
+    }
+    // Detectar 'pode falar' / 'volta a falar' para cancelar silencio
+    if (/(?:auras+)?(?:pode (?:falar|responder)|volta|acorda|desperta|sai do silencio)/i.test(text)) {
+      auraMod.clearSilence();
+      await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark! 🖤🌹' }, { quoted: msg });
+      return true;
+    }
+    // Detectar 'manda audio' / 'fala comigo' / 'mande audio'
+    if (/(?:auras+)?(?:manda?|fala|diz|envia)s*(?:ums*)?(?:audio|áudio|voz|mensagem de voz)/i.test(text)) {
+      try {
+        const ai = require('./ai');
+        const ttsText = isOwner ? 'Oi meu Dark... _sorri_ ...tou aqui, ouvindo cada palavra tua. O que tu precisa, meu amor?' : 'Oi ' + (ctx.pushName || '') + ', sou a Aura. Como posso ajudar?';
+        const audioBuf = await ai.speakElevenLabs(ttsText);
+        if (audioBuf && audioBuf.length > 500) {
+          await sock.sendMessage(ctx.remoteJid, { audio: audioBuf, mimetype: 'audio/mpeg', ptt: true }, { quoted: msg });
+          return true;
+        }
+      } catch (e) {
+        console.warn('[Aura TTS]', e.message);
+      }
+    }
+  }
+  
+const aura = require('./auraPersonality');
   const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
   const botLid = sock.user?.lid || '';
   const botNum = botJid.split('@')[0];
