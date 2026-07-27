@@ -998,17 +998,34 @@ const aura = require('./auraPersonality');
       
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
       let answer;
-      if (isImage && msg.message?.imageMessage) {
+      if (isImage) {
         try {
-          const { downloadMediaMessage } = require('@systemzero/baileys');
-          const imgBuf = await downloadMediaMessage(msg, 'buffer', {});
+          let imgBuf = null;
+          // Tentativa 1: downloadMediaMessage
+          try {
+            const { downloadMediaMessage } = require('@systemzero/baileys');
+            imgBuf = await downloadMediaMessage(msg, 'buffer', {});
+          } catch (e1) {
+            console.warn('[Aura Vision] downloadMediaMessage falhou:', e1.message?.slice(0, 40));
+          }
+          // Tentativa 2: mediaHandler.downloadFromMessage
+          if (!imgBuf || imgBuf.length < 500) {
+            try {
+              imgBuf = await mediaHandler.downloadFromMessage(msg);
+            } catch (e2) {
+              console.warn('[Aura Vision] mediaHandler falhou:', e2.message?.slice(0, 40));
+            }
+          }
           if (imgBuf && imgBuf.length > 500) {
             const aiMod = require('./ai');
-            const visionPrompt = prompt + '\n\n[Tu ESTÁS a ver a imagem agora. Analisa-a e responde naturalmente como pessoa real. Se te perguntaram quem é na foto, identifica. Se é uma selfie, comenta. Se é um meme, ri. NUNCA digas "não tem foto" — tu ESTÁS a ver!]';
+            const visionPrompt = prompt + '\n\n[IMPORTANTE: Tu ESTÁS a ver a imagem AGORA. Descreve o que ves e responde à pergunta. Se é um meme, ri. Se é uma pessoa, identifica. Se é um objecto, comenta. NUNCA digas que não recebeste foto — tu ESTÁS a ver ela AGORA!]';
             answer = await aiMod.chatWithImage(visionPrompt, systemPrompt, imgBuf);
+            console.log('[Aura Vision] OK, resposta com imagem');
+          } else {
+            console.warn('[Aura Vision] imgBuf vazio ou pequeno');
           }
         } catch (e) {
-          console.warn('[Aura Vision]', e.message?.slice(0, 60));
+          console.warn('[Aura Vision] erro geral:', e.message?.slice(0, 80));
         }
       }
       
@@ -1040,6 +1057,18 @@ const aura = require('./auraPersonality');
         await mem.save().catch(() => {});
       } catch {}
 
+      // ⚡ REACCAO AUTOMATICA DE EMOJI (como pessoa real)
+      if (isOwner && !isSilenced) {
+        const ownerReacts = ['🖤', '🌹', '💕', '😏', '🥰', '', '✨', '', '💗', '', '💫', '😈', '🫦', ''];
+        const rEmoji = ownerReacts[Math.floor(Math.random() * ownerReacts.length)];
+        sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
+      } else if (!isOwner) {
+        // Para nao-Donos: reaccao mais neutra
+        const neutralReacts = ['👀', '💬', '', '✨', '👍', '😐'];
+        const rEmoji = neutralReacts[Math.floor(Math.random() * neutralReacts.length)];
+        sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
+      }
+      
       // Responde como pessoa real — sem emojis de bot
       // ⚡ Parser de acções da Aura: [STICKER:xxx], [IMAGE:xxx], [CMD:xxx]
       let finalAnswer = answer;
