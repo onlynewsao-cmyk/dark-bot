@@ -414,31 +414,62 @@ function registerManagementCases() {
   registerCase(['downcase', 'getcasecode', 'viewcase', 'showcase'], async ({ m, args, isOwner, prefix }) => {
     if (!isOwner) return m.reply('🚫 Só o Dono.');
     const cmd = (args[0] || '').toLowerCase().trim();
-    if (!cmd) return m.reply(`❌ Uso: *${prefix}downcase* <comando>`);
+    if (!cmd) return m.reply('❌ Uso: *' + prefix + 'downcase* <comando>');
 
-    // Verifica primeiro nos casos dinâmicos
-    const src = await getDynamicCaseSource(cmd);
-    if (src) {
-      const fullCode = `case '${cmd}': {\n${src}\nbreak;\n}`;
-      await m.reply(
-        `📄 *Código do case: ${prefix}${cmd}*\n\n` +
-        `\`\`\`\n${fullCode}\n\`\`\``
-      );
+    // 1. Verifica nos casos dinâmicos (addcase)
+    const dynSrc = await getDynamicCaseSource(cmd);
+    if (dynSrc) {
+      const fullCode = 'case ' + "'" + cmd + "'" + ': {\n' + dynSrc + '\nbreak;\n}';
+      await m.reply('📄 *Código do case: ' + prefix + cmd + '* (dinâmico)\n\n\\\\');
       return;
     }
 
-    // Verifica nos cases em memória (pode ter source)
+    // 2. Verifica na memória
     const memSrc = CASES_SOURCE.get(cmd);
     if (memSrc) {
-      const fullCode = `case '${cmd}': {\n${memSrc}\nbreak;\n}`;
-      await m.reply(
-        `📄 *Código do case (memória): ${prefix}${cmd}*\n\n` +
-        `\`\`\`\n${fullCode}\n\`\`\``
-      );
+      const fullCode = 'case ' + "'" + cmd + "'" + ': {\n' + memSrc + '\nbreak;\n}';
+      await m.reply('📄 *Código do case: ' + prefix + cmd + '* (memória)\n\n\\\\');
       return;
     }
 
-    m.reply(`❌ Sem código fonte para *${prefix}${cmd}*.\nCases de ficheiros não têm source disponível aqui.`);
+    // 3. Procura nos ficheiros de cases
+    try {
+      const path = require('path');
+      const casesDir = path.join(__dirname, 'cases');
+      const files = fs.readdirSync(casesDir).filter(f => f.endsWith('.js'));
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(casesDir, file), 'utf8');
+        if (content.includes("'" + cmd + "'") || content.includes('"' + cmd + '"')) {
+          // Encontra o registerCase que contem este comando
+          const idx = content.indexOf("'" + cmd + "'");
+          const idx2 = content.indexOf('"' + cmd + '"');
+          const pos = idx >= 0 ? idx : idx2;
+          // Recua para encontrar o inicio do registerCase
+          let regStart = content.lastIndexOf('registerCase', pos);
+          if (regStart === -1) regStart = Math.max(0, pos - 200);
+          // Avanca para encontrar o fim (conta chavetas)
+          let depth = 0, started = false, regEnd = regStart;
+          for (let i = regStart; i < Math.min(content.length, regStart + 10000); i++) {
+            if (content[i] === '{') { depth++; started = true; }
+            if (content[i] === '}') { depth--; }
+            if (started && depth === 0) { regEnd = i + 1; break; }
+          }
+          let code = content.slice(regStart, regEnd);
+          if (code.length > 3500) code = code.slice(0, 3500) + '\n... (truncado — ficheiro completo no GitHub)';
+          await m.reply('📄 *Código do case: ' + prefix + cmd + '*\n📁 Ficheiro: ' + file + '\n\n\\\\');
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[downcase] erro:', e.message);
+    }
+
+    // 4. Comando existe mas sem source
+    if (CASES.has(cmd)) {
+      m.reply('📄 *' + prefix + cmd + '* existe mas vem de um pacote nativo.\nCódigo não disponível via downcase.');
+    } else {
+      m.reply('❌ Comando *' + prefix + cmd + '* não encontrado.');
+    }
   });
 
   // ── !listcases ──────────────────────────────────────────────────

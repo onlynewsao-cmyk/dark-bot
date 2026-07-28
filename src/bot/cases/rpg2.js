@@ -9,6 +9,39 @@ const rpg = require('../rpg/engine');
 const R = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const P = a => a[Math.floor(Math.random() * a.length)];
 
+// ═══ SISTEMA DE COOLDOWN / ENERGIA ═══
+const _rpgCooldowns = new Map(); // key: senderNumber_action → timestamp
+
+function checkCooldown(sender, action, seconds) {
+  const key = sender + '_' + action;
+  const last = _rpgCooldowns.get(key) || 0;
+  const now = Date.now();
+  const elapsed = (now - last) / 1000;
+  if (elapsed < seconds) {
+    const remaining = Math.ceil(seconds - elapsed);
+    return { blocked: true, remaining };
+  }
+  _rpgCooldowns.set(key, now);
+  return { blocked: false, remaining: 0 };
+}
+
+function cooldownMsg(action, remaining) {
+  const emojis = { battle: '⚔️', quest: '📜', train: '🏋️', explore: '🗺️', craft: '🔨', default: '⏳' };
+  const emoji = emojis[action] || emojis.default;
+  const names = { battle: 'combate', quest: 'quest', train: 'treino', explore: 'exploração', craft: 'crafting', default: 'acção' };
+  const name = names[action] || names.default;
+  return emoji + ' *Cooldown:* Espera *' + remaining + 's* para próximo ' + name + '.\n💡 _Descansa um pouco, guerreiro._';
+}
+
+// Limpa cooldowns antigos a cada 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, ts] of _rpgCooldowns) {
+    if (now - ts > 600000) _rpgCooldowns.delete(key);
+  }
+}, 600000);
+
+
 async function tReply(sock, msg, ctx, title, lines) {
   const RE = require('../renderEngine');
   const t = await RE.getTheme(ctx.remoteJid);
@@ -68,6 +101,8 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ QUEST NARRATIVA ═══
   registerCase(['quest', 'historia', 'aventura'], async ({ sock, msg, ctx, args }) => {
+    const cd = checkCooldown(ctx.senderNumber, 'quest', 60);
+    if (cd.blocked) return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('quest', cd.remaining)]);
     const p = rpg.getPlayer(ctx.senderNumber);
     const questId = p.quest?.current || 'prologo';
     const quest = rpg.QUESTS.find(q => q.id === questId);
@@ -204,6 +239,8 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ EXPLORAÇÃO NARRATIVA ═══
   registerCase(['explorar', 'explore'], async ({ sock, msg, ctx, args }) => {
+    const cd = checkCooldown(ctx.senderNumber, 'explore', 45);
+    if (cd.blocked) return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('explore', cd.remaining)]);
     const p = rpg.getPlayer(ctx.senderNumber);
     const biomeKey = args[0]?.toLowerCase() || P(Object.keys(rpg.BIOMES));
     const biome = rpg.BIOMES[biomeKey] || rpg.BIOMES.floresta;
