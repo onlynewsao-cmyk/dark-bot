@@ -356,15 +356,15 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   // Timeout menor para VIP/Dono (prioridade de resposta)
   const TIMEOUT = isPriority ? 15000 : 22000;
 
-  // 1. Groq (mais rápido)
-  if (config.ai.groqApiKey) {
-    try { return await withTimeout(chatGroq(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Groq:', shortErr(e)); }
-  }
-  // 2. Gemini
+  // 1. Gemini (MAIS INTELIGENTE + visão + áudio)
   if (config.ai.geminiApiKey) {
     try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
+  }
+  // 2. Groq (MAIS RÁPIDO — 500-700 tokens/sec)
+  if (config.ai.groqApiKey) {
+    try { return await withTimeout(chatGroq(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Groq:', shortErr(e)); }
   }
   // 3. Cerebras (2100 tokens/sec!)
   if (config.ai.cerebrasApiKey) {
@@ -376,11 +376,7 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Router:', shortErr(e)); }
   }
-  // 5. ApiFreeLLM (ILIMITADO grátis)
-  if (config.ai.apifreellmKey) {
-    try { return await withTimeout(chatApiFreeLLM(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
-  }
+  // ApiFreeLLM removido (requer Premium)
   // 4. Fallback público
   try {
     const r = await withTimeout(
