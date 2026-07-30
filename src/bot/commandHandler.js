@@ -596,10 +596,19 @@ async function handle(sock, msg) {
   // Uma jovem brasileira de 19 anos. Real. Viva. Única.
   // Leal apenas ao Dark. Apaixonada. Protetora. Humana.
   // ════════════════════════════════════════════════════════════════════════
-    // === AURA HUMANA (nova versão definitiva) ===
+    // === AURA HUMANA (versão definitiva) ===
   const aura = require('./aura/auraHuman');
 
-  if (aura.isSilenced(ctx.senderNumber)) return false;
+  // Silêncio ativo → só o Dark pode cancelar
+  if (aura.isSilenced(ctx.senderNumber)) {
+    if (isOwner && /aura/i.test(text)) {
+      aura.clearSilence(ctx.senderNumber);
+      await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark 🖤' }, { quoted: msg });
+      return true;
+    }
+    return false;
+  }
+
   if (text.startsWith('!') && !isOwner) return false;
   
   // === ORDENS DIRETAS DO DARK PARA A AURA (silêncio, áudio, etc) ===
@@ -965,7 +974,7 @@ async function handle(sock, msg) {
 
       // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
       // Construir system prompt da Aura (necessário para vision)
-      const auraModule = require('./auraPersonality');
+      const auraModule = require('./aura/auraHuman');
       const personMem = ctx.senderNumber ? auraModule.recallPerson(ctx.senderNumber) : null;
       const userCountry = ctx.senderNumber ? auraModule.detectCountry(ctx.senderNumber) : null;
       const systemPrompt = auraModule.buildAuraSystemPrompt({
