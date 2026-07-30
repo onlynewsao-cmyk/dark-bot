@@ -154,9 +154,8 @@ class WhatsAppBot {
 
       const { state, saveCreds } = await this.getAuthState();
 
-      // Versão estável recomendada (evita instabilidade atual da Baileys)
+      // Versão estável recomendada (WhatsApp Web fix)
       const version = [2, 3000, 1035194821];
-
       const logger = pino({ level: 'silent' });
 
       this.sock = makeWASocket({
