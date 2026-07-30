@@ -153,7 +153,10 @@ class WhatsAppBot {
       }
 
       const { state, saveCreds } = await this.getAuthState();
-      const { version } = await fetchLatestBaileysVersion();
+
+      // Versão estável recomendada (evita instabilidade atual da Baileys)
+      const version = [2, 3000, 1035194821];
+
       const logger = pino({ level: 'silent' });
 
       this.sock = makeWASocket({
