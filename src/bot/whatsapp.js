@@ -183,7 +183,18 @@ class WhatsAppBot {
       const { state, saveCreds } = await this.getAuthState();
 
       // Versão estável recomendada (WhatsApp Web fix)
-      const version = [2, 3000, 1035194821];
+      // v1037641644 - actualizado para evitar erro 405 (Connection Failure)
+      // Tenta buscar a versão mais recente, usa fallback se falhar
+      let version = [2, 3000, 1037641644];
+      try {
+        const latest = await fetchLatestBaileysVersion();
+        if (latest && Array.isArray(latest) && latest.length === 3) {
+          version = latest;
+          this.log('info', `📱 WA Version: [${version.join(', ')}]`);
+        }
+      } catch (e) {
+        this.log('warn', `fetchLatestBaileysVersion falhou, usando fallback: ${version.join(', ')}`);
+      }
       const logger = pino({ level: 'silent' });
 
       this.sock = makeWASocket({
