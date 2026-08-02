@@ -286,21 +286,30 @@ class WhatsAppBot {
         try { await groupEvents.handle(this.sock, event); } catch {}
       });
 
-      // Pair Code
+      // Pair Code - Versão melhorada (mais tempo + verificação)
       if (cleanMode === 'pair') {
         try {
           const clean = String(phoneNumber || '').replace(/\D/g, '');
           if (clean.length < 10) throw new Error('Número inválido (mín. 10 dígitos com DDI)');
           if (this.sock.authState.creds.registered) throw new Error('Sessão activa. Use Reset e tente novamente.');
+
           this.setStatus('pairing', { phoneNumber: clean });
-          await delay(2500);
+          this.log('info', `Aguardando socket ficar pronto para pairing...`);
+
+          // Espera mais tempo para o socket estabilizar
+          await delay(4500);
+
+          // Tenta pedir o código
           const code = await this.sock.requestPairingCode(clean);
           this.pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
+
           this.setStatus('pairing', { pairingCode: this.pairingCode, phoneNumber: clean });
-          this.log('success', `🔐 Pair Code: ${this.pairingCode}`);
+          this.log('success', `🔐 Pair Code gerado: ${this.pairingCode}`);
+          this.log('info', `Aguarde a notificação no WhatsApp do número ${clean}`);
+
         } catch (e) {
           this.lastError = e.message;
-          this.log('error', 'Pair: ' + e.message);
+          this.log('error', 'Pair Code falhou: ' + e.message);
           this.setStatus('disconnected', { error: e.message });
           this.emit('bot:error', { message: e.message });
         }
