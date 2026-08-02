@@ -7,17 +7,19 @@
 const auraHuman = require('../aura/auraHuman');
 
 module.exports = {
-  // Funções mínimas necessárias para o commandHandler não quebrar
-  recallPerson: (number) => null,
-  detectCountry: (number) => ({ name: 'Desconhecido', code: '??', lang: 'pt' }),
-  buildAuraSystemPrompt: () => 'Você é a Aura.',
-  getMood: () => ({ mood: 'normal', intensity: 5 }),
-  detectDarkAttack: () => false,
-  detectDarkMention: () => false,
-  getDarkDefense: (name) => `Cuidado com o que fala sobre o Dark, ${name}.`,
-  setMood: () => {},
+  // Re-exporta todas as funções do auraHuman
   isSilenced: auraHuman.isSilenced,
   setSilence: auraHuman.setSilence,
   clearSilence: auraHuman.clearSilence,
-  auraRespond: auraHuman.respondAsHuman
+  respondAsHuman: auraHuman.respondAsHuman,
+  recallPerson: auraHuman.recallPerson,
+  rememberPerson: auraHuman.rememberPerson,
+  detectCountry: auraHuman.detectCountry,
+  getMood: auraHuman.getMood,
+  setMood: auraHuman.setMood,
+  detectDarkAttack: auraHuman.detectDarkAttack,
+  detectDarkMention: auraHuman.detectDarkMention,
+  getDarkDefense: auraHuman.getDarkDefense,
+  buildAuraSystemPrompt: auraHuman.buildAuraSystemPrompt,
+  auraRespond: auraHuman.auraRespond
 };
