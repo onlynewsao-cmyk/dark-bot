@@ -130,6 +130,34 @@ class WhatsAppBot {
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
   }
 
+  /**
+   * Espera o socket ficar pronto (conectado) ou timeout
+   * @param {number} timeoutMs - tempo máximo de espera
+   * @returns {Promise<boolean>}
+   */
+  _waitForSocketReady(timeoutMs = 30000) {
+    if (this.sock?.ws?.readyState === 1) return Promise.resolve(true);
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.sock.ev.off('connection.update', onUpdate);
+        reject(new Error('Timeout a esperar socket ficar pronto'));
+      }, timeoutMs);
+      const onUpdate = (update) => {
+        if (update.connection === 'open') {
+          clearTimeout(timer);
+          this.sock.ev.off('connection.update', onUpdate);
+          resolve(true);
+        }
+        if (update.connection === 'close') {
+          clearTimeout(timer);
+          this.sock.ev.off('connection.update', onUpdate);
+          reject(new Error('Socket fechou antes de ficar pronto'));
+        }
+      };
+      this.sock.ev.on('connection.update', onUpdate);
+    });
+  }
+
   async start({ mode = 'qr', phoneNumber = null, fresh = false } = {}) {
     const cleanMode = mode === 'pair' ? 'pair' : 'qr';
 
@@ -286,7 +314,7 @@ class WhatsAppBot {
         try { await groupEvents.handle(this.sock, event); } catch {}
       });
 
-      // Pair Code - Versão melhorada (mais tempo + verificação)
+      // Pair Code - Versão melhorada (espera socket + timeout)
       if (cleanMode === 'pair') {
         try {
           const clean = String(phoneNumber || '').replace(/\D/g, '');
@@ -296,11 +324,14 @@ class WhatsAppBot {
           this.setStatus('pairing', { phoneNumber: clean });
           this.log('info', `Aguardando socket ficar pronto para pairing...`);
 
-          // Espera mais tempo para o socket estabilizar
-          await delay(4500);
+          // Espera o socket ficar pronto (até 30s) antes de pedir o código
+          await this._waitForSocketReady(30000);
 
-          // Tenta pedir o código
-          const code = await this.sock.requestPairingCode(clean);
+          // Tenta pedir o código com timeout
+          const code = await Promise.race([
+            this.sock.requestPairingCode(clean),
+            new Promise((_, r) => setTimeout(() => r(new Error('Timeout ao pedir pair code')), 20000))
+          ]);
           this.pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
 
           this.setStatus('pairing', { pairingCode: this.pairingCode, phoneNumber: clean });

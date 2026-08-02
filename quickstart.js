@@ -176,10 +176,10 @@ async function main() {
       });
     }
     
-    if (status === 'pairing' && extra.code) {
+    if (status === 'pairing' && extra.pairingCode) {
       console.log(`\n${c.magenta}${c.bold}🔑 CÓDIGO DE PAIRING:${c.reset}`);
       console.log(`${c.white}${c.bold}   ┌─────────────────┐${c.reset}`);
-      console.log(`${c.white}${c.bold}   │  ${extra.code}  │${c.reset}`);
+      console.log(`${c.white}${c.bold}   │  ${extra.pairingCode}  │${c.reset}`);
       console.log(`${c.white}${c.bold}   └─────────────────┘${c.reset}`);
       console.log(`${c.dim}   Digita este código no WhatsApp → Dispositivos conectados${c.reset}\n`);
     }
@@ -204,7 +204,9 @@ async function main() {
   
   // ── Iniciar! ─────────────────────────────────────────────────────
   try {
-    await bot.start();
+    const startMode = bot.mode === 'pairing' ? 'pair' : 'qr';
+    const startPhone = bot.pairingPhone || null;
+    await bot.start({ mode: startMode, phoneNumber: startPhone, fresh: true });
     console.log(`${c.green}✅ Bot iniciado! A aguardar conexão...${c.reset}\n`);
     console.log(`${c.dim}   Dica: Se o QR não aparecer, verifica a tua conexão à internet.${c.reset}`);
     console.log(`${c.dim}   Dica: Pressiona Ctrl+C para parar o bot.${c.reset}\n`);
