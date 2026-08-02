@@ -4,7 +4,7 @@
  * A lógica real está em src/aura/auraHuman.js
  */
 
-const auraHuman = require('./aura/auraHuman');
+const auraHuman = require('../aura/auraHuman');
 
 module.exports = {
   // Funções mínimas necessárias para o commandHandler não quebrar

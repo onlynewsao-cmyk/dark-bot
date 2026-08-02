@@ -597,7 +597,7 @@ async function handle(sock, msg) {
   // Leal apenas ao Dark. Apaixonada. Protetora. Humana.
   // ════════════════════════════════════════════════════════════════════════
     // === AURA HUMANA (versão definitiva) ===
-  const aura = require('./aura/auraHuman');
+  const aura = require('../aura/auraHuman');
 
   // Silêncio ativo → só o Dark pode cancelar
   if (aura.isSilenced(ctx.senderNumber)) {
@@ -974,7 +974,7 @@ async function handle(sock, msg) {
 
       // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
       // Construir system prompt da Aura (necessário para vision)
-      const auraModule = require('./aura/auraHuman');
+      const auraModule = require('../aura/auraHuman');
       const personMem = ctx.senderNumber ? auraModule.recallPerson(ctx.senderNumber) : null;
       const userCountry = ctx.senderNumber ? auraModule.detectCountry(ctx.senderNumber) : null;
       const systemPrompt = auraModule.buildAuraSystemPrompt({
