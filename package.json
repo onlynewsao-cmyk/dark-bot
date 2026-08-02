@@ -29,7 +29,6 @@
     "@distube/ytdl-core": "^4.16.12",
     "@google/generative-ai": "^0.21.0",
     "@systemzero/baileys": "^1.1.0",
-    "@whiskeysockets/baileys": "^6.7.8",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.1",
