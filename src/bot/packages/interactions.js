@@ -320,7 +320,6 @@ module.exports = {
   pensar: action({ name: 'pensar', emoji: '🤔', cat: 'fun', gif: 'pensar', verbs: ['ficou pensando com', 'analisou a vida junto de'] }),
   dormir: action({ name: 'dormir', emoji: '😴', cat: 'fun', gif: 'dormir', verbs: ['tirou uma soneca com', 'dormiu encostado em'] }),
   comer: action({ name: 'comer', emoji: '🍜', cat: 'fun', gif: 'comer', verbs: ['foi comer com', 'dividiu comida com'] }),
-  cafe: action({ name: 'tomar café', emoji: '☕', cat: 'fun', gif: 'cafe', verbs: ['tomou café com', 'chamou para um café'] }),
   chocolate: action({ name: 'dar chocolate', emoji: '🍫', cat: 'love', gif: 'chocolate', verbs: ['deu chocolate para', 'adoçou o dia de'] }),
   correr: action({ name: 'correr', emoji: '🏃', cat: 'fun', gif: 'correr', verbs: ['correu com', 'chamou para correr'] }),
   timido: action({ name: 'ficar tímido', emoji: '😳', cat: 'fun', gif: 'timido', verbs: ['ficou tímido perto de', 'corou olhando para'] }),
