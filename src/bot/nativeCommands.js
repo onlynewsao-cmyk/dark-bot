@@ -137,14 +137,16 @@ async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
     try {
       const buf = await mediaHandler.fetchBuffer(mediaUrl);
       if (mediaType === 'gif') {
-        // GIF → MP4 com gifPlayback (animado no WhatsApp)
+        // GIF → Comprime e envia com gifPlayback (animado no WhatsApp)
+        const compressed = compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
-          video: buf, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
+          video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
       } else if (mediaType === 'video') {
-        // Vídeo normal MP4
+        // Vídeo → Comprime e envia com gifPlayback (como GIF)
+        const compressed = compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
-          video: buf, caption: finalText, mimetype: 'video/mp4',
+          video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
       } else {
         return sock.sendMessage(ctx.remoteJid, { image: buf, caption: finalText }, { quoted: msg });
@@ -214,6 +216,89 @@ function convertVideoBufferToMp4(buffer, kind = 'unknown') {
       '-shortest',
       outputPath,
     ], { stdio: 'ignore', timeout: 180000 });
+    const out = fs.readFileSync(outputPath);
+    if (!out || out.length < 1024 || detectVideoContainer(out) !== 'mp4') {
+      throw new Error('ffmpeg não gerou um MP4 válido');
+    }
+    return out;
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+/**
+ * Comprime vídeo para reduzir tamanho sem perder qualidade
+ * Usa CRF (Constant Rate Factor) para manter qualidade visual
+ * @param {Buffer} buffer - Buffer do vídeo original
+ * @param {string} kind - Tipo do vídeo (mp4, webm, etc)
+ * @returns {Buffer} Vídeo comprimido em MP4
+ */
+function compressVideo(buffer, kind = 'unknown') {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-compress-'));
+  const inputPath = path.join(tmpDir, `input.${videoInputExt(kind)}`);
+  const outputPath = path.join(tmpDir, 'output.mp4');
+  try {
+    fs.writeFileSync(inputPath, buffer);
+    // CRF 23 = qualidade visual quase idêntica ao original
+    // preset medium = melhor compressão (mais lento que veryfast)
+    // maxrate e bufsize limitam bitrate para reduzir tamanho
+    execFileSync(getFfmpegBin(), [
+      '-y',
+      '-i', inputPath,
+      '-map', '0:v:0?',
+      '-map', '0:a:0?',
+      '-c:v', 'libx264',
+      '-preset', 'medium',
+      '-crf', '23',
+      '-pix_fmt', 'yuv420p',
+      '-maxrate', '1500k',
+      '-bufsize', '3000k',
+      '-c:a', 'aac',
+      '-b:a', '96k',
+      '-ar', '44100',
+      '-movflags', '+faststart',
+      '-shortest',
+      outputPath,
+    ], { stdio: 'ignore', timeout: 300000 });
+    const out = fs.readFileSync(outputPath);
+    if (!out || out.length < 1024 || detectVideoContainer(out) !== 'mp4') {
+      throw new Error('ffmpeg não gerou um MP4 válido');
+    }
+    return out;
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+/**
+ * Comprime vídeo para formato GIF do WhatsApp (gifPlayback)
+ * Reduz tamanho e converte para reprodução automática como GIF
+ * @param {Buffer} buffer - Buffer do vídeo original
+ * @param {string} kind - Tipo do vídeo
+ * @returns {Buffer} Vídeo comprimido pronto para gifPlayback
+ */
+function compressVideoForGif(buffer, kind = 'unknown') {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-gif-'));
+  const inputPath = path.join(tmpDir, `input.${videoInputExt(kind)}`);
+  const outputPath = path.join(tmpDir, 'output.mp4');
+  try {
+    fs.writeFileSync(inputPath, buffer);
+    // Para GIF: CRF 28 (mais compressão), preset fast, sem áudio
+    // Resolução máxima 480px de largura para reduzir tamanho
+    execFileSync(getFfmpegBin(), [
+      '-y',
+      '-i', inputPath,
+      '-map', '0:v:0?',
+      '-vf', 'scale=\'min(480,iw)\':-2',
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '28',
+      '-pix_fmt', 'yuv420p',
+      '-an', // Sem áudio para GIF
+      '-movflags', '+faststart',
+      '-shortest',
+      outputPath,
+    ], { stdio: 'ignore', timeout: 300000 });
     const out = fs.readFileSync(outputPath);
     if (!out || out.length < 1024 || detectVideoContainer(out) !== 'mp4') {
       throw new Error('ffmpeg não gerou um MP4 válido');
@@ -839,10 +924,20 @@ module.exports = {
 
       let mediaMenu = null;
       if (caminhoVideo) {
-        mediaMenu = await prepareWAMessageMedia(
-          { video: { url: caminhoVideo }, mimetype: 'video/mp4', gifPlayback: true, seconds: 8 },
-          { upload: sock.waUploadToServer }
-        );
+        // Comprime o vídeo antes de enviar (reduz tamanho, mantém qualidade)
+        const videoBuffer = fs2.readFileSync(caminhoVideo);
+        const compressedVideo = compressVideoForGif(videoBuffer, 'mp4');
+        // Salva o vídeo comprimido temporariamente
+        const tmpCompressed = path.join(os.tmpdir(), `menu-compressed-${Date.now()}.mp4`);
+        fs2.writeFileSync(tmpCompressed, compressedVideo);
+        try {
+          mediaMenu = await prepareWAMessageMedia(
+            { video: { url: tmpCompressed }, mimetype: 'video/mp4', gifPlayback: true, seconds: 8 },
+            { upload: sock.waUploadToServer }
+          );
+        } finally {
+          try { fs2.unlinkSync(tmpCompressed); } catch {}
+        }
       } else {
         const caminhoImagem = [
           path.join(root, 'configs', 'LOGOS', 'fotomenu.png'),
