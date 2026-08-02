@@ -314,7 +314,7 @@ class WhatsAppBot {
         try { await groupEvents.handle(this.sock, event); } catch {}
       });
 
-      // Pair Code - Versão melhorada (espera socket + timeout)
+      // Pair Code - Chamado imediatamente após criar o socket (não espera conexão)
       if (cleanMode === 'pair') {
         try {
           const clean = String(phoneNumber || '').replace(/\D/g, '');
@@ -322,15 +322,15 @@ class WhatsAppBot {
           if (this.sock.authState.creds.registered) throw new Error('Sessão activa. Use Reset e tente novamente.');
 
           this.setStatus('pairing', { phoneNumber: clean });
-          this.log('info', `Aguardando socket ficar pronto para pairing...`);
+          this.log('info', `A gerar pair code para ${clean}...`);
 
-          // Espera o socket ficar pronto (até 30s) antes de pedir o código
-          await this._waitForSocketReady(30000);
+          // Pequena pausa para o socket inicializar (não espera conexão abrir)
+          await delay(2000);
 
-          // Tenta pedir o código com timeout
+          // Pede o código imediatamente (como na documentação Baileys)
           const code = await Promise.race([
             this.sock.requestPairingCode(clean),
-            new Promise((_, r) => setTimeout(() => r(new Error('Timeout ao pedir pair code')), 20000))
+            new Promise((_, r) => setTimeout(() => r(new Error('Timeout ao pedir pair code (30s)')), 30000))
           ]);
           this.pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
 
