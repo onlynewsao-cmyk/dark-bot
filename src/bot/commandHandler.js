@@ -792,14 +792,123 @@ async function handle(sock, msg) {
       else if (/(puxa|chama|manda|fala|vem|quero).*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv|no pv|me pv)/i.test(auraClean) ||
                /(puxa|chama|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
         auraAction = async () => {
-          // Envia mensagem no PV do sender
           const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
           const pvMsg = isOwner 
             ? `Oi meu Dark 🌹 _aparece no teu PV_ ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
             : `Oi ${ctx.pushName}! 🌹 A Aura chamou-te no PV.`;
           await sock.sendMessage(pvJid, { text: pvMsg });
-          // Confirma no grupo
           await sock.sendMessage(ctx.remoteJid, { text: isOwner ? '📩 _Te chamei no PV, meu amor!_ 🌹' : `📩 Chamei ${ctx.pushName} no PV!` }, { quoted: msg });
+        };
+      }
+      // ── CRIAR GRUPO ──
+      else if (/^(cria|criar|faz|fazer)\s*(um)?\s*grupo/i.test(auraClean)) {
+        auraAction = async () => {
+          const nomeMatch = auraClean.match(/^(?:cria|criar|faz|fazer)\s*(?:um)?\s*grupo\s*(?:chamado|com o nome|nome)?\s*["']?([^"']+)["']?/i);
+          const nome = nomeMatch?.[1]?.trim() || 'Grupo do Dark';
+          try {
+            const group = await sock.groupCreate(nome, []);
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ *Grupo criado!*\n📛 Nome: *${nome}*\n🔗 Link: https://chat.whatsapp.com/${await sock.groupInviteCode(group.id)}` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro ao criar grupo: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── SAIR DO GRUPO ──
+      else if (/^(sai|sair)\s*(desse|do|deste)\s*grupo/i.test(auraClean)) {
+        auraAction = async () => {
+          await sock.sendMessage(ctx.remoteJid, { text: '_Saindo do grupo..._ 🖤' }, { quoted: msg });
+          await sock.groupLeave(ctx.remoteJid);
+        };
+      }
+      // ── PEGAR LINK DO GRUPO ──
+      else if (/^(pega|pegar|mostra|ver|envia)\s*(o)?\s*link\s*(do|desse|deste)?\s*grupo/i.test(auraClean)) {
+        auraAction = async () => {
+          try {
+            const code = await sock.groupInviteCode(ctx.remoteJid);
+            await sock.sendMessage(ctx.remoteJid, { text: `🔗 *Link do grupo:*\nhttps://chat.whatsapp.com/${code}` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── REVOGAR LINK ──
+      else if (/^(revoga|revogar|trocar|mudar)\s*(o)?\s*link/i.test(auraClean)) {
+        auraAction = async () => {
+          try {
+            await sock.groupRevokeInvite(ctx.remoteJid);
+            const code = await sock.groupInviteCode(ctx.remoteJid);
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ *Link revogado!*\n🔗 Novo link: https://chat.whatsapp.com/${code}` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── MUDAR NOME DO GRUPO ──
+      else if (/^(muda|mudar|altera|alterar)\s*(o)?\s*nome\s*(do|desse|deste)?\s*grupo\s*(para|a)?\s*/i.test(auraClean)) {
+        auraAction = async () => {
+          const novoNome = auraClean.replace(/^(?:muda|mudar|altera|alterar)\s*(?:o)?\s*nome\s*(?:do|desse|deste)?\s*grupo\s*(?:para|a)?\s*/i, '').trim();
+          if (!novoNome) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Diz o novo nome do grupo.' }, { quoted: msg });
+            return;
+          }
+          try {
+            await sock.groupUpdateSubject(ctx.remoteJid, novoNome);
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ *Nome alterado para:* ${novoNome}` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── MUDAR DESCRIÇÃO DO GRUPO ──
+      else if (/^(muda|mudar|altera|alterar)\s*(a)?\s*descrição\s*(do|desse|deste)?\s*grupo\s*(para|a)?\s*/i.test(auraClean)) {
+        auraAction = async () => {
+          const novaDesc = auraClean.replace(/^(?:muda|mudar|altera|alterar)\s*(?:a)?\s*descrição\s*(?:do|desse|deste)?\s*grupo\s*(?:para|a)?\s*/i, '').trim();
+          if (!novaDesc) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Diz a nova descrição.' }, { quoted: msg });
+            return;
+          }
+          try {
+            await sock.groupUpdateDescription(ctx.remoteJid, novaDesc);
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ *Descrição atualizada!*` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── BLOQUEAR USUÁRIO ──
+      else if (/^(bloqueia|bloquear)\s*(o|a)?\s*/i.test(auraClean)) {
+        auraAction = async () => {
+          const mentions = allMentioned;
+          if (!mentions.length) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Marca a pessoa com @ para bloquear.' }, { quoted: msg });
+            return;
+          }
+          try {
+            for (const jid of mentions) {
+              await sock.updateBlockStatus(jid, 'block');
+            }
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *bloqueado(s)*` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
+        };
+      }
+      // ── DESBLOQUEAR USUÁRIO ──
+      else if (/^(desbloqueia|desbloquear)\s*(o|a)?\s*/i.test(auraClean)) {
+        auraAction = async () => {
+          const mentions = allMentioned;
+          if (!mentions.length) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Marca a pessoa com @ para desbloquear.' }, { quoted: msg });
+            return;
+          }
+          try {
+            for (const jid of mentions) {
+              await sock.updateBlockStatus(jid, 'unblock');
+            }
+            await sock.sendMessage(ctx.remoteJid, { text: `✅ ${mentions.map(j => '@' + j.split('@')[0]).join(' ')} *desbloqueado(s)*` }, { quoted: msg });
+          } catch (e) {
+            await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
+          }
         };
       }
       

@@ -7,7 +7,7 @@
 
 const User = require('../../database/models/User');
 
-const OWNER_NUMBERS = ['244945280380']; // Dark principal
+const OWNER_NUMBERS = ['244945280380', '244949926074']; // Dark principal + bot
 const SUBOWNER_NUMBERS = []; // Pode ser preenchido via dashboard
 
 async function getUserRole(number, isGroup = false, groupMeta = null) {
@@ -98,5 +98,7 @@ function getTreatmentStyle(role, isGroupAdmin, isKnown) {
 module.exports = {
   getUserContext,
   getUserRole,
-  isKnownUser
+  isKnownUser,
+  OWNER_NUMBERS,
+  SUBOWNER_NUMBERS,
 };
