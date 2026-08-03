@@ -5,6 +5,7 @@
  */
 const ai = require('../bot/ai');
 const advancedActions = require('./actions/advancedActions');
+const megaActions = require('./actions/megaActions');
 
 let _silence = new Map(); // number -> timestamp
 let _mood = { mood: 'normal', intensity: 5, reason: '' };
@@ -305,4 +306,5 @@ module.exports = {
   auraRespond,
   executeAction,
   advancedActions,
+  megaActions,
 };
