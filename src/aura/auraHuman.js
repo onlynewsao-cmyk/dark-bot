@@ -6,6 +6,7 @@
 const ai = require('../bot/ai');
 const advancedActions = require('./actions/advancedActions');
 const megaActions = require('./actions/megaActions');
+const { detectAndRespondOffline, getOfflineResponse } = require('./offlineResponses');
 
 let _silence = new Map(); // number -> timestamp
 let _mood = { mood: 'normal', intensity: 5, reason: '' };
@@ -227,13 +228,14 @@ async function auraRespond(text, ctx = {}) {
   const personMem = recallPerson(senderNumber);
   const userCountry = detectCountry(senderNumber);
   const mood = getMood().mood;
+  const userRole = isOwner ? 'owner' : isVip ? 'premium' : 'free';
 
   const systemPrompt = buildAuraSystemPrompt({
     isOwner,
     isVip,
     userName: pushName,
     userGender: personMem?.gender,
-    userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
+    userRole,
     groupContext,
     personMemory: personMem,
     isPrivateChat: !isGroup,
@@ -248,15 +250,33 @@ async function auraRespond(text, ctx = {}) {
     isVideo,
   });
 
+  // Tentar IA primeiro
   try {
     const reply = await ai.chat(text, systemPrompt, {
-      userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
+      userRole,
       history: historyArray,
       groupContext,
     }, isOwner);
-    return reply || (isOwner ? 'Hmm... conta mais meu Dark 🖤' : 'Entendi.');
+    if (reply && !reply.startsWith('❌ IA offline')) {
+      return reply;
+    }
+    // Se IA offline, usar resposta offline
+    throw new Error('IA offline');
   } catch {
-    return isOwner ? '_sorri_ tô aqui meu amor...' : 'Ok.';
+    // Fallback para respostas offline com personalidade
+    const offline = detectAndRespondOffline(text, userRole);
+    if (offline) return offline;
+    
+    // Resposta padrão baseada no humor
+    if (isOwner) {
+      const responses = [
+        '_sorri_ Hmm... Não entendi meu Dark, mas tô aqui 🖤',
+        '_pensa_ Amor, não sei responder isso... Mas me ensina? 🌹',
+        '_confusa_ Ai... Não consegui processar amor... Mas tenta de novo!',
+      ];
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+    return userRole === 'vip' ? 'Não entendi. Pode repetir?' : 'Entendi.';
   }
 }
 
@@ -307,4 +327,6 @@ module.exports = {
   executeAction,
   advancedActions,
   megaActions,
+  detectAndRespondOffline,
+  getOfflineResponse,
 };

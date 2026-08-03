@@ -19,13 +19,12 @@ const GROQ_MODELS = [
   'gemma2-9b-it',
 ];
 const GEMINI_MODELS = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
 ];
 const CEREBRAS_MODELS = [
+  'llama3.1-8b',
   'llama-3.3-70b',
-  'qwen-3-32b',
-  'gemma-3-27b-it',
 ];
 
 // ─────────────────────────────────────────────
