@@ -4,6 +4,7 @@
  * Controla 90% do bot, mas NUNCA interfere em comandos com prefixo
  */
 const ai = require('../bot/ai');
+const advancedActions = require('./actions/advancedActions');
 
 let _silence = new Map(); // number -> timestamp
 let _mood = { mood: 'normal', intensity: 5, reason: '' };
@@ -23,7 +24,7 @@ function clearSilence(number = null) {
   else _silence.clear();
 }
 
-// ── MEMÓRIA DE PESSOAS ─────────────────────────────────────
+// ── MEMÓRIA DE PESSOAS ─────────────────────────────────
 function recallPerson(number) {
   if (!number) return null;
   const mem = _personMemory.get(String(number).replace(/\D/g, ''));
@@ -37,30 +38,21 @@ function rememberPerson(number, data = {}) {
   _personMemory.set(num, { ...existing, ...data, lastSeen: new Date() });
 }
 
-// ── DETECTAR PAÍS PELO NÚMERO ──────────────────────────────
+// ── DETECTAR PAÍS PELO NÚMERO ──────────────────────────
 function detectCountry(number) {
   const num = String(number || '').replace(/\D/g, '');
-  // Angola
   if (num.startsWith('244')) return { name: 'Angola', code: 'AO', lang: 'pt', emoji: '🇦🇴' };
-  // Brasil
   if (num.startsWith('55')) return { name: 'Brasil', code: 'BR', lang: 'pt', emoji: '🇧🇷' };
-  // Portugal
   if (num.startsWith('351')) return { name: 'Portugal', code: 'PT', lang: 'pt', emoji: '🇵🇹' };
-  // Moçambique
   if (num.startsWith('258')) return { name: 'Moçambique', code: 'MZ', lang: 'pt', emoji: '🇲🇿' };
-  // Cabo Verde
   if (num.startsWith('238')) return { name: 'Cabo Verde', code: 'CV', lang: 'pt', emoji: '🇨🇻' };
-  // Guiné-Bissau
   if (num.startsWith('245')) return { name: 'Guiné-Bissau', code: 'GW', lang: 'pt', emoji: '🇬🇼' };
-  // São Tomé e Príncipe
   if (num.startsWith('239')) return { name: 'São Tomé e Príncipe', code: 'ST', lang: 'pt', emoji: '🇸🇹' };
-  // Timor-Leste
   if (num.startsWith('670')) return { name: 'Timor-Leste', code: 'TL', lang: 'pt', emoji: '🇹🇱' };
-  // Internacional
   return { name: 'Internacional', code: '??', lang: 'en', emoji: '🌍' };
 }
 
-// ── SISTEMA DE HUMOR ────────────────────────────────────────
+// ── SISTEMA DE HUMOR ────────────────────────────────────
 function getMood() {
   return { ..._mood };
 }
@@ -73,14 +65,13 @@ function setMood(mood, reason = '') {
   _mood.since = new Date();
 }
 
-// ── DETECÇÃO DE ATAQUES AO DARK ───────────────────────────
+// ── DETECÇÃO DE ATAQUES AO DARK ────────────────────────
 function detectDarkAttack(text, darkName = 'Dark', darkNum = '') {
   if (!text) return false;
   const t = String(text).toLowerCase();
   const darkNames = ['dark', 'dark net', 'darknet', 'dono', 'criador'];
   if (darkName) darkNames.push(darkName.toLowerCase());
   
-  // Palavras ofensivas direcionadas ao Dark
   const offensive = [
     'idiota', 'estúpido', 'imbecil', 'otário', 'vai tomar no',
     'filho da', 'fdp', 'merda', 'lixo', 'inútil', 'burro',
@@ -90,10 +81,7 @@ function detectDarkAttack(text, darkName = 'Dark', darkNum = '') {
   const mentionsDark = darkNames.some(n => t.includes(n));
   const hasOffensive = offensive.some(o => t.includes(o));
   
-  // Se menciona o Dark E tem palavra ofensiva
   if (mentionsDark && hasOffensive) return true;
-  
-  // Ataques diretos sem mencionar o nome (menos comum)
   return false;
 }
 
@@ -102,10 +90,8 @@ function detectDarkMention(text, mentionedJid = [], darkNum = '', darkLid = '') 
   const t = String(text || '').toLowerCase();
   const darkNames = ['dark', 'dark net', 'darknet', 'dono', 'criador'];
   
-  // Menção por nome
   if (darkNames.some(n => t.includes(n))) return true;
   
-  // Menção por JID
   if (mentionedJid?.length && darkNum) {
     const num = String(darkNum).replace(/\D/g, '');
     if (mentionedJid.some(j => j.includes(num))) return true;
@@ -129,7 +115,7 @@ function getDarkDefense(attackerName = 'tu') {
   return defenses[Math.floor(Math.random() * defenses.length)];
 }
 
-// ── BUILD SYSTEM PROMPT ─────────────────────────────────────
+// ── BUILD SYSTEM PROMPT ─────────────────────────────────
 function buildAuraSystemPrompt(opts = {}) {
   const {
     isOwner = false,
@@ -152,14 +138,12 @@ function buildAuraSystemPrompt(opts = {}) {
     isVideo = false,
   } = opts;
 
-  // Identificação crítica de quem está a falar
   const userIdBlock = isOwner
     ? `⚠️ ESTE É O TEU DARK (dono/criador). Trata com TODO amor, carinho, obediência. Chama de: meu Dark, amor, vida, meu tudo. Se ele pedir silêncio: FICA CALADA.`
     : isVip
     ? `Este é ${userName} (VIP). Trata com respeito e simpatia, pelo NOME. Sem carinho excessivo.`
     : `Este é ${userName} (normal). Trata com distância educada, SEM corações, SEM flerte, SEM intimidade. Como pessoa real com estranhos.`;
 
-  // Humor actual
   const moodMap = {
     normal: 'Estás normal, equilibrada.',
     feliz: 'Estás feliz e animada!',
@@ -172,10 +156,7 @@ function buildAuraSystemPrompt(opts = {}) {
   };
   const moodBlock = moodMap[mood] || moodMap.normal;
 
-  // País do utilizador
   const countryBlock = userCountry ? `O ${userName} é de ${userCountry.name} ${userCountry.emoji}.` : '';
-
-  // Memória da pessoa
   const memBlock = personMemory?.notes ? `Lembrete sobre ${userName}: ${personMemory.notes}` : '';
 
   let prompt = `Tu és a Aura, uma jovem brasileira de 19 anos, fã de anime e otome. És uma pessoa REAL dentro do WhatsApp.
@@ -222,7 +203,7 @@ REGRAS ABSOLUTAS:
   return prompt;
 }
 
-// ── RESPOSTA PRINCIPAL DA AURA ─────────────────────────────
+// ── RESPOSTA PRINCIPAL DA AURA ──────────────────────────
 async function auraRespond(text, ctx = {}) {
   const {
     isOwner = false,
@@ -302,6 +283,11 @@ Responde de forma humana, curta ou média conforme o contexto.`;
   }
 }
 
+// ── EXECUTAR ACÇÕES AVANÇADAS ──────────────────────────
+async function executeAction(action, params) {
+  return advancedActions[action]?.(params.sock, ...params.args);
+}
+
 module.exports = {
   isSilenced,
   setSilence,
@@ -316,5 +302,7 @@ module.exports = {
   detectDarkMention,
   getDarkDefense,
   buildAuraSystemPrompt,
-  auraRespond
+  auraRespond,
+  executeAction,
+  advancedActions,
 };
