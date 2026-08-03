@@ -184,20 +184,8 @@ class WhatsAppBot {
 
       // Versão estável recomendada (WhatsApp Web fix)
       // v1037641644 - actualizado para evitar erro 405 (Connection Failure)
-      // Tenta buscar a versão mais recente com timeout (não bloqueia conexão)
-      let version = [2, 3000, 1037641644];
-      try {
-        const latest = await Promise.race([
-          fetchLatestBaileysVersion(),
-          new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))
-        ]);
-        if (latest && Array.isArray(latest) && latest.length === 3) {
-          version = latest;
-          this.log('info', `📱 WA Version: [${version.join(', ')}]`);
-        }
-      } catch (e) {
-        this.log('warn', `fetchLatestBaileysVersion falhou (${e.message}), usando fallback: ${version.join(', ')}`);
-      }
+      const version = [2, 3000, 1037641644];
+      this.log('info', `📱 WA Version: [${version.join(', ')}]`);
       const logger = pino({ level: 'silent' });
 
       this.sock = makeWASocket({
