@@ -371,7 +371,12 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try { return await withTimeout(chatCerebras(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Cerebras:', shortErr(e)); }
   }
-  // 4. OpenRouter
+  // 4. Hugging Face (300+ modelos)
+  if (config.ai.huggingfaceKey) {
+    try { return await withTimeout(chatHuggingFace(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] HuggingFace:', shortErr(e)); }
+  }
+  // 5. OpenRouter
   if (config.ai.openrouterApiKey) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Router:', shortErr(e)); }
@@ -547,6 +552,28 @@ async function chatApiFreeLLM(messages, system) {
     if (out) return out;
   } catch (e) { throw e; }
   throw new Error('sem resposta ApiFreeLLM');
+}
+
+// ─────────────────────────────────────────────
+// HUGGING FACE (300+ modelos)
+// ─────────────────────────────────────────────
+async function chatHuggingFace(messages, system) {
+  if (!config.ai.huggingfaceKey) throw new Error('sem chave Hugging Face');
+  
+  const model = 'microsoft/DialoGPT-medium';
+  const prompt = messages.map(m => m.content).join('\n');
+  const input = system + '\n\n' + prompt;
+  
+  const data = await post(`https://api-inference.huggingface.co/models/${model}`, {
+    inputs: input.slice(0, 2000),
+    parameters: { max_new_tokens: 500, temperature: 0.7, return_full_text: false },
+  }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
+  
+  if (Array.isArray(data) && data[0]?.generated_text) {
+    return data[0].generated_text.trim();
+  }
+  if (data.generated_text) return data.generated_text.trim();
+  throw new Error('sem resposta Hugging Face');
 }
 
 // ─────────────────────────────────────────────
@@ -734,6 +761,7 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // ─────────────────────────────────────────────
 module.exports = {
   chatCerebras,
+  chatHuggingFace,
   chatApiFreeLLM,
   speakElevenLabs,
   searchTavily,
