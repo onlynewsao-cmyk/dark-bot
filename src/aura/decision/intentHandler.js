@@ -120,13 +120,13 @@ async function auraExecuteCommand(sock, msg, ctx, command, args = []) {
 
 // ── DETECÇÃO DE INTENÇÃO ───────────────────────────────
 function detectIntent(text) {
-  const t = String(text || '').toLowerCase().trim();
+  const t = String(text || '').toLowerCase().trim().replace(/^(aura|a aura|da aura|pra aura|com a aura)\s*/i, '');
   
   // Ações de grupo
   if (/^(cria|criar|faz|fazer)\s*(um)?\s*grupo/i.test(t)) return { intent: 'create_group', confidence: 0.9 };
-  if (/^(sai|sair)\s*(desse|do)\s*grupo/i.test(t)) return { intent: 'leave_group', confidence: 0.9 };
-  if (/^(pega|pegar|mostra|ver)\s*(o)?\s*link/i.test(t)) return { intent: 'get_link', confidence: 0.8 };
-  if (/^(revoga|revogar)\s*(o)?\s*link/i.test(t)) return { intent: 'revoke_link', confidence: 0.8 };
+  if (/^(sai|sair)\s*(desse|do|deste)\s*grupo/i.test(t)) return { intent: 'leave_group', confidence: 0.9 };
+  if (/^(pega|pegar|mostra|ver|envia)\s*(o)?\s*link/i.test(t)) return { intent: 'get_link', confidence: 0.8 };
+  if (/^(revoga|revogar|trocar|mudar)\s*(o)?\s*link/i.test(t)) return { intent: 'revoke_link', confidence: 0.8 };
   if (/^(muda|mudar|altera|alterar)\s*(o)?\s*nome/i.test(t)) return { intent: 'set_subject', confidence: 0.8 };
   if (/^(muda|mudar|altera|alterar)\s*(a)?\s*descrição/i.test(t)) return { intent: 'set_description', confidence: 0.8 };
   if (/^(bloqueia|bloquear)\s*(o|a)?\s*\w+/i.test(t)) return { intent: 'block_user', confidence: 0.8 };
