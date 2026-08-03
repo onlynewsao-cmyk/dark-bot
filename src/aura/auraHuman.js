@@ -12,7 +12,7 @@ let _personMemory = new Map(); // number -> { name, gender, country, notes, inte
 
 function isSilenced(number) {
   const until = _silence.get(number);
-  return until && Date.now() < until;
+  return !!(until && Date.now() < until);
 }
 
 function setSilence(number, seconds) {
