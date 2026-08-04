@@ -24,7 +24,12 @@ const GEMINI_MODELS = [
 ];
 const CEREBRAS_MODELS = [
   'llama3.1-8b',
-  'llama-3.3-70b',
+  'llama3.3-70b',
+  'qwen-3-32b',
+];
+const HUGGINGFACE_MODELS = [
+  'microsoft/DialoGPT-medium',
+  'facebook/blenderbot-400M-distill',
 ];
 
 // ─────────────────────────────────────────────
@@ -355,17 +360,17 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   // Timeout menor para VIP/Dono (prioridade de resposta)
   const TIMEOUT = isPriority ? 15000 : 22000;
 
-  // 1. Gemini (MAIS INTELIGENTE + visão + áudio)
-  if (config.ai.geminiApiKey) {
-    try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
-  }
-  // 2. Groq (MAIS RÁPIDO — 500-700 tokens/sec)
+  // 1. Groq (MAIS RÁPIDO — primário)
   if (config.ai.groqApiKey) {
     try { return await withTimeout(chatGroq(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Groq:', shortErr(e)); }
   }
-  // 3. Cerebras (2100 tokens/sec!)
+  // 2. Gemini (visão + áudio)
+  if (config.ai.geminiApiKey) {
+    try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
+  }
+  // 3. Cerebras (2100 tokens/sec)
   if (config.ai.cerebrasApiKey) {
     try { return await withTimeout(chatCerebras(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Cerebras:', shortErr(e)); }
@@ -375,13 +380,17 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try { return await withTimeout(chatHuggingFace(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] HuggingFace:', shortErr(e)); }
   }
-  // 5. OpenRouter
+  // 5. ApiFreeLLM (ILIMITADO)
+  if (config.ai.apifreellmKey) {
+    try { return await withTimeout(chatApiFreeLLM(messages, system), TIMEOUT); }
+    catch (e) { console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
+  }
+  // 6. OpenRouter (25+ modelos)
   if (config.ai.openrouterApiKey) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
     catch (e) { console.warn('[IA] Router:', shortErr(e)); }
   }
-  // ApiFreeLLM removido (requer Premium)
-  // 4. Fallback público
+  // 7. Fallback público
   try {
     const r = await withTimeout(
       mediaHandler.fetchJson(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(prompt)}&owner=${encodeURIComponent(config.owner.name)}&botname=${encodeURIComponent(config.bot.name)}`),
@@ -544,8 +553,10 @@ async function chatCerebras(messages, system) {
 async function chatApiFreeLLM(messages, system) {
   if (!config.ai.apifreellmKey) throw new Error('sem chave ApiFreeLLM');
   try {
+    const prompt = messages.map(m => m.content).join(' ');
     const data = await post('https://apifreellm.com/api/v1/chat', {
-      messages: [{ role: 'system', content: system }, ...messages], stream: false,
+      message: prompt,
+      system: system,
     }, { Authorization: `Bearer ${config.ai.apifreellmKey}` });
     const out = data.choices?.[0]?.message?.content || data.message || data.response;
     if (out) return out;
@@ -559,19 +570,24 @@ async function chatApiFreeLLM(messages, system) {
 async function chatHuggingFace(messages, system) {
   if (!config.ai.huggingfaceKey) throw new Error('sem chave Hugging Face');
   
-  const model = 'microsoft/DialoGPT-medium';
   const prompt = messages.map(m => m.content).join('\n');
   const input = system + '\n\n' + prompt;
   
-  const data = await post(`https://api-inference.huggingface.co/models/${model}`, {
-    inputs: input.slice(0, 2000),
-    parameters: { max_new_tokens: 500, temperature: 0.7, return_full_text: false },
-  }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
-  
-  if (Array.isArray(data) && data[0]?.generated_text) {
-    return data[0].generated_text.trim();
+  for (const model of HUGGINGFACE_MODELS) {
+    try {
+      const data = await post(`https://api-inference.huggingface.co/models/${model}`, {
+        inputs: input.slice(0, 2000),
+        parameters: { max_new_tokens: 500, temperature: 0.7, return_full_text: false },
+      }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
+      
+      if (Array.isArray(data) && data[0]?.generated_text) {
+        return data[0].generated_text.trim();
+      }
+      if (data.generated_text) return data.generated_text.trim();
+    } catch (e) {
+      continue;
+    }
   }
-  if (data.generated_text) return data.generated_text.trim();
   throw new Error('sem resposta Hugging Face');
 }
 
