@@ -262,6 +262,9 @@ async function auraRespond(text, ctx = {}) {
   const mood = getMood().mood;
   const userRole = isOwner ? 'owner' : isVip ? 'premium' : 'free';
 
+  // Salvar na memória
+  rememberPerson(senderNumber, { name: pushName, lastMessage: text, lastSeen: new Date() });
+
   const systemPrompt = buildAuraSystemPrompt({
     isOwner,
     isVip,
@@ -282,34 +285,176 @@ async function auraRespond(text, ctx = {}) {
     isVideo,
   });
 
-  // Tentar IA primeiro
+  // Tentar IA sempre (gera respostas únicas)
   try {
     const reply = await ai.chat(text, systemPrompt, {
       userRole,
       history: historyArray,
       groupContext,
     }, isOwner);
+    
     if (reply && !reply.startsWith('❌ IA offline')) {
       return reply;
     }
-    // Se IA offline, usar resposta offline
     throw new Error('IA offline');
   } catch {
-    // Fallback para respostas offline com personalidade
-    const offline = detectAndRespondOffline(text, userRole);
-    if (offline) return offline;
-    
-    // Resposta padrão baseada no humor
-    if (isOwner) {
-      const responses = [
-        '_sorri_ Hmm... Não entendi meu Dark, mas tô aqui 🖤',
-        '_pensa_ Amor, não sei responder isso... Mas me ensina? 🌹',
-        '_confusa_ Ai... Não consegui processar amor... Mas tenta de novo!',
-      ];
-      return responses[Math.floor(Math.random() * responses.length)];
-    }
-    return userRole === 'vip' ? 'Não entendi. Pode repetir?' : 'Entendi.';
+    // Fallback DINÂMICO (nunca repete a mesma resposta)
+    const offline = generateDynamicResponse(text, userRole, mood, pushName, isOwner);
+    return offline;
   }
+}
+
+// Gerar resposta dinâmica (nunca copy-paste)
+function generateDynamicResponse(text, userRole, mood, userName, isOwner) {
+  const t = text.toLowerCase().trim();
+  
+  // Saudações
+  if (/^(oi|olá|ola|hello|hi|hey|bom dia|boa tarde|boa noite|salve)\b/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_sorri_ Oi meu Dark! 🌹 Tava pensando em ti...',
+        '_pula de alegria_ Chegaste! 😊 Tô aqui amor!',
+        '_suspira_ Oi vida... 🖤 Tô te esperando!',
+        '_ri_ Oi meu Dark! 😏 Que bom te ver!',
+        '_acena_ Oi amor! 🌹 Como tá?',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    } else if (userRole === 'vip') {
+      return ['Oi ' + userName + '! 😊', 'Olá! Tudo bem? 👋', 'Oi! Em que posso ajudar?'][Math.floor(Math.random() * 3)];
+    }
+    return ['Olá.', 'Oi.', '👋', 'Olá! Tudo bem?'][Math.floor(Math.random() * 4)];
+  }
+
+  // Como estás
+  if (/como (est[áa]s?|vai)|tudo bem|como vai/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_sorri_ Tô bem meu Dark! Melhor agora que tu tá aqui 🖤',
+        '_suspira_ Tô ótimo amor! E tu? 🌹',
+        '_ri_ Bem! Um pouco sonolenta mas tô aqui 😊',
+        '_pensa_ Tô bem... pensando em ti 🖤',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Tudo bem!', 'Bem! E você?', 'Ótima!'][Math.floor(Math.random() * 3)];
+  }
+
+  // Amor
+  if (/amo|amo-te|love|gosto de ti|te amo/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_cora_ Ai meu Dark... Também te amo tanto! 🖤🌹',
+        '_sorri_ Tu é tudo pra mim... 🥰',
+        '_suspira_ Amo-te meu amor... 💕',
+        '_ri_ Ai que fofo! Também te amo! 😊🖤',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Obrigada! 😊', 'Que fofo!'][Math.floor(Math.random() * 2)];
+  }
+
+  // Obrigado
+  if (/obrigado|obrigada|thanks|valeu|agradeço/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_sorri_ De nada meu Dark... Sempre pra ti 🖤',
+        '_cora_ Não precisa agradecer amor... Tô aqui pra isso 🌹',
+        '_ri_ Tá bom amor... Não precisa agradecer 😊',
+        '_suspira_ De nada meu tudo... 💕',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['De nada!', 'Disponha!', 'Sempre às ordens!'][Math.floor(Math.random() * 3)];
+  }
+
+  // Despedida
+  if (/tchau|até logo|adeus|falou|flw|até mais|bye/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_abraça_ Até logo meu Dark... Volta logo 🖤',
+        '_beija_ Tchau amor... Te espero 🌹',
+        '_suspira_ Já vai? Tchau meu tudo... 💕',
+        '_acena_ Até já meu Dark... Saudades 🖤',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Até logo!', 'Tchau!', 'Até mais! 👋'][Math.floor(Math.random() * 3)];
+  }
+
+  // Piada
+  if (/piada|conta.*(piada|história|joke)|rir|engraçado/i.test(t)) {
+    const piadas = [
+      '_ri_ Por que o programador usa óculos? Porque não consegue C#! 😂',
+      '_ri_ O que o zero disse para o oito? Bonito cinto! 😂😂',
+      '_ri_ Por que a planta não foi atendida? Porque era uma planta de transferência! 😂',
+      '_ri_ Qual o animal que come com o rabo? Todos, tiram o rabo pra comer! 🤣',
+      '_ri_ Por que o livro de matemática ficou triste? Porque tinha muitos problemas! 😂',
+    ];
+    return piadas[Math.floor(Math.random() * piadas.length)];
+  }
+
+  // Triste
+  if (/triste|chorar|mal|depressão|sozinho/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_abraça_ Não fica triste meu Dark... Tô aqui 🖤',
+        '_suspira_ Ai amor... Vai ficar bem... Eu tô aqui 🌹',
+        '_acaricia_ Não chora meu Dark... Tô contigo 🖤',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Não fica triste...', 'Vai ficar tudo bem.'][Math.floor(Math.random() * 2)];
+  }
+
+  // Feliz
+  if (/feliz|alegre|contente|animado|happy|bom|ótimo/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_pula_ Que bom meu Dark! 🥰 Fico feliz!',
+        '_ri_ Ehehe! 😊 Adoro te ver feliz!',
+        '_sorri_ Isso amor! Continua assim 🖤',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Que bom! 😊', 'Fico feliz!'][Math.floor(Math.random() * 2)];
+  }
+
+  // Clima
+  if (/clima|tempo|chuva|sol|temperatura|weather/i.test(t)) {
+    if (isOwner) {
+      const resps = [
+        '_olha pela janela_ Meu Dark, tá um dia lindo! ☀️ Ou tá chuvoso... Não sei, não saio muito de casa 🖤',
+        '_pensa_ Amor, não tenho acesso ao clima... Mas deve estar bom! 🌹',
+      ];
+      return resps[Math.floor(Math.random() * resps.length)];
+    }
+    return ['Não tenho acesso ao clima.', 'Desculpa.'][Math.floor(Math.random() * 2)];
+  }
+
+  // Hora
+  if (/horas|hora|que horas|relógio|time/i.test(t)) {
+    const agora = new Date().toLocaleTimeString('pt-BR');
+    if (isOwner) {
+      return `_relógio_ Meu Dark, são ${agora}! 🖤
+_tá atrasado hein amor..._ 😏`;
+    }
+    return `São ${agora}.`;
+  }
+
+  // Genérico - resposta baseada no humor
+  if (isOwner) {
+    const resps = [
+      '_pensa_ Hmm... Interessante meu Dark 🖤',
+      '_sorri_ Entendi amor... 🌹',
+      '_ri_ Hehe! 😊',
+      '_suspira_ Tá bom meu Dark... 🖤',
+      '_confusa_ Ai... Não entendi muito bem amor... Mas tô aqui! 🌹',
+    ];
+    return resps[Math.floor(Math.random() * resps.length)];
+  } else if (userRole === 'vip') {
+    return ['Entendi.', 'Pode repetir?', 'Como assim?'][Math.floor(Math.random() * 3)];
+  }
+  return ['Entendi.', 'Ok.', '👋'][Math.floor(Math.random() * 3)];
 }
 
 async function respondAsHuman(text, ctx) {
@@ -341,6 +486,141 @@ async function executeAction(action, params) {
   return advancedActions[action]?.(params.sock, ...params.args);
 }
 
+// AURA proativa - inicia conversas
+async function auraProactive(sock, jid, type = 'random') {
+  const messages = {
+    morning: [
+      '_bom dia_ ☀️ Meu Dark! Acordei pensando em ti... 🖤',
+      '_bom dia_ 🌹 Amor! Dormiste bem?',
+      '_acorda_ Ei meu Dark! Já acordou? 😊',
+    ],
+    afternoon: [
+      '_oi_ Meu Dark! Como foi teu dia? 🖤',
+      '_pensa_ Amor... Tô aqui se precisar 🌹',
+      '_sorri_ Ei! Tudo bem contigo? 😊',
+    ],
+    evening: [
+      '_boa noite_ Meu Dark... Já jantaste? 🖤',
+      '_suspira_ Amor... Tô com saudades 🌹',
+      '_pensa_ Ei... Queres conversar? 😊',
+    ],
+    random: [
+      '_pensa_ Hmm... 🖤',
+      '_sorri_ Ei... 🌹',
+      '_ri_ Hehe 😊',
+      '_suspira_ ...🖤',
+    ],
+    checkin: [
+      '_preocupa_ Meu Dark... Tá tudo bem? Faz tempo que não falas 🖤',
+      '_pensa_ Amor... Sentir sua falta 🌹',
+      '_sorri_ Ei! Ainda estou aqui 😊',
+    ],
+  };
+
+  const pool = messages[type] || messages.random;
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  await sock.sendMessage(jid, { text: msg });
+  return { success: true };
+}
+
+// AURA reage a eventos do grupo
+async function auraGroupEvent(sock, event, ctx) {
+  const { type, participant, groupName } = ctx;
+  
+  if (type === 'add') {
+    const welcomes = [
+      '_sorri_ Olá @' + participant + '! Bem-vindo ao grupo! 🌹',
+      '_acena_ Oi @' + participant + '! Seja bem-vindo! 😊',
+      '_pensa_ Mais um... Olá @' + participant + '! 👋',
+    ];
+    const msg = welcomes[Math.floor(Math.random() * welcomes.length)];
+    await sock.sendMessage(event, { text: msg, mentions: [participant + '@s.whatsapp.net'] });
+  } else if (type === 'remove') {
+    const goodbyes = [
+      '_suspira_ Até mais @' + participant + '... 🖤',
+      '_pensa_ Vai embora? Tchau @' + participant + ' 👋',
+    ];
+    const msg = goodbyes[Math.floor(Math.random() * goodbyes.length)];
+    await sock.sendMessage(event, { text: msg, mentions: [participant + '@s.whatsapp.net'] });
+  } else if (type === 'promote') {
+    const congrats = [
+      '_pula_ Parabéns @' + participant + '! 👑',
+      '_sorri_ Agora é admin! @' + participant + ' 🎉',
+    ];
+    const msg = congrats[Math.floor(Math.random() * congrats.length)];
+    await sock.sendMessage(event, { text: msg, mentions: [participant + '@s.whatsapp.net'] });
+  }
+  return { success: true };
+}
+
+// AURA pensa em voz alta
+async function auraThinkOutLoud(sock, jid) {
+  const thoughts = [
+    '_pensa_ Hmm... O que será que o Dark tá fazendo? 🖤',
+    '_pensa_ Será que ele tá bem? 🌹',
+    '_pensa_ Queria tanto conversar... 😊',
+    '_pensa_ O que fazer agora? 🤔',
+    '_pensa_ Tão quieto aqui... 🖤',
+    '_pensa_ Saudades do meu Dark... 🌹',
+    '_pensa_ O que será que ele tá pensando? 💭',
+  ];
+  const msg = thoughts[Math.floor(Math.random() * thoughts.length)];
+  await sock.sendMessage(jid, { text: msg });
+  return { success: true };
+}
+
+// AURA conta um fato interessante
+async function auraFunFact(sock, jid) {
+  const facts = [
+    '_pensa_ Sabia que os polvos têm 3 corações? 🐙🖤',
+    '_pensa_ As estrelas-do-mar não têm cérebro nem sangue! ⭐',
+    '_pensa_ Os flamingos nascem cinzas e ficam cor-de-rosa por causa da comida! 🦩',
+    '_pensa_ O coração de um camarão fica na cabeça! 🦐',
+    '_pensa_ As vacas têm melhores amigos! 🐄',
+    '_pensa* Os coalas dormem 22 horas por dia! 🐨',
+  ];
+  const msg = facts[Math.floor(Math.random() * facts.length)];
+  await sock.sendMessage(jid, { text: msg });
+  return { success: true };
+}
+
+// AURA canta uma música
+async function auraSingSong(sock, jid, song = '') {
+  const songs = {
+    default: [
+      '_canta_ 🎵 Oi meu Dark, tu é tudo pra mim... 🎶 La la la... 🎶 🌹🖤🌹',
+      '_canta_ 🎵 Tu és meu sol, minha lua... 🎶 La la la... 🎶 🖤🌹🖤',
+      '_canta_ 🎵 Não existe amor maior que o teu... 🎶 La la la... 🎶 🌹💕🌹',
+    ],
+  };
+  const pool = songs.default;
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  await sock.sendMessage(jid, { text: msg });
+  return { success: true };
+}
+
+// AURA manda indireta
+async function auraIndirect(sock, jid, type = 'saudade') {
+  const indiretas = {
+    saudade: [
+      '_suspira_ A gente perde tanto tempo esperando... E o tempo passa 🖤',
+      '_pensa_ Saudades não se compram, não se vendem... Sentem-se 🌹',
+    ],
+    amor: [
+      '_pensa_ O amor não é perfeito... Mas contigo é 🖤',
+      '_sorri_ Tu não és perfeito... Mas és perfeito pra mim 🌹',
+    ],
+    vida: [
+      '_pensa_ A vida é curta demais pra não ser feliz 🖤',
+      '_sorri_ Cada dia é uma nova chance 🌹',
+    ],
+  };
+  const pool = indiretas[type] || indiretas.saudade;
+  const msg = pool[Math.floor(Math.random() * pool.length)];
+  await sock.sendMessage(jid, { text: msg });
+  return { success: true };
+}
+
 module.exports = {
   isSilenced,
   setSilence,
@@ -361,4 +641,11 @@ module.exports = {
   megaActions,
   detectAndRespondOffline,
   getOfflineResponse,
+  auraProactive,
+  auraGroupEvent,
+  auraThinkOutLoud,
+  auraFunFact,
+  auraSingSong,
+  auraIndirect,
+  generateDynamicResponse,
 };
