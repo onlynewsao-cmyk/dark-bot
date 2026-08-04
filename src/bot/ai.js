@@ -758,11 +758,44 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // ─────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────
+// TTS com fallback
+async function speakWithFallback(text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
+  // Tentar ElevenLabs primeiro
+  try {
+    const audio = await speakElevenLabs(text, voiceId);
+    if (audio && audio.length > 500) return audio;
+  } catch (e) {
+    console.warn('[Voz] ElevenLabs falhou:', e.message);
+  }
+  
+  // Fallback: usar TTS gratuito do sistema
+  try {
+    const { execSync } = require('child_process');
+    const tmpFile = `/tmp/aura-voice-${Date.now()}.mp3`;
+    
+    // Usar espeak ou similar se disponível
+    try {
+      execSync(`espeak -v pt "${text.replace(/"/g, '\"')}" --stdout > ${tmpFile}`, { timeout: 10000 });
+      const fs = require('fs');
+      const audio = fs.readFileSync(tmpFile);
+      fs.unlinkSync(tmpFile);
+      if (audio.length > 500) return audio;
+    } catch {}
+    
+    // Fallback final: gerar áudio silencioso com metadados
+    console.warn('[Voz] Usando fallback de texto');
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   chatCerebras,
   chatHuggingFace,
   chatApiFreeLLM,
   speakElevenLabs,
+  speakWithFallback,
   searchTavily,
   transcribeAssemblyAI,
   chat,

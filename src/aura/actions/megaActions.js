@@ -803,7 +803,81 @@ async function revokeGroupInvite(sock, groupJid) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 8. EXPORT
+// 8. VOZ (ElevenLabs TTS)
+// ══════════════════════════════════════════════════════════════
+
+async function sendVoiceMessage(sock, jid, text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
+  try {
+    const ai = require('../bot/ai');
+    const audioBuffer = await ai.speakWithFallback(text, voiceId);
+    if (audioBuffer && audioBuffer.length > 500) {
+      await sock.sendMessage(jid, { audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true });
+      return { success: true, message: 'Mensagem de voz enviada' };
+    }
+    throw new Error('Áudio vazio');
+  } catch (e) {
+    return { success: false, message: 'Erro ao enviar voz: ' + e.message };
+  }
+}
+
+async function sendVoiceToGroup(sock, groupJid, text) {
+  return sendVoiceMessage(sock, groupJid, text);
+}
+
+async function replyWithVoice(sock, msg, text) {
+  const jid = msg.key.remoteJid;
+  return sendVoiceMessage(sock, jid, text);
+}
+
+// AURA fala em resposta a mensagem
+async function auraSpeakResponse(sock, msg, text) {
+  const jid = msg.key.remoteJid;
+  const response = await sendVoiceMessage(sock, jid, text);
+  if (!response.success) {
+    // Fallback para texto se voz falhar
+    await sock.sendMessage(jid, { text: `_🎤 ${text}_` }, { quoted: msg });
+  }
+  return response;
+}
+
+// AURA canta uma música (versão texto)
+async function auraSing(sock, jid, songName) {
+  const lyrics = `🎵 _Aura canta: ${songName}_
+
+🎶 La la la... 🎶
+_Desculpa, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹`;
+  await sock.sendMessage(jid, { text: lyrics });
+  return { success: true };
+}
+
+// AURA sussurra (estilo sussurro)
+async function auraWhisper(sock, jid, text) {
+  await sock.sendMessage(jid, { text: `_suspira_ ...${text}...` });
+  return { success: true };
+}
+
+// AURA grita (estilo grito)
+async function auraShout(sock, jid, text) {
+  await sock.sendMessage(jid, { text: `_grita_ ${text.toUpperCase()}!!!` });
+  return { success: true };
+}
+
+// AURA ri
+async function auraLaugh(sock, jid) {
+  const laughs = ['_ri_ 😂', '_ri muito_ 🤣🤣🤣', '_gargalha_ 😂😂😂', '_sorri_ 😊'];
+  const laugh = laughs[Math.floor(Math.random() * laughs.length)];
+  await sock.sendMessage(jid, { text: laugh });
+  return { success: true };
+}
+
+// AURA chora
+async function auraCry(sock, jid) {
+  await sock.sendMessage(jid, { text: '_chora_ 😢😢😢' });
+  return { success: true };
+}
+
+// ══════════════════════════════════════════════════════════════
+// 9. EXPORT
 // ══════════════════════════════════════════════════════════════
 
 module.exports = {
@@ -837,4 +911,7 @@ module.exports = {
   sendBroadcast, sendScheduledMessage, getUnreadMessages, markAllAsRead,
   getGroupMetadata, requestPayment, acceptPayment, sendLiveLocation,
   sendGroupInvite, revokeGroupInvite,
+  // Voz
+  sendVoiceMessage, sendVoiceToGroup, replyWithVoice,
+  auraSpeakResponse, auraSing, auraWhisper, auraShout, auraLaugh, auraCry,
 };
