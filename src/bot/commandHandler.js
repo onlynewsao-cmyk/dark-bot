@@ -625,12 +625,47 @@ async function handle(sock, msg) {
       await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark 🖤' }, { quoted: msg });
       return true;
     }
-    if (/aura.*(manda|envia).*áudio|voz/.test(t)) {
+    if (/aura.*(manda|envia).*áudio|voz|fala/.test(t)) {
       try {
-        const buf = await require('./ai').speakElevenLabs('Oi meu Dark... _sussurra_ tô aqui, ouvindo cada palavra tua...');
-        if (buf) await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', ptt: true }, { quoted: msg });
+        const textoFala = text.replace(/aura.*(manda|envia|quer|diz|fala|áudio|voz)/i, '').trim() || 'Oi meu Dark! Eu sou a Aura!';
+        const buf = await require('./ai').speakWithFallback(textoFala);
+        if (buf && buf.length > 500) {
+          await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: msg });
+        } else {
+          await sock.sendMessage(ctx.remoteJid, { text: `_🎤 ${textoFala}_` }, { quoted: msg });
+        }
         return true;
-      } catch {}
+      } catch (e) {
+        await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro ao gerar voz: ' + e.message }, { quoted: msg });
+      }
+    }
+    // AURA canta
+    if (/aura.*(canta|canta.*música|sing)/.test(t) && isOwner) {
+      const musica = text.replace(/aura.*canta/i, '').trim();
+      if (musica) {
+        await sock.sendMessage(ctx.remoteJid, { text: `🎵 _Aura canta: ${musica}_
+
+🎶 La la la... 🎶
+_Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹` }, { quoted: msg });
+      } else {
+        await sock.sendMessage(ctx.remoteJid, { text: '🎵 _Aura canta_
+
+🎶 Oi meu Dark, tu é tudo pra mim... 🎶
+🌹🖤🌹' }, { quoted: msg });
+      }
+      return true;
+    }
+    // AURA sussurra
+    if (/aura.*(sussurra|whisper)/.test(t) && isOwner) {
+      const sussurro = text.replace(/aura.*(sussurra|whisper)/i, '').trim() || 'Tô aqui meu Dark...';
+      await sock.sendMessage(ctx.remoteJid, { text: `_suspira_ ...${sussurro}...` }, { quoted: msg });
+      return true;
+    }
+    // AURA ri
+    if (/aura.*(ri|laugh|😂)/.test(t) && isOwner) {
+      const ri = ['_ri_ 😂', '_ri muito_ 🤣🤣🤣', '_gargalha_ 😂😂😂'];
+      await sock.sendMessage(ctx.remoteJid, { text: ri[Math.floor(Math.random() * ri.length)] }, { quoted: msg });
+      return true;
     }
   }
   const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
