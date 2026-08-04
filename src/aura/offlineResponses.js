@@ -212,12 +212,12 @@ function detectAndRespondOffline(text, userRole = 'free') {
   }
 
   // Como estás
-  if (/^(como (está|estás|vai)|tudo bem|como vai|beleza|blz)\b/i.test(t)) {
+  if (/^(como (est[áa]s?|vai))|(tudo bem)|(como vai)|(beleza)|(blz)/i.test(t)) {
     return getOfflineResponse('howAreYou', userRole);
   }
 
   // O que podes fazer
-  if (/^(o que (pode|faz|sabe) fazer|quais (comando|função)|ajuda|help|menu)\b/i.test(t)) {
+  if (/o que (pode[ms]?|faz(e[r])?|sabe[ms]?)/i.test(t) || /quais? (comando|função)/i.test(t)) {
     return getOfflineResponse('whatCanYouDo', userRole);
   }
 
