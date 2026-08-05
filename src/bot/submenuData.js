@@ -9,83 +9,48 @@
 // ── CLASSIFICAÇÃO AUTOMÁTICA POR PADRÃO DE NOME ──────────────
 // Comandos que NÃO precisam de argumentos (executam directo)
 const SEL_PATTERNS = [
-  // Info básicos
-  /^ping$/, /^info$/, /^perfil$/, /^dono$/, /^criador$/, /^donos$/, /^subdono$/,
-  /^uptime$/, /^status$/, /^statusbot$/, /^statusgp$/, /^system$/, /^stats$/, /^perf$/,
+  // ══════════════════════════════════════════════════════════════════════
+  // AÇÃO DIRETA - Comandos que executam uma ação única sem argumentos
+  // ══════════════════════════════════════════════════════════════════════
+  
+  // ── INFO E STATUS (só mostram informação) ──
+  /^ping$/, /^info$/, /^perfil$/, /^dono$/, /^criador$/, /^donos$/,
+  /^uptime$/, /^status$/, /^statusbot$/, /^stats$/, /^perf$/,
   /^aiapis$/, /^checkia$/, /^checkativo$/,
   
-  // Downloads (ação direta)
-  /^play$/, /^play2$/, /^play3$/, /^video$/, /^video2$/, /^tiktok$/, /^instagram$/,
-  /^facebook$/, /^twitter$/, /^spotify$/, /^soundcloud$/, /^pinterest$/, /^pinmp4$/,
-  /^statusvideo$/, /^ptv$/, /^ytd$/, /^gyt$/, /^mp3$/, /^mp4$/, /^fhd$/,
-  /^playhq$/, /^playid$/, /^playmax$/, /^playvid$/, /^playvid2$/,
+  // ── NAVEGAÇÃO (só abrem submenus) ──
+  /^menu$/, /^start$/, /^help$/,
   
-  // Stickers (ação direta)
-  /^sticker$/, /^sfull$/, /^figubug$/, /^figubug2$/, /^toimg$/, /^attp$/, /^ttp$/,
-  /^imagem$/, /^figura$/, /^gimage$/, /^stickerrename$/, /^brat$/, /^aisticker$/,
+  // ── GRUPOS (ações únicas sem argumentos) ──
+  /^link$/, /^linkgp$/, /^grupo$/, /^todos$/, /^hidetag$/,
+  /^admins$/, /^tagadmins$/, /^listmods$/, /^listadv$/, /^listamute$/,
+  /^regras$/, /^setregras$/, /^setrules$/,
+  /^antilink$/, /^antispam$/, /^welcome$/, /^goodbye$/, /^bemvindo$/,
+  /^open$/, /^close$/, /^actgp$/, /^soadm$/,
+  /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
+  /^antiflood$/, /^antifigurinha$/, /^antidoc$/, /^antiloc$/,
+  /^antiporn$/, /^antitoxic$/, /^antiraid$/, /^capturalink$/,
+  /^raidstatus$/, /^solicitacoes$/, /^antifig$/,
   
-  // IA (ação direta)
-  /^ia$/, /^gpt$/, /^gpt4$/, /^gpt5$/, /^claude$/, /^claudeai$/, /^deepsearch$/,
-  /^deepai$/, /^copilot$/, /^copiloto$/, /^kimi$/, /^qwen$/, /^gemma$/,
-  /^imagine$/, /^aimagem$/, /^iatig$/, /^metaai$/, /^addai$/, /^addmetaai$/,
-  
-  // Grupos (ação direta)
-  /^antilink$/, /^antispam$/, /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
-  /^open$/, /^close$/, /^actgp$/, /^grupo$/, /^soadm$/, /^everyone$/, /^all$/,
-  /^admins$/, /^tagadmins$/, /^link$/, /^linkgp$/, /^todos$/, /^hidetag$/,
-  /^regras$/, /^setregras$/, /^definirregras$/, /^setrules$/,
-  /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/, /^antiflood$/, /^antifigurinha$/,
-  /^antidoc$/, /^antiloc$/, /^antisocial$/, /^antiporn$/, /^antitoxic$/,
-  /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^warn$/, /^unwarn$/, /^warnings$/, /^verwarns$/, /^clearwarn$/, /^resetwarn$/,
-  /^ban$/, /^kick$/, /^promote$/, /^demote$/, /^add$/, /^remove$/, /^expulsar$/,
-  /^mute$/, /^unmute$/, /^silenciar$/, /^desmute$/, /^tempban$/, /^tempkick$/,
-  /^setdesc$/, /^setdescricao$/, /^setnomegrupo$/, /^setsubject$/, /^fotogrupo$/,
-  /^descgrupo$/, /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
-  /^antiraid$/, /^capturalink$/, /^raidstatus$/, /^solicitacoes$/,
-  /^captcha$/, /^aceptatodos$/, /^aprovar$/, /^recusarsolic$/, /^proibir$/,
-  /^whitelist$/, /^wladd$/, /^wlremove$/, /^blockuser$/, /^unblockuser$/,
-  /^blockcmd$/, /^unblockcmd$/, /^autorespostas$/, /^autorepo$/,
-  
-  // Economia (ação direta)
+  // ── ECONOMIA (ações únicas) ──
   /^daily$/, /^saldo$/, /^coins$/, /^carteira$/, /^inventario$/, /^inv$/,
-  /^trabalhar$/, /^crime$/, /^roubar$/, /^depositar$/, /^sacar$/, /^transferir$/,
-  /^apostar$/, /^aposta$/, /^coinflip$/, /^loteria$/, /^sorteio$/, /^roleta$/,
-  /^cassino$/, /^slots$/, /^batalhanaval$/, /^connect4$/, /^jogodavelha$/,
-  /^rpgstats$/, /^rpginfo$/, /^rpgstart$/, /^evoluir$/, /^evolucao$/, /^treino$/,
-  /^descansar$/, /^meditar$/, /^viajar$/, /^explorar$/, /^cacar$/, /^pescar$/,
-  /^minerar$/, /^coletar$/, /^plantar$/, /^colher$/, /^vender$/, /^comprar$/,
-  /^loja$/, /^shop$/, /^equipamentos$/, /^ficha$/, /^perfilrpg$/,
-  /^familia$/, /^arvore$/, /^casal$/, /^casamento$/, /^namorar$/, /^divorciar$/,
-  /^adotar$/, /^expulsar$/, /^deserdar$/, /^pets$/, /^pet$/, /^petbattle$/, /^petbet$/,
+  /^perfilrpg$/, /^rpgstats$/, /^rpginfo$/, /^ficha$/, /^caixa$/,
+  /^arvore$/, /^familia$/, /^cla$/, /^conquistas$/, /^diario$/,
+  /^atividade$/, /^checkativo$/, /^totalcmd$/, /^topcmd$/,
   
-  // Interações (ação direta)
-  /^abracar$/, /^abraco$/, /^beijar$/, /^beijo$/, /^tapa$/, /^soco$/, /^bater$/,
-  /^matar$/, /^morreu$/, /^morrer$/, /^reviver$/, /^ressucitar$/,
-  /^dancar$/, /^danca$/, /^cantar$/, /^rir$/, /^chorar$/, /^dormir$/, /^acordar$/,
-  /^comer$/, /^beber$/, /^beijocado$/, /^lamber$/, /^lambida$/, /^morder$/, /^cafune$/,
-  /^empurrar$/, /^chutar$/, /^cuspir$/, /^envenenar$/, /^espancar$/, /^bullying$/,
-  /^namorar$/, /^casar$/, /^divorciar$/, /^adotar$/, /^expulsar$/,
+  // ── INTERAÇÕES (ações únicas sem alvo) ──
+  /^rir$/, /^chorar$/, /^dormir$/, /^acordar$/, /^comer$/, /^beber$/,
+  /^cantar$/, /^dancar$/, /^meditar$/, /^descansar$/, /^estudar$/,
+  /^treinar$/, /^trabalhar$/, /^viajar$/, /^explorar$/,
   
-  // Utilidades (ação direta)
-  /^clima$/, /^weather$/, /^tempo$/, /^calculadora$/, /^calc$/, /^calcular$/,
-  /^encurtar$/, /^short$/, /^curto$/, /^traduzir$/, /^translate$/, /^dicionario$/, /^dicio$/,
-  /^pesquisar$/, /^search$/, /^google$/, /^procurar$/, /^resumir$/, /^resumo$/,
-  /^letra$/, /^lyrics$/, /^traducao$/, /^conversor$/, /^moeda$/, /^cambio$/, /^cripto$/,
-  /^hora$/, /^cronometro$/, /^alarme$/, /^lembrete$/, /^anotar$/,
+  // ── UTILIDADES (ações únicas) ──
+  /^clima$/, /^weather$/, /^tempo$/, /^hora$/, /^dado$/, /^moeda$/,
+  /^roleta$/, /^ppt$/, /^filosofia$/, /^biblia$/, /^versiculo$/,
+  /^charada$/, /^piada$/, /^frase$/, /^motivacional$/, /^elogio$/,
+  /^fato$/, /^conselho$/, /^horoscopo$/, /^cor$/, /^significado$/,
+  /^verdade$/, /^desafio$/, /^sorteio$/, /^loteria$/,
   
-  // Áudio (ação direta)
-  /^bass$/, /^bass2$/, /^bass3$/, /^reverb$/, /^reverb2$/, /^reverb3$/,
-  /^8d$/, /^8d2$/, /^8d3$/, /^slowed$/, /^slowed2$/, /^slowed3$/,
-  /^slowedreverb$/, /^slowedreverb2$/, /^slowedreverb3$/, /^nightcore$/,
-  /^vaporwave$/, /^hardcore$/, /^chorus$/, /^chorus2$/, /^chorus3$/,
-  /^flanger$/, /^phaser$/, /^tremolo$/, /^vibrato$/, /^reverse$/, /^robot$/,
-  /^chipmunk$/, /^squirrel$/, /^monster$/, /^whisper$/, /^pitch$/, /^deep$/,
-  /^echo$/, /^stadium$/, /^cave$/, /^underwater$/, /^telephone$/, /^radio$/, /^lofi$/,
-  /^karaoke$/, /^blown$/, /^earrape$/, /^fat$/, /^smooth$/, /^grave$/, /^grave2$/, /^grave3$/,
-  /^fast$/, /^slow$/, /^speed$/, /^speedup$/, /^desacelerar$/, /^acelerar$/,
-  
-  // Zoeira (ação direta)
+  // ── ZOEIRA (medidores - ações únicas) ──
   /^gay$/, /^lindo$/, /^linda$/, /^feio$/, /^feia$/, /^burro$/, /^burra$/,
   /^rico$/, /^rica$/, /^pobre$/, /^corno$/, /^corna$/, /^safado$/, /^safada$/,
   /^gado$/, /^gada$/, /^gostoso$/, /^gostosa$/, /^forte$/, /^fraca$/,
@@ -136,10 +101,9 @@ const SEL_PATTERNS = [
   /^independente$/, /^dependente$/, /^realista$/, /^otimista$/,
   /^pessimista$/, /^confiante$/, /^infantil$/, /^responsavel$/,
   /^irresponsavel$/, /^liberal$/, /^tradicional$/, /^cosmopolita$/,
-  /^rural$/, /^viajante$/, /^gastadora$/,
-  /^lesbica$/, /^bucetuda$/,
+  /^rural$/, /^viajante$/, /^lesbica$/, /^bucetuda$/,
   
-  // Rankings
+  // ── RANKINGS (só mostram ranking) ──
   /^rankgay$/, /^rankburro$/, /^rankinteligente$/, /^rankotaku$/,
   /^rankfiel$/, /^rankinfiel$/, /^rankcorno$/, /^rankgado$/,
   /^rankgostoso$/, /^rankrico$/, /^rankpobre$/, /^rankforte$/,
@@ -152,96 +116,48 @@ const SEL_PATTERNS = [
   /^rankcharmosa$/, /^rankvisionaria$/, /^rankpoderosa$/, /^rankvencedora$/,
   /^rankativo$/, /^rankinativo$/, /^rankativos$/,
   /^rank$/, /^rankglobal$/, /^ranklvl$/, /^rankuser$/,
+  /^rankpoderoso$/, /^rankpoderosa$/, /^rankrica$/, /^rankrico$/,
+  /^rankpobre$/, /^rankforte$/, /^ranktrabalhador$/, /^ranktrabalhadora$/,
+  /^rankbrabo$/, /^rankbraba$/, /^ranklindo$/, /^ranklinda$/,
+  /^rankmalandro$/, /^rankmalandra$/, /^rankengracado$/, /^rankengracada$/,
+  /^rankcharmoso$/, /^rankcharmosa$/, /^rankvisionario$/, /^rankvisionaria$/,
+  /^rankvencedor$/, /^rankvencedora$/, /^ranklesbica$/, /^rankburro$/, /^rankburra$/,
+  /^rankcorno$/, /^rankcorna$/, /^rankgay$/, /^rankgado$/, /^rankgada$/,
+  /^rankgostoso$/, /^rankgostosa$/, /^rankpegador$/, /^rankpegadora$/,
+  /^rankmacho$/, /^ranknerd$/, /^rankotaku$/, /^rankfiel$/, /^rankinfiel$/,
+  /^rankinteligente$/, /^rankativo$/, /^rankinativo$/, /^rankativos$/,
   
-  // Jogos
-  /^quiz$/, /^forca$/, /^adivinha$/, /^ppt$/, /^pedrapapeltesoura$/,
+  // ── JOGOS (ações únicas) ──
   /^dado$/, /^d6$/, /^dice$/, /^coin$/, /^coinflip$/, /^jogodavelha$/, /^tictactoe$/,
   /^batalhanaval$/, /^battlefield$/, /^connect4$/, /^blackjack$/, /^cassino$/, /^slots$/,
-  /^roleta$/, /^roulette$/, /^leilao$/, /^auction$/, /^apostar$/, /^aposta$/,
-  /^verdade$/, /^desafio$/, /^desafiomensal$/, /^desafiosemanal$/,
-  /^anagrama$/, /^charada$/, /^wordle$/, /^cacapalavras$/, /^connect4$/,
+  /^roleta$/, /^roulette$/, /^leilao$/, /^auction$/, /^anagrama$/, /^wordle$/, /^cacapalavras$/,
   
-  // Texto
-  /^bold$/, /^italic$/, /^underline$/, /^strikethrough$/, /^monospace$/, /^smallcaps$/,
-  /^tiny$/, /^glitch$/, /^mini$/, /^negrito$/, /^italico$/, /^sublinhado$/,
-  /^biblia$/, /^versiculo$/, /^conselhobiblico$/, /^consilio$/, /^reflexao$/,
-  /^filosofia$/, /^filosofo$/, /^pensamento$/, /^citacao$/, /^citar$/,
-  /^cantada$/, /^cantadas$/, /^pickup$/, /^piada$/, /^piadas$/, /^charada$/, /^charadas$/,
-  /^motivacional$/, /^frase$/, /^frases$/, /^elogio$/, /^elogios$/, /^verdade$/, /^desafio$/,
-  /^conselho$/, /^conselhos$/, /^fato$/, /^fatoscuriosos$/, /^curiosidade$/, /^curiosidades$/,
-  /^horoscopo$/, /^signo$/, /^ascendente$/, /^mapastral$/,
+  // ── ÁUDIO (efeitos - ações únicas) ──
+  /^bass$/, /^bass2$/, /^bass3$/, /^reverb$/, /^reverb2$/, /^reverb3$/,
+  /^8d$/, /^8d2$/, /^8d3$/, /^slowed$/, /^slowed2$/, /^slowed3$/,
+  /^slowedreverb$/, /^slowedreverb2$/, /^slowedreverb3$/, /^nightcore$/,
+  /^vaporwave$/, /^hardcore$/, /^chorus$/, /^chorus2$/, /^chorus3$/,
+  /^flanger$/, /^phaser$/, /^tremolo$/, /^vibrato$/, /^reverse$/, /^robot$/,
+  /^chipmunk$/, /^squirrel$/, /^monster$/, /^whisper$/, /^pitch$/, /^deep$/,
+  /^echo$/, /^stadium$/, /^cave$/, /^underwater$/, /^telephone$/, /^radio$/, /^lofi$/,
+  /^karaoke$/, /^blown$/, /^earrape$/, /^fat$/, /^smooth$/, /^grave$/, /^grave2$/, /^grave3$/,
+  /^fast$/, /^slow$/, /^speed$/, /^speedup$/, /^desacelerar$/, /^acelerar$/,
   
-  // Search
-  /^pesquisar$/, /^search$/, /^google$/, /^procurar$/, /^buscar$/, /^busca$/,
-  /^anime$/, /^animeinfo$/, /^animeep$/, /^animeeps$/, /^manga$/, /^mangareader$/,
-  /^stalk$/, /^stalkinsta$/, /^stalktk$/, /^stalkff$/, /^ghstalk$/, /^githubstalk$/, /^gitubstalk$/,
-  /^instastalk$/, /^tikstalk$/, /^ttstalk$/, /^ttkstalk$/, /^tiktokstalk$/,
-  /^cep$/, /^cnpj$/, /^cpf$/, /^ip$/, /^ipinfo$/, /^cns$/, /^cnes$/,
-  /^getbio$/, /^getperfil$/, /^gethtml$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
+  // ── TOGGLE (ligar/desligar) ──
+  /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
+  /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
+  /^autosticker$/, /^autodl$/, /^autorepo$/,
+  
+  // ── DONO (ações únicas) ──
+  /^restart$/, /^reconnect$/, /^clearLogs$/, /^clearCache$/,
+  /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/,
+  /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/,
+  /^addblacklist$/, /^delblacklist$/, /^clearAllChats$/,
+  
+  // ── PESQUISA (ações únicas) ──
+  /^cep$/, /^cnpj$/, /^cpf$/, /^ip$/, /^ipinfo$/,
+  /^getbio$/, /^getperfil$/, /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
   /^wiki$/, /^wikipedia$/, /^significado$/, /^dicionario$/, /^dicio$/, /^traduzir$/, /^translate$/,
-  
-  // Dono
-  /^broadcast$/, /^send$/, /^forjar$/, /^simular$/, /^fakeedit$/, /^fakemsg$/, /^fakequote$/,
-  /^eval$/, /^shell$/, /^cmd$/, /^exec$/, /^execase$/, /^runcase$/, /^testcase$/, /^execcase$/,
-  /^addcase$/, /^addcmd$/, /^newcase$/, /^delcase$/, /^remcase$/, /^removicase$/, /^removecase$/,
-  /^delcmd$/, /^setcmd$/, /^editcase$/, /^changecase$/, /^updatecase$/, /^refreshcases$/, /^reloadcases$/, /^recarregarcases$/,
-  /^antidelete$/, /^espiao$/, /^antifake$/, /^antiflood$/, /^antiraid$/, /^antipalavra$/,
-  /^godmode$/, /^godmodeadmin$/, /^modobn$/, /^modoparceria$/, /^modorpg$/, /^modolite$/,
-  /^autodl$/, /^autosticker$/, /^autorepo$/, /^autorespostas$/, /^autoseller$/, /^autosell$/,
-  /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/, /^setbomsg$/, /^setbammsg$/,
-  /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/, /^addblacklist$/, /^delblacklist$/,
-  /^grantmodcmd$/, /^revokemodcmd$/, /^addmod$/, /^delmod$/, /^demite$/, /^promote$/, /^demote$/,
-  /^addparceria$/, /^delparceria$/, /^parcerias$/, /^listmods$/, /^listmodcmds$/, /^listblocksgp$/,
-  /^listblacklist$/, /^listadv$/, /^listamute$/, /^listautoadm$/, /^autorespostas$/,
-  /^cmdsocultos$/, /^portal18$/, /^adultmode$/, /^adultapi$/, /^adultvideo$/, /^adultsearch$/,
-  /^hentai$/, /^ximg$/, /^adultsearch$/, /^nekos$/, /^yande$/, /^erome$/, /^eromevid$/, /^kona$/, /^e621$/,
-  /^xvideo$/, /^xvideodl$/, /^hotchat$/, /^buscalivro$/, /^livros18$/, /^livro$/, /^fig18$/, /^pack18$/,
-  /^fbpost$/, /^fbfoto$/, /^fbphoto$/, /^fbvideo$/, /^fbstory$/, /^fbstatus$/, /^fbset$/,
-  /^themechange$/, /^themes$/, /^listthemes$/, /^listtemas$/, /^previewtheme$/, /^settheme$/, /^changetheme$/,
-  /^buttonmode$/, /^menustyle$/, /^menuaudio$/, /^menuowner$/, /^maiscmds$/, /^menumais$/,
-  
-  // Outros que executam direto
-  /^start$/, /^menu$/, /^help$/, /^welcome$/, /^goodbye$/, /^bv$/, /^saida$/,
-  /^dado$/, /^moeda$/, /^ppt$/, /^piada$/, /^frase$/, /^cantadas$/,
-  /^filosofia$/, /^biblia$/, /^charada$/, /^motivacional$/, /^elogio$/,
-  /^fato$/, /^conselho$/, /^horoscopo$/, /^cor$/,
-  /^roleta$/, /^verdade$/, /^desafio$/,
-  /^playboy$/, /^zueiro$/, /^zueira$/,
-  /^gamer$/, /^programador$/, /^programadora$/,
-  /^visionario$/, /^visionaria$/, /^billionario$/, /^bilionaria$/,
-  /^poderoso$/, /^poderosa$/, /^vencedor$/, /^vencedora$/,
-  /^senhor$/, /^senhora$/, /^fofoqueiro$/, /^fofoqueira$/,
-  /^dorminhoco$/, /^dorminhoca$/, /^comilao$/, /^comilona$/,
-  /^sedentario$/, /^sedentaria$/, /^estudioso$/, /^estudiosa$/,
-  /^romantico$/, /^romantica$/, /^extrovertido$/, /^extrovertida$/,
-  /^introvertido$/, /^introvertida$/, /^calmo$/, /^calma$/,
-  /^nervoso$/, /^nervosa$/, /^organizado$/, /^organizada$/,
-  /^bagunceiro$/, /^bagunceira$/, /^economico$/, /^economica$/,
-  /^gastador$/, /^gastadora$/, /^saudavel$/, /^doente$/,
-  /^supersticioso$/, /^supersticiosa$/, /^cetico$/, /^cetica$/,
-  /^religioso$/, /^religiosa$/, /^ateu$/, /^ateia$/,
-  /^moderno$/, /^moderna$/, /^conservador$/, /^conservadora$/,
-  /^patriotico$/, /^patriotica$/, /^urbano$/, /^urbana$/,
-  /^aventureiro$/, /^aventureira$/, /^caseiro$/, /^caseira$/,
-  /^tecnologico$/, /^tecnologicas$/, /^analogico$/, /^analogica$/,
-  /^solitario$/, /^solitaria$/, /^seguidor$/, /^seguidora$/,
-  /^criativo$/, /^criativa$/, /^pratico$/, /^pratica$/,
-  /^sonhador$/, /^sonhadora$/, /^inseguro$/, /^insegura$/,
-  /^maduro$/, /^madura$/, /^serio$/, /^seria$/,
-  /^inteligente$/, /^fiel$/, /^infiel$/, /^pegador$/, /^pegadora$/,
-  /^otario$/, /^otaria$/, /^macho$/, /^bobo$/, /^boba$/,
-  /^humilde$/, /^desumilde$/, /^covarde$/, /^talarico$/, /^talarica$/,
-  /^bebado$/, /^bebada$/, /^vesgo$/, /^vesga$/, /^ladrao$/, /^ladra$/,
-  /^nazista$/, /^homofobico$/, /^homofobica$/, /^racista$/, /^chato$/, /^chata$/,
-  /^sortudo$/, /^sortuda$/, /^azarado$/, /^azarada$/,
-  /^machista$/, /^comunista$/, /^petista$/, /^bolsonarista$/, /^lulista$/,
-  /^global$/, /^local$/, /^digital$/, /^offline$/, /^online$/,
-  /^social$/, /^antisocial$/, /^popular$/, /^leader$/,
-  /^independente$/, /^dependente$/, /^realista$/, /^otimista$/,
-  /^pessimista$/, /^confiante$/, /^infantil$/, /^responsavel$/,
-  /^irresponsavel$/, /^liberal$/, /^tradicional$/, /^cosmopolita$/,
-  /^rural$/, /^viajante$/, /^gastadora$/,
-  /^lesbica$/, /^bucetuda$/,
 ];
 
 function isSelectable(cmd) {

@@ -850,42 +850,68 @@ module.exports = {
       isChVip = (isVip || ctx.isOwner) ? 'ATIVO ✅' : 'INATIVO ❌';
     } catch {}
 
+    // ── Filtrar submenus por tipo de usuário ──
+    const User = require('../database/models/User');
+    const ownerNum = String(config.owner.number || '').replace(/\\D/g, '');
+    const isOwnerUser = ctx.isOwner || ctx.senderNumber === ownerNum;
+    
+    let userRole = 'free';
+    try {
+      const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean();
+      if (u) userRole = u.role || 'free';
+    } catch {}
+    
+    const isVip = userRole === 'premium' || userRole === 'owner' || isOwnerUser;
+    
+    // Função para verificar se pode ver o submenu
+    function canSee(category) {
+      const publicMenus = ['downloads', 'stickers', 'ia', 'jogos', 'economia', 'interacoes', 'zoeira', 'texto', 'search', 'audio', 'info', 'rpg', 'logos'];
+      const vipMenus = ['menu18', 'cmdsocultos'];
+      const ownerMenus = ['menudono'];
+      
+      if (publicMenus.includes(category)) return true;
+      if (vipMenus.includes(category) && isVip) return true;
+      if (ownerMenus.includes(category) && isOwnerUser) return true;
+      return false;
+    }
+    
+    // Construir seções dinamicamente
+    const secMenusDiversos = [];
+    const secExtras = [];
+    
+    // Menu públicos (todos veem)
+    if (canSee('downloads')) secMenusDiversos.push({ header: `${t.icon} ᴅᴏᴡɴʟᴏᴅs`, title: '_música, vídeo, redes sociais._', id: p + 'down' });
+    if (canSee('stickers')) secMenusDiversos.push({ header: `${t.icon} ғɪɢᴜʀɴʜᴀs`, title: '_stickers, packs, arte visual._', id: p + 'menufigurinhas' });
+    if (canSee('ia')) secMenusDiversos.push({ header: `${t.icon} ɪᴀ & ᴄʜᴀᴛᴏᴛs`, title: '_IA com memória, GPT, Claude._', id: p + 'menuia' });
+    if (canSee('jogos')) secMenusDiversos.push({ header: `${t.icon} ᴊᴏᴏs & sᴏᴄɪᴀ`, title: '_quiz, forca, casino, mini-games._', id: p + 'menujogos' });
+    if (canSee('economia')) secMenusDiversos.push({ header: `${t.icon} ᴇᴄᴏɴᴏᴍᴀ & ʀɢ`, title: '_coins, bank, RPG, crafting._', id: p + 'menueconomia' });
+    if (canSee('interacoes')) secMenusDiversos.push({ header: `${t.icon} ɪɴᴛᴇʀᴀᴄçõᴇs`, title: '_abraçar, beijar, casar, família._', id: p + 'menuinteracoes' });
+    if (canSee('zoeira')) secMenusDiversos.push({ header: `${t.icon} ᴢᴏɪʀ & ʀɴᴋ`, title: '_medidores, rankings, brincadeiras._', id: p + 'menuzoeira' });
+    if (canSee('texto')) secMenusDiversos.push({ header: `${t.icon} ᴛᴇxᴛᴏ & ғᴏɴᴛᴇs`, title: '_bold, mini, glitch, calc, frases._', id: p + 'menutexto' });
+    if (canSee('search')) secMenusDiversos.push({ header: `${t.icon} sᴇᴀʀᴄʜ & sᴛᴀʟ`, title: '_pesquisas, stalk, consultas._', id: p + 'menusearch' });
+    
+    // Extras
+    if (canSee('audio')) secExtras.push({ header: `${t.icon} ᴀᴜᴅɪᴏ & ғᴇᴛᴏs`, title: '_bass, reverb, 8d, slowed, voz._', id: p + 'menuaudio' });
+    if (canSee('logos')) secExtras.push({ header: `${t.icon} ʟᴏɢᴏs & ᴇғᴇɪᴛᴏs`, title: '_naruto, rainbow, neon, graffiti._', id: p + 'menulogos' });
+    secExtras.push({ header: `${t.icon} ᴀᴅᴍ & ɢʀᴜᴘᴏs`, title: '_moderação, regras, automação._', id: p + 'menuadm' });
+    secExtras.push({ header: `${t.icon} ɪɴғᴏ & sᴛᴀᴛs`, title: '_ping, perfil, diagnóstico._', id: p + 'menustatus' });
+    if (canSee('rpg')) secExtras.push({ header: `${t.icon} ʀᴘɢ & ᴀᴠᴇɴᴛᴜʀᴀ`, title: '_trabalhar, minerar, explorar._', id: p + 'submenuRPG' });
+    
+    // VIP menus
+    if (canSee('menu18')) secExtras.push({ header: `${t.icon} ᴍᴇɴᴜ+18`, title: '_conteúdo adulto, só VIPs._', id: p + 'menu18' });
+    if (canSee('cmdsocultos')) secExtras.push({ header: `${t.icon} ᴄᴍᴅs ᴄᴜʟᴛᴏs`, title: '_comandos secretos._', id: p + 'cmdsocultos' });
+    
+    // Dono menus
+    secExtras.push({ header: `${t.icon} ᴄʀɪᴀᴅᴏʀ`, title: '_informações do criador._', id: p + 'criador' });
+    secExtras.push({ header: `${t.icon} ᴠɪᴘ & ᴀʟᴜɢᴀ`, title: '_planos premium e hospedagem._', id: p + 'vip' });
+    if (canSee('menudono')) secExtras.push({ header: `${t.icon} ᴅᴏɴᴏ & sʏsᴛᴇᴍ`, title: '_broadcast, eval, config, cases._', id: p + 'menudono' });
+    
     // ── Lista de menus (estrutura EXACTA do código de referência, versão DARK) ──
     const listaMenus = {
       title: 'ᴍᴇɴᴜ',
       sections: [
-        {
-          title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ',
-          highlight_label: (botName || 'DARK BOT') + '|DEV',
-          rows: [
-            { header: `${t.icon} ᴅᴏᴡɴʟᴏᴅs`,       title: '_música, vídeo, redes sociais._',           id: p + 'down' },
-            { header: `${t.icon} ғɪɢᴜʀɴʜᴀs`,    title: '_stickers, packs, arte visual._',           id: p + 'menufigurinhas' },
-            { header: `${t.icon} ɪᴀ & ᴄʜᴀᴛᴏᴛs`,  title: '_IA com memória, GPT, Claude, Gemini._',    id: p + 'menuia' },
-            { header: `${t.icon} ᴊᴏᴏs & sᴏᴄɪᴀ`, title: '_quiz, forca, casino, mini-games._',       id: p + 'menujogos' },
-            { header: `${t.icon} ᴇᴄᴏɴᴏᴍᴀ & ʀɢ`, title: '_coins, bank, RPG, crafting._',            id: p + 'menueconomia' },
-            { header: `${t.icon} ɪɴᴛᴇʀᴀᴄçõᴇs`,     title: '_abraçar, beijar, casar, família._',       id: p + 'menuinteracoes' },
-            { header: `${t.icon} ᴢᴏɪʀ & ʀɴᴋ`,  title: '_medidores, rankings, brincadeiras._',      id: p + 'menuzoeira' },
-            { header: `${t.icon} ᴛᴇxᴛᴏ & ғᴏɴᴛᴇs`, title: '_bold, mini, glitch, calc, frases._',      id: p + 'menutexto' },
-            { header: `${t.icon} sᴇᴀʀᴄʜ & sᴛᴀʟ`, title: '_pesquisas, stalk, consultas._',           id: p + 'menusearch' },
-          ],
-        },
-        {
-          title: 'ғᴜɴᴄ̧ᴏᴇs ᴇxᴛʀᴀs ',
-          highlight_label: (botName || 'DARK BOT') + '|DEV',
-          rows: [
-            { header: `${t.icon} ᴀᴜᴅɪᴏ & ғᴇᴛᴏs`, title: '_bass, reverb, 8d, slowed, voz._',        id: p + 'menuaudio' },
-            { header: `${t.icon} ʟᴏɢᴏs & ᴇғᴇɪᴛᴏs`, title: '_naruto, rainbow, neon, graffiti._',     id: p + 'menulogos' },
-            { header: `${t.icon} ᴀᴅᴍ & ɢʀᴜᴘᴏs`,   title: '_moderação, regras, automação._',         id: p + 'menuadm' },
-            { header: `${t.icon} ɪɴғᴏ & sᴛᴀᴛs`,  title: '_ping, perfil, diagnóstico._',            id: p + 'menustatus' },
-            { header: `${t.icon} ʀᴘɢ & ᴀᴠᴇɴᴛᴜʀᴀ`, title: '_trabalhar, minerar, explorar, masmorra._', id: p + 'submenuRPG' },
-            { header: `${t.icon} ᴍᴇɴᴜ+18`,        title: '_comandos adultos, só VIPs._',             id: p + 'menu18' },
-            { header: `${t.icon} ᴄᴍᴅs ᴄᴜʟᴛᴏs`,   title: '_comandos secretos do dono._',             id: p + 'cmdsocultos' },
-            { header: `${t.icon} ᴍᴀs ᴄᴍs`,      title: '_comandos avançados e utilitários._',      id: p + 'maiscmds' },
-            { header: `${t.icon} ᴄʀɪᴀᴏʀ`,        title: '_informações do criador do bot._',         id: p + 'criador' },
-            { header: `${t.icon} ᴅᴏɴᴏ & sʏsᴛᴇᴍ`, title: '_broadcast, eval, config, cases._',       id: p + 'menudono' },
-            { header: `${t.icon} ᴠɪᴘ & ᴀʟᴜɢᴀ`,   title: '_planos premium e hospedagem._',           id: p + 'vip' },
-          ],
-        },
+        { title: 'ᴍᴇɴᴜs ᴅɪᴠᴇʀsᴏs ', highlight_label: (botName || 'DARK BOT') + '|DEV', rows: secMenusDiversos },
+        { title: 'ғᴜɴᴄ̧ᴏᴇs ᴇxᴛʀᴀs ', highlight_label: (botName || 'DARK BOT') + '|DEV', rows: secExtras },
       ],
     };
 
