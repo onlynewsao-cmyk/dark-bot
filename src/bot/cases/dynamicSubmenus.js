@@ -80,8 +80,52 @@ async function dynSub(sock, msg, ctx, config, category) {
 }
 
 module.exports = function registerDynamicSubmenus(registerCase) {
+  // Verificar se usuário pode ver o submenu
+  async function canSeeSubmenu(ctx, category) {
+    const User = require('../../database/models/User');
+    
+    // Dono sempre vê tudo
+    if (ctx.isOwner) return true;
+    
+    // Verificar se é admin do grupo
+    let isAdmin = false;
+    if (ctx.isGroup) {
+      try {
+        const sock = ctx.sock;
+        const meta = await sock.groupMetadata(ctx.remoteJid);
+        const senderBase = (ctx.senderJid || '').split(':')[0].split('@')[0];
+        isAdmin = meta.participants?.some(p => {
+          const pBase = (p.id || '').split(':')[0].split('@')[0];
+          return pBase === senderBase && (p.admin === 'admin' || p.admin === 'superadmin');
+        });
+      } catch {}
+    }
+    
+    // Submenus só para dono
+    if (['owner'].includes(category)) {
+      return ctx.isOwner;
+    }
+    
+    // Submenus para VIP e acima
+    if (['portal18', 'cmdsocultos', 'adult'].includes(category)) {
+      if (ctx.isOwner || isAdmin) return true;
+      try {
+        const user = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean();
+        return user && (user.role === 'premium' || user.role === 'owner');
+      } catch {
+        return false;
+      }
+    }
+    
+    // Todos os outros submenus são visíveis para todos
+    return true;
+  }
+  
   // Sobrepõe TODOS os submenus com versões dinâmicas
   registerCase(['menudownload', 'down', 'menudl', 'downloads'], async ({ sock, msg, ctx, config }) => {
+    if (!await canSeeSubmenu(ctx, 'downloads')) {
+      return sock.sendMessage(ctx.remoteJid, { text: '🚫 Submenu exclusivo para VIPs. Use .vip para ver planos.' }, { quoted: msg });
+    }
     return dynSub(sock, msg, ctx, config, 'downloads');
   });
   
