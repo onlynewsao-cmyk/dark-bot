@@ -834,20 +834,30 @@ module.exports = {
     let isCargo = '🆓 FREE';
     let isChVip = 'INATIVO ❌';
     try {
-      const u     = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
-      const isVip = !!(u && u.isPremium && u.isPremium());
-      let   isAdm = false;
-      if (!ctx.isOwner && ctx.isGroup) {
+      const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
+      const isOwnerNum = ctx.senderNumber === ownerNum;
+      
+      // Verificar no banco de dados
+      const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
+      const isVip = !!(u && u.isPremium && u.isPremium()) || u?.role === 'premium' || u?.role === 'owner';
+      const isOwnerDB = u?.role === 'owner';
+      
+      // Verificar se é admin do grupo
+      let isAdm = false;
+      if (ctx.isGroup) {
         try {
           const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
           const snum = ctx.senderNumber;
-          isAdm = !!meta?.participants?.some(pt =>
-            pt.id.split('@')[0].replace(/\D/g, '') === snum &&
-            (pt.admin === 'admin' || pt.admin === 'superadmin'));
+          isAdm = !!meta?.participants?.some(pt => {
+            const ptNum = (pt.id || '').split('@')[0].replace(/\D/g, '');
+            return ptNum === snum && (pt.admin === 'admin' || pt.admin === 'superadmin');
+          });
         } catch {}
       }
-      isCargo = ctx.isOwner ? '👑 DONO SUPREMO' : isVip ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
-      isChVip = (isVip || ctx.isOwner) ? 'ATIVO ✅' : 'INATIVO ❌';
+      
+      const isOwnerFinal = ctx.isOwner || isOwnerDB || isOwnerNum;
+      isCargo = isOwnerFinal ? '👑 DONO SUPREMO' : isVip ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
+      isChVip = (isVip || isOwnerFinal) ? 'ATIVO ✅' : 'INATIVO ❌';
     } catch {}
 
     // ── Filtrar submenus por tipo de usuário ──

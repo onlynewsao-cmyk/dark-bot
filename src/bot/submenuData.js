@@ -240,13 +240,29 @@ const CAT_EMOJI = {
 
 // ── CONSTRUIR ITENS DE UM SUBMENU ────────────────────────────
 function buildItems(commands, category) {
+  const caseHandler = require('./caseHandler');
+  const nativeCommands = require('./nativeCommands');
+  const packageCommands = {
+    ...require('./packages/interactions'),
+    ...require('./packages/family'),
+    ...require('./packages/economy'),
+    ...require('./packages/games'),
+    ...require('./packages/cheats'),
+  };
+  
   return commands
-    .filter(cmd => categorize(cmd) === category)
+    .filter(cmd => {
+      // Filtrar comandos sem função
+      const hasFunction = caseHandler.CASES.has(cmd) || 
+                          typeof nativeCommands[cmd] === 'function' || 
+                          typeof packageCommands[cmd] === 'function';
+      return hasFunction && categorize(cmd) === category;
+    })
     .sort()
     .map(cmd => ({
       cmd,
       emoji: CAT_EMOJI[category] || '📌',
-      desc: '', // descrição curta pode ser adicionada depois
+      desc: '',
       sel: isSelectable(cmd),
     }));
 }
