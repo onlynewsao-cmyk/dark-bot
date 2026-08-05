@@ -10,54 +10,52 @@
 // Comandos que NÃO precisam de argumentos (executam directo)
 const SEL_PATTERNS = [
   // ══════════════════════════════════════════════════════════════════════
-  // AÇÃO DIRETA - Comandos que executam SEM precisar de:
-  // - Mídia (áudio, vídeo, imagem)
-  // - Menções (@usuario)
-  // - Responder mensagens
-  // - Argumentos adicionais
+  // AÇÃO DIRETA - Comandos que executam SEM PRECISAR DE:
+  // - Dados adicionais (cep, Wikipedia, etc.)
+  // - Responder a mensagem
+  // - Marcar/mencionar alguém
+  // - Definir valor ou opção (dado, moeda, etc.)
+  // - Qualquer informação extra
   // ══════════════════════════════════════════════════════════════════════
   
   // ── INFO E STATUS (só mostram informação) ──
   /^ping$/, /^info$/, /^perfil$/, /^dono$/, /^criador$/, /^donos$/,
   /^uptime$/, /^status$/, /^statusbot$/, /^stats$/, /^perf$/,
   /^aiapis$/, /^checkia$/, /^checkativo$/, /^statusalugar$/,
+  /^statusgp$/, /^statusbot$/, /^system$/, /^topcmd$/, /^totalcmd$/,
   
   // ── NAVEGAÇÃO (só abrem submenus) ──
   /^menu$/, /^start$/, /^help$/,
   
-  // ── GRUPOS (ações únicas sem argumentos) ──
+  // ── GRUPOS (ações únicas sem dados) ──
   /^link$/, /^linkgp$/, /^grupo$/, /^todos$/, /^hidetag$/,
   /^admins$/, /^tagadmins$/, /^listmods$/, /^listadv$/, /^listamute$/,
-  /^regras$/, /^setregras$/, /^setrules$/, /^definirregras$/,
-  /^soadm$/, /^actgp$/, /^gruposalugados$/,
+  /^regras$/, /^soadm$/, /^actgp$/, /^gruposalugados$/,
   
-  // ── TOGGLE GRUPOS (ligar/desligar sem argumentos) ──
+  // ── TOGGLE GRUPOS (ligar/desligar sem dados) ──
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
   /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
   /^open$/, /^close$/, /^abrir$/, /^fechar$/,
   /^everyone$/, /^all$/, /^whitelist$/, /^resetlink$/,
-  /^novo-link$/, /^revoke$/, /^resetlink$/,
+  /^novo-link$/, /^revoke$/,
   
-  // ── ECONOMIA (ações únicas sem alvo) ──
+  // ── ECONOMIA (ações únicas sem dados) ──
   /^daily$/, /^saldo$/, /^coins$/, /^carteira$/, /^inventario$/, /^inv$/,
   /^perfilrpg$/, /^rpgstats$/, /^rpginfo$/, /^ficha$/, /^caixa$/,
   /^arvore$/, /^familia$/, /^cla$/, /^conquistas$/, /^diario$/,
-  /^atividade$/, /^checkativo$/, /^totalcmd$/, /^topcmd$/,
-  /^rentstatus$/, /^statusalugar$/, /^statusgp$/,
+  /^atividade$/, /^checkativo$/, /^rentstatus$/, /^statusalugar$/,
+  /^statusgp$/, /^meustats$/, /^toprep$/, /^denuncias$/,
+  /^conquistas$/, /^caixa$/, /^diario$/, /^rep$/,
   
-  // ── UTILIDADES (ações únicas sem argumentos) ──
+  // ── UTILIDADES (ações únicas sem dados) ──
   /^clima$/, /^weather$/, /^tempo$/, /^hora$/,
-  /^dado$/, /^d6$/, /^dice$/, /^moeda$/, /^coin$/,
-  /^roleta$/, /^ppt$/, /^filosofia$/, /^biblia$/, /^versiculo$/,
-  /^charada$/, /^piada$/, /^frase$/, /^motivacional$/, /^elogio$/,
-  /^fato$/, /^conselho$/, /^horoscopo$/, /^cor$/, /^significado$/,
-  /^verdade$/, /^desafio$/, /^sorteio$/, /^loteria$/, /^roleta$/,
-  /^calculadora$/, /^calc$/, /^calcular$/,
   /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
+  /^getbio$/, /^getperfil$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
+  /^dicio$/, /^dicionario$/, /^significado$/,
   
-  // ── ZOEIRA (medidores - ações únicas sem alvo) ──
+  // ── ZOEIRA (medidores - ações únicas sem dados) ──
   /^gay$/, /^lindo$/, /^linda$/, /^feio$/, /^feia$/, /^burro$/, /^burra$/,
   /^rico$/, /^rica$/, /^pobre$/, /^corno$/, /^corna$/, /^safado$/, /^safada$/,
   /^gado$/, /^gada$/, /^gostoso$/, /^gostosa$/, /^forte$/, /^fraca$/,
@@ -124,23 +122,13 @@ const SEL_PATTERNS = [
   /^rankbraba$/, /^ranklinda$/, /^rankmalandra$/, /^rankengracada$/,
   /^rankcharmosa$/, /^rankvisionaria$/, /^rankpoderosa$/, /^rankvencedora$/,
   
-  // ── JOGOS (ações únicas sem alvo) ──
-  /^dado$/, /^d6$/, /^dice$/, /^coin$/, /^coinflip$/,
-  /^jogodavelha$/, /^tictactoe$/, /^connect4$/,
-  /^roleta$/, /^roulette$/, /^anagrama$/, /^wordle$/, /^cacapalavras$/,
-  
-  // ── DONO (ações únicas) ──
+  // ── DONO (ações únicas sem dados) ──
   /^restart$/, /^reconnect$/, /^clearLogs$/, /^clearCache$/,
   /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/,
   /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/,
   /^addblacklist$/, /^delblacklist$/, /^clearAllChats$/,
   /^setbomsg$/, /^setbammsg$/, /^changeprefix$/,
-  
-  // ── PESQUISA (ações únicas) ──
-  /^cep$/, /^cnpj$/, /^cpf$/, /^ip$/, /^ipinfo$/,
-  /^getbio$/, /^getperfil$/, /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
-  /^wiki$/, /^wikipedia$/, /^significado$/, /^dicionario$/, /^dicio$/,
-  /^traduzir$/, /^translate$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
+  /^listcases$/, /^viewcase$/, /^getcasecode$/,
 ];
 
 function isSelectable(cmd) {
