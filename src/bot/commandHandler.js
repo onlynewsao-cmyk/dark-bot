@@ -648,10 +648,7 @@ async function handle(sock, msg) {
 🎶 La la la... 🎶
 _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹` }, { quoted: msg });
       } else {
-        await sock.sendMessage(ctx.remoteJid, { text: '🎵 _Aura canta_
-
-🎶 Oi meu Dark, tu é tudo pra mim... 🎶
-🌹🖤🌹' }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { text: '🎵 _Aura canta_ 🎶 Oi meu Dark, tu é tudo pra mim... 🎶 🌹🖤🌹' }, { quoted: msg });
       }
       return true;
     }
@@ -1313,70 +1310,60 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   ctx.fullText = text; // Adiciona o texto completo ao contexto
   ctx.args = args;
 
+  // ══════════════════════════════════════════════════════════════════════
+  // ALIAS MAP - Organizado por categorias (sem excesso)
+  // ══════════════════════════════════════════════════════════════════════
   const aliasMap = {
-    bater: 'baterrpg',
-    help: 'menu', cmds: 'menu', comandos: 'menu', menubtn: 'menu', menup: 'menu',
-    s: 'sticker', fig: 'sticker', owner: 'dono', bot: 'info', portal18: 'cmdsocultos', ocultos: 'cmdsocultos', hidden: 'cmdsocultos', adultvid: 'adultvideo', adultmp4: 'adultvideo',
-    yt: 'play', musica: 'play', music: 'play', ptv: 'statusvideo', videostatus: 'statusvideo', circular: 'statusvideo', statusvideo: 'statusvideo',
+    // ── MENU PRINCIPAL ──
+    help: 'menu', cmds: 'menu', comandos: 'menu', guia: 'menu', guia2: 'menu',
+    
+    // ── DOWNLOADS (play/video) ──
+    yt: 'play', musica: 'play', music: 'play',
     yt2: 'play2', musica2: 'play2', savefrom: 'play2',
     yt3: 'play3', musica3: 'play3', auto: 'play3',
+    yta: 'ytd', mp3: 'ytd',
+    ytv: 'gyt', mp4: 'gyt',
     tt: 'tiktok', ig: 'instagram', x: 'twitter',
-    sp: 'spotify', sc: 'soundcloud', pin: 'pinterest', pinvideo: 'pinmp4', pinterestvideo: 'pinmp4',
-    mf: 'mediafire', modapk: 'apk', mod: 'apk', app: 'apk',
+    sp: 'spotify', sc: 'soundcloud', pin: 'pinterest',
+    mf: 'mediafire', modapk: 'apk', mod: 'apk',
+    
+    // ── STICKERS ──
+    s: 'sticker', fig: 'sticker', sfull: 'sfull',
+    
+    // ── IA ──
     ai: 'ia', chatgpt: 'ia', llm: 'ia', pergunta: 'ia', botia: 'ia',
-    img: 'imagem', iaimg: 'imagem', iaimagem: 'imagem',
-    weather: 'clima', tempo: 'clima', short: 'encurtar', curto: 'encurtar',
-    apis: 'apigratis', freeapi: 'apigratis', advice: 'conselho', fact: 'fato', curiosidade: 'fato', animeinfo: 'anime', mal: 'anime', myanimelist: 'anime', animeepisodios: 'animeeps', episodiosanime: 'animeeps', epsanime: 'animeeps', animedub: 'animedl', animebr: 'animedl', animebaixar: 'animedl', country: 'pais', paises: 'pais', câmbio: 'cambio', moeda: 'cambio', crypto: 'cripto', cachorro: 'dog', gato: 'cat',
-    ameme: 'audiomeme', audiomemes: 'audiomeme', placaneymar: 'neymar', imagens: 'gimage', gimg: 'gimage',
-    premium: 'vip', vipcmd: 'vipcmds', vipcmds: 'vipcmds', dec: 'decrypt', vpn: 'decrypt', vpndec: 'decrypt',
-    updates: 'atualizacoes', novidades: 'atualizacoes', news: 'noticias', notícia: 'noticias', noticias: 'noticias', 'notícias': 'noticias', jornal: 'noticias',
-    pesquisar: 'pesquisar', search: 'pesquisar', google: 'pesquisar', procurar: 'pesquisar', resumo: 'resumir', resumir: 'resumir', summarize: 'resumir',
-    configs: 'configs', cfg: 'config', arquivo: 'config',
-    menuprincipal: 'menu', mainmenu: 'menu', menumain: 'menu', menucompleto: 'menu',
-    menuaudio: 'menuaudio', menuefeitosaudio: 'menuaudio', efeitosaudio: 'menuaudio', menudl: 'menudownload', menudownloads: 'menudownload', downloads: 'menudownload', menugames: 'menujogos', menubotoes: 'menu', menubotao: 'menu',
-    menubrincadeiras: 'menudiversao', menuzoeira: 'menudiversao', menufun: 'menudiversao', menumemes: 'menudiversao',
-    menucoins: 'menueconomia', menubank: 'menueconomia', menudarkbank: 'menueconomia',
-    menualteradores: 'menustatus', menuefeitos: 'menustatus',
-    menulogos: 'menustickers', menulogo: 'menustickers', menusticker: 'menustickers', menufigurinhas: 'menustickers',
-    menuadm: 'menugrupo', menuadmin: 'menugrupo', administrador: 'menugrupo', helpadm: 'menugrupo',
-    'menu+18': 'cmdsocultos', menu18: 'cmdsocultos',
-    menustickers: 'menustickers', menuia: 'menuia', menugrupo: 'menugrupo', menueconomia: 'menueconomia', menufamilia: 'menufamilia', menudiversao: 'menudiversao', menustatus: 'menustatus',
-    menueco: 'menueconomia', menufun: 'menudiversao', menumemes: 'menudiversao', menuinfo: 'menustatus',
-    estilo: 'menustyle', menustilo: 'menustyle', aparencia: 'menustyle', aparência: 'menustyle', botoes: 'buttonmode', botões: 'buttonmode', tematudo: 'themeglobal', globaltheme: 'themeglobal',
-    sfull: 'sfull', fullsticker: 'sfull', stickerfull: 'sfull', sf: 'sfull',
-    watermark: 'stickerwm', marcasticker: 'stickerwm', marcadagua: 'stickerwm', 'marca-dagua': 'stickerwm',
-    regras: 'regras', rules: 'regras', setrules: 'setregras', setregras: 'setregras',
-    inativos: 'inativos', inactive: 'inatividade', inatividade: 'inatividade', atividade: 'atividade',
-    avisarinativos: 'inatividade', baninativos: 'inatividade',
-    advertir: 'warn', advertencia: 'warn', advertências: 'warnings', advertencias: 'warnings', unwarn: 'unwarn',
-    admins: 'admins', tagadmins: 'tagadmins', adm: 'admins', invocadono: 'invokedono', chamardono: 'invokedono', donoajuda: 'invokedono',
-    apagar: 'del', deletar: 'del', delete: 'del', d: 'del', mute: 'silenciar', unmute: 'silenciar', calar: 'silenciar',
-    adicionar: 'add', addmembro: 'add', tempkick: 'tempban', participantes: 'participantes', membros: 'participantes', members: 'participantes', clean: 'limpar', limpartudo: 'limpar',
-    setdesc: 'setdesc', setdescricao: 'setdesc', setnomegrupo: 'setnomegrupo', setsubject: 'setnomegrupo',
-    getjid: 'jid', copyjid: 'jid', myjid: 'jid',
-    'gênero': 'genero', gender: 'genero', 'alterargênero': 'alterargenero', mudargenero: 'alterargenero',
-    menuinteracoes: 'menuinteracoes', interacoes: 'menuinteracoes', interações: 'menuinteracoes',
-    guia: 'menu', guia2: 'menu', ayuda: 'ia', tienda: 'vip',
-    abrazar: 'abracar', abraçar: 'abracar', hug: 'abracar', cuddle: 'abracar', acurrucarse: 'abracar',
-    besar: 'beijar', kiss: 'beijar', golpear: 'soco', punch: 'soco', slap: 'tapa', bofetada: 'tapa',
-    bailar: 'dancar', dance: 'dancar', coffee: 'cafe', cafezinho: 'cafe', tomarCafe: 'cafe', tomar_cafe: 'cafe',
-    meditar: 'meditar', treino: 'treinar', training: 'treinar', estudar: 'estudar', study: 'estudar', cantar: 'cantar', sing: 'cantar',
-    coding: 'programar', coder: 'programar', game: 'gamer', jogar: 'gamer', laugh2: 'rir', cry2: 'chorar', bite: 'morder', lick: 'beijar', pat: 'cafune', palmada: 'cafune', poke: 'empurrar',
-    cry: 'mimimi', llorar: 'mimimi', happy: 'dancar', feliz: 'dancar', kill: 'matar', laugh: 'fofocar', reirse: 'fofocar',
-    wink: 'flertar', seducir: 'flertar', shy: 'flertar', smile: 'dancar', highfive: 'paparico', wave: 'dancar', hola: 'dono', ola: 'dono',
-    regrasword: 'regrasword', reglasword: 'regrasword', menufreefire: 'menufreefire', horoscopo: 'horoscopo',
-  
-    // v6.16: aliases de download
-    yta: 'ytd', ytv: 'gyt', mp3: 'ytd', mp4: 'gyt',
-    tiktokdl: 'tiktok', ttdl: 'tiktok', igdl: 'instagram',
-    fbdl: 'facebook', fbd: 'facebook', twdl: 'twitter',
-    spdl: 'spotify', spotifydl: 'spotify',
-    pindl: 'pinterest', pint: 'pinterest',
-    gdr: 'gdrive', mfire: 'mediafire', kw: 'kwai',
-    ttks: 'ttks', ttsearch: 'ttks', tts: 'ttks', tiktoksearch: 'ttks',
-    b: 'bold', m: 'mini', g: 'glitch',
-    kik: 'kick', banir: 'kick', promover: 'promote', rebaixar: 'demote',
-};
+    img: 'imagem', iaimg: 'imagem',
+    
+    // ── GRUPOS ──
+    banir: 'kick', kik: 'kick',
+    advertir: 'warn', advertencia: 'warn',
+    apagar: 'del', deletar: 'del', delete: 'del',
+    mute: 'silenciar', unmute: 'silenciar',
+    adicionar: 'add', addmembro: 'add',
+    participantes: 'participantes', membros: 'participantes',
+    
+    // ── INTERAÇÕES ──
+    abracar: 'abracar', abraçar: 'abracar', hug: 'abracar',
+    beijar: 'beijar', kiss: 'beijar',
+    soco: 'soco', punch: 'soco', tapa: 'tapa', slap: 'tapa',
+    dancar: 'dancar', dance: 'dancar', bailar: 'dancar',
+    matar: 'matar', kill: 'matar',
+    cafe: 'cafe', cafezinho: 'cafe',
+    
+    // ── UTILIDADES ──
+    clima: 'clima', tempo: 'clima',
+    pesquisar: 'pesquisar', google: 'pesquisar',
+    cripto: 'crypto', moeda: 'cambio',
+    dog: 'cachorro', cat: 'gato',
+    
+    // ── SUBMENUS ──
+    menudl: 'menudownload', downloads: 'menudownload',
+    menugames: 'menujogos', brincadeiras: 'menudiversao',
+    menucoins: 'menueconomia', menubank: 'menueconomia',
+    menuadm: 'menugrupo', menuadmin: 'menugrupo',
+    menufigurinhas: 'menustickers', menulogos: 'menustickers',
+    menuinteracoes: 'menuinteracoes', menufamilia: 'menudiversao',
+  };
   const canonicalCommand = aliasMap[commandName] || commandName;
   reactions.reactStart(sock, msg, canonicalCommand).catch(() => {});
 
