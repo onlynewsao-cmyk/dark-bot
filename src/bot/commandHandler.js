@@ -1311,58 +1311,55 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   ctx.args = args;
 
   // ══════════════════════════════════════════════════════════════════════
-  // ALIAS MAP - Organizado por categorias (sem excesso)
+  // ALIAS MAP - Organizado por categorias (apenas aliases válidos)
   // ══════════════════════════════════════════════════════════════════════
   const aliasMap = {
     // ── MENU PRINCIPAL ──
-    help: 'menu', cmds: 'menu', comandos: 'menu', guia: 'menu', guia2: 'menu',
+    help: 'menu', cmds: 'menu', comandos: 'menu', guia: 'menu',
     
-    // ── DOWNLOADS (play/video) ──
+    // ── DOWNLOADS ──
     yt: 'play', musica: 'play', music: 'play',
-    yt2: 'play2', musica2: 'play2', savefrom: 'play2',
-    yt3: 'play3', musica3: 'play3', auto: 'play3',
+    yt2: 'play2', musica2: 'play2',
+    yt3: 'play3', musica3: 'play3',
     yta: 'ytd', mp3: 'ytd',
     ytv: 'gyt', mp4: 'gyt',
     tt: 'tiktok', ig: 'instagram', x: 'twitter',
-    sp: 'spotify', sc: 'soundcloud', pin: 'pinterest',
-    mf: 'mediafire', modapk: 'apk', mod: 'apk',
+    sp: 'spotify', sc: 'soundcloud',
+    mf: 'mediafire',
     
     // ── STICKERS ──
-    s: 'sticker', fig: 'sticker', sfull: 'sfull',
+    s: 'sticker', fig: 'sticker',
     
     // ── IA ──
-    ai: 'ia', chatgpt: 'ia', llm: 'ia', pergunta: 'ia', botia: 'ia',
-    img: 'imagem', iaimg: 'imagem',
+    ai: 'ia', chatgpt: 'ia', llm: 'ia', pergunta: 'ia',
+    img: 'imagem',
     
     // ── GRUPOS ──
-    banir: 'kick', kik: 'kick',
-    advertir: 'warn', advertencia: 'warn',
-    apagar: 'del', deletar: 'del', delete: 'del',
+    banir: 'kick',
+    advertir: 'warn',
+    apagar: 'del', deletar: 'del',
     mute: 'silenciar', unmute: 'silenciar',
-    adicionar: 'add', addmembro: 'add',
-    participantes: 'participantes', membros: 'participantes',
+    adicionar: 'add',
     
     // ── INTERAÇÕES ──
-    abracar: 'abracar', abraçar: 'abracar', hug: 'abracar',
-    beijar: 'beijar', kiss: 'beijar',
-    soco: 'soco', punch: 'soco', tapa: 'tapa', slap: 'tapa',
-    dancar: 'dancar', dance: 'dancar', bailar: 'dancar',
-    matar: 'matar', kill: 'matar',
-    cafe: 'cafe', cafezinho: 'cafe',
+    hug: 'abracar',
+    kiss: 'beijar',
+    punch: 'soco', slap: 'tapa',
+    dance: 'dancar', bailar: 'dancar',
+    kill: 'matar',
     
     // ── UTILIDADES ──
-    clima: 'clima', tempo: 'clima',
-    pesquisar: 'pesquisar', google: 'pesquisar',
-    cripto: 'crypto', moeda: 'cambio',
-    dog: 'cachorro', cat: 'gato',
+    tempo: 'clima',
+    google: 'pesquisar',
+    cachorro: 'dog',
     
     // ── SUBMENUS ──
-    menudl: 'menudownload', downloads: 'menudownload',
-    menugames: 'menujogos', brincadeiras: 'menudiversao',
-    menucoins: 'menueconomia', menubank: 'menueconomia',
-    menuadm: 'menugrupo', menuadmin: 'menugrupo',
-    menufigurinhas: 'menustickers', menulogos: 'menustickers',
-    menuinteracoes: 'menuinteracoes', menufamilia: 'menudiversao',
+    downloads: 'menudownload',
+    brincadeiras: 'menudiversao',
+    menubank: 'menueconomia',
+    menuadmin: 'menugrupo',
+    menulogos: 'menustickers',
+    menufamilia: 'menudiversao',
   };
   const canonicalCommand = aliasMap[commandName] || commandName;
   reactions.reactStart(sock, msg, canonicalCommand).catch(() => {});
