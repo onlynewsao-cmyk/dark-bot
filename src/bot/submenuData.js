@@ -10,13 +10,17 @@
 // Comandos que NÃO precisam de argumentos (executam directo)
 const SEL_PATTERNS = [
   // ══════════════════════════════════════════════════════════════════════
-  // AÇÃO DIRETA - Comandos que executam uma ação única sem argumentos
+  // AÇÃO DIRETA - Comandos que executam SEM precisar de:
+  // - Mídia (áudio, vídeo, imagem)
+  // - Menções (@usuario)
+  // - Responder mensagens
+  // - Argumentos adicionais
   // ══════════════════════════════════════════════════════════════════════
   
   // ── INFO E STATUS (só mostram informação) ──
   /^ping$/, /^info$/, /^perfil$/, /^dono$/, /^criador$/, /^donos$/,
   /^uptime$/, /^status$/, /^statusbot$/, /^stats$/, /^perf$/,
-  /^aiapis$/, /^checkia$/, /^checkativo$/,
+  /^aiapis$/, /^checkia$/, /^checkativo$/, /^statusalugar$/,
   
   // ── NAVEGAÇÃO (só abrem submenus) ──
   /^menu$/, /^start$/, /^help$/,
@@ -24,33 +28,36 @@ const SEL_PATTERNS = [
   // ── GRUPOS (ações únicas sem argumentos) ──
   /^link$/, /^linkgp$/, /^grupo$/, /^todos$/, /^hidetag$/,
   /^admins$/, /^tagadmins$/, /^listmods$/, /^listadv$/, /^listamute$/,
-  /^regras$/, /^setregras$/, /^setrules$/,
-  /^antilink$/, /^antispam$/, /^welcome$/, /^goodbye$/, /^bemvindo$/,
-  /^open$/, /^close$/, /^actgp$/, /^soadm$/,
-  /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
-  /^antiflood$/, /^antifigurinha$/, /^antidoc$/, /^antiloc$/,
-  /^antiporn$/, /^antitoxic$/, /^antiraid$/, /^capturalink$/,
-  /^raidstatus$/, /^solicitacoes$/, /^antifig$/,
+  /^regras$/, /^setregras$/, /^setrules$/, /^definirregras$/,
+  /^soadm$/, /^actgp$/, /^gruposalugados$/,
   
-  // ── ECONOMIA (ações únicas) ──
+  // ── TOGGLE GRUPOS (ligar/desligar sem argumentos) ──
+  /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
+  /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
+  /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
+  /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
+  /^open$/, /^close$/, /^abrir$/, /^fechar$/,
+  /^everyone$/, /^all$/, /^whitelist$/, /^resetlink$/,
+  /^novo-link$/, /^revoke$/, /^resetlink$/,
+  
+  // ── ECONOMIA (ações únicas sem alvo) ──
   /^daily$/, /^saldo$/, /^coins$/, /^carteira$/, /^inventario$/, /^inv$/,
   /^perfilrpg$/, /^rpgstats$/, /^rpginfo$/, /^ficha$/, /^caixa$/,
   /^arvore$/, /^familia$/, /^cla$/, /^conquistas$/, /^diario$/,
   /^atividade$/, /^checkativo$/, /^totalcmd$/, /^topcmd$/,
+  /^rentstatus$/, /^statusalugar$/, /^statusgp$/,
   
-  // ── INTERAÇÕES (ações únicas sem alvo) ──
-  /^rir$/, /^chorar$/, /^dormir$/, /^acordar$/, /^comer$/, /^beber$/,
-  /^cantar$/, /^dancar$/, /^meditar$/, /^descansar$/, /^estudar$/,
-  /^treinar$/, /^trabalhar$/, /^viajar$/, /^explorar$/,
-  
-  // ── UTILIDADES (ações únicas) ──
-  /^clima$/, /^weather$/, /^tempo$/, /^hora$/, /^dado$/, /^moeda$/,
+  // ── UTILIDADES (ações únicas sem argumentos) ──
+  /^clima$/, /^weather$/, /^tempo$/, /^hora$/,
+  /^dado$/, /^d6$/, /^dice$/, /^moeda$/, /^coin$/,
   /^roleta$/, /^ppt$/, /^filosofia$/, /^biblia$/, /^versiculo$/,
   /^charada$/, /^piada$/, /^frase$/, /^motivacional$/, /^elogio$/,
   /^fato$/, /^conselho$/, /^horoscopo$/, /^cor$/, /^significado$/,
-  /^verdade$/, /^desafio$/, /^sorteio$/, /^loteria$/,
+  /^verdade$/, /^desafio$/, /^sorteio$/, /^loteria$/, /^roleta$/,
+  /^calculadora$/, /^calc$/, /^calcular$/,
+  /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
   
-  // ── ZOEIRA (medidores - ações únicas) ──
+  // ── ZOEIRA (medidores - ações únicas sem alvo) ──
   /^gay$/, /^lindo$/, /^linda$/, /^feio$/, /^feia$/, /^burro$/, /^burra$/,
   /^rico$/, /^rica$/, /^pobre$/, /^corno$/, /^corna$/, /^safado$/, /^safada$/,
   /^gado$/, /^gada$/, /^gostoso$/, /^gostosa$/, /^forte$/, /^fraca$/,
@@ -104,6 +111,8 @@ const SEL_PATTERNS = [
   /^rural$/, /^viajante$/, /^lesbica$/, /^bucetuda$/,
   
   // ── RANKINGS (só mostram ranking) ──
+  /^rank$/, /^rankglobal$/, /^ranklvl$/, /^rankuser$/,
+  /^rankativo$/, /^rankinativo$/, /^rankativos$/,
   /^rankgay$/, /^rankburro$/, /^rankinteligente$/, /^rankotaku$/,
   /^rankfiel$/, /^rankinfiel$/, /^rankcorno$/, /^rankgado$/,
   /^rankgostoso$/, /^rankrico$/, /^rankpobre$/, /^rankforte$/,
@@ -114,50 +123,24 @@ const SEL_PATTERNS = [
   /^rankgostosa$/, /^rankrica$/, /^rankpegadora$/, /^ranktrabalhadora$/,
   /^rankbraba$/, /^ranklinda$/, /^rankmalandra$/, /^rankengracada$/,
   /^rankcharmosa$/, /^rankvisionaria$/, /^rankpoderosa$/, /^rankvencedora$/,
-  /^rankativo$/, /^rankinativo$/, /^rankativos$/,
-  /^rank$/, /^rankglobal$/, /^ranklvl$/, /^rankuser$/,
-  /^rankpoderoso$/, /^rankpoderosa$/, /^rankrica$/, /^rankrico$/,
-  /^rankpobre$/, /^rankforte$/, /^ranktrabalhador$/, /^ranktrabalhadora$/,
-  /^rankbrabo$/, /^rankbraba$/, /^ranklindo$/, /^ranklinda$/,
-  /^rankmalandro$/, /^rankmalandra$/, /^rankengracado$/, /^rankengracada$/,
-  /^rankcharmoso$/, /^rankcharmosa$/, /^rankvisionario$/, /^rankvisionaria$/,
-  /^rankvencedor$/, /^rankvencedora$/, /^ranklesbica$/, /^rankburro$/, /^rankburra$/,
-  /^rankcorno$/, /^rankcorna$/, /^rankgay$/, /^rankgado$/, /^rankgada$/,
-  /^rankgostoso$/, /^rankgostosa$/, /^rankpegador$/, /^rankpegadora$/,
-  /^rankmacho$/, /^ranknerd$/, /^rankotaku$/, /^rankfiel$/, /^rankinfiel$/,
-  /^rankinteligente$/, /^rankativo$/, /^rankinativo$/, /^rankativos$/,
   
-  // ── JOGOS (ações únicas) ──
-  /^dado$/, /^d6$/, /^dice$/, /^coin$/, /^coinflip$/, /^jogodavelha$/, /^tictactoe$/,
-  /^batalhanaval$/, /^battlefield$/, /^connect4$/, /^blackjack$/, /^cassino$/, /^slots$/,
-  /^roleta$/, /^roulette$/, /^leilao$/, /^auction$/, /^anagrama$/, /^wordle$/, /^cacapalavras$/,
-  
-  // ── ÁUDIO (efeitos - ações únicas) ──
-  /^bass$/, /^bass2$/, /^bass3$/, /^reverb$/, /^reverb2$/, /^reverb3$/,
-  /^8d$/, /^8d2$/, /^8d3$/, /^slowed$/, /^slowed2$/, /^slowed3$/,
-  /^slowedreverb$/, /^slowedreverb2$/, /^slowedreverb3$/, /^nightcore$/,
-  /^vaporwave$/, /^hardcore$/, /^chorus$/, /^chorus2$/, /^chorus3$/,
-  /^flanger$/, /^phaser$/, /^tremolo$/, /^vibrato$/, /^reverse$/, /^robot$/,
-  /^chipmunk$/, /^squirrel$/, /^monster$/, /^whisper$/, /^pitch$/, /^deep$/,
-  /^echo$/, /^stadium$/, /^cave$/, /^underwater$/, /^telephone$/, /^radio$/, /^lofi$/,
-  /^karaoke$/, /^blown$/, /^earrape$/, /^fat$/, /^smooth$/, /^grave$/, /^grave2$/, /^grave3$/,
-  /^fast$/, /^slow$/, /^speed$/, /^speedup$/, /^desacelerar$/, /^acelerar$/,
-  
-  // ── TOGGLE (ligar/desligar) ──
-  /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
-  /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
-  /^autosticker$/, /^autodl$/, /^autorepo$/,
+  // ── JOGOS (ações únicas sem alvo) ──
+  /^dado$/, /^d6$/, /^dice$/, /^coin$/, /^coinflip$/,
+  /^jogodavelha$/, /^tictactoe$/, /^connect4$/,
+  /^roleta$/, /^roulette$/, /^anagrama$/, /^wordle$/, /^cacapalavras$/,
   
   // ── DONO (ações únicas) ──
   /^restart$/, /^reconnect$/, /^clearLogs$/, /^clearCache$/,
   /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/,
   /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/,
   /^addblacklist$/, /^delblacklist$/, /^clearAllChats$/,
+  /^setbomsg$/, /^setbammsg$/, /^changeprefix$/,
   
   // ── PESQUISA (ações únicas) ──
   /^cep$/, /^cnpj$/, /^cpf$/, /^ip$/, /^ipinfo$/,
   /^getbio$/, /^getperfil$/, /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
-  /^wiki$/, /^wikipedia$/, /^significado$/, /^dicionario$/, /^dicio$/, /^traduzir$/, /^translate$/,
+  /^wiki$/, /^wikipedia$/, /^significado$/, /^dicionario$/, /^dicio$/,
+  /^traduzir$/, /^translate$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
 ];
 
 function isSelectable(cmd) {
