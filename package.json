@@ -7,13 +7,14 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "postinstall": "pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true",
-    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:smoke",
+    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:smoke",
     "test:syntax": "node scripts/check-syntax.js",
     "test:ejs": "node scripts/check-ejs.js",
     "test:commands": "node scripts/audit-commands.js",
     "test:smoke": "node scripts/smoke-local.js",
     "test:roles": "node scripts/test-roles.js",
-    "test:auramodes": "node scripts/test-aura-modes.js"
+    "test:auramodes": "node scripts/test-aura-modes.js",
+    "test:auraaudit": "node scripts/test-aura-audit.js"
   },
   "engines": {
     "node": ">=18.0.0"

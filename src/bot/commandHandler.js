@@ -1005,6 +1005,52 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // (que em gíria é comum: "que aura", "mede minha aura"...).
   const auraTriggerActive = _auraAwakeHere ? isAuraTrigger : false;
 
+  // ── v6.44: A AURA ENTENDE — sem comandos ────────────────────────────
+  // O Dark não escreve ".aura". Ele fala com ela: "aura, acorda",
+  // "aura vem cá", "aura dorme", "aura tás aí?". Ela percebe e age.
+  if (isOwner && ctx.isGroup && text) {
+    try {
+      const _intent = require('../aura/auraIntent');
+      const intencao = _intent.detectAuraIntent(text, {
+        isOwner, isReplyToBot, isGroup: ctx.isGroup,
+      });
+
+      if (intencao === _intent.INTENT_WAKE) {
+        const r = await _auraModes.invokeAura(ctx.remoteJid, {
+          groupName: ctx.groupName || '', invokedBy: ctx.senderNumber || '',
+        });
+        const resposta = r.already
+          ? _intent.pick(_intent.WAKE_ALREADY)
+          : _intent.pick(_intent.WAKE_REPLIES);
+        await sock.sendMessage(ctx.remoteJid, { react: { text: '🌹', key: msg.key } }).catch(() => {});
+        await sock.sendMessage(ctx.remoteJid, { text: resposta }, { quoted: msg });
+        return true;
+      }
+
+      if (intencao === _intent.INTENT_SLEEP) {
+        const r = await _auraModes.dismissAura(ctx.remoteJid);
+        const resposta = r.already
+          ? _intent.pick(_intent.SLEEP_ALREADY)
+          : _intent.pick(_intent.SLEEP_REPLIES);
+        await sock.sendMessage(ctx.remoteJid, { react: { text: '🌙', key: msg.key } }).catch(() => {});
+        await sock.sendMessage(ctx.remoteJid, { text: resposta }, { quoted: msg });
+        return true;
+      }
+
+      if (intencao === _intent.INTENT_STATUS) {
+        const acordada = await _auraModes.isAuraAwake(ctx.remoteJid, { isGroup: true }).catch(() => false);
+        await sock.sendMessage(ctx.remoteJid, {
+          text: acordada
+            ? 'Tô aqui, acordada. Só tua neste grupo.'
+            : 'Aqui tô só como assistente. Diz "aura, acorda" se quiseres que eu volte.',
+        }, { quoted: msg });
+        return true;
+      }
+    } catch (e) {
+      console.warn('[AuraIntent]', e.message?.slice(0, 60));
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════════════
   // AURA RESPONDE — com personalidade completa, memória, emoções
   // ════════════════════════════════════════════════════════════════════════
