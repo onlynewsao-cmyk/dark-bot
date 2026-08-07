@@ -12,11 +12,15 @@ const botConfigCache = require('./botConfigCache');
 // ─────────────────────────────────────────────
 // MODELOS (Julho 2026)
 // ─────────────────────────────────────────────
+// v6.42: testados contra a API real.
+//   gemma2-9b-it                              → decommissioned
+//   meta-llama/llama-4-scout-17b-16e-instruct → does not exist
 const GROQ_MODELS = [
-  'llama-3.1-8b-instant',
-  'llama-3.3-70b-versatile',
-  'meta-llama/llama-4-scout-17b-16e-instruct',
-  'gemma2-9b-it',
+  'llama-3.3-70b-versatile',   // ✅ o que melhor segue instruções
+  'llama-3.1-8b-instant',      // ✅ mais rápido
+  'openai/gpt-oss-120b',       // ✅
+  'openai/gpt-oss-20b',        // ✅
+  'qwen/qwen3.6-27b',          // ✅
 ];
 // v6.41: modelos actualizados — os antigos deixaram de existir nesta chave.
 //   gemini-1.5-flash → 404 (removido da v1beta)
@@ -31,14 +35,21 @@ const GEMINI_MODELS = [
   'gemini-3.5-flash-lite',     // ✅
   'gemini-2.0-flash',          // ⚠️ quota esgotada — fica por último
 ];
+// v6.42: nomes corrigidos (os antigos nem existiam na conta).
+// ⚠️ A conta Cerebras devolve HTTP 402 "Payment required" em TODOS os
+// modelos — é falta de créditos, não nome errado. Fica configurado e
+// correcto para quando houver saldo; até lá o bot salta para o próximo.
 const CEREBRAS_MODELS = [
-  'llama3.1-8b',
-  'llama3.3-70b',
-  'qwen-3-32b',
+  'zai-glm-4.7',
+  'gpt-oss-120b',
+  'gemma-4-31b',
 ];
+// v6.42: os modelos antigos eram de conversação obsoleta (DialoGPT/BlenderBot)
+// e a api-inference.huggingface.co foi substituída pelo router com API
+// compatível com OpenAI. Estes dois foram validados com HTTP 200.
 const HUGGINGFACE_MODELS = [
-  'microsoft/DialoGPT-medium',
-  'facebook/blenderbot-400M-distill',
+  'meta-llama/Llama-3.1-8B-Instruct',
+  'Qwen/Qwen2.5-7B-Instruct',
 ];
 
 // ─────────────────────────────────────────────
@@ -52,6 +63,43 @@ const NEWS_TTL  = 10 * 60 * 1000;
 // ─────────────────────────────────────────────
 function withTimeout(p, ms) {
   return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+}
+
+// ─────────────────────────────────────────────
+// CIRCUIT BREAKER DE PROVIDERS (v6.42)
+// ─────────────────────────────────────────────
+// Alguns providers falham SEMPRE por motivos que não se resolvem a
+// tentar de novo: sem créditos (402), IP de datacenter bloqueado (403),
+// chave inválida (401). Sem isto, cada mensagem do utilizador gastava
+// segundos a bater numa porta fechada antes de chegar a um que funciona.
+// Falha permanente → 30 min de pausa. Falha temporária → 60 s.
+const _providerDown = new Map(); // nome → timestamp até quando ignorar
+
+const DOWN_PERMANENT = 30 * 60 * 1000; // 30 min
+const DOWN_TEMPORARY = 60 * 1000;      // 1 min
+
+function providerUp(name) {
+  const until = _providerDown.get(name);
+  if (!until) return true;
+  if (Date.now() >= until) { _providerDown.delete(name); return true; }
+  return false;
+}
+
+function providerFail(name, err) {
+  const m = String(err?.message || '');
+  // 401 chave inválida · 402 sem créditos · 403 IP bloqueado → pausa longa
+  const permanent = /\b(401|402|403)\b|payment.?required|invalid.*(key|token)|datacenter|residential/i.test(m);
+  _providerDown.set(name, Date.now() + (permanent ? DOWN_PERMANENT : DOWN_TEMPORARY));
+}
+
+/** Estado actual dos providers (para o comando !aiapis). */
+function providerStatus() {
+  const out = {};
+  for (const [k, v] of _providerDown) {
+    const left = Math.max(0, Math.round((v - Date.now()) / 1000));
+    if (left > 0) out[k] = left;
+  }
+  return out;
 }
 
 function shortErr(e) {
@@ -417,34 +465,36 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   const TIMEOUT = isPriority ? 15000 : 22000;
 
   // 1. Groq (MAIS RÁPIDO — primário)
-  if (config.ai.groqApiKey) {
+  if (config.ai.groqApiKey && providerUp('groq')) {
     try { return await withTimeout(chatGroq(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Groq:', shortErr(e)); }
+    catch (e) { providerFail('groq', e); console.warn('[IA] Groq:', shortErr(e)); }
   }
   // 2. Gemini (visão + áudio)
-  if (config.ai.geminiApiKey) {
+  if (config.ai.geminiApiKey && providerUp('gemini')) {
     try { return await withTimeout(chatGemini(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Gemini:', shortErr(e)); }
+    catch (e) { providerFail('gemini', e); console.warn('[IA] Gemini:', shortErr(e)); }
   }
-  // 3. Cerebras (2100 tokens/sec)
-  if (config.ai.cerebrasApiKey) {
-    try { return await withTimeout(chatCerebras(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Cerebras:', shortErr(e)); }
-  }
-  // 4. Hugging Face (300+ modelos)
-  if (config.ai.huggingfaceKey) {
+  // 3. Hugging Face — v6.42: subiu à frente do Cerebras porque funciona
+  if (config.ai.huggingfaceKey && providerUp('huggingface')) {
     try { return await withTimeout(chatHuggingFace(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] HuggingFace:', shortErr(e)); }
+    catch (e) { providerFail('huggingface', e); console.warn('[IA] HuggingFace:', shortErr(e)); }
   }
-  // 5. ApiFreeLLM (ILIMITADO)
-  if (config.ai.apifreellmKey) {
+  // 4. Cerebras — ⚠️ conta sem créditos (HTTP 402 em todos os modelos).
+  //    O circuit breaker evita gastar tempo nisto a cada mensagem.
+  if (config.ai.cerebrasApiKey && providerUp('cerebras')) {
+    try { return await withTimeout(chatCerebras(messages, system), TIMEOUT); }
+    catch (e) { providerFail('cerebras', e); console.warn('[IA] Cerebras:', shortErr(e)); }
+  }
+  // 5. ApiFreeLLM — ⚠️ o tier grátis bloqueia IPs de datacenter, por isso
+  //    NUNCA funciona a partir do Render (HTTP 403). Só é tentado em local.
+  if (config.ai.apifreellmKey && providerUp('apifreellm')) {
     try { return await withTimeout(chatApiFreeLLM(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
+    catch (e) { providerFail('apifreellm', e); console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
   }
   // 6. OpenRouter (25+ modelos)
-  if (config.ai.openrouterApiKey) {
+  if (config.ai.openrouterApiKey && providerUp('openrouter')) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
-    catch (e) { console.warn('[IA] Router:', shortErr(e)); }
+    catch (e) { providerFail('openrouter', e); console.warn('[IA] Router:', shortErr(e)); }
   }
   // 7. Fallback público
   try {
@@ -610,7 +660,7 @@ async function chatApiFreeLLM(messages, system) {
   if (!config.ai.apifreellmKey) throw new Error('sem chave ApiFreeLLM');
   try {
     const prompt = messages.map(m => m.content).join(' ');
-    const data = await post('https://apifreellm.com/api/v1/chat', {
+    const data = await post('https://apifreellm.com/api/chat', {
       message: prompt,
       system: system,
     }, { Authorization: `Bearer ${config.ai.apifreellmKey}` });
@@ -626,33 +676,76 @@ async function chatApiFreeLLM(messages, system) {
 async function chatHuggingFace(messages, system) {
   if (!config.ai.huggingfaceKey) throw new Error('sem chave Hugging Face');
   
-  const prompt = messages.map(m => m.content).join('\n');
-  const input = system + '\n\n' + prompt;
-  
+  // v6.42: api-inference.huggingface.co foi descontinuada.
+  // O novo router.huggingface.co usa formato compatível com OpenAI
+  // (mensagens com roles em vez de um prompt colado), o que dá
+  // respostas muito melhores do que o antigo 'inputs' de texto cru.
+  let lastErr;
   for (const model of HUGGINGFACE_MODELS) {
     try {
-      const data = await post(`https://api-inference.huggingface.co/models/${model}`, {
-        inputs: input.slice(0, 2000),
-        parameters: { max_new_tokens: 500, temperature: 0.7, return_full_text: false },
+      const data = await post('https://router.huggingface.co/v1/chat/completions', {
+        model,
+        messages: [{ role: 'system', content: system }, ...messages],
+        max_tokens: 700,
+        temperature: 0.75,
       }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
-      
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        return data[0].generated_text.trim();
-      }
-      if (data.generated_text) return data.generated_text.trim();
+
+      const out = data.choices?.[0]?.message?.content?.trim();
+      if (out) return out;
     } catch (e) {
+      lastErr = e;
+      // chave inválida → não vale a pena tentar os outros modelos
+      if (/401|invalid.*(key|token)/i.test(e.message)) break;
       continue;
     }
   }
-  throw new Error('sem resposta Hugging Face');
+  throw lastErr || new Error('sem resposta Hugging Face');
 }
 
 // ─────────────────────────────────────────────
 // ELEVENLABS TTS (voz mais realista do mundo 🗣️)
 // ─────────────────────────────────────────────
-async function speakElevenLabs(text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
+// v6.42: o voice id antigo ('21m00Tcm4TlvDq8ikWAM' = Rachel) é uma
+// "library voice" e o plano FREE não pode usá-las via API — devolvia
+// HTTP 402 "paid_plan_required". Foi isso que se confundiu com "sem
+// créditos": a conta tem 10 000 caracteres por usar.
+// 'EXAVITQu4vr4xnSDxMaL' (Sarah) pertence à conta e funciona no free.
+const ELEVEN_DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Sarah — feminina
+let _elevenVoiceCache = { id: null, ts: 0 };
+
+/** Descobre uma voz utilizável nesta conta (cache 1h). */
+async function getElevenVoice() {
+  if (_elevenVoiceCache.id && (Date.now() - _elevenVoiceCache.ts) < 3600e3) {
+    return _elevenVoiceCache.id;
+  }
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 8000);
+    let list;
+    try {
+      const r = await fetch('https://api.elevenlabs.io/v1/voices', {
+        signal: ctrl.signal, headers: { 'xi-api-key': config.ai.elevenlabsKey },
+      });
+      list = await r.json();
+    } finally { clearTimeout(to); }
+
+    const voices = list?.voices || [];
+    // Prefere a voz padrão; senão uma feminina; senão a primeira da conta
+    const pick = voices.find(v => v.voice_id === ELEVEN_DEFAULT_VOICE)
+      || voices.find(v => (v.labels?.gender || '').toLowerCase() === 'female')
+      || voices[0];
+    if (pick?.voice_id) {
+      _elevenVoiceCache = { id: pick.voice_id, ts: Date.now() };
+      return pick.voice_id;
+    }
+  } catch {}
+  return ELEVEN_DEFAULT_VOICE;
+}
+
+async function speakElevenLabs(text, voiceId = null) {
   if (!config.ai.elevenlabsKey) throw new Error('sem chave ElevenLabs');
   if (!text || text.length < 1) throw new Error('texto vazio');
+  if (!voiceId) voiceId = await getElevenVoice();
   const https = require('https');
   const body = JSON.stringify({
     text: text.slice(0, 2500), model_id: 'eleven_multilingual_v2',
@@ -668,7 +761,13 @@ async function speakElevenLabs(text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
       res.on('data', c => chunks.push(c));
       res.on('end', () => {
         const buf = Buffer.concat(chunks);
-        if (res.statusCode >= 400) return reject(new Error('ElevenLabs HTTP ' + res.statusCode));
+        if (res.statusCode >= 400) {
+          // v6.42: inclui o motivo real da API (ex: "paid_plan_required"),
+          // senão um 402 parece "sem créditos" quando é só a voz errada.
+          let why = '';
+          try { why = ': ' + (JSON.parse(buf.toString()).detail?.message || '').slice(0, 120); } catch {}
+          return reject(new Error('ElevenLabs HTTP ' + res.statusCode + why));
+        }
         if (buf.length < 500) return reject(new Error('ElevenLabs áudio vazio'));
         resolve(buf);
       });
@@ -866,7 +965,11 @@ module.exports = {
   chatCerebras,
   chatHuggingFace,
   chatApiFreeLLM,
+  providerUp,
+  providerFail,
+  providerStatus,
   speakElevenLabs,
+  getElevenVoice,
   speakWithFallback,
   searchTavily,
   transcribeAssemblyAI,

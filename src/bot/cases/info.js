@@ -137,30 +137,52 @@ module.exports = function registerInfoCases(registerCase) {
   });
 
   // ── case 'aiapis' ──────────────────────────────────────────
-  registerCase(['aiapis', 'iaapis', 'checkia'], async ({ prefix, reply }) => {
-    const aiMod     = require('../ai');
-    const t         = await getActiveTheme(ctx.remoteJid);
-    const hasGroq   = !!config.ai.groqApiKey;
-    const hasGemini = !!config.ai.geminiApiKey;
-    const hasRouter = !!config.ai.openrouterApiKey;
-    const anyAI     = hasGroq || hasGemini || hasRouter;
+  registerCase(['aiapis', 'iaapis', 'checkia'], async ({ ctx, prefix, reply }) => {
+    const aiMod = require('../ai');
+    const t     = await getActiveTheme(ctx.remoteJid);
+    const b     = t.bullet;
 
-    return reply([
-      `${t.icon} *STATUS DAS IAs — ${config.bot.name}*`,
+    // v6.42: mostra o estado REAL (chave presente + circuit breaker),
+    // em vez de dizer só "OK" por a variável existir.
+    const down = aiMod.providerStatus ? aiMod.providerStatus() : {};
+    const mark = (key, name) => {
+      if (!key) return `\u2b1c *${name}* — sem chave`;
+      const secs = down[name.toLowerCase()];
+      if (secs) {
+        const m = Math.ceil(secs / 60);
+        return `\u26a0\ufe0f *${name}* — em pausa (${m} min)`;
+      }
+      return `\u2705 *${name}* — pronta`;
+    };
+
+    const a = config.ai;
+    const linhas = [
+      `${t.icon} *ARSENAL DE IA — ${config.bot.name}*`,
       ``,
-      `${hasGroq   ? '✅' : '🛑'} *Groq*       — ${hasGroq   ? 'OK' : 'Falta GROQ_API_KEY'}`,
-      `${hasGemini ? '✅' : '🛑'} *Gemini*     — ${hasGemini ? 'OK' : 'Falta GEMINI_API_KEY'}`,
-      `${hasRouter ? '✅' : '⬜'} *OpenRouter* — ${hasRouter ? 'OK' : 'Opcional'}`,
+      `*\ud83e\udde0 Texto*`,
+      mark(a.groqApiKey,      'Groq'),
+      mark(a.geminiApiKey,    'Gemini'),
+      mark(a.huggingfaceKey,  'HuggingFace'),
+      mark(a.cerebrasApiKey,  'Cerebras'),
+      mark(a.apifreellmKey,   'ApiFreeLLM'),
+      mark(a.openrouterApiKey,'OpenRouter'),
       ``,
-      `${t.bullet} *Groq models:* ${(aiMod.GROQ_MODELS || []).slice(0, 2).join(' · ')}`,
-      `${t.bullet} *Gemini models:* ${(aiMod.GEMINI_MODELS || []).slice(0, 2).join(' · ')}`,
+      `*\ud83c\udfa4 Voz & \ud83d\udd0d Pesquisa*`,
+      mark(a.elevenlabsKey, 'ElevenLabs'),
+      mark(a.assemblyaiKey, 'AssemblyAI'),
+      mark(a.tavilyKey,     'Tavily'),
       ``,
-      `✅ Notícias RSS — sem key`,
-      `✅ Imagens Pollinations — sem key`,
+      `${b} *Modelos Groq:* ${(aiMod.GROQ_MODELS || []).slice(0, 2).join(' \u00b7 ')}`,
+      `${b} *Modelos Gemini:* ${(aiMod.GEMINI_MODELS || []).slice(0, 2).join(' \u00b7 ')}`,
       ``,
-      anyAI ? `🟢 IA ACTIVA — *${prefix}ia* <pergunta>` : `🔴 IA INACTIVA — configura GROQ_API_KEY no Render`,
+      `\u2705 Not\u00edcias RSS \u00b7 Imagens Pollinations \u2014 sem chave`,
+      ``,
+      (a.groqApiKey || a.geminiApiKey || a.huggingfaceKey)
+        ? `\ud83d\udfe2 IA ACTIVA \u2014 *${prefix}ia* <pergunta>`
+        : `\ud83d\udd34 IA INACTIVA \u2014 configura GROQ_API_KEY no Render`,
       ``,
       `> ${t.vibe}`,
-    ].join('\n'));
+    ];
+    return reply(linhas.join('\n'));
   });
 };
