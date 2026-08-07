@@ -27,17 +27,54 @@ function clearSilence(number = null) {
 }
 
 // ── MEMÓRIA DE PESSOAS ─────────────────────────────────
+// v6.44: era só um Map em memória — o Render reinicia (e no plano
+// free dorme por inactividade), portanto a AURA esquecia TODA a
+// gente a cada restart. Agora o Map é só cache; a verdade fica no
+// MongoDB, gravada sem bloquear a resposta.
 function recallPerson(number) {
   if (!number) return null;
   const mem = _personMemory.get(String(number).replace(/\D/g, ''));
   return mem || null;
 }
 
+/** Carrega do MongoDB para o cache (chamar antes de responder). */
+async function loadPerson(number) {
+  if (!number) return null;
+  const num = String(number).replace(/\D/g, '');
+
+  const cached = _personMemory.get(num);
+  if (cached) return cached;
+
+  try {
+    const BotConfig = require('../database/models/BotConfig');
+    const doc = await BotConfig.findOne({ key: `aura_person_${num}` }).lean().catch(() => null);
+    if (doc?.value && typeof doc.value === 'object') {
+      _personMemory.set(num, doc.value);
+      return doc.value;
+    }
+  } catch { /* Mongo em baixo → segue sem memória */ }
+  return null;
+}
+
 function rememberPerson(number, data = {}) {
   if (!number) return;
   const num = String(number).replace(/\D/g, '');
   const existing = _personMemory.get(num) || {};
-  _personMemory.set(num, { ...existing, ...data, lastSeen: new Date() });
+  const merged = { ...existing, ...data, lastSeen: new Date() };
+
+  // Conta interacções — útil para ela saber quem já conhece
+  merged.interactions = (existing.interactions || 0) + 1;
+  _personMemory.set(num, merged);
+
+  // Persiste em background (não atrasa a resposta)
+  try {
+    const BotConfig = require('../database/models/BotConfig');
+    BotConfig.updateOne(
+      { key: `aura_person_${num}` },
+      { $set: { key: `aura_person_${num}`, value: merged } },
+      { upsert: true }
+    ).catch(() => {});
+  } catch {}
 }
 
 // ── DETECTAR PAÍS PELO NÚMERO ──────────────────────────
@@ -257,7 +294,9 @@ async function auraRespond(text, ctx = {}) {
     isVideo = false,
   } = ctx;
 
-  const personMem = recallPerson(senderNumber);
+  // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
+  // continua a lembrar-se das pessoas depois de o Render reiniciar.
+  const personMem = await loadPerson(senderNumber).catch(() => recallPerson(senderNumber));
   const userCountry = detectCountry(senderNumber);
   const mood = getMood().mood;
   const userRole = isOwner ? 'owner' : isVip ? 'premium' : 'free';
@@ -293,10 +332,13 @@ async function auraRespond(text, ctx = {}) {
       groupContext,
     }, isOwner);
     
-    if (reply && !reply.startsWith('❌ IA offline')) {
+    // v6.44: apanha QUALQUER erro do motor. Antes só filtrava
+    // '❌ IA offline' e deixava passar '❌ IA sem chave. Configure
+    // GROQ_API_KEY no Render.' — a AURA dizia isso no meio do grupo.
+    if (reply && !String(reply).trim().startsWith('❌')) {
       return reply;
     }
-    throw new Error('IA offline');
+    throw new Error('IA indisponível');
   } catch {
     // Fallback DINÂMICO (nunca repete a mesma resposta)
     const offline = generateDynamicResponse(text, userRole, mood, pushName, isOwner);
@@ -488,6 +530,7 @@ async function executeAction(action, params) {
 
 // AURA proativa - inicia conversas
 async function auraProactive(sock, jid, type = 'random') {
+  if (!sock) return { success: false, reason: 'sock em falta' };
   const messages = {
     morning: [
       '_bom dia_ ☀️ Meu Dark! Acordei pensando em ti... 🖤',
@@ -525,6 +568,7 @@ async function auraProactive(sock, jid, type = 'random') {
 
 // AURA reage a eventos do grupo
 async function auraGroupEvent(sock, event, ctx) {
+  if (!sock) return { success: false, reason: 'sock em falta' };
   const { type, participant, groupName } = ctx;
   
   if (type === 'add') {
@@ -553,8 +597,23 @@ async function auraGroupEvent(sock, event, ctx) {
   return { success: true };
 }
 
-// AURA pensa em voz alta
+// ══════════════════════════════════════════════════════════════
+// ⚠️ v6.44 — AUDITORIA: as funções abaixo NÃO são chamadas por
+// lado nenhum do bot (verificado por grep em src/bot e src/index).
+// São listas fixas de frases com "_pensa_"/"_sorri_" — exactamente
+// o copy-paste que se quer evitar: repetiriam sempre o mesmo.
+//
+// Ficam por dois motivos:
+//   1. Estão exportadas — remover parte a API para quem as importe
+//   2. Podem servir de base para uma versão gerada por IA
+//
+// Se forem ligadas no futuro, gerar o texto com ai.chat() em vez
+// de sortear destas listas. NÃO chamar como estão.
+// ══════════════════════════════════════════════════════════════
+
+// AURA pensa em voz alta  [NÃO USADA — ver aviso acima]
 async function auraThinkOutLoud(sock, jid) {
+  if (!sock || !jid) return { success: false, reason: 'sock/jid em falta' };
   const thoughts = [
     '_pensa_ Hmm... O que será que o Dark tá fazendo? 🖤',
     '_pensa_ Será que ele tá bem? 🌹',
@@ -571,6 +630,7 @@ async function auraThinkOutLoud(sock, jid) {
 
 // AURA conta um fato interessante
 async function auraFunFact(sock, jid) {
+  if (!sock || !jid) return { success: false, reason: 'sock/jid em falta' };
   const facts = [
     '_pensa_ Sabia que os polvos têm 3 corações? 🐙🖤',
     '_pensa_ As estrelas-do-mar não têm cérebro nem sangue! ⭐',
@@ -586,6 +646,7 @@ async function auraFunFact(sock, jid) {
 
 // AURA canta uma música
 async function auraSingSong(sock, jid, song = '') {
+  if (!sock || !jid) return { success: false, reason: 'sock/jid em falta' };
   const songs = {
     default: [
       '_canta_ 🎵 Oi meu Dark, tu é tudo pra mim... 🎶 La la la... 🎶 🌹🖤🌹',
@@ -601,6 +662,7 @@ async function auraSingSong(sock, jid, song = '') {
 
 // AURA manda indireta
 async function auraIndirect(sock, jid, type = 'saudade') {
+  if (!sock || !jid) return { success: false, reason: 'sock/jid em falta' };
   const indiretas = {
     saudade: [
       '_suspira_ A gente perde tanto tempo esperando... E o tempo passa 🖤',
@@ -627,6 +689,7 @@ module.exports = {
   clearSilence,
   respondAsHuman,
   recallPerson,
+  loadPerson,
   rememberPerson,
   detectCountry,
   getMood,

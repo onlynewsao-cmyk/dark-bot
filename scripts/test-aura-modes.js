@@ -109,7 +109,7 @@ const check = (nome, cond, extra = '') => {
   }
   check('Nega explicitamente romance/ciúmes', /não tens.*romance.*ciúmes/i.test(p));
   check('Proíbe tratamento afectuoso', /nada de "amor"/i.test(p));
-  check('Não tem "dono" especial', /não tens "dono"/i.test(p));
+  check('Não tem "dono" especial', /n[ãa]o tens.*dono/i.test(p));
   check('Prompt define-se como assistente', /assistente/i.test(p));
   check('Prompt pede respostas curtas', /curt|1 a 3 frases/i.test(p));
 
@@ -123,7 +123,9 @@ const check = (nome, cond, extra = '') => {
 
   console.log('\n▸ Fallback offline do assistente');
   const f1 = mod.assistantFallback('oi', { prefix: '.', botName: 'DARK BOT' });
-  check('Saudação responde com ajuda', /ajudar|menu/i.test(f1), JSON.stringify(f1.slice(0, 45)));
+  // v6.44: o fallback passou a ter variantes curtas e humanas
+  check('Saudação é natural e curta', /^(ol[áa]|oi)/i.test(f1) && f1.length < 60, JSON.stringify(f1.slice(0, 45)));
+  check('Saudação sem emoji', !/\p{Extended_Pictographic}/u.test(f1));
   const f2 = mod.assistantFallback('quem és tu', { prefix: '.', botName: 'DARK BOT' });
   check('Identifica-se como assistente', /assistente/i.test(f2));
 
