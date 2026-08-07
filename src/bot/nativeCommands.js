@@ -834,28 +834,40 @@ module.exports = {
     let isCargo = '🆓 FREE';
     let isChVip = 'INATIVO ❌';
     try {
-      const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
-      const isOwnerNum = ctx.senderNumber === ownerNum;
+      const botConfigCache = require('./botConfigCache');
+      const ownerLid = await botConfigCache.get('owner_lid', '').catch(() => '');
+      const ownerNumDB = await botConfigCache.get('owner_number', '').catch(() => '');
+      const extraOwners = await botConfigCache.get('owner_numbers', []).catch(() => []);
+      
+      const envOwnerNum = String(config.owner.number || '').replace(/\D/g, '');
+      const dbOwnerNum = String(ownerNumDB || '').replace(/\D/g, '');
+      const senderNum = String(ctx.senderNumber || '').replace(/\D/g, '');
+      const senderJid = msg.key.participant || msg.key.remoteJid || '';
+      
+      // Verificar se é dono (várias fontes)
+      const isOwnerEnv = senderNum === envOwnerNum;
+      const isOwnerDB = senderNum === dbOwnerNum;
+      const isOwnerLid = ownerLid && (senderJid.includes(ownerLid) || senderNum === ownerLid.split('@')[0].replace(/\D/g, ''));
+      const isOwnerExtra = Array.isArray(extraOwners) && extraOwners.some(n => String(n).replace(/\D/g, '') === senderNum);
       
       // Verificar no banco de dados
       const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
       const isVipDB = !!(u && u.isPremium && u.isPremium()) || u?.role === 'premium' || u?.role === 'owner';
-      const isOwnerDB = u?.role === 'owner';
+      const isOwnerUserDB = u?.role === 'owner';
       
       // Verificar se é admin do grupo
       let isAdm = false;
       if (ctx.isGroup) {
         try {
           const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-          const snum = ctx.senderNumber;
           isAdm = !!meta?.participants?.some(pt => {
             const ptNum = (pt.id || '').split('@')[0].replace(/\D/g, '');
-            return ptNum === snum && (pt.admin === 'admin' || pt.admin === 'superadmin');
+            return ptNum === senderNum && (pt.admin === 'admin' || pt.admin === 'superadmin');
           });
         } catch {}
       }
       
-      const isOwnerFinal = ctx.isOwner || isOwnerDB || isOwnerNum;
+      const isOwnerFinal = ctx.isOwner || isOwnerEnv || isOwnerDB || isOwnerLid || isOwnerExtra || isOwnerUserDB;
       isCargo = isOwnerFinal ? '👑 DONO SUPREMO' : isVipDB ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
       isChVip = (isVipDB || isOwnerFinal) ? 'ATIVO ✅' : 'INATIVO ❌';
     } catch {}
