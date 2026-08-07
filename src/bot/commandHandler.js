@@ -1,6 +1,7 @@
 const config = require('../config');
 const Command = require('../database/models/Command');
 const User = require('../database/models/User');
+const requestCache = require('./requestCache');
 const botConfigCache = require('./botConfigCache');
 const Log = require('../database/models/Log');
 const AiMemory = require('../database/models/AiMemory');
@@ -209,7 +210,7 @@ async function userIsPremiumOrOwner(number, isOwner) {
   return checkIsPremium(u);
 }
 
-async function handle(sock, msg) {
+async function _handleInner(sock, msg) {
   let text = extractText(msg).trim();
   if (!text && !msg.message?.documentMessage && !msg.message?.documentWithCaptionMessage) return false;
 
@@ -281,13 +282,19 @@ async function handle(sock, msg) {
   ctx.prefixSource = prefixInfo?.source || null; // 'group'|'global'|'button_ns'|'button_exact'
 
   // ── Dono + Blacklist em paralelo (1 round-trip ao invés de 2) ──
-  const [ownerLid, blacklist, extraOwners, disabledUsers, disabledGroups, ownerNumDB] = await Promise.all([
+  // v6.45: junta TODAS as configs num só round-trip. 'auto_decrypt_enabled'
+  // e 'ai_auto_enabled' eram lidas mais à frente, uma de cada vez — em
+  // cache-miss custavam ~40ms cada, sequenciais e sem necessidade.
+  const [ownerLid, blacklist, extraOwners, disabledUsers, disabledGroups, ownerNumDB,
+         autoDecryptValue, aiAutoOnValue] = await Promise.all([
     botConfigCache.get('owner_lid', ''),
     botConfigCache.get('blacklist', []),
     botConfigCache.get('owner_numbers', []),
     botConfigCache.get('disabled_users', []),
     botConfigCache.get('disabled_groups', []),
     botConfigCache.get('owner_number', ''),
+    botConfigCache.get('auto_decrypt_enabled', true),
+    botConfigCache.get('ai_auto_enabled', true),
   ]);
 
   const senderJidFull = msg.key.participant || msg.key.remoteJid || '';
@@ -314,15 +321,33 @@ async function handle(sock, msg) {
   // Free sem trial → silêncio total
   if (ctx.isGroup && !isOwner) {
     const GroupSettings = require('../database/models/GroupSettings');
-    const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
+
+    // v6.45: as duas leituras são independentes → correm em PARALELO
+    // (eram sequenciais: ~80ms no Atlas free, agora ~40ms).
+    // Ambas passam pelo requestCache para não repetir mais à frente.
+    // v6.45: carrega o DOCUMENTO (não .lean()) para partilhar a mesma
+    // entrada de cache com o resto do handler — antes eram 2 queries
+    // separadas ao mesmo grupo/utilizador, com chaves diferentes.
+    const [gs, uCheck] = await Promise.all([
+      requestCache.remember(
+        requestCache.K.group(ctx.remoteJid) + ':doc',
+        () => GroupSettings.findOne({ groupJid: ctx.remoteJid })
+      ).catch(() => null),
+      requestCache.remember(
+        requestCache.K.user(ctx.senderNumber) + ':doc',
+        () => User.findOne({ whatsappNumber: ctx.senderNumber })
+      ).catch(() => null),
+    ]);
+
     const hasRental = gs?.isHosted && (!gs.hostedUntil || new Date(gs.hostedUntil) > new Date());
     const hasTrial = gs?.trialExpiresAt && new Date(gs.trialExpiresAt) > new Date();
-    
+
     if (!hasRental && !hasTrial) {
-      // Sem aluguel nem trial → só VIP responde
-      const uCheck = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
-      const isVipCheck = uCheck && uCheck.isPremium && uCheck.isPremium();
-      if (!isVipCheck) return false; // silêncio para free
+      // v6.45 BUG: usava `uCheck.isPremium()`, mas .lean() devolve um
+      // objecto simples SEM métodos do schema — a condição era sempre
+      // falsa e TODO o VIP era silenciado como se fosse Free.
+      // checkIsPremium() já trata documentos lean correctamente.
+      if (!checkIsPremium(uCheck)) return false; // silêncio para free
     }
     // Trial activo → verifica limite de 500 cmds
     if (hasTrial && !hasRental) {
@@ -334,12 +359,16 @@ async function handle(sock, msg) {
   if ((blacklist.includes(ctx.senderNumber) || (Array.isArray(disabledUsers) && disabledUsers.map(String).includes(ctx.senderNumber))) && !isOwner) return false;
   if (ctx.isGroup && Array.isArray(disabledGroups) && disabledGroups.includes(ctx.remoteJid) && !isOwner) return false;
 
-  let user = await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName);
+  // v6.45: se o bloco de regras acima já leu este utilizador, reaproveita.
+  // identifyByWhatsApp faria a MESMA query outra vez (~40ms no Atlas).
+  let user = await requestCache.remember(
+    requestCache.K.user(ctx.senderNumber) + ':doc',
+    () => userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName)
+  );
   if (user && user.active === false && !isOwner) return false;
   ctx.userData = user;
   ctx.treatment = getUserTreatment(user, ctx, ctx.isPrimaryOwner);
 
-  const autoDecryptValue = await botConfigCache.get('auto_decrypt_enabled', true);
   const autoDecryptOn = autoDecryptValue === true || autoDecryptValue === 'true' || autoDecryptValue === 'on' || autoDecryptValue === 1 || autoDecryptValue === '1';
 
   // Group info — CACHE em memória
@@ -351,7 +380,11 @@ async function handle(sock, msg) {
       const now = Date.now();
       const today = new Date().toISOString().split('T')[0];
       
-      groupConfig = await GroupSettings.findOne({ groupJid: ctx.remoteJid });
+      // v6.45: reaproveita a leitura feita acima (regras de aluguel)
+      groupConfig = await requestCache.remember(
+        requestCache.K.group(ctx.remoteJid) + ':doc',
+        () => GroupSettings.findOne({ groupJid: ctx.remoteJid })
+      );
       if (!groupConfig) {
         groupConfig = await GroupSettings.create({ 
           groupJid: ctx.remoteJid, 
@@ -991,7 +1024,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   const replyHasMedia = isReplyToBot && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
   const mentionedWithMedia = isBotMentioned && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage);
 
-  const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
+  const aiAutoOn = aiAutoOnValue;  // v6.45: já lido no Promise.all acima
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
   // ── v6.43: modo do chat (AURA acordada vs assistente profissional) ──
@@ -1088,7 +1121,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       }
 
       // Verifica se é VIP
-      const userForPriority = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName).catch(() => null);
+      const userForPriority = user || await requestCache.remember(
+        requestCache.K.user(ctx.senderNumber) + ':doc',
+        () => userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName)
+      ).catch(() => null);
       const isVip = !!(userForPriority?.isPremium && userForPriority.isPremium());
       const isPriority = isOwner || isVip;
 
@@ -1364,7 +1400,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
   // ===== Usuário único por WhatsApp =====
   // O gênero só é perguntado/alterado quando o usuário usa !genero ou !alterargenero.
-  user = user || await userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName);
+  user = user || await requestCache.remember(
+    requestCache.K.user(ctx.senderNumber) + ':doc',
+    () => userManager.identifyByWhatsApp(ctx.senderNumber, ctx.pushName)
+  );
 
   // ===== DECRYPTER AUTOMÁTICO (Só para Premium) =====
   if (docMsg && autoDecryptOn) {
@@ -1893,6 +1932,21 @@ async function handleStickerRequest(sock, msg, ctx) {
   } catch (err) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
     await sock.sendMessage(ctx.remoteJid, { text: '❌ ' + err.message }, { quoted: msg });
+  }
+}
+
+
+// ── v6.45: wrapper de performance ───────────────────────────────
+// _handleInner tem dezenas de `return false` espalhados. Envolvê-la
+// garante que o cache de request é sempre aberto e fechado, mesmo
+// quando ela sai a meio ou lança. Sem isto, o cache de uma mensagem
+// podia vazar para a seguinte e servir dados velhos.
+async function handle(sock, msg) {
+  requestCache.begin();
+  try {
+    return await _handleInner(sock, msg);
+  } finally {
+    requestCache.end();
   }
 }
 

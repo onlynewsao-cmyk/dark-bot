@@ -58,10 +58,20 @@ async function getMode(remoteJid, { isGroup = true } = {}) {
   let mode = MODE_ASSISTANT; // padrão: assistente profissional
   try {
     const GroupSettings = require('../database/models/GroupSettings');
-    const gs = await GroupSettings.findOne({ groupJid: jid })
-      .select('auraMode')
-      .lean()
-      .catch(() => null);
+
+    // v6.45: o handler já leu este documento nesta mensagem. Passa pelo
+    // requestCache para não fazer uma 3ª ida à base pelo mesmo grupo.
+    let gs = null;
+    try {
+      const rc = require('../bot/requestCache');
+      gs = await rc.remember(
+        rc.K.group(jid) + ':lean',
+        () => GroupSettings.findOne({ groupJid: jid }).lean()
+      );
+    } catch {
+      gs = await GroupSettings.findOne({ groupJid: jid }).select('auraMode').lean().catch(() => null);
+    }
+
     if (gs?.auraMode === MODE_AURA) mode = MODE_AURA;
   } catch {
     // MongoDB em baixo → mantém o modo seguro (assistente)

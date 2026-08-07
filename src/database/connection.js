@@ -19,6 +19,26 @@ async function connectDB() {
     });
     isConnected = true;
     console.log('✅ MongoDB conectado');
+
+    // v6.45: garante que índices NOVOS são criados em colecções que já
+    // existem. O autoIndex do Mongoose só actua na criação do modelo —
+    // num banco antigo, um índice adicionado depois nunca aparecia.
+    // Sem o índice em User.whatsappNumber (a query mais frequente do
+    // bot) o MongoDB fazia varredura completa em cada mensagem.
+    // Corre em background para não atrasar o arranque.
+    setImmediate(async () => {
+      const alvos = ['User', 'GroupSettings', 'Command', 'Economy'];
+      for (const nome of alvos) {
+        try {
+          const M = mongoose.models[nome];
+          if (M) await M.syncIndexes();
+        } catch (e) {
+          console.warn(`[Índices] ${nome}:`, e.message?.slice(0, 60));
+        }
+      }
+      console.log('✅ Índices verificados');
+    });
+
     return mongoose.connection;
   } catch (err) {
     console.error('❌ Erro ao conectar MongoDB:', err.message);
