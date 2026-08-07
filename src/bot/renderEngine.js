@@ -67,9 +67,49 @@ function renderSubmenu(theme, title, commands = [], opts = {}) {
 
   const lines = commands.map(c => {
     const cmd = `${prefix}${c.name || c.cmd || ''}`;
-    const desc = c.desc || c.description || '';
-    return desc ? `*${cmd}* — _${desc}_` : `*${cmd}*`;
+    const desc = c.desc || c.description || getDefaultDesc(c.cmd || c.name);
+    return `*${cmd}* — _${desc}_`;
   });
+  
+  function getDefaultDesc(cmd) {
+    if (!cmd) return 'Comando do bot';
+    const descriptions = {
+      // Info
+      ping: 'Testar latência', info: 'Info do bot', dono: 'Contacto do dono',
+      perfil: 'Teu perfil', status: 'Estado do bot', stats: 'Estatísticas',
+      uptime: 'Tempo online', aiapis: 'Estado das APIs',
+      // Grupos
+      link: 'Link do grupo', linkgp: 'Link do grupo', todos: 'Marcar todos',
+      hidetag: 'Marcar oculto', admins: 'Ver admins', regras: 'Ver regras',
+      antilink: 'Anti-link on/off', antispam: 'Anti-spam on/off',
+      welcome: 'Boas-vindas on/off', open: 'Abrir grupo', close: 'Fechar grupo',
+      // Economia
+      daily: 'Recompensa diária', saldo: 'Ver saldo', coins: 'Ver moedas',
+      carteira: 'Carteira', inventario: 'Inventário', inv: 'Inventário',
+      trabalhar: 'Trabalhar', crime: 'Cometer crime', roubar: 'Roubar',
+      depositar: 'Depositar', sacar: 'Sacar', transferir: 'Transferir',
+      // Interações
+      abracar: 'Abraçar', beijar: 'Beijar', tapa: 'Dar tapa', soco: 'Dar soco',
+      matar: 'Matar', dancar: 'Dançar', cantar: 'Cantar', rir: 'Rir', chorar: 'Chorar',
+      // Jogos
+      dado: 'Jogar dado', moeda: 'Jogar moeda', quiz: 'Quiz', forca: 'Jogo da forca',
+      adivinha: 'Adivinhar', blackjack: 'Blackjack', cassino: 'Cassino', slots: 'Slots',
+      // Utilidades
+      clima: 'Ver clima', tempo: 'Previsão do tempo', pesquisar: 'Pesquisar',
+      encurtar: 'Encurtar URL', traduzir: 'Traduzir', calc: 'Calculadora',
+      // Zoeira
+      gay: 'Medidor gay', lindo: 'Medidor beleza', burro: 'Medidor burrice',
+      rico: 'Medidor riqueza', corno: 'Medidor chifres', safado: 'Medidor safadeza',
+      gostoso: 'Medidor gostosura', nerd: 'Medidor nerd', otaku: 'Medidor otaku',
+      // Áudio
+      bass: 'Efeito bass', reverb: 'Efeito reverb', '8d': 'Efeito 8D',
+      slowed: 'Slowed', nightcore: 'Nightcore', vaporwave: 'Vaporwave',
+      // Dono
+      restart: 'Reiniciar bot', broadcast: 'Mensagem em massa', eval: 'Executar código',
+      setprefix: 'Mudar prefixo', settheme: 'Mudar tema',
+    };
+    return descriptions[cmd] || 'Comando do bot';
+  }
 
   return renderBlock(t, title, lines, opts);
 }
