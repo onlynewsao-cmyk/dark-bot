@@ -307,8 +307,13 @@ async function runCase(command, rawCtx) {
   };
 
   try {
-    await handler(caseCtx);
-    return true;
+    // v6.43: um case pode devolver `false` explicitamente para dizer
+    // "não tratei disto — passa ao próximo" (packages/nativeCommands).
+    // Serve para casos que só actuam sob certas condições, ex: `.aura`
+    // só é invocação quando é o Dono Supremo; para os outros deve cair
+    // na brincadeira original do package.
+    const r = await handler(caseCtx);
+    return r !== false;
   } catch (e) {
     console.error(`[Case:${cmd}]`, e.message?.slice(0, 100));
     try { await m.reply(`❌ Erro no case *${cmd}*:\n${e.message?.slice(0, 200)}`); } catch {}
