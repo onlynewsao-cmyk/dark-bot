@@ -6,7 +6,11 @@ const UserSchema = new mongoose.Schema(
     username: { type: String, required: true, unique: true, trim: true, lowercase: true },
     password: { type: String, required: true },
     name: { type: String, default: '' },
-    whatsappNumber: { type: String, default: '' }, // ex: 244XXXXXXXXX
+    // v6.45: índice OBRIGATÓRIO — esta é a query mais executada do bot
+    // (User.findOne({whatsappNumber}) corre em praticamente todas as
+    // mensagens). Sem índice, o MongoDB fazia COLLSCAN: varria a
+    // colecção inteira de cada vez, e o custo cresce com o nº de users.
+    whatsappNumber: { type: String, default: '', index: true }, // ex: 244XXXXXXXXX
     role: { type: String, enum: ['owner', 'premium', 'free'], default: 'free' },
     gender: { type: String, enum: ['male', 'female', 'other', 'unknown'], default: 'unknown' },
     lastGenderChangeAt: { type: Date, default: null },
