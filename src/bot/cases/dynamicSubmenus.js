@@ -12,7 +12,22 @@ async function dynSub(sock, msg, ctx, config, category) {
   if (!meta) return;
   
   const ch = require('../caseHandler');
-  const allCmds = [...ch.CASES.keys()];
+  const nativeCommands = require('../nativeCommands');
+  const packageCommands = {
+    ...require('../packages/interactions'),
+    ...require('../packages/family'),
+    ...require('../packages/economy'),
+    ...require('../packages/games'),
+    ...require('../packages/cheats'),
+  };
+  
+  // Combinar TODOS os comandos de todas as fontes
+  const allCmds = [...new Set([
+    ...ch.CASES.keys(),
+    ...Object.keys(nativeCommands),
+    ...Object.keys(packageCommands),
+  ])];
+  
   const items = sd.buildItems(allCmds, category);
   
   if (!items.length) return;

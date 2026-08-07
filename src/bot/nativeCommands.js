@@ -839,7 +839,7 @@ module.exports = {
       
       // Verificar no banco de dados
       const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
-      const isVip = !!(u && u.isPremium && u.isPremium()) || u?.role === 'premium' || u?.role === 'owner';
+      const isVipDB = !!(u && u.isPremium && u.isPremium()) || u?.role === 'premium' || u?.role === 'owner';
       const isOwnerDB = u?.role === 'owner';
       
       // Verificar se é admin do grupo
@@ -856,14 +856,15 @@ module.exports = {
       }
       
       const isOwnerFinal = ctx.isOwner || isOwnerDB || isOwnerNum;
-      isCargo = isOwnerFinal ? '👑 DONO SUPREMO' : isVip ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
-      isChVip = (isVip || isOwnerFinal) ? 'ATIVO ✅' : 'INATIVO ❌';
+      isCargo = isOwnerFinal ? '👑 DONO SUPREMO' : isVipDB ? '💎 VIP' : isAdm ? '🛡️ ADMIN' : '🆓 FREE';
+      isChVip = (isVipDB || isOwnerFinal) ? 'ATIVO ✅' : 'INATIVO ❌';
     } catch {}
 
     // ── Filtrar submenus por tipo de usuário ──
     const User = require('../database/models/User');
-    const ownerNum = String(config.owner.number || '').replace(/\\D/g, '');
-    const isOwnerUser = ctx.isOwner || ctx.senderNumber === ownerNum;
+    const ownerNumClean = String(config.owner.number || '').replace(/\D/g, '');
+    const senderNumClean = String(ctx.senderNumber || '').replace(/\D/g, '');
+    const isOwnerUser = ctx.isOwner || senderNumClean === ownerNumClean;
     
     let userRole = 'free';
     try {
