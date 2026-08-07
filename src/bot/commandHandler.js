@@ -304,6 +304,9 @@ async function handle(sock, msg) {
                   (ownerLid && ctx.senderNumber === ownerLid.split('@')[0]);
   ctx.isOwner = isOwner;
   ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
+  // v6.40: expõe o sock no ctx — o roleResolver/submenus precisam dele
+  // para obter os admins do grupo (groupMetadata) sem o receber por parâmetro.
+  ctx.sock = sock;
 
   // v6.37: Regras de resposta por tipo de grupo
   // Grupo COM aluguel activo → responde a TODOS

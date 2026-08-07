@@ -42,6 +42,11 @@ async function dynSub(sock, msg, ctx, config, category) {
   const pe = require('../prefixEngine');
   const p = await pe.getActivePrefix(ctx.remoteJid).catch(() => config.bot.prefix);
   const botName = config.bot.name || 'DARK BOT';
+
+  // v6.40: cargo do utilizador — mostrado no rodapé do submenu
+  const roleResolver = require('../roleResolver');
+  const roleInfo = ctx._role || await roleResolver.resolveRole({ ctx, msg, sock })
+    .catch(() => ({ cargo: '🆓 FREE', vip: 'INATIVO ❌' }));
   
   // Separar sel vs texto
   const selCmds = items.filter(it => it.sel === true);
@@ -71,7 +76,7 @@ async function dynSub(sock, msg, ctx, config, category) {
       const m = generateWAMessageFromContent(ctx.remoteJid, {
         interactiveMessage: proto.Message.InteractiveMessage.fromObject({
           body: proto.Message.InteractiveMessage.Body.fromObject({ text: textBody }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `${t.icon || '🕸️'} ${botName}` }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `${t.icon || '🕸️'} ${botName} · ${roleInfo.cargo}` }),
           header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
           nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
             buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify(listParams) }],
@@ -90,55 +95,45 @@ async function dynSub(sock, msg, ctx, config, category) {
   }
   
   if (!sent) {
-    await sock.sendMessage(ctx.remoteJid, { text: textBody }, { quoted: msg });
+    const footer = `\n\n> ${t.icon || '🕸️'} ${roleInfo.cargo} · VIP: ${roleInfo.vip}`;
+    await sock.sendMessage(ctx.remoteJid, { text: textBody + footer }, { quoted: msg });
   }
 }
 
 module.exports = function registerDynamicSubmenus(registerCase) {
   // Verificar se usuário pode ver o submenu
-  async function canSeeSubmenu(ctx, category) {
-    const User = require('../../database/models/User');
-    
+  // v6.40: usa roleResolver — mesma hierarquia do menu principal
+  // 👑 Dono > 💎 VIP > 🛡️ Admin > 🆓 Free
+  async function canSeeSubmenu(ctx, category, sock = null, msg = null) {
+    const roleResolver = require('../roleResolver');
+    const r = await roleResolver.resolveRole({ ctx, msg, sock: sock || ctx.sock })
+      .catch(() => ({ isOwner: false, isVip: false, isAdmin: false }));
+
+    // Guarda no ctx para reutilização no resto do fluxo (evita novas queries)
+    ctx._role = r;
+
     // Dono sempre vê tudo
-    if (ctx.isOwner) return true;
-    
-    // Verificar se é admin do grupo
-    let isAdmin = false;
-    if (ctx.isGroup) {
-      try {
-        const sock = ctx.sock;
-        const meta = await sock.groupMetadata(ctx.remoteJid);
-        const senderBase = (ctx.senderJid || '').split(':')[0].split('@')[0];
-        isAdmin = meta.participants?.some(p => {
-          const pBase = (p.id || '').split(':')[0].split('@')[0];
-          return pBase === senderBase && (p.admin === 'admin' || p.admin === 'superadmin');
-        });
-      } catch {}
-    }
-    
-    // Submenus só para dono
-    if (['owner'].includes(category)) {
-      return ctx.isOwner;
-    }
-    
-    // Submenus para VIP e acima
-    if (['portal18', 'cmdsocultos', 'adult'].includes(category)) {
-      if (ctx.isOwner || isAdmin) return true;
-      try {
-        const user = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean();
-        return user && (user.role === 'premium' || user.role === 'owner');
-      } catch {
-        return false;
-      }
-    }
-    
+    if (r.isOwner) return true;
+
+    // Submenus SÓ para dono — nunca aparecem para VIP/Admin/Free
+    const OWNER_ONLY = ['owner', 'dono', 'menudono', 'system', 'sistema'];
+    if (OWNER_ONLY.includes(category)) return false;
+
+    // Submenus SÓ para VIP (e dono) — nunca aparecem para Free
+    const VIP_ONLY = ['portal18', 'cmdsocultos', 'adult', 'menu18', 'vip', 'premium'];
+    if (VIP_ONLY.includes(category)) return r.isVip;
+
+    // Submenus de administração — admin do grupo, VIP ou dono
+    const ADMIN_ONLY = ['admin', 'menuadm', 'moderacao'];
+    if (ADMIN_ONLY.includes(category)) return r.isAdmin || r.isVip;
+
     // Todos os outros submenus são visíveis para todos
     return true;
   }
   
   // Sobrepõe TODOS os submenus com versões dinâmicas
   registerCase(['menudownload', 'down', 'menudl', 'downloads'], async ({ sock, msg, ctx, config }) => {
-    if (!await canSeeSubmenu(ctx, 'downloads')) {
+    if (!await canSeeSubmenu(ctx, 'downloads', sock, msg)) {
       return sock.sendMessage(ctx.remoteJid, { text: '🚫 Submenu exclusivo para VIPs. Use .vip para ver planos.' }, { quoted: msg });
     }
     return dynSub(sock, msg, ctx, config, 'downloads');
@@ -153,6 +148,7 @@ module.exports = function registerDynamicSubmenus(registerCase) {
   });
   
   registerCase(['menugrupo', 'menuadm', 'menuadmin'], async ({ sock, msg, ctx, config }) => {
+    // Visível para todos (informativo), mas o cargo aparece no rodapé
     return dynSub(sock, msg, ctx, config, 'admin');
   });
   
@@ -201,12 +197,29 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'economia');
   });
 
+  // v6.40: 'maiscmds' abria o submenu do DONO para toda a gente — corrigido.
   registerCase(['maiscmds', 'menumais'], async ({ sock, msg, ctx, config }) => {
+    if (!await canSeeSubmenu(ctx, 'owner', sock, msg)) {
+      return sock.sendMessage(ctx.remoteJid,
+        { text: '👑 *Submenu exclusivo do DONO SUPREMO.*\n\n🆓 O teu cargo actual não tem acesso.' },
+        { quoted: msg });
+    }
     return dynSub(sock, msg, ctx, config, 'owner');
   });
 
-  registerCase(['menuowner'], async ({ sock, msg, ctx, config, isOwner }) => {
-    if (!isOwner) return;
+  registerCase(['menuowner', 'menudono', 'menusystem'], async ({ sock, msg, ctx, config }) => {
+    // Silêncio total para não-donos: o submenu nem sequer existe para eles.
+    if (!await canSeeSubmenu(ctx, 'owner', sock, msg)) return;
     return dynSub(sock, msg, ctx, config, 'owner');
+  });
+
+  // Submenus VIP — não aparecem para Free
+  registerCase(['menu18', 'cmdsocultos', 'menuvip'], async ({ sock, msg, ctx, config }) => {
+    if (!await canSeeSubmenu(ctx, 'menu18', sock, msg)) {
+      return sock.sendMessage(ctx.remoteJid,
+        { text: '💎 *Submenu exclusivo VIP.*\n\n🆓 Cargo actual: FREE — VIP: INATIVO ❌\nUsa `.vip` para veres os planos.' },
+        { quoted: msg });
+    }
+    return dynSub(sock, msg, ctx, config, 'outros');
   });
 };
