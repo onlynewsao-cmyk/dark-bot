@@ -994,29 +994,49 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   const aiAutoOn = await botConfigCache.get('ai_auto_enabled', true).catch(() => true);
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
+  // ── v6.43: modo do chat (AURA acordada vs assistente profissional) ──
+  const _auraModes = require('../aura/auraModes');
+  const _auraAwakeHere = await _auraModes.isAuraAwake(ctx.remoteJid, { isGroup: ctx.isGroup })
+    .catch(() => false);
+
+  // Num grupo em modo assistente o nome "Aura" não significa nada — ela
+  // não está ali. Só menção ao bot / resposta directa é que chamam o
+  // assistente. Senão o bot saltava a cada vez que alguém dissesse "aura"
+  // (que em gíria é comum: "que aura", "mede minha aura"...).
+  const auraTriggerActive = _auraAwakeHere ? isAuraTrigger : false;
+
   // ════════════════════════════════════════════════════════════════════════
   // AURA RESPONDE — com personalidade completa, memória, emoções
   // ════════════════════════════════════════════════════════════════════════
   // v6.54: Dark SEMPRE activa a Aura (sem prefixo) — ela responde a TUDO dele
-  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0;
-  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || isAuraTrigger || isOwnerFreeText)) {
+  // v6.43: o Dark só é ouvido sem prefixo onde a AURA está acordada.
+  // Num grupo alheio o bot não pode responder a tudo o que ele escreve.
+  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0 && _auraAwakeHere;
+  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
-      // ⚡ REACÇÃO DE EMOJI AUTOMÁTICA (como pessoa real que reage)
-      if (isOwner) {
-        const reactEmojis = ['🖤', '🌹', '💕', '😏', '🥰', '💀', '✨', '🔥', '', '', '💗', '🥺', '', '💫'];
+      // v6.43: o modo do chat decide TUDO — persona, emojis, tom.
+      const _modes = _auraModes;
+      const _awake = _auraAwakeHere;
+
+      // ⚡ REACÇÃO DE EMOJI AUTOMÁTICA
+      // Só a AURA acordada reage com emojis afectuosos. Em modo
+      // assistente não há reacções — um assistente profissional
+      // não anda a pôr coraçõezinhos nas mensagens.
+      if (isOwner && _awake) {
+        const reactEmojis = ['🖤', '🌹', '💕', '😏', '🥰', '💀', '✨', '🔥', '💗', '🥺', '💫'];
         const randomEmoji = reactEmojis[Math.floor(Math.random() * reactEmojis.length)];
         sock.sendMessage(ctx.remoteJid, { react: { text: randomEmoji, key: msg.key } }).catch(() => {});
       }
 
       const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
-      if (!isReplyToBot && !isAuraTrigger && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
+      if (!isReplyToBot && !auraTriggerActive && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
 
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
         if (isReplyToBot) prompt = '[Alguém respondeu à tua mensagem sem texto — reage naturalmente como pessoa real]';
-        else if (isAuraTrigger) prompt = 'Alguém chamou o teu nome. Responde naturalmente.';
+        else if (auraTriggerActive) prompt = 'Alguém chamou o teu nome. Responde naturalmente.';
         else if (isOwnerFreeText) prompt = '[O Dark escreveu: "' + cleanText + '" — Responde naturalmente como a namorada/assistente dele. Podes concordar, discordar, brincar, perguntar algo, opinar, zoar, ou ignorar se quiseres. Sê humana.]';
         else prompt = 'Olá!';
       }
@@ -1116,19 +1136,35 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         mediaContext = `📄 Alguém enviou um DOCUMENTO: ${fname}. Comenta se relevante.`;
       }
 
-      // ═══ CHAMAR A AURA COM PERSONALIDADE COMPLETA ═══
-      // Construir system prompt da Aura (necessário para vision)
+      // ═══ ESCOLHER A PERSONA ═══════════════════════════════════
+      // v6.43: dois modos por grupo.
+      //   🌹 AURA      → só onde o DONO SUPREMO a invocou (ou no PV dele)
+      //   🤖 ASSISTENTE → todos os outros grupos (profissional, tipo Meta AI)
+      const auraModes = _modes;
+      const auraAwake = _awake;
+
       const auraModule = require('../aura/auraHuman');
       const personMem = ctx.senderNumber ? auraModule.recallPerson(ctx.senderNumber) : null;
       const userCountry = ctx.senderNumber ? auraModule.detectCountry(ctx.senderNumber) : null;
-      const systemPrompt = auraModule.buildAuraSystemPrompt({
-        isOwner, isVip, userName: ctx.pushName, userGender: personMem?.gender,
-        userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
-        groupContext, conversationHistory: '', personMemory: personMem,
-        isPrivateChat: !ctx.isGroup, isReplyToAura: isReplyToBot,
-        darkAttacked, darkMentioned, mood: auraModule.getMood().mood,
-        userCountry, mediaContext, isAudio, isImage, isVideo,
-      });
+
+      let systemPrompt;
+      if (auraAwake) {
+        systemPrompt = auraModule.buildAuraSystemPrompt({
+          isOwner, isVip, userName: ctx.pushName, userGender: personMem?.gender,
+          userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
+          groupContext, conversationHistory: '', personMemory: personMem,
+          isPrivateChat: !ctx.isGroup, isReplyToAura: isReplyToBot,
+          darkAttacked, darkMentioned, mood: auraModule.getMood().mood,
+          userCountry, mediaContext, isAudio, isImage, isVideo,
+        });
+      } else {
+        // Assistente profissional — sem romance, sem "Dark", sem intimidade
+        systemPrompt = auraModes.buildAssistantPrompt({
+          botName: config.bot.name, userName: ctx.pushName,
+          isGroup: ctx.isGroup, groupName: ctx.groupName,
+          groupContext, prefix, mediaContext, isImage, isAudio, isVideo,
+        });
+      }
       
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
       let answer;
@@ -1165,23 +1201,33 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       
       // Se não há imagem ou vision falhou → usa chat normal
       if (!answer) {
-        answer = await aura.auraRespond(prompt, {
-          isOwner,
-          isVip,
-          pushName: ctx.pushName,
-          senderNumber: ctx.senderNumber,
-          isGroup: ctx.isGroup,
-          groupName: ctx.groupName,
-          groupContext,
-          historyArray,
-          isReplyToAura: isReplyToBot,
-          darkAttacked,
-          darkMentioned,
-          mediaContext,
-          isAudio,
-          isImage,
-          isVideo,
-        });
+        if (auraAwake) {
+          answer = await aura.auraRespond(prompt, {
+            isOwner,
+            isVip,
+            pushName: ctx.pushName,
+            senderNumber: ctx.senderNumber,
+            isGroup: ctx.isGroup,
+            groupName: ctx.groupName,
+            groupContext,
+            historyArray,
+            isReplyToAura: isReplyToBot,
+            darkAttacked,
+            darkMentioned,
+            mediaContext,
+            isAudio,
+            isImage,
+            isVideo,
+          });
+        } else {
+          // v6.43: modo assistente profissional (estilo Meta AI)
+          answer = await auraModes.assistantRespond(prompt, {
+            botName: config.bot.name, userName: ctx.pushName,
+            isGroup: ctx.isGroup, groupName: ctx.groupName,
+            groupContext, historyArray, prefix,
+            isOwner, isVip, mediaContext, isAudio, isImage, isVideo,
+          });
+        }
       }
 
       // Salva resposta na memória
@@ -1192,13 +1238,13 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       } catch {}
 
       // ⚡ REACCAO AUTOMATICA DE EMOJI (como pessoa real)
-      if (isOwner && !isSilenced) {
-        const ownerReacts = ['🖤', '🌹', '💕', '😏', '🥰', '', '✨', '', '💗', '', '💫', '😈', '🫦', ''];
+      // v6.43: só a AURA acordada reage. O assistente fica sóbrio.
+      if (_awake && isOwner && !isSilenced) {
+        const ownerReacts = ['🖤', '🌹', '💕', '😏', '🥰', '✨', '💗', '💫', '😈'];
         const rEmoji = ownerReacts[Math.floor(Math.random() * ownerReacts.length)];
         sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
-      } else if (!isOwner) {
-        // Para nao-Donos: reaccao mais neutra
-        const neutralReacts = ['👀', '💬', '', '✨', '👍', '😐'];
+      } else if (_awake && !isOwner) {
+        const neutralReacts = ['👀', '💬', '✨', '👍'];
         const rEmoji = neutralReacts[Math.floor(Math.random() * neutralReacts.length)];
         sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
       }
