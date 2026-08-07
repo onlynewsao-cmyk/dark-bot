@@ -12,8 +12,8 @@ const MODEL_MAP = {
   // Groq models
   llama: 'llama-3.1-8b-instant', llama3: 'llama-3.3-70b-versatile',
   gemma: 'gemma2-9b-it', gemma2: 'gemma2-9b-it', codegemma: 'gemma2-9b-it',
-  // Gemini models
-  pplx: 'gemini-2.5-flash', nano: 'gemini-2.5-flash-lite', nano2: 'gemini-2.5-flash',
+  // Gemini models — v6.41: aliases '-latest' (os '2.5' devolviam 404)
+  pplx: 'gemini-flash-latest', nano: 'gemini-flash-lite-latest', nano2: 'gemini-3.5-flash',
   // Default (Groq primary)
   gpt: 'llama-3.3-70b-versatile', gpt4: 'llama-3.3-70b-versatile', gpt5: 'llama-3.3-70b-versatile',
   claude: 'llama-3.3-70b-versatile', 'claude-haiku': 'llama-3.1-8b-instant', claudeai: 'llama-3.3-70b-versatile',

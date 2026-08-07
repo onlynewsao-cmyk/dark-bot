@@ -18,9 +18,18 @@ const GROQ_MODELS = [
   'meta-llama/llama-4-scout-17b-16e-instruct',
   'gemma2-9b-it',
 ];
+// v6.41: modelos actualizados — os antigos deixaram de existir nesta chave.
+//   gemini-1.5-flash → 404 (removido da v1beta)
+//   gemini-2.5-flash → 404 ("no longer available to new users")
+//   gemini-2.0-flash → 429 (quota esgotada neste projecto)
+// Os aliases "-latest" apontam sempre para a versão estável actual e não
+// partem quando a Google reforma um modelo. Testados: HTTP 200.
 const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  'gemini-flash-latest',       // ✅ principal
+  'gemini-3.5-flash',          // ✅ fallback
+  'gemini-flash-lite-latest',  // ✅ mais leve/rápido
+  'gemini-3.5-flash-lite',     // ✅
+  'gemini-2.0-flash',          // ⚠️ quota esgotada — fica por último
 ];
 const CEREBRAS_MODELS = [
   'llama3.1-8b',
@@ -265,6 +274,52 @@ async function chatGroq(messages, system) {
 // ─────────────────────────────────────────────
 // GEMINI
 // ─────────────────────────────────────────────
+// v6.41: cache dos modelos realmente disponíveis para ESTA chave.
+// A Google reforma modelos sem aviso (o bot já apanhou 404 em 3 deles).
+// Em vez de depender só da lista fixa, perguntamos à API uma vez por hora
+// quais os modelos que existem — assim o bot nunca mais fica sem IA por
+// causa de um nome de modelo desactualizado.
+let _geminiModelCache = { list: null, ts: 0 };
+const GEMINI_MODEL_TTL = 60 * 60 * 1000; // 1 hora
+
+async function getGeminiModels() {
+  // Cache fresco → usa
+  if (_geminiModelCache.list && (Date.now() - _geminiModelCache.ts) < GEMINI_MODEL_TTL) {
+    return _geminiModelCache.list;
+  }
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 8000);
+    let data;
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${config.ai.geminiApiKey}&pageSize=200`,
+        { signal: ctrl.signal, headers: { 'User-Agent': 'DarkBot/6.4' } }
+      );
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      data = await r.json();
+    } finally { clearTimeout(to); }
+
+    const live = (data.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => String(m.name || '').replace('models/', ''))
+      // só modelos de texto/visão utilizáveis (fora TTS, imagem, robótica, etc.)
+      .filter(n => /^gemini-[\d.]*-?(flash|pro)/.test(n) || /^gemini-(flash|pro)-/.test(n))
+      .filter(n => !/(tts|image|robotics|computer-use|embedding|lyria)/i.test(n));
+
+    if (live.length) {
+      // Mantém a ordem preferida da lista fixa, e junta o resto no fim
+      const preferred = GEMINI_MODELS.filter(m => live.includes(m));
+      const extras    = live.filter(m => !preferred.includes(m));
+      _geminiModelCache = { list: [...preferred, ...extras], ts: Date.now() };
+      return _geminiModelCache.list;
+    }
+  } catch { /* API de listagem falhou → usa a lista fixa */ }
+
+  _geminiModelCache = { list: GEMINI_MODELS, ts: Date.now() };
+  return GEMINI_MODELS;
+}
+
 async function chatGemini(messages, system) {
   if (!config.ai.geminiApiKey) throw new Error('sem chave');
   const contents = messages.map(m => ({
@@ -278,7 +333,8 @@ async function chatGemini(messages, system) {
     contents.unshift({ role: 'user', parts: [{ text: system }] });
   }
   let lastErr;
-  for (const model of GEMINI_MODELS) {
+  const modelList = await getGeminiModels();  // v6.41: lista viva
+  for (const model of modelList) {
     try {
       const data = await post(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
@@ -705,8 +761,8 @@ async function describeImage(imageBuffer, question = 'Descreve esta imagem em de
     generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
   };
   
-  // Tenta Gemini 2.5-flash (suporta visão)
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  // v6.41: usa a lista central de modelos (aliases -latest, sempre válidos)
+  const models = await getGeminiModels();  // v6.41: lista viva
   for (const model of models) {
     try {
       const data = await withTimeout(
@@ -752,7 +808,7 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
     generationConfig: { temperature: 0.8, maxOutputTokens: 800 },
   };
   
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const models = await getGeminiModels();  // v6.41: lista viva
   for (const model of models) {
     try {
       const data = await withTimeout(
@@ -827,4 +883,5 @@ module.exports = {
   buildSystemPrompt,
   GROQ_MODELS,
   GEMINI_MODELS,
+  getGeminiModels,
 };
