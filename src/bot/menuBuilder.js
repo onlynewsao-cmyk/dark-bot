@@ -16,7 +16,11 @@ function buildMainMenu({ ctx, config, stats, prefixes }) {
   const p = config.bot.prefix;
   const userName = (ctx.pushName || 'D4RK_USER').toUpperCase();
   const number = ctx.senderNumber || '????';
-  const roleIcon = stats.role === 'owner' ? '👑 R00T' : stats.role === 'premium' ? '⭐ V1P' : '🆓 GUEST';
+  // v6.40: alinhado com o roleResolver — 👑 Dono > 💎 VIP > 🛡️ Admin > 🆓 Free
+  const roleIcon = stats.role === 'owner'   ? '👑 DONO SUPREMO'
+                 : stats.role === 'premium' ? '💎 VIP'
+                 : stats.role === 'admin'   ? '🛡️ ADMIN'
+                 : '🆓 FREE';
   const uptime = formatUptime(Date.now() - (stats.startTime || Date.now()));
   const prefixList = (prefixes || [p]).join(' ');
 

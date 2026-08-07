@@ -62,40 +62,31 @@ module.exports = function registerInfoCases(registerCase) {
   });
 
   // ── case 'perfil' ──────────────────────────────────────────
-  registerCase(['perfil', 'perfiluser', 'rankuser'], async ({ sock, ctx, reply, prefix }) => {
+  registerCase(['perfil', 'perfiluser', 'rankuser'], async ({ sock, msg, ctx, reply, prefix }) => {
     const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
     const W = 26;
     const bar = (txt) => `${f[5]} ${String(txt).slice(0, W).padEnd(W)} ${f[5]}`;
 
-    let cargo = '🆓 FREE';
-    let vipTxt = 'INATIVO ❌';
+    // v6.40: cargo resolvido pelo roleResolver — fonte ÚNICA de verdade
+    // 👑 DONO SUPREMO > 💎 VIP > 🛡️ ADMIN > 🆓 FREE
+    const roleResolver = require('../roleResolver');
+    const rinfo = await roleResolver.resolveRole({ ctx, msg, sock })
+      .catch(() => ({ cargo: '🆓 FREE', vip: 'INATIVO ❌', user: null }));
+
+    const cargo  = rinfo.cargo;
+    const vipTxt = rinfo.vip;
+
     let cmds = 0;
     let desde = '—';
     let genero = 'não definido';
-
     try {
-      const User = require('../../database/models/User');
-      const u = await User.findOne({ whatsappNumber: ctx.senderNumber });
+      const u = rinfo.user;
       if (u) {
-        const isVip = u.isPremium ? u.isPremium() : (u.role === 'premium');
-        cmds  = u.commandsUsed || 0;
-        desde = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '—';
+        cmds   = u.commandsUsed || 0;
+        desde  = u.createdAt ? new Date(u.createdAt).toLocaleDateString('pt-BR') : '—';
         genero = { male: '♂ Masculino', female: '♀ Feminino', other: '⚧ Outro' }[u.gender] || 'não definido';
-        if (ctx.isOwner)      { cargo = '👑 DONO SUPREMO'; vipTxt = 'ATIVO ✅'; }
-        else if (isVip)       { cargo = '💎 VIP';          vipTxt = u.premiumUntil ? `ATIVO ✅ até ${new Date(u.premiumUntil).toLocaleDateString('pt-BR')}` : 'ATIVO ✅'; }
-        else                  { cargo = '🆓 FREE';         vipTxt = 'INATIVO ❌'; }
-      }
-      if (!ctx.isOwner && cargo === '🆓 FREE') {
-        // verifica se é admin do grupo
-        try {
-          const meta = ctx.groupMeta || (ctx.isGroup ? await sock.groupMetadata(ctx.remoteJid) : null);
-          const snum = ctx.senderNumber;
-          const isAdm = meta?.participants?.some(p =>
-            p.id.split('@')[0].replace(/\D/g, '') === snum && (p.admin === 'admin' || p.admin === 'superadmin'));
-          if (isAdm) cargo = '🛡️ ADMIN';
-        } catch {}
       }
     } catch {}
 
