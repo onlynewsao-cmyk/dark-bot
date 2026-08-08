@@ -214,12 +214,21 @@ module.exports = function registerDynamicSubmenus(registerCase) {
   });
 
   // Submenus VIP — não aparecem para Free
-  registerCase(['menu18', 'cmdsocultos', 'menuvip'], async ({ sock, msg, ctx, config }) => {
+  // v6.48: 'menu18' e 'cmdsocultos' JÁ TÊM implementação própria em
+  // nativeCommands.js (portal 18+ real, com hentai/xvideo/hotchat/…
+  // e envio no PV por segurança). Como os cases correm ANTES dos
+  // nativos, este handler estava a roubá-los e a mostrar a categoria
+  // 'outros' — 189 comandos misturados, incluindo lixo interno como
+  // '__change_theme_handler__' e 'acordaaura'. Nada de conteúdo 18+.
+  //
+  // Agora só fazemos o controlo de acesso; se o utilizador pode ver,
+  // devolvemos false para o comando nativo correcto tratar do resto.
+  registerCase(['menu18', 'cmdsocultos', 'menuvip'], async ({ sock, msg, ctx }) => {
     if (!await canSeeSubmenu(ctx, 'menu18', sock, msg)) {
       return sock.sendMessage(ctx.remoteJid,
         { text: '💎 *Submenu exclusivo VIP.*\n\n🆓 Cargo actual: FREE — VIP: INATIVO ❌\nUsa `.vip` para veres os planos.' },
         { quoted: msg });
     }
-    return dynSub(sock, msg, ctx, config, 'outros');
+    return false; // → cai no nativeCommands.menu18 / cmdsocultos
   });
 };
