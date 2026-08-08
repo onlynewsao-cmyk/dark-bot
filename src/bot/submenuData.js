@@ -159,6 +159,8 @@ function categorize(cmd) {
     blackhzx:'logos', blood:'logos', cemiterio:'logos', ffavatar:'logos',
     themechange:'owner', themes:'owner',
     texto:'texto', submenuRPG:'economia', menurpg:'economia', maiscmds:'owner', menumais:'owner', textosticker:'stickers', fight:'jogos',advanced:'logos',deleting:'logos',emprego:'economia',deepai:'ia',deepsearch:'search',menuaudio:'info', inveja:'zoeira',invejosa:'zoeira',invejoso:'zoeira',invisible:'admin',invite:'admin',pixel:'logos',casal:'interacoes',casamento:'interacoes',nome:'economia',rg:'economia',ficha:'economia', imagem:'ia', stickers:'info', legendasaiu:'admin', legendabv:'admin', textsticker:'stickers', txtsticker:'stickers',
+    // v6.47: 's' é o alias mais usado de sticker e caía em 'outros'
+    s:'stickers', fig:'stickers', figu:'stickers',
     baixaraudio:'downloads', baixarvideo:'downloads',
     dlmp3:'downloads', dlmp4:'downloads', ytmp3:'downloads', ytmp4:'downloads',
     ytaudio:'downloads', ytplay4:'downloads', fhd:'downloads', vid:'downloads', vid2:'downloads',
@@ -212,6 +214,8 @@ function categorize(cmd) {
 }
 
 // ── META DE CADA SUBMENU ─────────────────────────────────────
+const { describe } = require('./commandDescriptions');
+
 const SUBMENU_META = {
   downloads:    { title: '📥 DOWNLOADS',              sub: 'Música • Vídeo • Redes Sociais',     btn: '📥 Downloads' },
   stickers:     { title: '🎨 STICKERS & IMAGENS',     sub: 'Figurinhas • Packs • Arte Visual',   btn: '🎨 Stickers' },
@@ -262,7 +266,9 @@ function buildItems(commands, category) {
     .map(cmd => ({
       cmd,
       emoji: CAT_EMOJI[category] || '📌',
-      desc: '',
+      // v6.47: era `desc: ''` fixo — TODOS os 1564 itens dos submenus
+      // saíam sem descrição, o que produzia o "undefined" no WhatsApp.
+      desc: describe(cmd, category),
       sel: isSelectable(cmd),
     }));
 }
