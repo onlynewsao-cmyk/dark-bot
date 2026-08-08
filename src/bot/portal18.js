@@ -204,6 +204,103 @@ async function safebooruImages(tags = '', count = 3) {
 }
 
 // ─────────────────────────────────────────────
+// FONTE 6 — purrbot.site (v6.51) — GIFs animados
+// Testada: entrega GIF real (349KB, image/gif, magic bytes 'GIF').
+// Tem SFW e NSFW, organizado por tipo (neko, kiss, hug, cuddle...).
+// É das poucas ainda abertas: tenor/giphy/waifu.im devolvem 401/403.
+// ─────────────────────────────────────────────
+const PURRBOT_SFW  = ['neko', 'kiss', 'hug', 'cuddle', 'pat', 'slap', 'tickle', 'poke', 'lick', 'bite', 'dance', 'kitsune', 'holo', 'senko', 'okami', 'shiro'];
+const PURRBOT_NSFW = ['neko', 'blowjob', 'cum', 'fuck', 'pussylick', 'solo', 'threesome', 'yuri', 'anal'];
+
+async function purrbotGif(tipo = 'neko', nsfw = false) {
+  const lista = nsfw ? PURRBOT_NSFW : PURRBOT_SFW;
+  const t = lista.includes(String(tipo).toLowerCase()) ? String(tipo).toLowerCase() : lista[0];
+  const url = `https://purrbot.site/api/img/${nsfw ? 'nsfw' : 'sfw'}/${t}/gif`;
+  const data = await fetchJ(url, 10000);
+  if (!data?.link) throw new Error('purrbot sem resultado');
+  return [{ url: data.link, tags: t, score: 0, source: 'purrbot.site', animated: true }];
+}
+
+// ─────────────────────────────────────────────
+// FONTE 7 — nekos.life GIF por tipo (v6.51)
+// O nekosLifeImage já existia mas só devolvia imagem estática.
+// Estes tipos devolvem GIF: kiss, hug, cuddle, pat, slap, tickle…
+// ─────────────────────────────────────────────
+const NEKOS_GIF_TYPES = ['kiss', 'hug', 'cuddle', 'pat', 'slap', 'tickle', 'poke', 'feed', 'smug', 'baka', 'wink', 'dance'];
+
+async function nekosGif(tipo = 'kiss') {
+  const t = NEKOS_GIF_TYPES.includes(String(tipo).toLowerCase()) ? String(tipo).toLowerCase() : 'kiss';
+  const data = await fetchJ(`https://nekos.life/api/v2/img/${t}`, 8000);
+  if (!data?.url) throw new Error('nekos.life sem resultado');
+  return [{ url: data.url, tags: t, score: 0, source: 'nekos.life', animated: true }];
+}
+
+// ─────────────────────────────────────────────
+// BUSCA DE ANIMADOS POR NOME (v6.51)
+// e621 e yande.re suportam a tag 'animated' — dá para procurar
+// GIF/webm por personagem ou tema, em vez de aleatório.
+// ─────────────────────────────────────────────
+async function searchAnimated(nome = '', count = 3) {
+  const limpo = String(nome || '').replace(/loli|shota|child|minor/gi, '').trim();
+  const termo = limpo.replace(/\s+/g, '_');
+
+  const tentativas = [
+    // e621: melhor cobertura de animado
+    async () => {
+      const tags = `${termo ? termo + ' ' : ''}animated -loli -cub -scat -gore order:random`;
+      const d = await fetchJ(`https://e621.net/posts.json?tags=${encodeURIComponent(tags)}&limit=${count + 3}`, 12000);
+      const posts = (d?.posts || []).filter(x => x.file?.url && ['gif', 'webm', 'mp4'].includes(x.file?.ext));
+      if (!posts.length) throw new Error('sem animados no e621');
+      return posts.slice(0, count).map(x => ({
+        url: x.file.url,
+        tags: [...(x.tags?.character || []), ...(x.tags?.general || [])].slice(0, 5).join(', '),
+        score: x.score?.total || 0, source: 'e621.net',
+        animated: true, ext: x.file.ext,
+      }));
+    },
+    // yande.re com tag animated
+    async () => {
+      const tags = `${termo ? termo + ' ' : ''}animated -loli -shota`;
+      const d = await fetchJ(`https://yande.re/post.json?limit=${count + 2}&tags=${encodeURIComponent(tags)}`, 12000);
+      if (!Array.isArray(d) || !d.length) throw new Error('sem animados no yande');
+      return d.slice(0, count).map(x => ({
+        url: x.file_url || x.sample_url, tags: String(x.tags || '').split(' ').slice(0, 5).join(', '),
+        score: x.score || 0, source: 'yande.re', animated: true,
+      }));
+    },
+    // último recurso: GIF aleatório do purrbot
+    async () => purrbotGif('neko', true),
+  ];
+
+  for (const fn of tentativas) {
+    try { const r = await fn(); if (r?.length) return r; } catch {}
+  }
+  throw new Error('Nenhuma fonte devolveu animados para: ' + (nome || 'aleatório'));
+}
+
+// ─────────────────────────────────────────────
+// BUSCA POR NOME/PERSONAGEM (v6.51)
+// Converte "hatsune miku" → "hatsune_miku" (formato dos boorus)
+// e procura em cascata. Confirmado a funcionar nas 3 fontes.
+// ─────────────────────────────────────────────
+async function searchByName(nome = '', count = 3) {
+  const limpo = String(nome || '').replace(/loli|shota|child|minor/gi, '').trim();
+  if (!limpo) throw new Error('Diz um nome para procurar');
+  const termo = limpo.replace(/\s+/g, '_');
+
+  const fontes = [
+    () => yandeImages(termo, count),
+    () => konachanImages(termo, count),
+    () => e621Images(`${termo} order:random`, count),
+    () => safebooruImages(termo, count),
+  ];
+  for (const fn of fontes) {
+    try { const r = await fn(); if (r?.length) return r; } catch {}
+  }
+  throw new Error(`Não encontrei nada para: ${limpo}`);
+}
+
+// ─────────────────────────────────────────────
 // BUSCA MULTI-FONTE — tenta em cascata
 // ─────────────────────────────────────────────
 async function searchImages(tags = '', count = 3) {
@@ -393,6 +490,13 @@ module.exports = {
   e621Images,
   nekosLifeImage,
   safebooruImages,
+  purrbotGif,
+  nekosGif,
+  searchAnimated,
+  searchByName,
+  PURRBOT_SFW,
+  PURRBOT_NSFW,
+  NEKOS_GIF_TYPES,
   searchImages,
   searchBooks,
   popularBooks18,

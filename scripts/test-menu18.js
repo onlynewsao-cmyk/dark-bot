@@ -258,6 +258,52 @@ const check = (nome, cond, extra = '') => {
   } catch (e) { sbInfo = e.message.slice(0, 45); }
   check('Fonte de reserva (safebooru) viva', sbOk, sbInfo);
 
+  // ══ 9. BUSCA POR NOME · GIFs · ANIMADAS (v6.51) ══════════
+  console.log('\n▸ Busca por nome, GIFs e figurinhas animadas');
+
+  const novos3 = ['buscar18', 'gif18', 'gifreact', 'shorts18', 'figbusca', 'figgif', 'packbusca'];
+  const falta3 = novos3.filter(c => typeof nc2[c] !== 'function');
+  check('7 comandos novos registados', falta3.length === 0, falta3.join(', ') || `${novos3.length} ok`);
+
+  // busca por nome devolve resultados relevantes
+  let nomeOk = false, nomeInfo = '';
+  try {
+    const r = await p18.searchByName('hatsune miku', 2);
+    nomeOk = !!(r?.length && r[0].url);
+    nomeInfo = nomeOk ? `${r.length} de ${r[0].source}` : 'vazio';
+  } catch (e) { nomeInfo = e.message.slice(0, 45); }
+  check('Busca por nome funciona', nomeOk, nomeInfo);
+
+  // GIF real (magic bytes)
+  let gifOk = false, gifInfo = '';
+  try {
+    const g = await p18.purrbotGif('neko', true);
+    const b = await mh.fetchBuffer(g[0].url);
+    gifOk = b.length > 10000 && b.slice(0, 3).toString() === 'GIF';
+    gifInfo = `${b.length} bytes, GIF=${b.slice(0, 3).toString() === 'GIF'}`;
+  } catch (e) { gifInfo = e.message.slice(0, 45); }
+  check('GIF animado entrega bytes reais', gifOk, gifInfo);
+
+  // animados por nome (gif/webm)
+  let animOk = false, animInfo = '';
+  try {
+    const r = await p18.searchAnimated('', 2);
+    animOk = !!(r?.length && r[0].url);
+    animInfo = animOk ? `${r.length} de ${r[0].source}` : 'vazio';
+  } catch (e) { animInfo = e.message.slice(0, 45); }
+  check('Shorts/animados encontrados', animOk, animInfo);
+
+  // GIF → figurinha ANIMADA (chunk ANIM no WebP)
+  let animFigOk = false, animFigInfo = '';
+  try {
+    const g = await p18.purrbotGif('neko', true);
+    const b = await mh.fetchBuffer(g[0].url);
+    const fig = await sm.create(b, { botName: 'D', ownerName: 'D', userName: 'D', groupName: 'PV', packName: 'T', authorName: 'T', isVideo: true });
+    animFigOk = !!fig && fig.slice(8, 12).toString() === 'WEBP' && fig.includes(Buffer.from('ANIM'));
+    animFigInfo = fig ? `${fig.length} bytes, animada=${fig.includes(Buffer.from('ANIM'))}` : 'null';
+  } catch (e) { animFigInfo = e.message.slice(0, 45); }
+  check('GIF → figurinha ANIMADA', animFigOk, animFigInfo);
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();
