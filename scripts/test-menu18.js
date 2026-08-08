@@ -142,13 +142,17 @@ const check = (nome, cond, extra = '') => {
   // extrai os comandos mencionados no texto do menu
   const anunciados = [...new Set((conteudo.match(/\.([a-z0-9]{3,20})\b/gi) || [])
     .map(x => x.slice(1).toLowerCase()))]
-    .filter(c => !['menu18', 'vip', 'com', 'net', 'wa'].includes(c));
+        // ignora fragmentos de domínios (nekos.life, e621.net, erome.com)
+    .filter(c => !['menu18', 'vip', 'com', 'net', 'wa', 'life', 'org', 're'].includes(c));
   const inexistentes = anunciados.filter(c => !existe(c));
   check('Nenhum comando fantasma no menu', inexistentes.length === 0,
     inexistentes.length ? inexistentes.join(', ') : `${anunciados.length} verificados`);
 
   // os que foram removidos por não existirem
-  const fantasmas = ['nekos', 'yande', 'kona', 'e621', 'xvideodl', 'fig18', 'pack18', 'adultstats'];
+  // v6.49: nekos/yande/kona/e621/adultstats foram IMPLEMENTADOS (as funções
+  // já existiam no portal18.js, só faltavam os comandos). Continuam sem
+  // implementação: xvideodl, livro, fig18, pack18.
+  const fantasmas = ['xvideodl', 'fig18', 'pack18'];
   const aindaLa = fantasmas.filter(c => new RegExp('\\.' + c + '\\b', 'i').test(conteudo));
   check('Comandos inexistentes foram removidos', aindaLa.length === 0, aindaLa.join(', '));
 
@@ -171,6 +175,57 @@ const check = (nome, cond, extra = '') => {
   const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands.js'), 'utf8');
   check('Portal desligado por omissão', /adult_mode_enabled['"]?,\s*false/.test(src));
   check('Comandos verificam o dono', /isPrimaryOwnerOnly\(ctx\)/.test(src));
+
+  // ══ 7. ENTREGA DE MÍDIA (o que interessa mesmo) ══════════
+  // Não basta o comando existir: tem de devolver imagem/vídeo.
+  console.log('\n▸ Os comandos ENTREGAM mídia? (chamadas reais às APIs)');
+  const fontes = [
+    ['yande.re',   () => p18.yandeImages('nude', 1)],
+    ['konachan',   () => p18.konachanImages('nude', 1)],
+    ['e621',       () => p18.e621Images('rating:e', 1)],
+    ['nekos.life', () => p18.nekosLifeImage('lewd')],
+  ];
+  let vivas = 0;
+  const urls = [];
+  for (const [nome, fn] of fontes) {
+    try {
+      const r = await fn();
+      if (r?.length && r[0].url) { vivas++; urls.push([nome, r[0].url]); }
+    } catch {}
+  }
+  check('Pelo menos 3 fontes de imagem vivas', vivas >= 3, `${vivas}/4`);
+
+  // A URL devolvida entrega mesmo bytes?
+  if (urls.length) {
+    const [nome, u] = urls[0];
+    let bytes = 0, tipo = '';
+    try {
+      const ctl = new AbortController();
+      const to = setTimeout(() => ctl.abort(), 20000);
+      const r = await fetch(u, { signal: ctl.signal, headers: { 'User-Agent': 'DarkBot/6.4' } });
+      tipo = r.headers.get('content-type') || '';
+      bytes = Buffer.from(await r.arrayBuffer()).length;
+      clearTimeout(to);
+    } catch {}
+    check('A URL entrega mídia real (bytes)', bytes > 10000 && /image|video/.test(tipo), `${nome}: ${bytes} bytes ${tipo}`);
+  } else {
+    check('A URL entrega mídia real (bytes)', false, 'nenhuma fonte respondeu');
+  }
+
+  // Comandos novos existem e são funções
+  const nc2 = require(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands'));
+  const novos = ['yande', 'kona', 'e621', 'nekos', 'adultstats'];
+  const emFalta = novos.filter(c => typeof nc2[c] !== 'function');
+  check('Comandos novos registados', emFalta.length === 0, emFalta.length ? emFalta.join(', ') : novos.join(', '));
+
+  // O import que faltava (72 usos rebentavam)
+  const srcNC = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands.js'), 'utf8');
+  check('portal18 está importado', /require\(['"]\.\/portal18['"]\)/.test(srcNC));
+
+  // erome carregava?
+  let eromeOk = false;
+  try { const er = require(path.join(__dirname, '..', 'src', 'bot', 'erome')); eromeOk = typeof er.search === 'function'; } catch {}
+  check('Módulo erome carrega', eromeOk);
 
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
