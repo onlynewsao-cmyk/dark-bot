@@ -1285,9 +1285,21 @@ module.exports = {
       '👑 ' + p + 'xvideodl <url> — baixa vídeo de um link',
       '',
       // v6.50: implementados — usam portal18 → fetchBuffer → stickerMaker
+      // v6.51: busca por nome, GIFs animados e figurinhas animadas
+      '🔎 *BUSCA POR NOME*',
+      '👑 ' + p + 'buscar18 <nome> — procura personagem/tema',
+      '👑 ' + p + 'figbusca <nome> — figurinha desse nome',
+      '👑 ' + p + 'packbusca <nome> [qtd] — pack desse nome',
+      '',
+      '🎞️ *GIFs & SHORTS*',
+      '👑 ' + p + 'gif18 [tipo] — GIF animado 18+',
+      '👑 ' + p + 'gifreact [tipo] — GIF de reacção (kiss, hug…)',
+      '👑 ' + p + 'shorts18 [nome] — vídeos curtos animados',
+      '',
       '🎭 *FIGURINHAS 18+*',
       '👑 ' + p + 'fig18 [tags] — figurinha 18+',
       '👑 ' + p + 'pack18 [tags] [qtd] — pack até 8 figurinhas',
+      '👑 ' + p + 'figgif [tipo] — figurinha ANIMADA',
       '',
       '💬 *CHAT HOT COM IA*',
       '👑 ' + p + 'hotchat [tema] — chat sensual',
@@ -2045,6 +2057,162 @@ module.exports = {
       titulo: '🐱 nekos.life', tags: tipo,
       fetcher: (q) => portal18.nekosLifeImage(q || 'lewd'),
     });
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // v6.51 — BUSCA POR NOME · GIFs · FIGURINHAS ANIMADAS
+  // Testado ao vivo: purrbot e nekos.life entregam GIF real
+  // (349KB, magic bytes 'GIF'); e621/yande suportam a tag
+  // 'animated' para procurar animados por personagem.
+  // Nota: tenor, giphy e waifu.im estão fechadas (401/403).
+  // ══════════════════════════════════════════════════════════
+
+  // !buscar <nome> — procura por personagem/tema em 4 boorus
+  async buscar18({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const nome = args.join(' ').trim();
+    if (!nome) { await portal18.ownerPv(sock, { text: '🔎 Uso: *buscar18 <nome>*\nEx: buscar18 hatsune miku' }); return true; }
+    return module.exports._adultSend(sock, ctx, {
+      titulo: `🔎 ${nome}`, tags: nome, count: 4,
+      fetcher: (q, n) => portal18.searchByName(q, n),
+    });
+  },
+
+  // !gif18 [tipo] — GIF animado 18+
+  async gif18({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const tipo = (args[0] || 'neko').toLowerCase().replace(/[^a-z]/g, '');
+    return module.exports._adultSend(sock, ctx, {
+      titulo: `🎞️ GIF ${tipo}`, tags: tipo, count: 1,
+      fetcher: (q) => portal18.purrbotGif(q || 'neko', true),
+    });
+  },
+
+  // !gif [tipo] — GIF de reacção (SFW: kiss, hug, pat...)
+  async gifreact({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const tipo = (args[0] || 'kiss').toLowerCase().replace(/[^a-z]/g, '');
+    return module.exports._adultSend(sock, ctx, {
+      titulo: `🎞️ ${tipo}`, tags: tipo, count: 1,
+      fetcher: async (q) => {
+        try { return await portal18.nekosGif(q || 'kiss'); }
+        catch { return portal18.purrbotGif(q || 'neko', false); }
+      },
+    });
+  },
+
+  // !shorts [nome] — vídeos curtos animados (gif/webm/mp4)
+  async shorts18({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const nome = args.join(' ').trim();
+    return module.exports._adultSend(sock, ctx, {
+      titulo: nome ? `🎬 shorts: ${nome}` : '🎬 shorts', tags: nome || 'random', count: 3,
+      fetcher: (q, n) => portal18.searchAnimated(q === 'random' ? '' : q, n),
+    });
+  },
+
+  // !figbusca <nome> — figurinha a partir de uma busca por nome
+  async figbusca({ sock, ctx, args, config: cfg }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const localConfig = cfg || config;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    const nome = portal18.cleanQuery(args.join(' ').trim());
+    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *figbusca <nome>*' }); return true; }
+    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
+
+    await portal18.ownerPv(sock, { text: `🎭 A procurar *${nome}* e a criar figurinha...` });
+    try {
+      const imgs = await portal18.searchByName(nome, 1);
+      const buf = await mediaHandler.fetchBuffer(imgs[0].url);
+      const fig = await stickerMaker.create(buf, {
+        botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+        userName: ctx.pushName || 'Dark', groupName: 'PV',
+        packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
+      });
+      if (!fig) throw new Error('não consegui converter');
+      await portal18.ownerPv(sock, { sticker: fig });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+    }
+    return true;
+  },
+
+  // !figgif [tipo] — figurinha ANIMADA a partir de um GIF
+  async figgif({ sock, ctx, args, config: cfg }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const localConfig = cfg || config;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    const tipo = (args[0] || 'neko').toLowerCase().replace(/[^a-z]/g, '');
+    await portal18.ownerPv(sock, { text: `🎞️ A criar figurinha animada (*${tipo}*)...` });
+    try {
+      let gif;
+      try { gif = await portal18.purrbotGif(tipo, true); }
+      catch { gif = await portal18.nekosGif(tipo); }
+
+      const buf = await mediaHandler.fetchBuffer(gif[0].url);
+      if (!buf || buf.length < 1000) throw new Error('GIF vazio');
+
+      const fig = await stickerMaker.create(buf, {
+        botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+        userName: ctx.pushName || 'Dark', groupName: 'PV',
+        packName: `🔞 ${localConfig.bot.name} GIF`, authorName: localConfig.owner.name,
+        isVideo: true,
+      });
+      if (fig) { await portal18.ownerPv(sock, { sticker: fig }); return true; }
+
+      // Sem ffmpeg não dá para animar → manda o GIF como vídeo
+      await portal18.ownerPv(sock, {
+        video: buf, gifPlayback: true,
+        caption: `🎞️ *${tipo}*\n⚠️ Sem ffmpeg não converti em figurinha animada — vai como GIF.`,
+      });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+    }
+    return true;
+  },
+
+  // !packbusca <nome> [qtd] — pack de figurinhas por nome
+  async packbusca({ sock, ctx, args, config: cfg }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const localConfig = cfg || config;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    const argv = [...args];
+    let qtd = 4;
+    if (argv.length > 1 && /^\d+$/.test(argv[argv.length - 1])) {
+      qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
+    }
+    const nome = portal18.cleanQuery(argv.join(' ').trim());
+    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *packbusca <nome> [qtd]*' }); return true; }
+    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
+
+    await portal18.ownerPv(sock, { text: `🎭 Pack de *${qtd}* figurinhas de *${nome}*...` });
+    let feitas = 0;
+    try {
+      const imgs = await portal18.searchByName(nome, qtd);
+      for (const img of imgs) {
+        try {
+          const buf = await mediaHandler.fetchBuffer(img.url);
+          if (!buf || buf.length < 1000) continue;
+          const fig = await stickerMaker.create(buf, {
+            botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+            userName: ctx.pushName || 'Dark', groupName: 'PV',
+            packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
+          });
+          if (fig) { await portal18.ownerPv(sock, { sticker: fig }); feitas++; }
+          await new Promise(r => setTimeout(r, 800));
+        } catch { /* salta e continua */ }
+      }
+      await portal18.ownerPv(sock, { text: feitas ? `✅ *${feitas}/${qtd}* figurinhas de *${nome}*.` : '😕 Não consegui criar nenhuma.' });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+    }
+    return true;
   },
 
   // ── v6.50: FIGURINHAS 18+ (fig18 / pack18) ────────────────
