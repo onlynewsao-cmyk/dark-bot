@@ -1326,7 +1326,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
       // ⚡ REACCAO AUTOMATICA DE EMOJI (como pessoa real)
       // v6.43: só a AURA acordada reage. O assistente fica sóbrio.
-      if (_awake && isOwner && !isSilenced) {
+      if (_awake && isOwner && !aura.isSilenced(ctx.senderNumber)) {  // v6.52: era `!isSilenced` — variavel inexistente, rebentava a resposta da AURA em TODAS as mensagens
         const ownerReacts = ['🖤', '🌹', '💕', '😏', '🥰', '✨', '💗', '💫', '😈'];
         const rEmoji = ownerReacts[Math.floor(Math.random() * ownerReacts.length)];
         sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});

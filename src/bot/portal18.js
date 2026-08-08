@@ -52,14 +52,56 @@ function cleanQuery(q = '') {
 // ─────────────────────────────────────────────
 // OWNER PV — envia exclusivamente no PV do dono
 // ─────────────────────────────────────────────
-async function ownerPv(sock, payload) {
-  const num = String(config.owner.number || '').replace(/\D/g, '');
-  if (!num) return;
-  const jid = `${num}@s.whatsapp.net`;
-  return sock.sendMessage(jid, payload).catch(e => {
-    console.warn('[Portal18] ownerPv falhou:', e.message);
-  });
+// v6.52: o ownerPv construía o JID a partir do .env
+// (`244945280380@s.whatsapp.net`). No WhatsApp moderno o dono pode
+// estar identificado por LID (`…@lid`) ou ter o JID noutro formato —
+// a mensagem ia para um destino inexistente e o `.catch` engolia o
+// erro em silêncio. Resultado: o bot confirmava "enviado no teu PV"
+// e não chegava nada.
+//
+// Agora:
+//   1. Usa o JID REAL de quem chamou o comando (ctx.senderJid),
+//      que é o que o WhatsApp acabou de nos entregar e existe de certeza
+//   2. Tenta vários formatos em cascata
+//   3. Devolve true/false para o chamador saber se chegou mesmo
+let _pvJidOk = null;   // memoriza o formato que funcionou
+
+function setOwnerJid(jid) {
+  if (jid && typeof jid === 'string') _pvJidOk = jid;
 }
+
+async function ownerPv(sock, payload, ctx = null) {
+  const num = String(config.owner.number || '').replace(/\D/g, '');
+
+  // Ordem de tentativa: o que já funcionou → JID real do chamador → .env
+  const candidatos = [
+    _pvJidOk,
+    ctx?.senderJid,
+    ctx?.senderNumber ? `${String(ctx.senderNumber).replace(/\D/g, '')}@s.whatsapp.net` : null,
+    num ? `${num}@s.whatsapp.net` : null,
+  ].filter(Boolean);
+
+  const tentados = new Set();
+  let ultimoErro = null;
+
+  for (const jid of candidatos) {
+    if (tentados.has(jid)) continue;
+    tentados.add(jid);
+    try {
+      await sock.sendMessage(jid, payload);
+      _pvJidOk = jid;         // memoriza para as próximas
+      return true;
+    } catch (e) {
+      ultimoErro = e;
+    }
+  }
+
+  console.warn('[Portal18] ownerPv NÃO entregou:',
+    ultimoErro?.message?.slice(0, 80) || 'nenhum JID válido',
+    '| tentados:', [...tentados].join(', '));
+  return false;
+}
+
 
 // ─────────────────────────────────────────────
 // HELPER — paginação aleatória
@@ -485,6 +527,7 @@ module.exports = {
   isBlocked,
   cleanQuery,
   ownerPv,
+  setOwnerJid,
   yandeImages,
   konachanImages,
   e621Images,

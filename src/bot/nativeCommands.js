@@ -1333,6 +1333,9 @@ module.exports = {
       try {
         await sock.sendMessage(jid, { text: menuText });
         pvSent = true;
+        // v6.52: memoriza o JID que funcionou — os outros comandos 18+
+        // (ownerPv) passam a usá-lo em vez de o construir do .env.
+        portal18.setOwnerJid(jid);
         break;
       } catch {}
     }
@@ -1896,7 +1899,7 @@ module.exports = {
     const enabled   = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
     const apiUrl    = await BotConfig.get('adult_search_api_url', '').catch(() => '');
     const menuText  = portal18.portalMenuText(localConfig.owner.name, enabled, !!apiUrl, p);
-    await portal18.ownerPv(sock, { text: menuText });
+    await portal18.ownerPv(sock, { text: menuText }, ctx);
     if (!ctx.isGroup) await sock.sendMessage(ctx.remoteJid, { text: menuText }, { quoted: msg });
     return true;
   },
@@ -1906,12 +1909,12 @@ module.exports = {
     const v = (args[0] || '').toLowerCase();
     if (!['on', 'off'].includes(v)) {
       const cur = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-      await portal18.ownerPv(sock, { text: `🕳️ Portal 18+: *${cur ? 'ACTIVO 🟢' : 'INACTIVO 🔴'}*\n\nUse: adultmode on/off` });
+      await portal18.ownerPv(sock, { text: `🕳️ Portal 18+: *${cur ? 'ACTIVO 🟢' : 'INACTIVO 🔴'}*\n\nUse: adultmode on/off` }, ctx);
       return true;
     }
     await BotConfig.set('adult_mode_enabled', v === 'on');
     botConfigCache.clear();
-    await portal18.ownerPv(sock, { text: `✅ Portal 18+: *${v === 'on' ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}*` });
+    await portal18.ownerPv(sock, { text: `✅ Portal 18+: *${v === 'on' ? 'ACTIVADO 🟢' : 'DESACTIVADO 🔴'}*` }, ctx);
     if (!ctx.isGroup) await sock.sendMessage(ctx.remoteJid, { text: `✅ Portal 18+: ${v.toUpperCase()}` }, { quoted: msg });
     return true;
   },
@@ -1925,12 +1928,12 @@ module.exports = {
         `Formato: adultapi https://suaapi.com/search?q={query}\n\n` +
         `A API deve retornar JSON com URLs de vídeo MP4.\n` +
         `Substitua {query} onde vai a pesquisa.`
-      });
+      }, ctx);
       return true;
     }
     await BotConfig.set('adult_search_api_url', url);
     botConfigCache.clear();
-    await portal18.ownerPv(sock, { text: `✅ API de vídeo 18+ configurada.\nConteúdo vai apenas para o teu PV.` });
+    await portal18.ownerPv(sock, { text: `✅ API de vídeo 18+ configurada.\nConteúdo vai apenas para o teu PV.` }, ctx);
     return true;
   },
 
@@ -1938,10 +1941,10 @@ module.exports = {
   async hentai({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const tags = portal18.cleanQuery(args.join(' ') || 'nude rating:e');
-    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
-    await portal18.ownerPv(sock, { text: `🔍 A buscar: *${tags}*...` });
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }, ctx); return true; }
+    await portal18.ownerPv(sock, { text: `🔍 A buscar: *${tags}*...` }, ctx);
     try {
       const imgs = await portal18.searchImages(tags, 3);
       for (let i = 0; i < imgs.length; i++) {
@@ -1949,11 +1952,11 @@ module.exports = {
         await portal18.ownerPv(sock, {
           image: { url: img.url },
           caption: `🕳️ *Hentai ${i+1}/${imgs.length}*\n🏷️ ${img.tags.slice(0,80)}\n⭐ Score: ${img.score}\n📡 ${img.source}`,
-        });
+        }, ctx);
         await new Promise(r => setTimeout(r, 700));
       }
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ Erro: ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ Erro: ${e.message}` }, ctx);
     }
     return true;
   },
@@ -1962,10 +1965,10 @@ module.exports = {
   async ximg({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const tags = portal18.cleanQuery(args.join(' ') || 'nude');
-    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
-    await portal18.ownerPv(sock, { text: `🔍 A buscar imagens: *${tags}*...` });
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
+    await portal18.ownerPv(sock, { text: `🔍 A buscar imagens: *${tags}*...` }, ctx);
     try {
       const imgs = await portal18.searchImages(tags, 4);
       for (let i = 0; i < imgs.length; i++) {
@@ -1973,11 +1976,11 @@ module.exports = {
         await portal18.ownerPv(sock, {
           image: { url: img.url },
           caption: `📸 *xImg ${i+1}/${imgs.length}*\n🏷️ ${img.tags.slice(0,80)}\n📡 ${img.source}`,
-        });
+        }, ctx);
         await new Promise(r => setTimeout(r, 700));
       }
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ ${e.message}` }, ctx);
     }
     return true;
   },
@@ -1993,14 +1996,29 @@ module.exports = {
   // Helper partilhado: valida acesso e envia as imagens no PV
   async _adultSend(sock, ctx, { titulo, tags, fetcher, count = 3 }) {
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
     const q = portal18.cleanQuery(tags);
-    if (portal18.isBlocked(q)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+    if (portal18.isBlocked(q)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🔍 ${titulo}: *${q}*...` });
+    // v6.52: se o PV não estiver acessível, avisa NO GRUPO em vez de
+    // fingir que enviou. Era isto que fazia o bot confirmar e não
+    // chegar nada — o utilizador ficava à espera de algo que não vinha.
+    const pvOk = await portal18.ownerPv(sock, { text: `🔍 ${titulo}: *${q}*...` }, ctx);
+    if (pvOk === false) {
+      const alvo = ctx?.remoteJid;
+      if (alvo) {
+        await sock.sendMessage(alvo, {
+          text: '⚠️ *Não consegui enviar no teu PV.*\n\n' +
+                'Manda-me uma mensagem no privado primeiro (basta um "oi") ' +
+                'e tenta outra vez — o WhatsApp só deixa o bot iniciar conversa depois disso.',
+        }).catch(() => {});
+      }
+      return true;
+    }
+
     try {
       const imgs = await fetcher(q, count);
-      if (!imgs || !imgs.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados. Tenta outras tags.' }); return true; }
+      if (!imgs || !imgs.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados. Tenta outras tags.' }, ctx); return true; }
       for (let i = 0; i < imgs.length; i++) {
         const img = imgs[i];
         const isVid = /\.(webm|mp4|gif)$/i.test(String(img.url || ''));
@@ -2012,12 +2030,12 @@ module.exports = {
             : { image: { url: img.url }, caption: legenda });
         } catch {
           // Se a mídia falhar (URL morta, formato recusado) manda o link
-          await portal18.ownerPv(sock, { text: `${legenda}\n🔗 ${img.url}` });
+          await portal18.ownerPv(sock, { text: `${legenda}\n🔗 ${img.url}` }, ctx);
         }
         await new Promise(r => setTimeout(r, 700));
       }
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 120)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 120)}` }, ctx);
     }
     return true;
   },
@@ -2071,7 +2089,7 @@ module.exports = {
   async buscar18({ sock, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const nome = args.join(' ').trim();
-    if (!nome) { await portal18.ownerPv(sock, { text: '🔎 Uso: *buscar18 <nome>*\nEx: buscar18 hatsune miku' }); return true; }
+    if (!nome) { await portal18.ownerPv(sock, { text: '🔎 Uso: *buscar18 <nome>*\nEx: buscar18 hatsune miku' }, ctx); return true; }
     return module.exports._adultSend(sock, ctx, {
       titulo: `🔎 ${nome}`, tags: nome, count: 4,
       fetcher: (q, n) => portal18.searchByName(q, n),
@@ -2116,13 +2134,13 @@ module.exports = {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const localConfig = cfg || config;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const nome = portal18.cleanQuery(args.join(' ').trim());
-    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *figbusca <nome>*' }); return true; }
-    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
+    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *figbusca <nome>*' }, ctx); return true; }
+    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 A procurar *${nome}* e a criar figurinha...` });
+    await portal18.ownerPv(sock, { text: `🎭 A procurar *${nome}* e a criar figurinha...` }, ctx);
     try {
       const imgs = await portal18.searchByName(nome, 1);
       const buf = await mediaHandler.fetchBuffer(imgs[0].url);
@@ -2132,9 +2150,9 @@ module.exports = {
         packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
       });
       if (!fig) throw new Error('não consegui converter');
-      await portal18.ownerPv(sock, { sticker: fig });
+      await portal18.ownerPv(sock, { sticker: fig }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
     return true;
   },
@@ -2144,10 +2162,10 @@ module.exports = {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const localConfig = cfg || config;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const tipo = (args[0] || 'neko').toLowerCase().replace(/[^a-z]/g, '');
-    await portal18.ownerPv(sock, { text: `🎞️ A criar figurinha animada (*${tipo}*)...` });
+    await portal18.ownerPv(sock, { text: `🎞️ A criar figurinha animada (*${tipo}*)...` }, ctx);
     try {
       let gif;
       try { gif = await portal18.purrbotGif(tipo, true); }
@@ -2162,15 +2180,15 @@ module.exports = {
         packName: `🔞 ${localConfig.bot.name} GIF`, authorName: localConfig.owner.name,
         isVideo: true,
       });
-      if (fig) { await portal18.ownerPv(sock, { sticker: fig }); return true; }
+      if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); return true; }
 
       // Sem ffmpeg não dá para animar → manda o GIF como vídeo
       await portal18.ownerPv(sock, {
         video: buf, gifPlayback: true,
         caption: `🎞️ *${tipo}*\n⚠️ Sem ffmpeg não converti em figurinha animada — vai como GIF.`,
-      });
+      }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
     return true;
   },
@@ -2180,7 +2198,7 @@ module.exports = {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const localConfig = cfg || config;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const argv = [...args];
     let qtd = 4;
@@ -2188,10 +2206,10 @@ module.exports = {
       qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
     }
     const nome = portal18.cleanQuery(argv.join(' ').trim());
-    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *packbusca <nome> [qtd]*' }); return true; }
-    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
+    if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *packbusca <nome> [qtd]*' }, ctx); return true; }
+    if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 Pack de *${qtd}* figurinhas de *${nome}*...` });
+    await portal18.ownerPv(sock, { text: `🎭 Pack de *${qtd}* figurinhas de *${nome}*...` }, ctx);
     let feitas = 0;
     try {
       const imgs = await portal18.searchByName(nome, qtd);
@@ -2204,13 +2222,13 @@ module.exports = {
             userName: ctx.pushName || 'Dark', groupName: 'PV',
             packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
           });
-          if (fig) { await portal18.ownerPv(sock, { sticker: fig }); feitas++; }
+          if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); feitas++; }
           await new Promise(r => setTimeout(r, 800));
         } catch { /* salta e continua */ }
       }
-      await portal18.ownerPv(sock, { text: feitas ? `✅ *${feitas}/${qtd}* figurinhas de *${nome}*.` : '😕 Não consegui criar nenhuma.' });
+      await portal18.ownerPv(sock, { text: feitas ? `✅ *${feitas}/${qtd}* figurinhas de *${nome}*.` : '😕 Não consegui criar nenhuma.' }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
     return true;
   },
@@ -2225,15 +2243,15 @@ module.exports = {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const localConfig = cfg || config;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const tags = portal18.cleanQuery(args.join(' ') || 'nude');
-    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 A criar figurinha: *${tags}*...` });
+    await portal18.ownerPv(sock, { text: `🎭 A criar figurinha: *${tags}*...` }, ctx);
     try {
       const imgs = await portal18.searchImages(tags, 1);
-      if (!imgs?.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados.' }); return true; }
+      if (!imgs?.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados.' }, ctx); return true; }
 
       const buf = await mediaHandler.fetchBuffer(imgs[0].url);
       if (!buf || buf.length < 1000) throw new Error('imagem vazia');
@@ -2244,9 +2262,9 @@ module.exports = {
         packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
       });
       if (!fig) throw new Error('não consegui converter em figurinha');
-      await portal18.ownerPv(sock, { sticker: fig });
+      await portal18.ownerPv(sock, { sticker: fig }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
     return true;
   },
@@ -2256,7 +2274,7 @@ module.exports = {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const localConfig = cfg || config;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     // último argumento numérico = quantidade
     const argv = [...args];
@@ -2265,9 +2283,9 @@ module.exports = {
       qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
     }
     const tags = portal18.cleanQuery(argv.join(' ') || 'nude');
-    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 A criar pack de *${qtd}* figurinhas: *${tags}*...` });
+    await portal18.ownerPv(sock, { text: `🎭 A criar pack de *${qtd}* figurinhas: *${tags}*...` }, ctx);
     let feitas = 0;
     try {
       const imgs = await portal18.searchImages(tags, qtd);
@@ -2280,15 +2298,15 @@ module.exports = {
             userName: ctx.pushName || 'Dark', groupName: 'PV',
             packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
           });
-          if (fig) { await portal18.ownerPv(sock, { sticker: fig }); feitas++; }
+          if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); feitas++; }
           await new Promise(r => setTimeout(r, 800));
         } catch { /* salta a que falhar e continua o pack */ }
       }
       await portal18.ownerPv(sock, {
         text: feitas ? `✅ Pack pronto — *${feitas}/${qtd}* figurinhas.` : '😕 Não consegui criar nenhuma.',
-      });
+      }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
     return true;
   },
@@ -2297,28 +2315,28 @@ module.exports = {
   async xvideodl({ sock, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const url = (args[0] || '').trim();
     if (!/^https?:\/\//i.test(url)) {
-      await portal18.ownerPv(sock, { text: '📎 Uso: *xvideodl <url do vídeo>*' });
+      await portal18.ownerPv(sock, { text: '📎 Uso: *xvideodl <url do vídeo>*' }, ctx);
       return true;
     }
-    await portal18.ownerPv(sock, { text: '⬇️ A baixar o vídeo...' });
+    await portal18.ownerPv(sock, { text: '⬇️ A baixar o vídeo...' }, ctx);
     try {
       const buf = await mediaHandler.fetchBuffer(url);
       if (!buf || buf.length < 10000) throw new Error('ficheiro vazio ou demasiado pequeno');
       // WhatsApp recusa vídeos muito grandes — avisa em vez de falhar em silêncio
       if (buf.length > 60 * 1024 * 1024) {
-        await portal18.ownerPv(sock, { text: `⚠️ Vídeo grande demais (${(buf.length / 1048576).toFixed(1)}MB).\n🔗 ${url}` });
+        await portal18.ownerPv(sock, { text: `⚠️ Vídeo grande demais (${(buf.length / 1048576).toFixed(1)}MB).\n🔗 ${url}` }, ctx);
         return true;
       }
       await portal18.ownerPv(sock, {
         video: buf,
         caption: `🎬 *Download concluído*\n📦 ${(buf.length / 1048576).toFixed(1)}MB`,
-      });
+      }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 100)}\n🔗 ${url}` });
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 100)}\n🔗 ${url}` }, ctx);
     }
     return true;
   },
@@ -2354,7 +2372,7 @@ module.exports = {
       ...estado,
       '',
       '> Conteúdo entregue sempre no PV do Dono.',
-    ].join('\n') });
+    ].join('\n') }, ctx);
     return true;
   },
 
@@ -2362,10 +2380,10 @@ module.exports = {
   async adultsearch({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const query = portal18.cleanQuery(args.join(' ') || 'nude');
-    if (portal18.isBlocked(query)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
-    await portal18.ownerPv(sock, { text: `🔍 Pesquisando em múltiplas fontes: *${query}*...` });
+    if (portal18.isBlocked(query)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
+    await portal18.ownerPv(sock, { text: `🔍 Pesquisando em múltiplas fontes: *${query}*...` }, ctx);
     // Busca em paralelo em 2 fontes
     const results = await Promise.allSettled([
       portal18.yandeImages(query, 2),
@@ -2373,7 +2391,7 @@ module.exports = {
     ]);
     const imgs = results.flatMap(r => r.status === 'fulfilled' ? r.value : []);
     if (!imgs.length) {
-      await portal18.ownerPv(sock, { text: `❌ Sem resultados para: ${query}` });
+      await portal18.ownerPv(sock, { text: `❌ Sem resultados para: ${query}` }, ctx);
       return true;
     }
     for (let i = 0; i < imgs.length; i++) {
@@ -2381,7 +2399,7 @@ module.exports = {
       await portal18.ownerPv(sock, {
         image: { url: img.url },
         caption: `🔍 *Busca ${i+1}/${imgs.length}*\n🏷️ ${img.tags.slice(0,80)}\n📡 ${img.source}`,
-      });
+      }, ctx);
       await new Promise(r => setTimeout(r, 700));
     }
     return true;
@@ -2391,26 +2409,26 @@ module.exports = {
   async adultvideo({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const q = portal18.cleanQuery(args.join(' ') || 'adult video');
-    if (portal18.isBlocked(q)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }); return true; }
+    if (portal18.isBlocked(q)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
     const apiTpl = await BotConfig.get('adult_search_api_url', '').catch(() => '');
     if (!apiTpl) {
-      await portal18.ownerPv(sock, { text: `⚠️ API de vídeo não configurada.\nUse: adultapi https://suaapi.com/search?q={query}` });
+      await portal18.ownerPv(sock, { text: `⚠️ API de vídeo não configurada.\nUse: adultapi https://suaapi.com/search?q={query}` }, ctx);
       return true;
     }
-    await portal18.ownerPv(sock, { text: `🎬 Buscando vídeos: *${q}*...` });
+    await portal18.ownerPv(sock, { text: `🎬 Buscando vídeos: *${q}*...` }, ctx);
     try {
       const urls = await portal18.fetchAdultVideo(q, apiTpl);
       for (let i = 0; i < urls.length; i++) {
         await portal18.ownerPv(sock, {
           video: { url: urls[i] },
           caption: `🎬 *Vídeo ${i+1}/${urls.length}*\n🔎 ${q}`,
-        });
+        }, ctx);
         await new Promise(r => setTimeout(r, 1000));
       }
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ ${e.message}` }, ctx);
     }
     return true;
   },
@@ -2420,7 +2438,7 @@ module.exports = {
   async hotchat({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
 
     // Último argumento pode ser o estilo
     const styles = ['sensual', 'picante', 'romantico', 'conto', 'conversa'];
@@ -2432,14 +2450,14 @@ module.exports = {
       themeArgs = args.slice(0, -1);
     }
     const tema = portal18.cleanQuery(themeArgs.join(' ') || 'sedução e desejo adulto');
-    if (portal18.isBlocked(tema)) { await portal18.ownerPv(sock, { text: '🚫 Tema bloqueado.' }); return true; }
+    if (portal18.isBlocked(tema)) { await portal18.ownerPv(sock, { text: '🚫 Tema bloqueado.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🔥 Gerando chat 18+ [${style}]...` });
+    await portal18.ownerPv(sock, { text: `🔥 Gerando chat 18+ [${style}]...` }, ctx);
     try {
       const out = await portal18.hotChatIA(tema, style);
-      await portal18.ownerPv(sock, { text: `🥵 *HOTCHAT 18+ — ${style.toUpperCase()}*\n🎭 Tema: _${tema}_\n\n${out}` });
+      await portal18.ownerPv(sock, { text: `🥵 *HOTCHAT 18+ — ${style.toUpperCase()}*\n🎭 Tema: _${tema}_\n\n${out}` }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ HotChat falhou: ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ HotChat falhou: ${e.message}` }, ctx);
     }
     return true;
   },
@@ -2448,9 +2466,9 @@ module.exports = {
   async buscalivro({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const query = portal18.cleanQuery(args.join(' ') || 'romance adult passion desire');
-    await portal18.ownerPv(sock, { text: `📚 Buscando livros: *${query}*...` });
+    await portal18.ownerPv(sock, { text: `📚 Buscando livros: *${query}*...` }, ctx);
     try {
       const books = await portal18.searchBooks(query, 5);
       let text = `📚 *LIVROS ENCONTRADOS*\n🔎 Busca: _${query}_\n\n`;
@@ -2461,9 +2479,9 @@ module.exports = {
         if (b.link) text += `   🔗 ${b.link}\n`;
         text += `   📡 ${b.source}\n\n`;
       }
-      await portal18.ownerPv(sock, { text: text.trim() });
+      await portal18.ownerPv(sock, { text: text.trim() }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ ${e.message}` }, ctx);
     }
     return true;
   },
@@ -2472,8 +2490,8 @@ module.exports = {
   async livros18({ sock, msg, ctx }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
-    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }); return true; }
-    await portal18.ownerPv(sock, { text: '📚 Carregando livros 18+ populares...' });
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
+    await portal18.ownerPv(sock, { text: '📚 Carregando livros 18+ populares...' }, ctx);
     try {
       const books = await portal18.popularBooks18(6);
       let text = `📚 *TOP LIVROS ADULTOS 18+*\n\n`;
@@ -2484,9 +2502,9 @@ module.exports = {
         text += `\n`;
       }
       text += `📡 Fonte: ${books[0]?.source || 'OpenLibrary'}`;
-      await portal18.ownerPv(sock, { text });
+      await portal18.ownerPv(sock, { text }, ctx);
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${e.message}` });
+      await portal18.ownerPv(sock, { text: `❌ ${e.message}` }, ctx);
     }
     return true;
   },
