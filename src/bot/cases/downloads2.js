@@ -5,8 +5,11 @@
  */
 'use strict';
 
-const downloader = require('../downloader');
-const mediaHandler = require('../mediaHandler');
+// v6.46: lazy-load — puxa sharp/ffmpeg, pesado no cold start do Render.
+let _lz_downloader;
+const downloader = new Proxy({}, { get: (_, k) => (_lz_downloader ||= require('../downloader'))[k] });
+let _lz_mediaHandler;
+const mediaHandler = new Proxy({}, { get: (_, k) => (_lz_mediaHandler ||= require('../mediaHandler'))[k] });
 const config = require('../../config');
 
 // Helper: enviar áudio
