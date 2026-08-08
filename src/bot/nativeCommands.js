@@ -2,6 +2,7 @@ const Command = require('../database/models/Command');
 const User = require('../database/models/User');
 const Log = require('../database/models/Log');
 const AntiStatus = require('../database/models/AntiStatus');
+const portal18 = require('./portal18');  // v6.49: FALTAVA — 72 usos de portal18.* rebentavam com ReferenceError; todo o portal 18+ estava morto
 const BotConfig = require('../database/models/BotConfig');
 const AiMemory = require('../database/models/AiMemory');
 const GroupSettings = require('../database/models/GroupSettings');
@@ -1268,6 +1269,12 @@ module.exports = {
       '👑 ' + p + 'hentai [tags] — anime adulto aleatório',
       '👑 ' + p + 'ximg [tags] — busca por tags específicas',
       '👑 ' + p + 'adultsearch [t] — busca multi-fonte',
+      // v6.49: reposto — as funções já existiam no portal18.js e
+      // entregam imagens reais; só faltavam os comandos que as chamam.
+      '👑 ' + p + 'yande [tags] — yande.re, alta resolução',
+      '👑 ' + p + 'kona [tags] — konachan.com',
+      '👑 ' + p + 'e621 [tags] — e621.net (imagem/gif/webm)',
+      '👑 ' + p + 'nekos [tipo] — nekos.life',
       '💎 ' + p + 'erome <nome> — busca erome.com',
       '💎 ' + p + 'erome <nome> <qtd> — com quantidade',
       '💎 ' + p + 'eromevid <nome> — vídeos erome',
@@ -1289,6 +1296,7 @@ module.exports = {
       '⚙️ *CONTROLO (só Dono)*',
       '👑 ' + p + 'adultmode on/off — liga/desliga o portal',
       '👑 ' + p + 'adultapi <url> — configura API de vídeo',
+      '👑 ' + p + 'adultstats — estado do portal e das fontes',
       '',
       '> 👑 = só Dono   💎 = VIP e Dono',
       '> ⚠️ O portal tem de estar ON (' + p + 'adultmode on)',
@@ -1953,6 +1961,118 @@ module.exports = {
     } catch (e) {
       await portal18.ownerPv(sock, { text: `❌ ${e.message}` });
     }
+    return true;
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // v6.49: COMANDOS 18+ QUE FALTAVAM
+  // O portal18.js já tinha yandeImages/konachanImages/e621Images/
+  // nekosLifeImage prontas e a funcionar (testado: as 4 devolvem
+  // imagens reais, 200KB–3MB), mas NÃO havia comando para as chamar.
+  // O menu anunciava-os e dava "comando não encontrado".
+  // ══════════════════════════════════════════════════════════
+
+  // Helper partilhado: valida acesso e envia as imagens no PV
+  async _adultSend(sock, ctx, { titulo, tags, fetcher, count = 3 }) {
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+    const q = portal18.cleanQuery(tags);
+    if (portal18.isBlocked(q)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+
+    await portal18.ownerPv(sock, { text: `🔍 ${titulo}: *${q}*...` });
+    try {
+      const imgs = await fetcher(q, count);
+      if (!imgs || !imgs.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados. Tenta outras tags.' }); return true; }
+      for (let i = 0; i < imgs.length; i++) {
+        const img = imgs[i];
+        const isVid = /\.(webm|mp4|gif)$/i.test(String(img.url || ''));
+        const legenda = `${titulo} *${i + 1}/${imgs.length}*\n🏷️ ${String(img.tags || '').slice(0, 80)}` +
+                        `${img.score ? `\n⭐ ${img.score}` : ''}\n📡 ${img.source || '—'}`;
+        try {
+          await portal18.ownerPv(sock, isVid
+            ? { video: { url: img.url }, caption: legenda, gifPlayback: /\.gif$/i.test(img.url) }
+            : { image: { url: img.url }, caption: legenda });
+        } catch {
+          // Se a mídia falhar (URL morta, formato recusado) manda o link
+          await portal18.ownerPv(sock, { text: `${legenda}\n🔗 ${img.url}` });
+        }
+        await new Promise(r => setTimeout(r, 700));
+      }
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 120)}` });
+    }
+    return true;
+  },
+
+  // !yande [tags] — yande.re, anime em alta resolução
+  async yande({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    return module.exports._adultSend(sock, ctx, {
+      titulo: '🌸 yande.re', tags: args.join(' ') || 'nude',
+      fetcher: (q, n) => portal18.yandeImages(q, n),
+    });
+  },
+
+  // !kona [tags] — konachan.com, wallpapers anime
+  async kona({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    return module.exports._adultSend(sock, ctx, {
+      titulo: '🍥 konachan', tags: args.join(' ') || 'nude',
+      fetcher: (q, n) => portal18.konachanImages(q, n),
+    });
+  },
+
+  // !e621 [tags] — e621.net (suporta webm/gif)
+  async e621({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    return module.exports._adultSend(sock, ctx, {
+      titulo: '🐾 e621', tags: args.join(' ') || 'rating:e',
+      fetcher: (q, n) => portal18.e621Images(q, n),
+    });
+  },
+
+  // !nekos [tipo] — nekos.life
+  async nekos({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const tipo = (args[0] || 'lewd').toLowerCase().replace(/[^a-z]/g, '');
+    return module.exports._adultSend(sock, ctx, {
+      titulo: '🐱 nekos.life', tags: tipo,
+      fetcher: (q) => portal18.nekosLifeImage(q || 'lewd'),
+    });
+  },
+
+  // !adultstats — estado do portal (só dono)
+  async adultstats({ sock, ctx }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    const apiUrl = await BotConfig.get('adult_video_api', '').catch(() => '');
+    const usos = await BotConfig.get('adult_uses', 0).catch(() => 0);
+
+    // Testa as fontes ao vivo, em paralelo
+    const fontes = [
+      ['yande.re',   () => portal18.yandeImages('nude', 1)],
+      ['konachan',   () => portal18.konachanImages('nude', 1)],
+      ['e621',       () => portal18.e621Images('rating:e', 1)],
+      ['nekos.life', () => portal18.nekosLifeImage('lewd')],
+    ];
+    const estado = await Promise.all(fontes.map(async ([nome, fn]) => {
+      const t0 = Date.now();
+      try { const r = await fn(); return `${r?.length ? '✅' : '⚠️'} ${nome} — ${Date.now() - t0}ms`; }
+      catch { return `❌ ${nome} — fora de serviço`; }
+    }));
+
+    await portal18.ownerPv(sock, { text: [
+      '📊 *ESTADO DO PORTAL 18+*',
+      '',
+      `${enabled ? '🟢' : '🔴'} Portal: *${enabled ? 'LIGADO' : 'DESLIGADO'}*`,
+      `${apiUrl ? '🟢' : '⬜'} API de vídeo: ${apiUrl ? 'configurada' : 'não configurada'}`,
+      `🔢 Utilizações: *${usos}*`,
+      '',
+      '*FONTES DE IMAGEM*',
+      ...estado,
+      '',
+      '> Conteúdo entregue sempre no PV do Dono.',
+    ].join('\n') });
     return true;
   },
 
