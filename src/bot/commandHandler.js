@@ -656,7 +656,12 @@ async function _handleInner(sock, msg) {
       await sock.sendMessage(ctx.remoteJid, { text: '_faz continência_ ...entendido meu Dark. Fico calada.' }, { quoted: msg });
       return true;
     }
-    if (/aura.*(pode falar|volta|acorda)/.test(t)) {
+    // v6.46: este bloco tratava "aura acorda" como "sai do silêncio",
+    // e como corre ANTES do auraIntent (~linha 1000) roubava-lhe a
+    // invocação — o grupo nunca mudava para modo AURA.
+    // Agora só limpa o silêncio se ela estiver MESMO silenciada;
+    // caso contrário deixa passar para o sistema de intenção.
+    if (/aura.*(pode falar|volta|acorda)/.test(t) && aura.isSilenced(ctx.senderNumber)) {
       aura.clearSilence();
       await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark 🖤' }, { quoted: msg });
       return true;

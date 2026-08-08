@@ -5,7 +5,9 @@
 'use strict';
 
 const config = require('../../config');
-const stickerMaker = require('../stickerMaker');
+// v6.46: lazy-load — puxa sharp/ffmpeg, pesado no cold start do Render.
+let _lz_stickerMaker;
+const stickerMaker = new Proxy({}, { get: (_, k) => (_lz_stickerMaker ||= require('../stickerMaker'))[k] });
 
 module.exports = function registerStickerlyCases(registerCase) {
 

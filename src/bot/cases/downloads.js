@@ -19,9 +19,14 @@
 
 'use strict';
 
-const systemZeroPlay = require('../systemZeroPlay');
-const ytdl           = require('../ytdl');
-const mediaHandler   = require('../mediaHandler');
+// v6.46: lazy-load. Estes módulos puxam ytdl-core/ffmpeg e custavam
+// ~370ms no arranque — só neste ficheiro. No Render free (que dorme
+// por inactividade) isso é tempo somado a CADA cold start, mesmo que
+// ninguém use um download. Agora só carregam quando são precisos.
+let _szp, _ytdl, _mh;
+const systemZeroPlay = new Proxy({}, { get: (_, k) => (_szp ||= require('../systemZeroPlay'))[k] });
+const ytdl           = new Proxy({}, { get: (_, k) => (_ytdl ||= require('../ytdl'))[k] });
+const mediaHandler   = new Proxy({}, { get: (_, k) => (_mh   ||= require('../mediaHandler'))[k] });
 const config         = require('../../config');
 
 // ── Helper: envia áudio com card de metadados ─────────────────
