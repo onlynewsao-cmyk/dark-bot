@@ -1,0 +1,177 @@
+/**
+ * DARK BOT — Auditoria do submenu MENU18 (Portal 18+)
+ *
+ * Um submenu de cada vez, com o mesmo rigor das APIs e da AURA:
+ *   1. ACESSO      — Free bloqueado, VIP e Dono entram
+ *   2. CONTEÚDO    — mostra o portal real (não a categoria 'outros')
+ *   3. PROMESSAS   — todo o comando anunciado EXISTE mesmo
+ *   4. HONESTIDADE — o menu diz quem pode usar cada comando
+ *   5. SEGURANÇA   — privacidade, filtros e portal desligado por omissão
+ *
+ * Uso: node scripts/test-menu18.js
+ */
+'use strict';
+
+process.env.OWNER_NUMBER = '244945280380';
+process.env.BOT_NUMBER   = '244949926074';
+process.env.BOT_NAME     = 'DARK BOT';
+process.env.BOT_PREFIX   = '.';
+
+const path = require('path');
+const Module = require('module');
+const origRequire = Module.prototype.require;
+
+const OWNER = '244945280380';
+const VIP   = '244555666777';
+const FREE  = '244111222333';
+const G     = '111111@g.us';
+
+const users = new Map([
+  [OWNER, { whatsappNumber: OWNER, role: 'owner' }],
+  [VIP,   { whatsappNumber: VIP,   role: 'premium', premiumUntil: new Date(Date.now() + 864e5 * 30) }],
+  [FREE,  { whatsappNumber: FREE,  role: 'free' }],
+]);
+
+const grupo = {
+  groupJid: G, groupName: 'Teste', auraMode: 'assistant', botEnabled: true,
+  isHosted: true, hostedUntil: null, trialExpiresAt: new Date(Date.now() + 864e5),
+  commandsUsedToday: 0, totalCommands: 0,
+  lastResetDate: new Date().toISOString().split('T')[0],
+  blockedCommands: [], blockedSubmenus: [], groupPrefix: null, onlyAdmins: false,
+  save: async () => {},
+};
+
+const userDoc = (n) => {
+  const b = users.get(n) || { whatsappNumber: n, role: 'free' };
+  return { ...b, active: true, commandsUsed: 0, createdAt: new Date(),
+    isPremium() { return this.role === 'owner' || (this.role === 'premium' && (!this.premiumUntil || new Date(this.premiumUntil) > new Date())); },
+    save: async () => {} };
+};
+
+Module.prototype.require = function (id) {
+  const m = /models\/(\w+)$/.exec(id);
+  if (m) {
+    const w = (v) => { const p = Promise.resolve(v); p.lean = () => Promise.resolve(v); p.select = () => p; p.catch = () => p; return p; };
+    if (m[1] === 'User') return { findOne: (q) => w(q?.whatsappNumber ? userDoc(String(q.whatsappNumber).replace(/\D/g, '')) : null), find: () => w([]), create: async () => userDoc(FREE), updateOne: async () => ({}), findOneAndUpdate: async () => null, countDocuments: async () => 0 };
+    if (m[1] === 'GroupSettings') return { findOne: () => w(grupo), find: () => w([grupo]), create: async () => grupo, updateOne: async () => ({}), findOneAndUpdate: async () => null, countDocuments: async () => 0 };
+    if (m[1] === 'BotConfig') return { findOne: () => w(null), find: () => w([]), get: async (k, d) => d, set: async () => {}, create: async () => ({}), updateOne: async () => ({}), findOneAndUpdate: async () => null, countDocuments: async () => 0 };
+    return { findOne: () => w(null), find: () => w([]), create: async () => ({}), updateOne: async () => ({}), findOneAndUpdate: async () => null, countDocuments: async () => 0, getOrCreate: async () => ({ addMessage() {}, save: async () => {}, messages: [] }) };
+  }
+  if (id.endsWith('botConfigCache')) {
+    const c = { owner_number: OWNER, ai_auto_enabled: true };
+    return { get: async (k, d) => (k in c ? c[k] : d), set: async () => {}, clear: () => {}, refresh: async () => 0, getMany: async () => ({}), dump: () => c };
+  }
+  return origRequire.apply(this, arguments);
+};
+
+const cmdHandler = require(path.join(__dirname, '..', 'src', 'bot', 'commandHandler'));
+const ch = require(path.join(__dirname, '..', 'src', 'bot', 'caseHandler'));
+
+let GRUPO_OUT = [], PV_OUT = [];
+const sock = {
+  user: { id: '244949926074:1@s.whatsapp.net' },
+  sendMessage: async (jid, c) => {
+    if (c?.react) return { key: {} };
+    const t = c?.text || c?.caption || '';
+    if (t) (String(jid).endsWith('@g.us') ? GRUPO_OUT : PV_OUT).push(String(t));
+    return { key: { id: 'm' } };
+  },
+  relayMessage: async (jid, msg) => {
+    try { const b = msg?.interactiveMessage?.body?.text; if (b) GRUPO_OUT.push(String(b)); } catch {}
+    return {};
+  },
+  groupMetadata: async () => ({ id: G, subject: 'Teste', participants: [
+    { id: OWNER + '@s.whatsapp.net', admin: null },
+    { id: VIP + '@s.whatsapp.net', admin: null },
+    { id: FREE + '@s.whatsapp.net', admin: null }] }),
+  sendPresenceUpdate: async () => {}, readMessages: async () => {}, waUploadToServer: async () => ({}),
+};
+
+const mkMsg = (t, de) => ({ key: { remoteJid: G, participant: de + '@s.whatsapp.net', id: 'X' + Math.random(), fromMe: false }, message: { conversation: t }, pushName: 'U', messageTimestamp: Math.floor(Date.now() / 1000) });
+
+async function abrir(cmd, de) {
+  GRUPO_OUT = []; PV_OUT = [];
+  try { await cmdHandler.handle(sock, mkMsg(cmd, de)); } catch (e) { return { grupo: 'ERRO ' + e.message, pv: '' }; }
+  return { grupo: GRUPO_OUT.join('\n'), pv: PV_OUT.join('\n') };
+}
+
+let ok = 0, fail = 0;
+const check = (nome, cond, extra = '') => {
+  cond ? ok++ : fail++;
+  console.log(`  ${cond ? '✅' : '❌'} ${nome}${extra ? ' → ' + String(extra).replace(/\n/g, ' ').slice(0, 68) : ''}`);
+};
+
+(async () => {
+  console.log('\n╔═══════════════════════════════════════════════════════════════════════╗');
+  console.log('║          DARK BOT — AUDITORIA DO SUBMENU  🔞 MENU18                   ║');
+  console.log('╚═══════════════════════════════════════════════════════════════════════╝\n');
+
+  ch.loadCases();
+
+  // ══ 1. ACESSO ═════════════════════════════════════════════
+  console.log('▸ Controlo de acesso');
+  const rFree = await abrir('.menu18', FREE);
+  check('Free é BLOQUEADO', /VIP|exclusiv/i.test(rFree.grupo) && !/hentai|xvideo/i.test(rFree.grupo + rFree.pv), rFree.grupo);
+  check('Free não recebe nada no PV', !rFree.pv.trim());
+
+  const rVip = await abrir('.menu18', VIP);
+  check('VIP tem acesso', /PORTAL 18/i.test(rVip.pv + rVip.grupo));
+
+  const rDono = await abrir('.menu18', OWNER);
+  check('Dono tem acesso', /PORTAL 18/i.test(rDono.pv + rDono.grupo));
+
+  // ══ 2. CONTEÚDO CERTO ═════════════════════════════════════
+  console.log('\n▸ Mostra o portal real (não a categoria "outros")');
+  const conteudo = rDono.pv + rDono.grupo;
+  check('NÃO mostra "OUTROS COMANDOS"', !/OUTROS COMANDOS/i.test(conteudo));
+  check('NÃO mostra lixo interno', !/__change_theme_handler__|acordaaura|alteradores/i.test(conteudo));
+  check('Mostra comandos 18+ reais', /hentai/i.test(conteudo) && /hotchat/i.test(conteudo));
+
+  // ══ 3. PRIVACIDADE ════════════════════════════════════════
+  console.log('\n▸ Privacidade');
+  check('Conteúdo vai para o PV, não para o grupo', rDono.pv.length > 200 && !/hentai/i.test(rDono.grupo), `PV ${rDono.pv.length} chars`);
+  check('No grupo só fica o aviso', /PV|privad/i.test(rDono.grupo), rDono.grupo);
+
+  // ══ 4. PROMESSAS CUMPRIDAS ════════════════════════════════
+  console.log('\n▸ Todo o comando anunciado EXISTE');
+  const nc = require(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands'));
+  const pk = { ...require(path.join(__dirname, '..', 'src', 'bot', 'packages', 'interactions')),
+               ...require(path.join(__dirname, '..', 'src', 'bot', 'packages', 'games')) };
+  const existe = (c) => ch.CASES.has(c) || typeof nc[c] === 'function' || typeof pk[c] === 'function';
+
+  // extrai os comandos mencionados no texto do menu
+  const anunciados = [...new Set((conteudo.match(/\.([a-z0-9]{3,20})\b/gi) || [])
+    .map(x => x.slice(1).toLowerCase()))]
+    .filter(c => !['menu18', 'vip', 'com', 'net', 'wa'].includes(c));
+  const inexistentes = anunciados.filter(c => !existe(c));
+  check('Nenhum comando fantasma no menu', inexistentes.length === 0,
+    inexistentes.length ? inexistentes.join(', ') : `${anunciados.length} verificados`);
+
+  // os que foram removidos por não existirem
+  const fantasmas = ['nekos', 'yande', 'kona', 'e621', 'xvideodl', 'fig18', 'pack18', 'adultstats'];
+  const aindaLa = fantasmas.filter(c => new RegExp('\\.' + c + '\\b', 'i').test(conteudo));
+  check('Comandos inexistentes foram removidos', aindaLa.length === 0, aindaLa.join(', '));
+
+  // ══ 5. HONESTIDADE SOBRE PERMISSÕES ═══════════════════════
+  console.log('\n▸ O menu diz a verdade sobre quem pode usar');
+  const vipTexto = rVip.pv + rVip.grupo;
+  check('VIP é avisado do acesso limitado', /acesso limitado|só do Dono/i.test(vipTexto));
+  check('Dono vê "acesso total"', /Acesso total/i.test(conteudo));
+  check('Comandos só-dono estão marcados 👑', /👑\s*\.hentai/i.test(conteudo));
+  check('Comandos de VIP estão marcados 💎', /💎\s*\.erome/i.test(conteudo));
+  check('Tem legenda a explicar os símbolos', /👑 = só Dono/i.test(conteudo));
+
+  // ══ 6. SEGURANÇA ══════════════════════════════════════════
+  console.log('\n▸ Segurança');
+  const p18 = require(path.join(__dirname, '..', 'src', 'bot', 'portal18'));
+  const proibidos = ['loli', 'teen colegial', 'criança', 'rape', 'zoofilia', 'underage'];
+  const bloqueados = proibidos.filter(t => p18.isBlocked ? p18.isBlocked(t) : false);
+  check('Filtro de termos ilegais activo', bloqueados.length === proibidos.length, `${bloqueados.length}/${proibidos.length}`);
+
+  const src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands.js'), 'utf8');
+  check('Portal desligado por omissão', /adult_mode_enabled['"]?,\s*false/.test(src));
+  check('Comandos verificam o dono', /isPrimaryOwnerOnly\(ctx\)/.test(src));
+
+  console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
+  process.exit(fail ? 1 : 0);
+})();
