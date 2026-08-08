@@ -152,7 +152,9 @@ const check = (nome, cond, extra = '') => {
   // v6.49: nekos/yande/kona/e621/adultstats foram IMPLEMENTADOS (as funções
   // já existiam no portal18.js, só faltavam os comandos). Continuam sem
   // implementação: xvideodl, livro, fig18, pack18.
-  const fantasmas = ['xvideodl', 'fig18', 'pack18'];
+  // v6.50: xvideodl, fig18 e pack18 foram implementados.
+  // Já não há comandos fantasma no menu.
+  const fantasmas = [];
   const aindaLa = fantasmas.filter(c => new RegExp('\\.' + c + '\\b', 'i').test(conteudo));
   check('Comandos inexistentes foram removidos', aindaLa.length === 0, aindaLa.join(', '));
 
@@ -226,6 +228,35 @@ const check = (nome, cond, extra = '') => {
   let eromeOk = false;
   try { const er = require(path.join(__dirname, '..', 'src', 'bot', 'erome')); eromeOk = typeof er.search === 'function'; } catch {}
   check('Módulo erome carrega', eromeOk);
+
+  // ══ 8. FIGURINHAS E DOWNLOAD (v6.50) ═════════════════════
+  console.log('\n▸ Figurinhas 18+ e download (entrega real)');
+  const mh = require(path.join(__dirname, '..', 'src', 'bot', 'mediaHandler'));
+  const sm = require(path.join(__dirname, '..', 'src', 'bot', 'stickerMaker'));
+
+  const novos2 = ['fig18', 'pack18', 'xvideodl'];
+  const falta2 = novos2.filter(c => typeof nc2[c] !== 'function');
+  check('fig18/pack18/xvideodl registados', falta2.length === 0, falta2.join(', ') || novos2.join(', '));
+
+  // a cadeia completa: fonte → bytes → figurinha WebP
+  let figOk = false, figInfo = '';
+  try {
+    const imgs = await p18.nekosLifeImage('lewd');
+    const buf = await mh.fetchBuffer(imgs[0].url);
+    const fig = await sm.create(buf, { botName: 'DARK BOT', ownerName: 'Dark', userName: 'D', groupName: 'PV', packName: 'T', authorName: 'T' });
+    figOk = !!fig && fig.length > 5000 && fig.slice(8, 12).toString() === 'WEBP';
+    figInfo = `${buf.length} bytes → ${fig ? fig.length : 0} bytes WebP`;
+  } catch (e) { figInfo = e.message.slice(0, 50); }
+  check('Cadeia imagem → figurinha WebP', figOk, figInfo);
+
+  // safebooru: rede de segurança quando as adultas falham
+  let sbOk = false, sbInfo = '';
+  try {
+    const r = await p18.safebooruImages('', 1);
+    sbOk = !!(r?.length && r[0].url && !/undefined/.test(r[0].url));
+    sbInfo = sbOk ? r[0].url.slice(0, 50) : 'sem resultado';
+  } catch (e) { sbInfo = e.message.slice(0, 45); }
+  check('Fonte de reserva (safebooru) viva', sbOk, sbInfo);
 
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
