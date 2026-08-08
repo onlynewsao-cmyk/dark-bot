@@ -177,6 +177,33 @@ async function nekosLifeImage(type = 'lewd') {
 }
 
 // ─────────────────────────────────────────────
+// FONTE 5 — safebooru.org (v6.50)
+// Testada: as outras candidatas estão fechadas —
+//   waifu.pics  → domínio morto (ENOTFOUND)
+//   nekos.best  → HTTP 403
+//   danbooru    → HTTP 403
+//   gelbooru    → HTTP 401
+//   rule34.xxx  → exige chave de API
+// A safebooru responde e entrega bytes reais (testado: 103KB
+// image/jpeg). É SFW, por isso serve de rede de segurança quando
+// as fontes adultas falham — melhor devolver algo do que nada.
+// ─────────────────────────────────────────────
+async function safebooruImages(tags = '', count = 3) {
+  const safe = String(tags || '').replace(/loli|shota|child|minor/gi, '').trim();
+  const q = (safe ? safe + ' ' : '') + 'sort:random';
+  const url = `https://safebooru.org/index.php?page=dapi&s=post&q=index&json=1&limit=${count + 2}&tags=${encodeURIComponent(q)}`;
+  const data = await fetchJ(url, 12000);
+  if (!Array.isArray(data) || !data.length) throw new Error('Sem resultados no safebooru');
+  return data.slice(0, count).map(p => ({
+    // a API devolve directory+image, não a URL completa
+    url: `https://safebooru.org/images/${p.directory}/${p.image}`,
+    tags: String(p.tags || '').split(' ').slice(0, 6).join(', '),
+    score: p.score || 0,
+    source: 'safebooru.org',
+  })).filter(x => x.url && !/undefined/.test(x.url));
+}
+
+// ─────────────────────────────────────────────
 // BUSCA MULTI-FONTE — tenta em cascata
 // ─────────────────────────────────────────────
 async function searchImages(tags = '', count = 3) {
@@ -186,6 +213,7 @@ async function searchImages(tags = '', count = 3) {
     () => konachanImages(safe, count),
     () => e621Images(safe, count),
     () => nekosLifeImage('lewd'),
+    () => safebooruImages(safe, count),   // v6.50: rede de segurança
   ];
   for (const fn of sources) {
     try {
@@ -364,6 +392,7 @@ module.exports = {
   konachanImages,
   e621Images,
   nekosLifeImage,
+  safebooruImages,
   searchImages,
   searchBooks,
   popularBooks18,

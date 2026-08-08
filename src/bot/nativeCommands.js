@@ -1282,6 +1282,12 @@ module.exports = {
       '🎬 *VÍDEOS*',
       '👑 ' + p + 'xvideo [termo] — busca vídeo adulto',
       '👑 ' + p + 'adultvideo [termo] — fonte alternativa',
+      '👑 ' + p + 'xvideodl <url> — baixa vídeo de um link',
+      '',
+      // v6.50: implementados — usam portal18 → fetchBuffer → stickerMaker
+      '🎭 *FIGURINHAS 18+*',
+      '👑 ' + p + 'fig18 [tags] — figurinha 18+',
+      '👑 ' + p + 'pack18 [tags] [qtd] — pack até 8 figurinhas',
       '',
       '💬 *CHAT HOT COM IA*',
       '👑 ' + p + 'hotchat [tema] — chat sensual',
@@ -2039,6 +2045,114 @@ module.exports = {
       titulo: '🐱 nekos.life', tags: tipo,
       fetcher: (q) => portal18.nekosLifeImage(q || 'lewd'),
     });
+  },
+
+  // ── v6.50: FIGURINHAS 18+ (fig18 / pack18) ────────────────
+  // Estavam anunciados no menu original mas nunca foram feitos.
+  // Agora usam a mesma cadeia dos outros: portal18 → fetchBuffer →
+  // stickerMaker.create. Testado: 218KB de imagem → 47KB de WebP.
+
+  // !fig18 [tags] — uma figurinha 18+
+  async fig18({ sock, ctx, args, config: cfg }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const localConfig = cfg || config;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    const tags = portal18.cleanQuery(args.join(' ') || 'nude');
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+
+    await portal18.ownerPv(sock, { text: `🎭 A criar figurinha: *${tags}*...` });
+    try {
+      const imgs = await portal18.searchImages(tags, 1);
+      if (!imgs?.length) { await portal18.ownerPv(sock, { text: '😕 Sem resultados.' }); return true; }
+
+      const buf = await mediaHandler.fetchBuffer(imgs[0].url);
+      if (!buf || buf.length < 1000) throw new Error('imagem vazia');
+
+      const fig = await stickerMaker.create(buf, {
+        botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+        userName: ctx.pushName || 'Dark', groupName: 'PV',
+        packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
+      });
+      if (!fig) throw new Error('não consegui converter em figurinha');
+      await portal18.ownerPv(sock, { sticker: fig });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+    }
+    return true;
+  },
+
+  // !pack18 [tags] [qtd] — pack de figurinhas 18+ (máx 8)
+  async pack18({ sock, ctx, args, config: cfg }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const localConfig = cfg || config;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    // último argumento numérico = quantidade
+    const argv = [...args];
+    let qtd = 4;
+    if (argv.length && /^\d+$/.test(argv[argv.length - 1])) {
+      qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
+    }
+    const tags = portal18.cleanQuery(argv.join(' ') || 'nude');
+    if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }); return true; }
+
+    await portal18.ownerPv(sock, { text: `🎭 A criar pack de *${qtd}* figurinhas: *${tags}*...` });
+    let feitas = 0;
+    try {
+      const imgs = await portal18.searchImages(tags, qtd);
+      for (const img of imgs) {
+        try {
+          const buf = await mediaHandler.fetchBuffer(img.url);
+          if (!buf || buf.length < 1000) continue;
+          const fig = await stickerMaker.create(buf, {
+            botName: localConfig.bot.name, ownerName: localConfig.owner.name,
+            userName: ctx.pushName || 'Dark', groupName: 'PV',
+            packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
+          });
+          if (fig) { await portal18.ownerPv(sock, { sticker: fig }); feitas++; }
+          await new Promise(r => setTimeout(r, 800));
+        } catch { /* salta a que falhar e continua o pack */ }
+      }
+      await portal18.ownerPv(sock, {
+        text: feitas ? `✅ Pack pronto — *${feitas}/${qtd}* figurinhas.` : '😕 Não consegui criar nenhuma.',
+      });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` });
+    }
+    return true;
+  },
+
+  // !xvideodl <url> — envia o vídeo a partir de um link directo
+  async xvideodl({ sock, ctx, args }) {
+    if (!isPrimaryOwnerOnly(ctx)) return true;
+    const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
+    if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }); return true; }
+
+    const url = (args[0] || '').trim();
+    if (!/^https?:\/\//i.test(url)) {
+      await portal18.ownerPv(sock, { text: '📎 Uso: *xvideodl <url do vídeo>*' });
+      return true;
+    }
+    await portal18.ownerPv(sock, { text: '⬇️ A baixar o vídeo...' });
+    try {
+      const buf = await mediaHandler.fetchBuffer(url);
+      if (!buf || buf.length < 10000) throw new Error('ficheiro vazio ou demasiado pequeno');
+      // WhatsApp recusa vídeos muito grandes — avisa em vez de falhar em silêncio
+      if (buf.length > 60 * 1024 * 1024) {
+        await portal18.ownerPv(sock, { text: `⚠️ Vídeo grande demais (${(buf.length / 1048576).toFixed(1)}MB).\n🔗 ${url}` });
+        return true;
+      }
+      await portal18.ownerPv(sock, {
+        video: buf,
+        caption: `🎬 *Download concluído*\n📦 ${(buf.length / 1048576).toFixed(1)}MB`,
+      });
+    } catch (e) {
+      await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 100)}\n🔗 ${url}` });
+    }
+    return true;
   },
 
   // !adultstats — estado do portal (só dono)
