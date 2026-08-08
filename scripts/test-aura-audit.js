@@ -90,6 +90,32 @@ const check = (nome, cond, extra = '') => {
   console.log('\n▸ Código não utilizado está assinalado');
   check('Funções mortas têm aviso de auditoria', /NÃO são chamadas por/i.test(src2));
 
+  // ── 7. Variáveis inexistentes no caminho da resposta ───────
+  // v6.52: `!isSilenced` (variável que não existe) rebentava a
+  // resposta da AURA em TODAS as mensagens — ela ficava muda e o
+  // erro só aparecia no log como "[Aura] isSilenced is not defined".
+  // Os testes com mocks não apanharam isto porque o erro estava
+  // depois da geração da resposta.
+  console.log('\n▸ Caminho da resposta sem variáveis fantasma');
+  const chSrc = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
+  // ignora comentários (// …) para não apanhar a nota histórica
+  const semComentarios = chSrc.split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  const usoSolto = /(?<!aura\.)(?<![\w.])isSilenced\b(?!\s*\()/.test(semComentarios);
+  check('isSilenced nunca usado como variável solta', !usoSolto,
+    usoSolto ? 'encontrado uso solto' : 'só via aura.isSilenced()');
+
+  // ── 8. Entrega no PV é verificada ──────────────────────────
+  // v6.52: o ownerPv construía o JID do .env e o .catch engolia o
+  // erro — o bot confirmava "enviado no PV" e não chegava nada.
+  console.log('\n▸ Entrega no PV é confirmada, não assumida');
+  const p18src = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'portal18.js'), 'utf8');
+  check('ownerPv devolve true/false', /return true;/.test(p18src) && /return false;/.test(p18src));
+  check('ownerPv tenta o JID real do chamador', /ctx\?\.senderJid/.test(p18src));
+  check('ownerPv memoriza o JID que funcionou', /_pvJidOk/.test(p18src));
+
+  const ncSrc = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands.js'), 'utf8');
+  check('Avisa no grupo se o PV falhar', /pvOk === false/.test(ncSrc) && /Não consegui enviar no teu PV/.test(ncSrc));
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();
