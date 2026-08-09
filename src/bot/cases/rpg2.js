@@ -55,6 +55,8 @@ module.exports = function registerRPG2(registerCase) {
     const name = args.join(' ').trim() || ctx.pushName;
     const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
     const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
       `👤 Nome: *${name}*`,
       '',
@@ -71,12 +73,15 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ PERFIL RPG COMPLETO ═══
   registerCase(['rg', 'ficha', 'perfilrpg'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const race = rpg.RACES[p.race] || rpg.RACES.humano;
     const cls = rpg.CLASSES[p.class] || rpg.CLASSES.guerreiro;
     const hpBar = '❤️'.repeat(Math.ceil(p.hp / p.maxHp * 10)) + '🖤'.repeat(10 - Math.ceil(p.hp / p.maxHp * 10));
     const mpBar = '💙'.repeat(Math.ceil(p.mp / p.maxMp * 10)) + '🖤'.repeat(10 - Math.ceil(p.mp / p.maxMp * 10));
     const xpPct = Math.floor(p.xp / p.xpNext * 100);
+
+    await rpg.savePlayer(p);
+
 
     return tReply(sock, msg, ctx, `${race.emoji} ${p.name.toUpperCase()}`, [
       `${race.emoji} *${p.name}* — ${p.race} ${cls.emoji} ${p.class}`,
@@ -102,8 +107,9 @@ module.exports = function registerRPG2(registerCase) {
   // ═══ QUEST NARRATIVA ═══
   registerCase(['quest', 'historia', 'aventura'], async ({ sock, msg, ctx, args }) => {
     const cd = checkCooldown(ctx.senderNumber, 'quest', 60);
-    if (cd.blocked) return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('quest', cd.remaining)]);
-    const p = rpg.getPlayer(ctx.senderNumber);
+    if (cd.blocked) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('quest', cd.remaining)]);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const questId = p.quest?.current || 'prologo';
     const quest = rpg.QUESTS.find(q => q.id === questId);
 
@@ -111,6 +117,8 @@ module.exports = function registerRPG2(registerCase) {
       // Sem quest activa — dar nova
       p.quest = { current: 'prologo', step: 0, completed: p.quest?.completed || [] };
       const q = rpg.QUESTS[0];
+      await rpg.savePlayer(p);
+
       return tReply(sock, msg, ctx, q.title, [
         `📖 Capítulo ${q.chapter}`,
         '',
@@ -153,10 +161,15 @@ module.exports = function registerRPG2(registerCase) {
         lines.push('', '🎉 *Fim do capítulo!* Mais em breve...');
       }
 
+      await rpg.savePlayer(p);
+
+
       return tReply(sock, msg, ctx, quest.title + ' → ' + (nextQuest?.title || 'FIM'), lines);
     }
 
     // Mostrar quest actual
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, quest.title, [
       `📖 Capítulo ${quest.chapter}`,
       '',
@@ -170,9 +183,11 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ COMBATE NARRATIVO ═══
   registerCase(['lutar', 'fight', 'combate'], async ({ sock, msg, ctx, args }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
-    if (p.hp <= 0) return tReply(sock, msg, ctx, '💀 MORTO', ['💀 Estás morto! Usa !descansar ou !poção']);
-    if (p.lives <= 0) return tReply(sock, msg, ctx, '💀 SEM VIDAS', ['💀 Sem vidas! Espera respawn ou usa !reviver']);
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    if (p.hp <= 0) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '💀 MORTO', ['💀 Estás morto! Usa !descansar ou !poção']);
+    if (p.lives <= 0) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '💀 SEM VIDAS', ['💀 Sem vidas! Espera respawn ou usa !reviver']);
 
     const enemyType = args[0] === 'boss' ? 'boss' : args[0] === 'elite' ? 'elite' : 'normal';
     const enemy = rpg.generateEnemy(p.level + R(-1, 2), enemyType);
@@ -211,6 +226,9 @@ module.exports = function registerRPG2(registerCase) {
       const items = enemyType === 'boss' ? ['💎 Gema Lendária'] : enemyType === 'elite' && Math.random() < 0.3 ? ['⚔️ Arma Rara'] : [];
       items.forEach(i => p.inventory.push(i));
 
+      await rpg.savePlayer(p);
+
+
       return tReply(sock, msg, ctx, `⚔️ VITÓRIA vs ${enemy.name}`, [
         `⚔️ *${enemy.name}* (Nv.${enemy.level}) DERROTADO!`,
         '',
@@ -226,6 +244,8 @@ module.exports = function registerRPG2(registerCase) {
     // Derrota
     p.deaths++;
     p.lives = Math.max(0, p.lives - 1);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, `💀 DERROTA vs ${enemy.name}`, [
       `💀 *${enemy.name}* venceu!`,
       '',
@@ -240,8 +260,9 @@ module.exports = function registerRPG2(registerCase) {
   // ═══ EXPLORAÇÃO NARRATIVA ═══
   registerCase(['explorar', 'explore'], async ({ sock, msg, ctx, args }) => {
     const cd = checkCooldown(ctx.senderNumber, 'explore', 45);
-    if (cd.blocked) return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('explore', cd.remaining)]);
-    const p = rpg.getPlayer(ctx.senderNumber);
+    if (cd.blocked) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('explore', cd.remaining)]);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const biomeKey = args[0]?.toLowerCase() || P(Object.keys(rpg.BIOMES));
     const biome = rpg.BIOMES[biomeKey] || rpg.BIOMES.floresta;
 
@@ -266,14 +287,19 @@ module.exports = function registerRPG2(registerCase) {
     if (event.combat) { lines.push('', '> Usa !lutar para combater!'); }
     if (event.npc) { const npc = P(Object.values(rpg.NPCS)); lines.push('', `${npc.emoji} *${npc.name}*:`, `"${P(npc.dialogues)}"`); }
 
+    await rpg.savePlayer(p);
+
+
     return tReply(sock, msg, ctx, `${biome.emoji} EXPLORAR`, lines);
   }, true);
 
   // ═══ DESCANSAR ═══
   registerCase(['descansar', 'rest'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     p.hp = p.maxHp;
     p.mp = p.maxMp;
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🛏️ DESCANSAR', [
       '🛏️ Descansaste na taverna.',
       `❤️ HP: ${p.hp}/${p.maxHp} | 💙 MP: ${p.mp}/${p.maxMp}`,
@@ -282,36 +308,48 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ POÇÃO ═══
   registerCase(['pocao', 'potion'], async ({ sock, msg, ctx, args }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const idx = p.inventory.indexOf('poção de vida');
-    if (idx === -1) return tReply(sock, msg, ctx, '🧪 POÇÃO', ['❌ Sem poções! Compra no mercador.']);
+    if (idx === -1) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🧪 POÇÃO', ['❌ Sem poções! Compra no mercador.']);
     p.inventory.splice(idx, 1);
     p.hp = Math.min(p.maxHp, p.hp + 50);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🧪 POÇÃO', [`🧪 +50 HP! ❤️ ${p.hp}/${p.maxHp}`]);
   }, true);
 
   // ═══ REVIVER ═══
   registerCase(['reviver', 'revive'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
-    if (p.lives > 0) return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Ainda tens vidas!']);
-    if (p.coins < 500) return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Precisas de 500 coins para reviver']);
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    if (p.lives > 0) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Ainda tens vidas!']);
+    if (p.coins < 500) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Precisas de 500 coins para reviver']);
     p.coins -= 500;
     p.lives = 3;
     p.hp = p.maxHp;
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '💫 REVIVER', ['💫 Reviveste! ♥️♥️♥️ | -500 coins']);
   }, true);
 
   // ═══ GUILDA ═══
   registerCase(['guilda', 'guild', 'criarguilda'], async ({ sock, msg, ctx, args }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     if (args[0] === 'criar') {
       const name = args.slice(1).join(' ');
-      if (!name || name.length > 20) return tReply(sock, msg, ctx, '🏰 GUILDA', ['Uso: !guilda criar <nome>']);
-      if (p.guild) return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Já estás na guilda ${p.guild}`]);
-      if (p.coins < 1000) return tReply(sock, msg, ctx, '🏰 GUILDA', ['❌ Precisas de 1000 coins']);
+      if (!name || name.length > 20) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🏰 GUILDA', ['Uso: !guilda criar <nome>']);
+      if (p.guild) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Já estás na guilda ${p.guild}`]);
+      if (p.coins < 1000) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🏰 GUILDA', ['❌ Precisas de 1000 coins']);
       p.coins -= 1000;
       p.guild = name;
       p.title = 'Fundador';
+      await rpg.savePlayer(p);
+
       return tReply(sock, msg, ctx, '🏰 GUILDA CRIADA', [
         `🏰 *${name}* fundada por *${p.name}*!`,
         `👑 Título: Fundador`,
@@ -319,11 +357,15 @@ module.exports = function registerRPG2(registerCase) {
       ]);
     }
     if (p.guild) {
+      await rpg.savePlayer(p);
+
       return tReply(sock, msg, ctx, '🏰 ' + p.guild.toUpperCase(), [
         `👑 ${p.name} — ${p.title || 'Membro'}`,
         `> Usa !guilda info para ver detalhes`,
       ]);
     }
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🏰 GUILDA', [
       'Sem guilda.',
       '> !guilda criar <nome> (1000 coins)',
@@ -336,27 +378,33 @@ module.exports = function registerRPG2(registerCase) {
     const sorted = [...rpg._players.entries()]
       .sort((a, b) => b[1].level - a[1].level || b[1].kills - a[1].kills)
       .slice(0, 10);
-    if (!sorted.length) return tReply(sock, msg, ctx, '🏆 RANKING', ['🏆 Sem jogadores ainda!']);
+    if (!sorted.length) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🏆 RANKING', ['🏆 Sem jogadores ainda!']);
     const lines = sorted.map(([id, p], i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
       return `${medal} *${p.name}* — Nv.${p.level} ⚔️${p.kills} 💀${p.deaths}`;
     });
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🏆 RANKING RPG', lines);
   }, true);
 
   // ═══ INVENTÁRIO ═══
   registerCase(['inventario', 'inv', 'bau'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
-    if (!p.inventory.length) return tReply(sock, msg, ctx, '🎒 INVENTÁRIO', ['🎒 Vazio!']);
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    if (!p.inventory.length) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🎒 INVENTÁRIO', ['🎒 Vazio!']);
     const counts = {};
     p.inventory.forEach(i => counts[i] = (counts[i] || 0) + 1);
     const lines = Object.entries(counts).map(([k, v]) => `• ${k} x${v}`);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🎒 INVENTÁRIO', lines);
   }, true);
 
   // ═══ LOJA ═══
   registerCase(['loja', 'shop', 'mercador'], async ({ sock, msg, ctx, args }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const item = args.join(' ').toLowerCase();
     const shop = {
       'poção de vida': 20, 'poção de mana': 25, 'poção de XP': 50,
@@ -364,18 +412,23 @@ module.exports = function registerRPG2(registerCase) {
       'armadura de couro': 200, 'anel de sorte': 500,
     };
     if (item && shop[item]) {
-      if (p.coins < shop[item]) return tReply(sock, msg, ctx, '🛒 LOJA', [`❌ ${item} custa ${shop[item]} coins (tens ${p.coins})`]);
+      if (p.coins < shop[item]) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '🛒 LOJA', [`❌ ${item} custa ${shop[item]} coins (tens ${p.coins})`]);
       p.coins -= shop[item];
       p.inventory.push(item);
+      await rpg.savePlayer(p);
+
       return tReply(sock, msg, ctx, '🛒 LOJA', [`✅ Compraste *${item}* por ${shop[item]} coins`]);
     }
     const lines = Object.entries(shop).map(([k, v]) => `• ${k} — ${v} coins`);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🛒 LOJA DO GRIMWALD', [...lines, '', `💰 Tens: ${p.coins} coins`, '> !loja <item>']);
   }, true);
 
   // ═══ TRABALHAR (narrativo) ═══
   registerCase(['trabalhar', 'work'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     const jobs = [
       { name: 'caçador de recompensas', story: 'Perseguiste um bandido pela floresta negra.', pay: R(40, 120), xp: R(15, 40), risk: 0.2 },
       { name: 'guarda da cidade', story: 'Patrulhaste as muralhas durante a noite.', pay: R(30, 80), xp: R(10, 25), risk: 0.05 },
@@ -389,6 +442,8 @@ module.exports = function registerRPG2(registerCase) {
     if (danger) {
       const dmg = R(10, 30);
       p.hp = Math.max(0, p.hp - dmg);
+      await rpg.savePlayer(p);
+
       return tReply(sock, msg, ctx, `⚒️ ${job.name.toUpperCase()}`, [
         job.story,
         '',
@@ -399,6 +454,8 @@ module.exports = function registerRPG2(registerCase) {
 
     p.coins += job.pay;
     const lv = rpg.addXP(p, job.xp);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, `⚒️ ${job.name.toUpperCase()}`, [
       job.story,
       '',
@@ -411,6 +468,8 @@ module.exports = function registerRPG2(registerCase) {
   registerCase(['npc', 'falar', 'talk'], async ({ sock, msg, ctx, args }) => {
     const npcKey = args[0]?.toLowerCase() || P(Object.keys(rpg.NPCS));
     const npc = rpg.NPCS[npcKey] || P(Object.values(rpg.NPCS));
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, `${npc.emoji} ${npc.name}`, [
       `"${P(npc.dialogues)}"`,
       '',
@@ -423,12 +482,16 @@ module.exports = function registerRPG2(registerCase) {
     const lines = Object.entries(rpg.BIOMES).map(([k, v]) =>
       `${v.emoji} *${k}* — ${'⚠️'.repeat(v.danger)} ${v.desc}`
     );
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '🗺️ MAPA DO MUNDO', lines);
   }, true);
 
   // ═══ STATUS / VIDAS ═══
   registerCase(['vidas', 'lives', 'status'], async ({ sock, msg, ctx }) => {
-    const p = rpg.getPlayer(ctx.senderNumber);
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '❤️ STATUS', [
       `❤️ HP: ${p.hp}/${p.maxHp}`,
       `💙 MP: ${p.mp}/${p.maxMp}`,
@@ -442,15 +505,20 @@ module.exports = function registerRPG2(registerCase) {
   registerCase(['racas', 'classes', 'rpginfo'], async ({ sock, msg, ctx }) => {
     const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — STR+${v.bonus.str} DEX+${v.bonus.dex} INT+${v.bonus.int} VIT+${v.bonus.vit} LUK+${v.bonus.luk}`).join('\n');
     const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* (${v.primary})`).join('\n');
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '📖 INFO RPG', ['🧬 RAÇAS:', races, '', '⚔️ CLASSES:', classes]);
   }, true);
 
   // ═══ NOME RPG ═══
   registerCase(['nome', 'rename'], async ({ sock, msg, ctx, args }) => {
     const name = args.join(' ').trim();
-    if (!name || name.length > 20) return tReply(sock, msg, ctx, '📝 NOME', ['Uso: !nome <nome>']);
-    const p = rpg.getPlayer(ctx.senderNumber);
+    if (!name || name.length > 20) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '📝 NOME', ['Uso: !nome <nome>']);
+    const p = await rpg.getPlayer(ctx.senderNumber);
     p.name = name;
+    await rpg.savePlayer(p);
+
     return tReply(sock, msg, ctx, '📝 NOME', [`✅ Nome: *${name}*`]);
   }, true);
 };
