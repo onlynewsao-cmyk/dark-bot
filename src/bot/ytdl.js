@@ -7,6 +7,7 @@
  *  3. @distube/ytdl-core (stream directo)
  *  4. youtubei.js (stream directo)
  *  5. Invidious público (lista de instâncias)
+ *  6. Piped API (alternativo ao Invidious)
  * 
  * Áudio: baixa M4A/MP4 → extrai MP3 com ffmpeg
  * Vídeo: baixa MP4 directo
@@ -235,6 +236,39 @@ const INVIDIOUS_HOSTS = [
   'y.com.sb',
 ];
 
+// ─── MÉTODO 6: Piped API (alternativo ao Invidious) ──────────
+const PIPED_HOSTS = [
+  'pipedapi.kavin.rocks',
+  'pipedapi.adminforge.de',
+  'api.piped.yt',
+  'piped-api.privacy.com.de',
+  'pipedapi.darkness.services',
+];
+
+async function pipedDownload(videoId, audioOnly = true) {
+  for (const host of PIPED_HOSTS) {
+    try {
+      const d = await fetchJson('https://' + host + '/streams/' + videoId, 10000);
+      const streams = audioOnly ? (d.audioStreams || []) : (d.videoStreams || []);
+      if (!streams.length) continue;
+
+      let best;
+      if (audioOnly) {
+        best = streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+      } else {
+        best = streams
+          .filter(s => parseInt(s.quality || '0') <= 720)
+          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0] || streams[0];
+      }
+      if (!best?.url) continue;
+
+      const buf = await fetchBuf(best.url, 120000);
+      if (buf && buf.length > 1024) return buf;
+    } catch {}
+  }
+  throw new Error('Piped: nenhuma instância respondeu');
+}
+
 async function invidiousDownload(videoId, audioOnly = true) {
   for (const host of INVIDIOUS_HOSTS) {
     try {
@@ -363,6 +397,22 @@ async function getAudio(query, quality = '128k') {
     } catch (e) { errors.push('Invidious: ' + e.message?.slice(0, 60)); }
   }
 
+  // 6. Piped API
+  if (meta.videoId) {
+    try {
+      const m4abuf = await pipedDownload(meta.videoId, true);
+      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
+      return {
+        ...meta,
+        buffer:   mp3buf,
+        mimetype: 'audio/mpeg',
+        ext:      'mp3',
+        quality,
+        source:   'Piped',
+      };
+    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
+  }
+
   // Todos falharam
   console.error('[ytdl.getAudio] Todos os métodos falharam:', errors.join(' | '));
   throw new Error('❌ Download indisponível agora. Tenta de novo em alguns minutos.\n\n🎵 Link: ' + meta.url);
@@ -435,6 +485,21 @@ async function getVideo(query, maxHeight = '720') {
         source:   'Invidious',
       };
     } catch (e) { errors.push('Invidious: ' + e.message?.slice(0, 60)); }
+  }
+
+  // 6. Piped API
+  if (meta.videoId) {
+    try {
+      const buf = await pipedDownload(meta.videoId, false);
+      return {
+        ...meta,
+        buffer:   buf,
+        mimetype: 'video/mp4',
+        ext:      'mp4',
+        quality:  maxHeight + 'p',
+        source:   'Piped',
+      };
+    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
   }
 
   console.error('[ytdl.getVideo] Todos os métodos falharam:', errors.join(' | '));
