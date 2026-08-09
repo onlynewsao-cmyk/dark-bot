@@ -376,6 +376,16 @@ NUM GRUPO (é diferente de estar a sós)
 
   prompt += `\n\nResponde de forma humana, curta ou média conforme o contexto. Em português PT-BR ou PT-PT.`;
 
+  // v7.0: Anti-eco — NUNCA repetir o que o utilizador disse
+  prompt += `\n\n⚠️ ANTI-ECO (CRÍTICO — especialmente em áudio):
+- NUNCA repitas nem reformules o que o utilizador acabou de dizer.
+- Responde DIRECTAMENTE com a tua resposta. Sem "Tu disseste X...", "Você falou Y...",
+  "Sobre o que tu mencionaste...", "Quanto a isso...".
+- Em áudio: NUNCA comeces a falar com o que ele disse. Fala só a TUA resposta.
+  Exemplo: ele diz "tô com saudades" → tu dizes "Eu também 🖤" (NÃO "Ai, você
+  disse que tá com saudades... eu também").
+- Sê directa. Uma pessoa real não repete o que lhe disseram antes de responder.`;
+
   return prompt;
 }
 
