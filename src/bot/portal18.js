@@ -374,51 +374,57 @@ async function searchImages(tags = '', count = 3) {
 async function searchBooks(query = '', count = 5) {
   const q = cleanQuery(query || 'romance erotic adult passion desire');
 
-  // OpenLibrary
+  // Gutendex (Project Gutenberg) — tem download directo EPUB/TXT
   try {
-    const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=${count + 3}&fields=title,author_name,key,cover_i,first_publish_year,subject`;
-    const data = await fetchJ(url, 15000);
-    if (data?.docs?.length) {
-      return data.docs.slice(0, count).map(b => ({
-        title:   b.title || 'Sem título',
-        author:  b.author_name?.[0] || 'Desconhecido',
-        year:    b.first_publish_year || '?',
-        cover:   b.cover_i ? `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg` : null,
-        key:     b.key || '',
-        link:    b.key ? `https://openlibrary.org${b.key}` : '',
-        source:  'OpenLibrary',
-      }));
-    }
-  } catch {}
-
-  // Gutendex fallback
-  try {
-    const url = `https://gutendex.com/books/?search=${encodeURIComponent(q)}&languages=en,pt`;
+    const url = 'https://gutendex.com/books/?search=' + encodeURIComponent(q) + '&languages=en,pt';
     const data = await fetchJ(url, 15000);
     if (data?.results?.length) {
       return data.results.slice(0, count).map(b => {
         const formats = b.formats || {};
-        const link = formats['text/html'] || formats['application/epub+zip'] ||
-                     formats['text/plain; charset=utf-8'] || formats['text/plain'] || '';
+        const downloadUrl = formats['application/epub+zip'] ||
+          formats['text/plain; charset=utf-8'] || formats['text/plain'] ||
+          formats['text/html; charset=utf-8'] || formats['text/html'] || '';
+        const downloadExt = downloadUrl.includes('epub') ? 'epub' : downloadUrl.includes('html') ? 'html' : 'txt';
         return {
-          title:  b.title || 'Sem título',
+          title:  b.title || 'Sem titulo',
           author: b.authors?.[0]?.name || 'Desconhecido',
           year:   b.id || '?',
           cover:  null,
           key:    String(b.id || ''),
-          link,
+          link:   downloadUrl,
+          downloadUrl,
+          downloadExt,
           source: 'Project Gutenberg',
         };
       });
     }
   } catch {}
 
-  throw new Error('Não encontrei livros para: ' + q);
+  // OpenLibrary fallback
+  try {
+    const url = 'https://openlibrary.org/search.json?q=' + encodeURIComponent(q) + '&limit=' + (count + 3) + '&fields=title,author_name,key,cover_i,first_publish_year,subject';
+    const data = await fetchJ(url, 15000);
+    if (data?.docs?.length) {
+      return data.docs.slice(0, count).map(b => ({
+        title:   b.title || 'Sem titulo',
+        author:  b.author_name?.[0] || 'Desconhecido',
+        year:    b.first_publish_year || '?',
+        cover:   b.cover_i ? 'https://covers.openlibrary.org/b/id/' + b.cover_i + '-M.jpg' : null,
+        key:     b.key || '',
+        link:    b.key ? 'https://openlibrary.org' + b.key : '',
+        source:  'OpenLibrary',
+      }));
+    }
+  } catch {}
+
+  throw new Error('Nao encontrei livros para: ' + q);
 }
 
 // Géneros de livros 18+
 const BOOK_GENRES_18 = [
   'erotic romance desire passion', 'adult romance passionate love',
+  'desenho arte nude nu adulto', 'historia sem censura erotico', 'conto erotico adulto',
+  'romance forbidden love affair explicit', 'mature adult fiction desire',
   'sensual adult fiction mature', 'romance forbidden love affair',
   'desire passion adult story', 'romance drama adult novels',
   'hot romance steamy fiction', 'mature adult love story',

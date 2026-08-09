@@ -18,6 +18,17 @@
 const axios = require('axios');
 const mediaHandler = require('./mediaHandler');
 
+
+// ─── Filtro de conteúdo — exclui gay/trans ────────────────────
+const BLOCKED_TAGS = /gay|trans|travesti|travest|shemale|ladyboy|femboy|sissy|cd[s_]|crossdress|homosexual|bisexual|threesome.*male|bbc.*male/i;
+const BLOCKED_URLS = /gay|trans|travesti|shemale|ladyboy|femboy|sissy|crossdress/i;
+
+function isFiltered(name, url) {
+  const n = String(name || '').toLowerCase();
+  const u = String(url || '').toLowerCase();
+  return BLOCKED_TAGS.test(n) || BLOCKED_URLS.test(u);
+}
+
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
   'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -160,7 +171,8 @@ async function searchAndDownload(query, limit = 5) {
   if (!results.length) throw new Error('Nenhum resultado para: ' + query);
 
   // Tenta múltiplos resultados até encontrar mídia
-  for (let i = 0; i < Math.min(results.length, 5); i++) {
+  for (let i = 0; i < Math.min(results.length, 10); i++) {
+      if (isFiltered(results[i].name, results[i].url)) continue;
     const album = await getAlbum(results[i].url, limit);
     if (album.photos.length || album.videos.length) {
       const media = [];
@@ -264,4 +276,4 @@ async function searchPhotos(query, limit = 5) {
   throw new Error('Nenhuma foto encontrada para: ' + query);
 }
 
-module.exports = { search, getAlbum, getProfileAlbums, searchAndDownload, searchVideos, searchPhotos };
+module.exports = { search, getAlbum, getProfileAlbums, searchAndDownload, searchVideos, searchPhotos, isFiltered };

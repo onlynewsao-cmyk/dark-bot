@@ -2465,30 +2465,61 @@ module.exports = {
     return true;
   },
 
-  // !buscalivro [nome] — busca livros adultos/romance
+  // !buscalivro [nome] — busca e BAIXA livros
   async buscalivro({ sock, msg, ctx, args }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
     const enabled = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
     if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Use: adultmode on' }, ctx); return true; }
     const query = portal18.cleanQuery(args.join(' ') || 'romance adult passion desire');
-    await portal18.ownerPv(sock, { text: `📚 Buscando livros: *${query}*...` }, ctx);
+    await portal18.ownerPv(sock, { text: '📚 Buscando livros: *' + query + '*...' }, ctx);
     try {
       const books = await portal18.searchBooks(query, 5);
-      let text = `📚 *LIVROS ENCONTRADOS*\n🔎 Busca: _${query}_\n\n`;
-      for (let i = 0; i < books.length; i++) {
-        const b = books[i];
-        text += `${i+1}. *${b.title}*\n`;
-        text += `   👤 ${b.author}  ${b.year !== '?' ? '📅 '+b.year : ''}\n`;
-        if (b.link) text += `   🔗 ${b.link}\n`;
-        text += `   📡 ${b.source}\n\n`;
+      if (!books.length) throw new Error('Nenhum livro encontrado');
+
+      // Tenta baixar e enviar o primeiro livro com link de download
+      let downloaded = false;
+      for (const b of books) {
+        if (b.downloadUrl) {
+          try {
+            await portal18.ownerPv(sock, { text: '📥 A baixar: *' + b.title + '* (' + b.downloadExt + ')...' }, ctx);
+            const mediaHandler = require('./mediaHandler');
+            const buf = await mediaHandler.fetchBuffer(b.downloadUrl, 30000);
+            if (buf && buf.length > 500) {
+              const ext = b.downloadExt || 'txt';
+              const mime = ext === 'epub' ? 'application/epub+zip' : ext === 'html' ? 'text/html' : 'text/plain';
+              const fileName = (b.title || 'livro').replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60) + '.' + ext;
+              await sock.sendMessage(ctx.senderJid, {
+                document: buf,
+                fileName,
+                mimetype: mime,
+                caption: '📚 *' + b.title + '*\n👤 ' + b.author + '\n📡 ' + b.source,
+              });
+              downloaded = true;
+              break;
+            }
+          } catch {}
+        }
       }
-      await portal18.ownerPv(sock, { text: text.trim() }, ctx);
+
+      // Se não conseguiu baixar, envia a lista com links
+      if (!downloaded) {
+        let text = '📚 *LIVROS ENCONTRADOS*\n🔎 Busca: _' + query + '_\n\n';
+
+        for (let i = 0; i < books.length; i++) {
+          const b = books[i];
+          text += (i+1) + '. *' + b.title + '*\n';
+          text += '   👤 ' + b.author + (b.year !== '?' ? '  📅 ' + b.year : '') + '\n';
+          if (b.downloadUrl) text += '   📥 ' + b.downloadUrl + '\n';
+          else if (b.link) text += '   🔗 ' + b.link + '\n';
+          text += '   📡 ' + b.source + '\n\n';
+        }
+        await portal18.ownerPv(sock, { text: text.trim() }, ctx);
+      }
     } catch (e) {
-      await portal18.ownerPv(sock, { text: `❌ ${e.message}` }, ctx);
+      await portal18.ownerPv(sock, { text: '❌ ' + e.message }, ctx);
     }
     return true;
   },
-
   // !livros18 — livros adultos populares
   async livros18({ sock, msg, ctx }) {
     if (!isPrimaryOwnerOnly(ctx)) return true;
@@ -2630,7 +2661,7 @@ module.exports = {
     if (!query) return reply(sock, msg, ctx, '🔍 Uso: *!erome <nome>* [qtd]');
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
     try {
-      const erome = require('../erome');
+      const erome = require('./erome');
       const results = await erome.search(query);
       if (!results.length) throw new Error('Nenhum resultado para: ' + query);
       await sock.sendMessage(ctx.remoteJid, { text: '🔍 *' + results.length + '* resultados para *' + query + '*' }, { quoted: msg });
@@ -2662,7 +2693,7 @@ module.exports = {
     if (!query) return reply(sock, msg, ctx, '🎬 Uso: *!eromevid <nome>* [qtd]');
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🎬', key: msg.key } });
     try {
-      const erome = require('../erome');
+      const erome = require('./erome');
       const videos = await erome.searchVideos(query, Math.min(limit, 10));
       if (!videos.length) throw new Error('Nenhum vídeo encontrado');
       for (const v of videos) {
