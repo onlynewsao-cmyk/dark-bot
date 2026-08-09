@@ -1,6 +1,6 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
- * ║   DARK BOT v6.22 — RPG ENGINE                               ║
+ * ║   DARK BOT v7 — RPG ENGINE (MongoDB)                         ║
  * ║   Motor RPG completo: personagens, combate, guildas, quests   ║
  * ╚═══════════════════════════════════════════════════════════════╝
  */
@@ -40,15 +40,15 @@ const CLASSES = {
 // BIOMAS & MUNDO
 // ══════════════════════════════════════════════════════════════
 const BIOMES = {
-  floresta:    { emoji: '🌲', danger: 1, desc: 'Árvores antigas escondem segredos e criaturas.' },
-  montanha:    { emoji: '⛰️', danger: 2, desc: 'Picos gelados com dragões e tempestades.' },
-  deserto:     { emoji: '🏜️', danger: 2, desc: 'Areias mortais com escorpiões gigantes.' },
-  pântano:     { emoji: '🌿', danger: 3, desc: 'Névoa tóxica e criaturas das profundezas.' },
-  vulcão:      { emoji: '🌋', danger: 4, desc: 'Lava e demónios. Só os fortes sobrevivem.' },
-  abismo:      { emoji: '🕳️', danger: 5, desc: 'O vazio entre mundos. Morte certa para os fracos.' },
-  cidade:      { emoji: '🏰', danger: 0, desc: 'Civilização. Comércio, guildas e tavernas.' },
-  cemitério:   { emoji: '🪦', danger: 3, desc: 'Os mortos não descansam aqui.' },
-  templo:      { emoji: '🛕', danger: 2, desc: 'Ruínas sagradas com tesouros e armadilhas.' },
+  floresta:       { emoji: '🌲', danger: 1, desc: 'Árvores antigas escondem segredos e criaturas.' },
+  montanha:       { emoji: '⛰️', danger: 2, desc: 'Picos gelados com dragões e tempestades.' },
+  deserto:        { emoji: '🏜️', danger: 2, desc: 'Areias mortais com escorpiões gigantes.' },
+  pantano:        { emoji: '🌿', danger: 3, desc: 'Névoa tóxica e criaturas das profundezas.' },
+  vulcao:         { emoji: '🌋', danger: 4, desc: 'Lava e demónios. Só os fortes sobrevivem.' },
+  abismo:         { emoji: '🕳️', danger: 5, desc: 'O vazio entre mundos. Morte certa para os fracos.' },
+  cidade:         { emoji: '🏰', danger: 0, desc: 'Civilização. Comércio, guildas e tavernas.' },
+  cemiterio:      { emoji: '🪦', danger: 3, desc: 'Os mortos não descansam aqui.' },
+  templo:         { emoji: '🛕', danger: 2, desc: 'Ruínas sagradas com tesouros e armadilhas.' },
   floresta_negra: { emoji: '🌑', danger: 4, desc: 'Escuridão eterna. Criaturas das sombras.' },
 };
 
@@ -57,8 +57,7 @@ const BIOMES = {
 // ══════════════════════════════════════════════════════════════
 const NPCS = {
   mercador: {
-    name: 'Grimwald, o Mercador',
-    emoji: '🧔',
+    name: 'Grimwald, o Mercador', emoji: '🧔',
     dialogues: [
       'Bem-vindo à minha humilde loja! Tenho o que precisas... se tiveres coins.',
       'Hmm, tens cara de quem precisa de uma espada nova...',
@@ -67,8 +66,7 @@ const NPCS = {
     ],
   },
   ferreiro: {
-    name: 'Thorgar, o Ferreiro',
-    emoji: '⚒️',
+    name: 'Thorgar, o Ferreiro', emoji: '⚒️',
     dialogues: [
       'Trás-me minério e eu faço-te uma lâmina que corta o vento!',
       'Esta espada? Foi forjada no coração do vulcão. Custa 500 coins.',
@@ -76,8 +74,7 @@ const NPCS = {
     ],
   },
   curandeira: {
-    name: 'Elara, a Curandeira',
-    emoji: '🧙‍♀️',
+    name: 'Elara, a Curandeira', emoji: '🧙‍♀️',
     dialogues: [
       'As tuas feridas são profundas... mas eu posso curar. Por um preço.',
       'Sinto uma escuridão em ti. Cuidado com o abismo.',
@@ -85,8 +82,7 @@ const NPCS = {
     ],
   },
   tavernerio: {
-    name: 'Bjorn, o Tavernário',
-    emoji: '🍺',
+    name: 'Bjorn, o Tavernário', emoji: '🍺',
     dialogues: [
       'Senta-te! A cerveja é por minha conta... mentira, são 5 coins.',
       'Ouvi uma história incrível hoje. Queres ouvir?',
@@ -95,8 +91,7 @@ const NPCS = {
     ],
   },
   misterioso: {
-    name: '???',
-    emoji: '🌑',
+    name: '???', emoji: '🌑',
     dialogues: [
       '...tu não devias estar aqui.',
       'O destino é uma roda. E tu estás prestes a cair.',
@@ -111,9 +106,7 @@ const NPCS = {
 // ══════════════════════════════════════════════════════════════
 const QUESTS = [
   {
-    id: 'prologo',
-    title: '📜 O Despertar',
-    chapter: 1,
+    id: 'prologo', title: '📜 O Despertar', chapter: 1,
     story: 'Acordas numa cela escura. As tuas memórias estão fragmentadas. Uma voz sussurra: "Foge... antes que eles voltem." A porta está entreaberta.',
     choices: [
       { text: '🚪 Fugir pela porta', next: 'fuga', reward: { xp: 50, coins: 20 } },
@@ -122,9 +115,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'fuga',
-    title: '📜 A Fuga',
-    chapter: 1,
+    id: 'fuga', title: '📜 A Fuga', chapter: 1,
     story: 'Corres pelo corredor. Guardas aproximam-se! Vês duas saídas: uma janela para o telhado e uma escada para as catacumbas.',
     choices: [
       { text: '🪟 Saltar pela janela', next: 'telhado', reward: { xp: 80, hp_cost: 20 } },
@@ -132,9 +123,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'investigar',
-    title: '📜 Segredos da Cela',
-    chapter: 1,
+    id: 'investigar', title: '📜 Segredos da Cela', chapter: 1,
     story: 'Encontras uma pedra solta na parede. Atrás dela, um diário antigo e uma chave enferrujada. O diário fala de uma conspiração...',
     choices: [
       { text: '📖 Ler o diário completo', next: 'conspiracao', reward: { xp: 100, lore: true } },
@@ -142,9 +131,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'emboscada',
-    title: '📜 A Emboscada',
-    chapter: 1,
+    id: 'emboscada', title: '📜 A Emboscada', chapter: 1,
     story: 'A porta abre-se. Dois guardas entram. "O prisioneiro acordou. Mata-o." Tens segundos para reagir.',
     choices: [
       { text: '⚔️ Lutar com as mãos nuas', next: 'luta_guardas', reward: { xp: 70, hp_cost: 30 } },
@@ -152,9 +139,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'telhado',
-    title: '📜 Nos Telhados',
-    chapter: 2,
+    id: 'telhado', title: '📜 Nos Telhados', chapter: 2,
     story: 'Saltas para o telhado. A cidade estende-se abaixo de ti. Guardas patrulham as ruas. Vês uma taverna com luz acesa e um beco escuro.',
     choices: [
       { text: '🍺 Entrar na taverna', next: 'taverna', reward: { xp: 50, npc: 'tavernerio' } },
@@ -162,9 +147,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'catacumbas',
-    title: '📜 As Catacumbas',
-    chapter: 2,
+    id: 'catacumbas', title: '📜 As Catacumbas', chapter: 2,
     story: 'Escuridão total. O mapa antigo brilha fracamente. Vês ossos no chão e ouves passos atrás de ti.',
     choices: [
       { text: '🏃 Correr na direção da saída', next: 'saida_catacumbas', reward: { xp: 60 } },
@@ -172,9 +155,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'conspiracao',
-    title: '📜 A Conspiração',
-    chapter: 2,
+    id: 'conspiracao', title: '📜 A Conspiração', chapter: 2,
     story: 'O diário revela: o rei foi envenenado pelo seu conselheiro. Tu és o único que sabe a verdade. Mas quem vai acreditar num prisioneiro?',
     choices: [
       { text: '🏰 Ir ao castelo expor a verdade', next: 'castelo', reward: { xp: 200, coins: 500, title: 'Portador da Verdade' } },
@@ -182,9 +163,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'taverna',
-    title: '📜 A Taverna do Lobo',
-    chapter: 2,
+    id: 'taverna', title: '📜 A Taverna do Lobo', chapter: 2,
     story: 'Bjorn, o tavernário, serve-te uma cerveja. "Tens cara de problema", diz ele. Um tipo encapuzado observa-te do canto.',
     choices: [
       { text: '🗣️ Falar com o encapuzado', next: 'beco', reward: { xp: 80, npc: 'misterioso' } },
@@ -193,9 +172,7 @@ const QUESTS = [
     ],
   },
   {
-    id: 'beco',
-    title: '📜 O Encontro',
-    chapter: 3,
+    id: 'beco', title: '📜 O Encontro', chapter: 3,
     story: 'O encapuzado revela-se: uma sombra com olhos brilhantes. "Eu sei quem és. E sei o que procuras. Posso ajudar... por um preço."',
     choices: [
       { text: '🤝 Aceitar a ajuda', next: 'alianca_sombra', reward: { xp: 150, item: 'adaga das sombras', faction: 'sombras' } },
@@ -232,7 +209,13 @@ function generateEnemy(level, type = 'normal') {
     name, level,
     hp: Math.floor((50 + level * 20) * mult),
     maxHp: Math.floor((50 + level * 20) * mult),
-    stats: { str: Math.floor(level * 2 * mult), dex: Math.floor(level * 1.5 * mult), int: Math.floor(level * 1.2 * mult), vit: Math.floor(level * 1.8 * mult), luk: Math.floor(level * 0.5) },
+    stats: {
+      str: Math.floor(level * 2 * mult),
+      dex: Math.floor(level * 1.5 * mult),
+      int: Math.floor(level * 1.2 * mult),
+      vit: Math.floor(level * 1.8 * mult),
+      luk: Math.floor(level * 0.5),
+    },
     equipment: {},
     class: P(['guerreiro', 'mago', 'arqueiro']),
     type,
@@ -240,52 +223,41 @@ function generateEnemy(level, type = 'normal') {
 }
 
 // ══════════════════════════════════════════════════════════════
-// JOGADOR
+// JOGADOR — agora com MongoDB
 // ══════════════════════════════════════════════════════════════
-const _players = new Map();
+const _cache = new Map(); // cache local para performance
 
-function createPlayer(id, name, race, cls) {
-  const r = RACES[race] || RACES.humano;
-  const c = CLASSES[cls] || CLASSES.guerreiro;
-  const base = { str: 5, dex: 5, int: 5, vit: 5, luk: 5 };
-  for (const [k, v] of Object.entries(r.bonus)) base[k] += v;
-  const player = {
-    id, name, race, class: cls,
-    level: 1, xp: 0, xpNext: 100,
-    hp: 100 + base.vit * 5, maxHp: 100 + base.vit * 5,
-    mp: 50 + base.int * 3, maxMp: 50 + base.int * 3,
-    stats: base,
-    coins: 50, bank: 0,
-    inventory: ['poção de vida', 'poção de vida'],
-    equipment: { weapon: null, armor: null, accessory: null },
-    quest: { current: 'prologo', step: 0, completed: [] },
-    guild: null, title: null, faction: null,
-    lives: 3, deaths: 0, kills: 0,
-    reputation: 0, karma: 0,
-    relationships: {},
-    lastDaily: 0, streak: 0,
-    createdAt: Date.now(),
-    ts: Date.now(),
-  };
-  _players.set(id, player);
-  return player;
+async function getPlayer(number) {
+  const num = String(number).replace(/\D/g, '');
+  if (_cache.has(num)) return _cache.get(num);
+
+  const RPGPlayer = require('../database/models/RPGPlayer');
+  let p = await RPGPlayer.findOne({ whatsappNumber: num });
+  if (!p) {
+    p = await RPGPlayer.getOrCreate(num);
+  }
+  _cache.set(num, p);
+  return p;
 }
 
-function getPlayer(id) {
-  if (!_players.has(id)) return createPlayer(id, 'Aventureiro', 'humano', 'guerreiro');
-  return _players.get(id);
+async function savePlayer(p) {
+  try {
+    await p.save();
+    _cache.set(String(p.whatsappNumber).replace(/\D/g, ''), p);
+  } catch (e) {
+    console.warn('[RPG] save error:', e.message?.slice(0, 50));
+  }
 }
 
 function levelUp(p) {
   p.level++;
   p.xpNext = p.level * 100 + p.level * p.level * 10;
-  p.maxHp += 10 + p.stats.vit * 2;
-  p.maxMp += 5 + p.stats.int;
+  p.maxHp += 10 + (p.stats?.vit || 5) * 2;
+  p.maxMp += 5 + (p.stats?.int || 5);
   p.hp = p.maxHp;
   p.mp = p.maxMp;
-  // +1 ponto de stat aleatório
   const stats = ['str', 'dex', 'int', 'vit', 'luk'];
-  p.stats[P(stats)]++;
+  p.stats[stats[Math.floor(Math.random() * stats.length)]]++;
   return p;
 }
 
@@ -303,6 +275,6 @@ function addXP(p, amount) {
 module.exports = {
   RACES, CLASSES, BIOMES, NPCS, QUESTS,
   calcDamage, generateEnemy,
-  createPlayer, getPlayer, levelUp, addXP,
-  _players,
+  getPlayer, savePlayer, levelUp, addXP,
+  _cache,
 };
