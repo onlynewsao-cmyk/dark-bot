@@ -6,6 +6,7 @@
 
 const ai     = require('../ai');
 const config = require('../../config');
+const { sanitizeAI } = require('../aiSanitizer');
 
 module.exports = function registerIACases(registerCase) {
 
@@ -47,7 +48,7 @@ module.exports = function registerIACases(registerCase) {
       if (mem) { mem.addMessage('assistant', answer); await mem.save().catch(() => {}); }
 
       await react('✅');
-      return reply(`🧠 *${config.bot.name} IA:*\n\n${answer}`);
+      return reply('🧠 *' + config.bot.name + ' IA:*\n\n' + sanitizeAI(answer));
     } catch (e) {
       await react('❌');
       return reply('❌ Erro na IA. Tente novamente.');
@@ -60,7 +61,7 @@ module.exports = function registerIACases(registerCase) {
     try {
       const digest = await ai.getPrettyNewsDigest(text || '');
       await react('✅');
-      return reply(digest);
+      return reply(sanitizeAI(digest));
     } catch {
       await react('❌');
       return reply('❌ Notícias indisponíveis agora.');
@@ -76,7 +77,7 @@ module.exports = function registerIACases(registerCase) {
     try {
       const r = await ai.getWebDigest(text);
       await react('✅');
-      return reply(r);
+      return reply(sanitizeAI(r));
     } catch {
       await react('❌');
       return reply('❌ Pesquisa falhou.');
@@ -95,7 +96,7 @@ module.exports = function registerIACases(registerCase) {
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000)),
       ]);
       await react('✅');
-      return reply(`🧠 *DeepSearch:*\n\n${r}`);
+      return reply('🧠 *DeepSearch:*\n\n' + sanitizeAI(r, { maxLength: 4000 }));
     } catch {
       await react('❌');
       return reply('❌ Falha na pesquisa.');

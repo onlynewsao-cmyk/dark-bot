@@ -6,6 +6,7 @@
 
 const config = require('../../config');
 const ai = require('../ai');
+const { sanitizeAI } = require('../aiSanitizer');
 
 // ── Mapeamento modelo → API disponível ──
 const MODEL_MAP = {
@@ -99,7 +100,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🧠', key: msg.key } });
     try {
       const answer = await ai.chat(text, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: answer }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: sanitizeAI(answer) }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -114,7 +115,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '✍️', key: msg.key } });
     try {
       const answer = await ai.chat(`Corrige os erros ortográficos e gramaticais do seguinte texto. Responde APENAS com o texto corrigido, sem explicações:\n\n${text}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `✍️ *Corrigido:*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `✍️ *Corrigido:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -125,7 +126,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
     try {
       const answer = await ai.chat(`Explica de forma clara e simples o seguinte conceito:\n\n${text}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `📖 *Explicação:*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `📖 *Explicação:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -136,7 +137,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '📝', key: msg.key } });
     try {
       const answer = await ai.chat(`Resume o seguinte texto em 3-5 pontos principais:\n\n${text}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `📝 *Resumo:*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `📝 *Resumo:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -150,7 +151,7 @@ module.exports = function registerIA2(registerCase) {
       const r = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
       const text = String(r.data).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 3000);
       const answer = await ai.chat(`Resume o conteúdo desta página web em 3-5 pontos:\n\n${text}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `🔗 *Resumo de ${url.slice(0, 50)}...*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `🔗 *Resumo de ${url.slice(0, 50)}...*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -171,7 +172,7 @@ module.exports = function registerIA2(registerCase) {
         .join('\n');
       if (!msgs) return reply('💬 Sem mensagens recentes para resumir.');
       const answer = await ai.chat(`Resume esta conversa de grupo em 3-5 pontos:\n\n${msgs}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `💬 *Resumo das últimas ${n} mensagens:*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `💬 *Resumo das últimas ${n} mensagens:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -181,7 +182,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '💡', key: msg.key } });
     try {
       const answer = await ai.chat(`Dá-me 5 ideias criativas sobre: ${topic}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `💡 *Ideias sobre ${topic}:*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `💡 *Ideias sobre ${topic}:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -192,7 +193,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⚔️', key: msg.key } });
     try {
       const answer = await ai.chat(`Apresenta argumentos A FAVOR e CONTRA o seguinte tema, de forma equilibrada:\n\n${topic}`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `⚔️ *Debate: ${topic}*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `⚔️ *Debate: ${topic}*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -203,7 +204,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🎯', key: msg.key } });
     try {
       const answer = await ai.chat(`Recomenda 5 ${text}. Para cada um dá: título, ano, e uma frase de descrição.`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `🎯 *Recomendações: ${text}*\n\n${answer}` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `🎯 *Recomendações: ${text}*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
@@ -213,7 +214,7 @@ module.exports = function registerIA2(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
     try {
       const answer = await ai.chat(`Cria o início de uma história interativa de ${genre}. Descreve a cena e dá 3 opções de acção (1, 2, 3). Máximo 200 palavras.`, '', {}, false);
-      await sock.sendMessage(ctx.remoteJid, { text: `📖 *Aventura: ${genre}*\n\n${answer}\n\n> Usa \`${prefix}aventura 1\` para escolher` }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { text: `📖 *Aventura: ${genre}*\n\n${sanitizeAI(answer)}\n\n> Usa \`${prefix}aventura 1\` para escolher` }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
