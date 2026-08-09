@@ -97,6 +97,7 @@ async function ytsearch(query) {
 // API: DOWNLOAD ÁUDIO
 // ─────────────────────────────────────────────
 async function ytAudio(urlOrQuery) {
+  // 1º — SystemZone API
   try {
     const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp3?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
     const data = await mediaHandler.fetchJson(endpoint, 65000);
@@ -113,8 +114,26 @@ async function ytAudio(urlOrQuery) {
       };
     }
   } catch (e) {
-    console.warn('[ytAudio] ytmp3 falhou:', e.message);
+    console.warn('[ytAudio] SystemZone falhou:', e.message);
   }
+
+  // 2º — ytdl.js (yt-dlp, ytdl-core, youtubei, Loader.to)
+  try {
+    const ytdl = require('./ytdl');
+    const r = await ytdl.getAudio(urlOrQuery, '128k');
+    return {
+      buffer: r.buffer,
+      title: r.title || 'Áudio',
+      author: r.author || '',
+      duration: r.duration || '',
+      thumbnail: r.thumb || '',
+      mimetype: r.mimetype || 'audio/mpeg',
+      source: r.source || 'ytdl',
+    };
+  } catch (e) {
+    console.warn('[ytAudio] ytdl falhou:', e.message);
+  }
+
   throw new Error('Download de áudio falhou. Tente de novo em alguns segundos.');
 }
 
@@ -122,6 +141,7 @@ async function ytAudio(urlOrQuery) {
 // API: DOWNLOAD VÍDEO
 // ─────────────────────────────────────────────
 async function ytVideo(urlOrQuery, quality = '720') {
+  // 1º — SystemZone API
   try {
     const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp4?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
     const data = await mediaHandler.fetchJson(endpoint, 65000);
@@ -138,8 +158,26 @@ async function ytVideo(urlOrQuery, quality = '720') {
       };
     }
   } catch (e) {
-    console.warn('[ytVideo] ytmp4 falhou:', e.message);
+    console.warn('[ytVideo] SystemZone falhou:', e.message);
   }
+
+  // 2º — ytdl.js (yt-dlp, youtubei, Loader.to)
+  try {
+    const ytdl = require('./ytdl');
+    const r = await ytdl.getVideo(urlOrQuery, quality);
+    return {
+      buffer: r.buffer,
+      title: r.title || 'Vídeo',
+      duration: r.duration || '',
+      quality: r.quality || quality + 'p',
+      thumbnail: r.thumb || '',
+      mimetype: r.mimetype || 'video/mp4',
+      source: r.source || 'ytdl',
+    };
+  } catch (e) {
+    console.warn('[ytVideo] ytdl falhou:', e.message);
+  }
+
   throw new Error('Download de vídeo falhou. Tente de novo.');
 }
 
