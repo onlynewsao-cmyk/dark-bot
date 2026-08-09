@@ -1,16 +1,13 @@
 /**
- * DARK BOT v5 — YT Download Engine v6
+ * DARK BOT v7.3 — YT Download Engine
  * ─────────────────────────────────────────────────────────────
  * Estratégia multi-fallback (por ordem de prioridade):
- *  1. SystemZone /api/ytmp4 (quando disponível)
- *  2. yt-dlp local (se instalado no servidor)
- *  3. @distube/ytdl-core (stream directo)
- *  4. youtubei.js (stream directo)
- *  5. Invidious público (lista de instâncias)
- *  6. Piped API (alternativo ao Invidious)
- *  7. Loader.to (serviço externo de conversão)
- *  8. External APIs (SocialKit, SaveNow, Cobalt, templates)
- * 
+ *  1. yt-dlp local (se instalado — funciona no Render)
+ *  2. @distube/ytdl-core (stream directo)
+ *  3. youtubei.js (stream directo)
+ *  4. Loader.to (serviço externo — funciona em qualquer lado)
+ *  5. SystemZone /api/ytmp4 (quando disponível)
+ *
  * Áudio: baixa M4A/MP4 → extrai MP3 com ffmpeg
  * Vídeo: baixa MP4 directo
  */
@@ -19,7 +16,7 @@
 const path       = require('path');
 const fs         = require('fs');
 const os         = require('os');
-const { spawnSync, execFileSync } = require('child_process');
+const { spawnSync } = require('child_process');
 const yts        = require('yt-search');
 
 const SZ_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
@@ -86,7 +83,7 @@ async function fetchJson(url, timeoutMs = 30000) {
   try {
     const r = await fetch(url, {
       signal: ctrl.signal,
-      headers: { 'User-Agent': 'DarkBot/6.0', 'Accept': 'application/json' },
+      headers: { 'User-Agent': 'DarkBot/7.3', 'Accept': 'application/json' },
     });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
@@ -96,7 +93,6 @@ async function fetchJson(url, timeoutMs = 30000) {
 // ─── Busca de vídeo ──────────────────────────────────────────
 async function searchVideo(query) {
   if (isUrl(query)) {
-    // Extrai videoId da URL
     const m = String(query).match(/[?&v=]([a-zA-Z0-9_-]{11})|youtu\.be\/([a-zA-Z0-9_-]{11})/);
     const vid = m?.[1] || m?.[2] || '';
     return {
@@ -111,47 +107,19 @@ async function searchVideo(query) {
     const res = await yts(query);
     const v = res.videos?.find(v => v.seconds > 10 && v.seconds <= MAX_SEC) || res.videos?.[0];
     if (v) return {
-      url:      v.url,
-      videoId:  v.videoId,
-      title:    v.title,
-      author:   v.author?.name || '',
-      duration: v.duration?.timestamp || '',
-      seconds:  v.seconds || 0,
-      thumb:    v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
-    };
-  } catch {}
-
-  // 2. SystemZone ytsearch (fallback)
-  try {
-    const d = await fetchJson(`${SZ_URL}/api/ytsearch?text=${encodeURIComponent(query)}&apikey=${SZ_KEY}`, 15000);
-    const v = d?.resultados?.[0];
-    if (v) return {
-      url:      v.youtube_url || v.url,
-      videoId:  (v.youtube_url || '').match(/v=([a-zA-Z0-9_-]{11})/)?.[1] || '',
-      title:    v.title || query,
-      author:   v.author || '',
-      duration: v.duration || '',
-      seconds:  parseDuration(v.duration),
-      thumb:    v.thumbnail || '',
+      url: v.url, videoId: v.videoId, title: v.title,
+      author: v.author?.name || '', duration: v.duration?.timestamp || '',
+      seconds: v.seconds || 0,
+      thumb: v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
     };
   } catch {}
 
   throw new Error('Nenhum resultado encontrado para: ' + query);
 }
 
-// ─── MÉTODO 1: SystemZone ytmp4 ──────────────────────────────
-async function szDownloadMP4(videoUrl) {
-  const r = await fetch(
-    `${SZ_URL}/api/ytmp4?text=${encodeURIComponent(videoUrl)}&apikey=${SZ_KEY}`,
-    { headers: { 'User-Agent': 'DarkBot/6.0' }, signal: AbortSignal.timeout(40000) }
-  );
-  const d = await r.json();
-  const url = d?.result?.download || d?.download_url || d?.url;
-  if (!d?.status || !url) throw new Error('SZ ytmp4: ' + (d?.error || d?.details?.slice?.(0,80) || 'sem URL'));
-  return { url, title: d?.result?.title || d?.title || '', quality: d?.result?.quality || '720p' };
-}
-
-// ─── MÉTODO 2: yt-dlp local ──────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MÉTODO 1: yt-dlp local
+// ═══════════════════════════════════════════════════════════════
 async function ytdlpDownload(videoUrl, audioOnly = true) {
   const bin = ytdlpBin();
   if (!bin) throw new Error('yt-dlp não instalado');
@@ -159,13 +127,7 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-ytdlp-'));
   const outTpl = path.join(tmp, '%(title)s.%(ext)s');
 
-  const args = [
-    '--no-playlist',
-    '--max-filesize', '50m',
-    '-o', outTpl,
-    '--no-part',
-    '--quiet',
-  ];
+  const args = ['--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet'];
 
   if (audioOnly) {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '128K');
@@ -188,37 +150,37 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
   }
 }
 
-// ─── MÉTODO 3: @distube/ytdl-core stream ─────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MÉTODO 2: @distube/ytdl-core stream
+// ═══════════════════════════════════════════════════════════════
 async function distubeDlAudio(videoUrl) {
   const ytdl = require('@distube/ytdl-core');
-  const info  = await ytdl.getInfo(videoUrl, {
+  const info = await ytdl.getInfo(videoUrl, {
     requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Accept-Language': 'pt-BR,pt;q=0.9',
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept-Language': 'pt-BR,pt;q=0.9' },
     },
   });
 
-  const fmts  = info.formats;
-  const audio = fmts.filter(f => f.hasAudio && !f.hasVideo && f.url);
+  const audio = info.formats.filter(f => f.hasAudio && !f.hasVideo && f.url);
   if (!audio.length) throw new Error('Nenhum formato de áudio disponível');
 
   audio.sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
-  const fmt   = audio[0];
-  const buf   = await fetchBuf(fmt.url, 120000);
+  const fmt = audio[0];
+  const buf = await fetchBuf(fmt.url, 120000);
   if (!buf || buf.length < 1024) throw new Error('stream de áudio vazio');
   return { buf, fmt };
 }
 
-// ─── MÉTODO 4: youtubei.js stream ────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// MÉTODO 3: youtubei.js stream
+// ═══════════════════════════════════════════════════════════════
 async function youtubeijsStream(videoId, audioOnly = true) {
   const { Innertube } = require('youtubei.js');
   const yt = await Innertube.create({ generate_session_locally: true });
   const stream = await yt.download(videoId, {
-    type:    audioOnly ? 'audio' : 'video',
+    type: audioOnly ? 'audio' : 'video',
     quality: 'best',
-    format:  audioOnly ? 'mp4' : 'mp4',
+    format: 'mp4',
   });
   const chunks = [];
   for await (const chunk of stream) {
@@ -230,70 +192,74 @@ async function youtubeijsStream(videoId, audioOnly = true) {
   return buf;
 }
 
-// ─── MÉTODO 5: Invidious público ─────────────────────────────
-const INVIDIOUS_HOSTS = [
-  'invidious.privacydev.net',
-  'iv.melmac.space',
-  'invidious.incogniweb.net',
-  'y.com.sb',
-];
+// ═══════════════════════════════════════════════════════════════
+// MÉTODO 4: Loader.to (serviço externo — funciona em qualquer lado)
+// ═══════════════════════════════════════════════════════════════
+const LOADER_TO = 'https://loader.to';
+const LOADER_PROGRESS = 'https://lto2.affadaffa.com/api/progress';
 
-// ─── MÉTODO 6: Piped API (alternativo ao Invidious) ──────────
-const PIPED_HOSTS = [
-  'pipedapi.kavin.rocks',
-  'pipedapi.adminforge.de',
-  'api.piped.yt',
-  'piped-api.privacy.com.de',
-  'pipedapi.darkness.services',
-];
+async function loaderDownload(videoUrl, format = 'mp3') {
+  // 1. Iniciar conversão
+  const startUrl = `${LOADER_TO}/ajax/download.php?format=${format}&url=${encodeURIComponent(videoUrl)}&add_info=1`;
+  const startResp = await fetchJson(startUrl, 30000);
 
-async function pipedDownload(videoId, audioOnly = true) {
-  for (const host of PIPED_HOSTS) {
+  if (!startResp?.id) throw new Error('Loader.to: sem task ID');
+
+  const taskId = startResp.id;
+  const title = startResp.title || 'YouTube';
+  const info = startResp.info || {};
+
+  // 2. Polling até ficar pronto (máx 90s)
+  const progressUrl = startResp.progress_url || `${LOADER_PROGRESS}?id=${taskId}`;
+  let downloadUrl = '';
+
+  for (let i = 0; i < 18; i++) {
+    await new Promise(r => setTimeout(r, 5000));
     try {
-      const d = await fetchJson('https://' + host + '/streams/' + videoId, 10000);
-      const streams = audioOnly ? (d.audioStreams || []) : (d.videoStreams || []);
-      if (!streams.length) continue;
-
-      let best;
-      if (audioOnly) {
-        best = streams.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      } else {
-        best = streams
-          .filter(s => parseInt(s.quality || '0') <= 720)
-          .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0] || streams[0];
+      const pr = await fetchJson(progressUrl, 10000);
+      if (pr.success === 1 && pr.download_url) {
+        downloadUrl = pr.download_url;
+        break;
       }
-      if (!best?.url) continue;
-
-      const buf = await fetchBuf(best.url, 120000);
-      if (buf && buf.length > 1024) return buf;
     } catch {}
   }
-  throw new Error('Piped: nenhuma instância respondeu');
+
+  if (!downloadUrl) throw new Error('Loader.to: timeout na conversão');
+
+  // 3. Download do ficheiro
+  const buffer = await fetchBuf(downloadUrl, 180000);
+  if (!buffer || buffer.length < 1024) throw new Error('Loader.to: ficheiro vazio');
+
+  return {
+    title,
+    buffer,
+    url: downloadUrl,
+    author: info.uploader || '',
+    thumbnail: info.image || '',
+  };
 }
 
-async function invidiousDownload(videoId, audioOnly = true) {
-  for (const host of INVIDIOUS_HOSTS) {
-    try {
-      const d = await fetchJson(`https://${host}/api/v1/videos/${videoId}?fields=adaptiveFormats,formatStreams`, 10000);
-      const fmts = [...(d.adaptiveFormats || []), ...(d.formatStreams || [])];
-      let fmt;
-      if (audioOnly) {
-        fmt = fmts.filter(f => f.type?.includes('audio/mp4') && f.url).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      } else {
-        fmt = fmts.filter(f => f.type?.includes('video/mp4') && f.url && parseInt(f.resolution || '0') <= 720).sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
-      }
-      if (!fmt?.url) continue;
-      const buf = await fetchBuf(fmt.url, 120000);
-      if (buf && buf.length > 1024) return buf;
-    } catch {}
-  }
-  throw new Error('Invidious: nenhuma instância respondeu');
+// ═══════════════════════════════════════════════════════════════
+// MÉTODO 5: SystemZone (opcional)
+// ═══════════════════════════════════════════════════════════════
+async function szDownloadMP4(videoUrl) {
+  const r = await fetch(
+    `${SZ_URL}/api/ytmp4?text=${encodeURIComponent(videoUrl)}&apikey=${SZ_KEY}`,
+    { headers: { 'User-Agent': 'DarkBot/7.3' }, signal: AbortSignal.timeout(40000) }
+  );
+  const text = await r.text();
+  // Verifica se é JSON (não HTML)
+  if (!text.trim().startsWith('{')) throw new Error('SystemZone: resposta não é JSON');
+  const d = JSON.parse(text);
+  const url = d?.result?.download || d?.download_url || d?.url;
+  if (!d?.status || !url) throw new Error('SZ: ' + (d?.error || 'sem URL'));
+  return { url, title: d?.result?.title || d?.title || '', quality: d?.result?.quality || '720p' };
 }
 
 // ─── Extrai MP3 de buffer M4A/MP4 ────────────────────────────
 function extractAudioFromBuffer(inputBuf, bitrate = '128k') {
-  const tmp     = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-audio-'));
-  const inPath  = path.join(tmp, 'input.m4a');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-audio-'));
+  const inPath = path.join(tmp, 'input.m4a');
   const outPath = path.join(tmp, 'audio.mp3');
   try {
     fs.writeFileSync(inPath, inputBuf);
@@ -311,261 +277,101 @@ function extractAudioFromBuffer(inputBuf, bitrate = '128k') {
   }
 }
 
-// ─── API PÚBLICA ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// API PÚBLICA
+// ═══════════════════════════════════════════════════════════════
 
-// v7.2: helpers externos (loader.to, SocialKit, SaveNow, Cobalt, etc)
-let _helpers = null;
-function getHelpers() {
-  if (!_helpers) {
-    try { _helpers = require('./dl/helpers'); } catch { _helpers = {}; }
-  }
-  return _helpers;
-}
-
-/** Busca + baixa áudio MP3 — multi-fallback (8 métodos) */
+/** Busca + baixa áudio MP3 — 5 fallbacks */
 async function getAudio(query, quality = '128k') {
   const meta = await searchVideo(query);
   if (meta.seconds > MAX_SEC) {
-    throw new Error(`⏱️ Vídeo muito longo (${Math.floor(meta.seconds/60)} min). Limite: ${Math.floor(MAX_SEC/60)} min.`);
+    throw new Error('⏱️ Vídeo muito longo (' + Math.floor(meta.seconds / 60) + ' min). Limite: ' + Math.floor(MAX_SEC / 60) + ' min.');
   }
 
   const errors = [];
 
-  // 1. SystemZone ytmp4 → ffmpeg extrai MP3
-  try {
-    const info   = await szDownloadMP4(meta.url);
-    const mp4buf = await fetchBuf(info.url, 120000);
-    if (mp4buf && mp4buf.length > 10240) {
-      const mp3buf = extractAudioFromBuffer(mp4buf, quality);
-      return {
-        ...meta,
-        title:    info.title || meta.title,
-        buffer:   mp3buf,
-        mimetype: 'audio/mpeg',
-        ext:      'mp3',
-        quality,
-        source:   'SystemZone',
-      };
-    }
-  } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
-
-  // 2. yt-dlp local
+  // 1. yt-dlp
   try {
     const buf = await ytdlpDownload(meta.url, true);
-    return {
-      ...meta,
-      buffer:   buf,
-      mimetype: 'audio/mpeg',
-      ext:      'mp3',
-      quality,
-      source:   'yt-dlp',
-    };
+    return { ...meta, buffer: buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'yt-dlp' };
   } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
 
-  // 3. @distube/ytdl-core
+  // 2. @distube/ytdl-core
   try {
     const { buf } = await distubeDlAudio(meta.url);
-    const mp3buf  = extractAudioFromBuffer(buf, quality);
-    return {
-      ...meta,
-      buffer:   mp3buf,
-      mimetype: 'audio/mpeg',
-      ext:      'mp3',
-      quality,
-      source:   'ytdl-core',
-    };
+    const mp3buf = extractAudioFromBuffer(buf, quality);
+    return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'ytdl-core' };
   } catch (e) { errors.push('ytdl-core: ' + e.message?.slice(0, 60)); }
-
-  // 4. youtubei.js (se tem videoId)
-  if (meta.videoId) {
-    try {
-      const m4abuf = await youtubeijsStream(meta.videoId, true);
-      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
-      return {
-        ...meta,
-        buffer:   mp3buf,
-        mimetype: 'audio/mpeg',
-        ext:      'mp3',
-        quality,
-        source:   'youtubei.js',
-      };
-    } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
-  }
-
-  // 5. Invidious
-  if (meta.videoId) {
-    try {
-      const m4abuf = await invidiousDownload(meta.videoId, true);
-      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
-      return {
-        ...meta,
-        buffer:   mp3buf,
-        mimetype: 'audio/mpeg',
-        ext:      'mp3',
-        quality,
-        source:   'Invidious',
-      };
-    } catch (e) { errors.push('Invidious: ' + e.message?.slice(0, 60)); }
-  }
-
-  // 6. Piped API
-  if (meta.videoId) {
-    try {
-      const m4abuf = await pipedDownload(meta.videoId, true);
-      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
-      return {
-        ...meta,
-        buffer:   mp3buf,
-        mimetype: 'audio/mpeg',
-        ext:      'mp3',
-        quality,
-        source:   'Piped',
-      };
-    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
-  }
-
-  // 7. Loader.to (serviço externo de conversão)
-  try {
-    const h = getHelpers();
-    if (h.loaderYoutubeAudio) {
-      const r = await h.loaderYoutubeAudio(meta.url, quality === '320k' ? '320' : '128');
-      if (r?.buffer && r.buffer.length > 1024) {
-        return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'loader.to' };
-      }
-    }
-  } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
-
-  // 8. External APIs (SocialKit, SaveNow, templates, Cobalt)
-  try {
-    const h = getHelpers();
-    if (h.externalYoutubeDownload) {
-      const r = await h.externalYoutubeDownload(meta.url, 'audio', quality === '320k' ? '320' : '128');
-      if (r?.url) {
-        const buf = await fetchBuf(r.url, 120000);
-        if (buf && buf.length > 1024) {
-          const mp3buf = extractAudioFromBuffer(buf, quality);
-          return { ...meta, title: r.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: r.source || 'External' };
-        }
-      }
-    }
-  } catch (e) { errors.push('External: ' + e.message?.slice(0, 60)); }
-
-  // Todos falharam
-  console.error('[ytdl.getAudio] ' + errors.length + ' métodos falharam:', errors.join(' | '));
-  throw new Error('❌ Download indisponível agora. Tenta de novo em alguns minutos.\n\n🎵 Link: ' + meta.url);
-}
-
-/** Busca + baixa vídeo MP4 — multi-fallback */
-async function getVideo(query, maxHeight = '720') {
-  const meta = await searchVideo(query);
-  if (meta.seconds > MAX_SEC) {
-    throw new Error(`⏱️ Vídeo muito longo (${Math.floor(meta.seconds/60)} min). Limite: ${Math.floor(MAX_SEC/60)} min.`);
-  }
-
-  const errors = [];
-
-  // 1. SystemZone ytmp4
-  try {
-    const info = await szDownloadMP4(meta.url);
-    const buf  = await fetchBuf(info.url, 180000);
-    if (buf && buf.length > 10240) {
-      return {
-        ...meta,
-        title:    info.title || meta.title,
-        buffer:   buf,
-        mimetype: 'video/mp4',
-        ext:      'mp4',
-        quality:  info.quality || maxHeight + 'p',
-        source:   'SystemZone',
-      };
-    }
-  } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
-
-  // 2. yt-dlp local
-  try {
-    const buf = await ytdlpDownload(meta.url, false);
-    return {
-      ...meta,
-      buffer:   buf,
-      mimetype: 'video/mp4',
-      ext:      'mp4',
-      quality:  maxHeight + 'p',
-      source:   'yt-dlp',
-    };
-  } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
 
   // 3. youtubei.js
   if (meta.videoId) {
     try {
-      const buf = await youtubeijsStream(meta.videoId, false);
-      return {
-        ...meta,
-        buffer:   buf,
-        mimetype: 'video/mp4',
-        ext:      'mp4',
-        quality:  maxHeight + 'p',
-        source:   'youtubei.js',
-      };
+      const m4abuf = await youtubeijsStream(meta.videoId, true);
+      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
+      return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'youtubei.js' };
     } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
   }
 
-  // 4. Invidious
-  if (meta.videoId) {
-    try {
-      const buf = await invidiousDownload(meta.videoId, false);
-      return {
-        ...meta,
-        buffer:   buf,
-        mimetype: 'video/mp4',
-        ext:      'mp4',
-        quality:  maxHeight + 'p',
-        source:   'Invidious',
-      };
-    } catch (e) { errors.push('Invidious: ' + e.message?.slice(0, 60)); }
-  }
-
-  // 6. Piped API
-  if (meta.videoId) {
-    try {
-      const buf = await pipedDownload(meta.videoId, false);
-      return {
-        ...meta,
-        buffer:   buf,
-        mimetype: 'video/mp4',
-        ext:      'mp4',
-        quality:  maxHeight + 'p',
-        source:   'Piped',
-      };
-    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
-  }
-
-  // 7. Loader.to (serviço externo de conversão)
+  // 4. Loader.to
   try {
-    const h = getHelpers();
-    if (h.loaderYoutubeVideo) {
-      const r = await h.loaderYoutubeVideo(meta.url, maxHeight);
-      if (r?.buffer && r.buffer.length > 1024) {
-        return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'loader.to' };
-      }
-    }
+    const r = await loaderDownload(meta.url, 'mp3');
+    return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'loader.to' };
   } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
 
-  // 8. External APIs (SocialKit, SaveNow, templates, Cobalt)
+  // 5. SystemZone
   try {
-    const h = getHelpers();
-    if (h.externalYoutubeDownload) {
-      const r = await h.externalYoutubeDownload(meta.url, 'video', maxHeight);
-      if (r?.url) {
-        const buf = await fetchBuf(r.url, 180000);
-        if (buf && buf.length > 1024) {
-          return { ...meta, title: r.title || meta.title, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: r.source || 'External' };
-        }
-      }
+    const info = await szDownloadMP4(meta.url);
+    const mp4buf = await fetchBuf(info.url, 120000);
+    if (mp4buf && mp4buf.length > 10240) {
+      const mp3buf = extractAudioFromBuffer(mp4buf, quality);
+      return { ...meta, title: info.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'SystemZone' };
     }
-  } catch (e) { errors.push('External: ' + e.message?.slice(0, 60)); }
+  } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
+
+  console.error('[ytdl.getAudio] ' + errors.length + ' métodos falharam:', errors.join(' | '));
+  throw new Error('❌ Download indisponível. Tenta de novo.\n\n🎵 Link: ' + meta.url);
+}
+
+/** Busca + baixa vídeo MP4 — 5 fallbacks */
+async function getVideo(query, maxHeight = '720') {
+  const meta = await searchVideo(query);
+  if (meta.seconds > MAX_SEC) {
+    throw new Error('⏱️ Vídeo muito longo (' + Math.floor(meta.seconds / 60) + ' min). Limite: ' + Math.floor(MAX_SEC / 60) + ' min.');
+  }
+
+  const errors = [];
+
+  // 1. yt-dlp
+  try {
+    const buf = await ytdlpDownload(meta.url, false);
+    return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'yt-dlp' };
+  } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
+
+  // 2. youtubei.js
+  if (meta.videoId) {
+    try {
+      const buf = await youtubeijsStream(meta.videoId, false);
+      return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'youtubei.js' };
+    } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
+  }
+
+  // 3. Loader.to
+  try {
+    const r = await loaderDownload(meta.url, maxHeight === '360' ? '360' : maxHeight === '480' ? '480' : '720');
+    return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'loader.to' };
+  } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
+
+  // 4. SystemZone
+  try {
+    const info = await szDownloadMP4(meta.url);
+    const buf = await fetchBuf(info.url, 180000);
+    if (buf && buf.length > 10240) {
+      return { ...meta, title: info.title || meta.title, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: info.quality || maxHeight + 'p', source: 'SystemZone' };
+    }
+  } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
 
   console.error('[ytdl.getVideo] ' + errors.length + ' métodos falharam:', errors.join(' | '));
-  throw new Error('❌ Download de vídeo indisponível agora.\n\n🎬 Link: ' + meta.url);
+  throw new Error('❌ Download de vídeo indisponível.\n\n🎬 Link: ' + meta.url);
 }
 
 /** Só busca, sem download */
