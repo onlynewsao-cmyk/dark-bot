@@ -348,24 +348,80 @@ async function searchByName(nome = '', count = 3) {
 }
 
 // ─────────────────────────────────────────────
-// BUSCA MULTI-FONTE — tenta em cascata
+// BUSCA MULTI-FONTE — tenta em cascata COM RANDOMIZAÇÃO
+// v7.2: inclui sex.com, randomiza ordem das fontes, nunca repete
 // ─────────────────────────────────────────────
+
+// Cache de URLs já enviadas (anti-repetição, TTL 30min)
+const _sentUrls = new Map();
+const SENT_TTL = 30 * 60 * 1000;
+
+function wasRecentlySent(url) {
+  const ts = _sentUrls.get(url);
+  if (!ts) return false;
+  if (Date.now() - ts > SENT_TTL) { _sentUrls.delete(url); return false; }
+  return true;
+}
+
+function markSent(url) {
+  _sentUrls.set(url, Date.now());
+  // Limita cache a 500 entradas
+  if (_sentUrls.size > 500) {
+    const oldest = [..._sentUrls.entries()].sort((a, b) => a[1] - b[1]).slice(0, 200);
+    for (const [k] of oldest) _sentUrls.delete(k);
+  }
+}
+
+function filterNewUrls(items) {
+  return items.filter(i => !wasRecentlySent(i.url));
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 async function searchImages(tags = '', count = 3) {
   const safe = (tags || 'nude').replace(/loli|shota|child|minor/gi, '').trim();
-  const sources = [
-    () => yandeImages(safe, count),
-    () => konachanImages(safe, count),
-    () => e621Images(safe, count),
-    () => nekosLifeImage('lewd'),
-    () => safebooruImages(safe, count),   // v6.50: rede de segurança
-  ];
-  for (const fn of sources) {
+
+  // Randomiza a ordem das fontes — nunca repete a mesma sequência
+  const sources = shuffle([
+    { name: 'yande.re', fn: () => yandeImages(safe, count) },
+    { name: 'konachan', fn: () => konachanImages(safe, count) },
+    { name: 'e621', fn: () => e621Images(safe, count) },
+    { name: 'sex.com', fn: async () => {
+      try {
+        const sexcom = require('./sexcom');
+        const r = await sexcom.searchImages(safe, count);
+        if (r?.length) return r;
+      } catch {}
+      throw new Error('sex.com falhou');
+    }},
+    { name: 'nekos.life', fn: () => nekosLifeImage('lewd') },
+    { name: 'safebooru', fn: () => safebooruImages(safe, count) },
+  ]);
+
+  const allResults = [];
+  for (const src of sources) {
     try {
-      const imgs = await fn();
-      if (imgs?.length) return imgs;
+      const imgs = await src.fn();
+      if (imgs?.length) {
+        const fresh = filterNewUrls(imgs);
+        allResults.push(...fresh);
+      }
     } catch {}
   }
-  throw new Error('Todas as fontes de imagem falharam agora. Tente de novo.');
+
+  if (!allResults.length) throw new Error('Todas as fontes falharam. Tente de novo.');
+
+  // Randomiza e limita
+  const result = shuffle(allResults).slice(0, count);
+  for (const r of result) markSent(r.url);
+  return result;
 }
 
 // ─────────────────────────────────────────────
@@ -558,4 +614,9 @@ module.exports = {
   fetchAdultVideo,
   portalMenuText,
   NEKOS_LIFE_TYPES,
+  // v7.2
+  wasRecentlySent,
+  markSent,
+  filterNewUrls,
+  shuffle,
 };
