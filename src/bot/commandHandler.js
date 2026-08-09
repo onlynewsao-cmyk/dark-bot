@@ -110,9 +110,25 @@ function getSenderInfo(msg) {
   const remoteJid = msg.key.remoteJid;
   const isGroup = remoteJid?.endsWith('@g.us');
   const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
-  const senderNumber = (senderJid || '').split('@')[0] || '';
+
+  // v6.53: o WhatsApp moderno identifica contas por LID (`…@lid`) em vez
+  // do número. No PV, senderNumber saía como '189234567890123' em vez de
+  // '244945280380' — o isOwner falhava e a AURA respondia ao próprio Dono
+  // com "Não respondo a desconhecidos".
+  // O Baileys dá o número real em participantAlt/remoteJidAlt; usamos
+  // esse quando o JID principal é um LID.
+  const alt = isGroup
+    ? (msg.key.participantAlt || msg.key.participantPn || '')
+    : (msg.key.remoteJidAlt || msg.key.remoteJidPn || '');
+
+  const ehLid = /@lid$/i.test(senderJid || '');
+  const base = (ehLid && alt) ? alt : senderJid;
+
+  const senderNumber = (base || '').split(':')[0].split('@')[0] || '';
+  const senderLid = ehLid ? String(senderJid).split('@')[0] : '';
   const pushName = msg.pushName || 'Usuário';
-  return { remoteJid, isGroup, senderJid, senderNumber, pushName };
+
+  return { remoteJid, isGroup, senderJid, senderNumber, senderLid, pushName };
 }
 
 
@@ -1346,6 +1362,43 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // Remove os marcadores do texto visível
       finalAnswer = finalAnswer.replace(/\[STICKER:[^\]]+\]/g, '').replace(/\[IMAGE:[^\]]+\]/g, '').replace(/\[CMD:[^\]]+\]/g, '').trim();
       
+      // v6.53: PEDIDO DE ÁUDIO — ela dizia "não posso enviar áudios"
+      // mas o ElevenLabs funciona (testado: 30KB de MP3). Agora quando
+      // pedem voz, ela envia MESMO em vez de recusar.
+      // v6.53: apanha as formas reais de pedir — inclui o imperativo
+      // ('mande', 'envie', 'faça'), que a versão anterior falhava.
+      // v6.53: detecção simples e robusta — há um verbo de pedido E a
+      // palavra áudio/voz na mesma frase. Tentei uma regex com
+      // distância entre os termos, mas falhava com acentos.
+      const _txtAudio = String(cleanText || '').toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const pediuAudio =
+        /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(_txtAudio) &&
+        /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|quero|faz|faca|grav[ae]|poe|poem|diz|fala|responde)\b/.test(_txtAudio);
+
+      if (pediuAudio && finalAnswer.length > 0 && finalAnswer.length < 900) {
+        try {
+          const aiVoz = require('./ai');
+          // tira emojis e marcações — o TTS lê-os em voz alta
+          const paraFalar = finalAnswer
+            .replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '')
+            .replace(/[*_~`]/g, '')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+
+          const voz = await aiVoz.speakWithFallback(paraFalar.slice(0, 500));
+          if (voz && voz.length > 500) {
+            await sock.sendMessage(ctx.remoteJid, {
+              audio: voz, mimetype: 'audio/mpeg', ptt: true,
+            }, { quoted: msg });
+            return true;   // já respondeu em voz, não repete em texto
+          }
+        } catch (e) {
+          console.warn('[Aura voz]', e.message?.slice(0, 60));
+          // se a voz falhar, continua e manda o texto
+        }
+      }
+
       // Envia o texto (se houver)
       if (finalAnswer.length > 0) {
         await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg });
