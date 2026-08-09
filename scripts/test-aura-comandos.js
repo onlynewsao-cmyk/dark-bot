@@ -102,10 +102,59 @@ const check = (nome, cond, extra = '') => {
   console.log('\n▸ Restrito ao Dono');
   const ch = require('fs').readFileSync(
     path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
-  check('Bloco de comandos exige isOwner',
-    /if \(isOwner\) \{[\s\S]{0,300}auraCommands/.test(ch));
-  check('Verifica estaBloqueado antes de correr',
-    /estaBloqueado\(pedido\.comando\)/.test(ch));
+  // v6.57: já não é "só o Dono" — todos executam, filtrado por cargo.
+  // O que tem de continuar garantido é a verificação de permissão.
+  check('Verifica permissão antes de correr',
+    /podeExecutar\(pedido\.comando/.test(ch));
+  check('Bloqueados são negados a toda a gente',
+    /estaBloqueado/.test(require('fs').readFileSync(
+      path.join(__dirname, '..', 'src', 'aura', 'auraCommands.js'), 'utf8')));
+
+  // ══ 7. PERMISSÃO POR CARGO (v6.57) ════════════════════════
+  // "porque que a assistente não me respondeu e não executa
+  //  comandos dependendo do cargo?"
+  console.log('\n▸ Assistente executa, filtrado por cargo');
+
+  const FREE_ = {};
+  const VIP_ = { isVip: true };
+  const ADM_ = { isAdmin: true };
+  const DONO_ = { isOwner: true };
+
+  // qualquer um: informação e coisas inofensivas
+  const livres = ['saldo', 'perfil', 'menu', 'ping', 'sticker', 'traduzir'];
+  const negados = livres.filter(c => !C.podeExecutar(c, FREE_).pode);
+  check('Free executa comandos livres', negados.length === 0,
+    negados.join(', ') || `${livres.length}/${livres.length}`);
+
+  // downloads só VIP
+  check('Free NÃO executa play', !C.podeExecutar('play', FREE_).pode,
+    C.podeExecutar('play', FREE_).precisa);
+  check('VIP executa play', C.podeExecutar('play', VIP_).pode);
+
+  // moderação só admin
+  check('Free NÃO executa ban', !C.podeExecutar('ban', FREE_).pode,
+    C.podeExecutar('ban', FREE_).precisa);
+  check('Admin executa ban', C.podeExecutar('ban', ADM_).pode);
+
+  // dono faz tudo menos os bloqueados
+  check('Dono executa play', C.podeExecutar('play', DONO_).pode);
+  check('Nem o Dono executa eval por conversa', !C.podeExecutar('eval', DONO_).pode);
+  check('Nem o Dono executa broadcast', !C.podeExecutar('broadcast', DONO_).pode);
+
+  // desconhecido é negado por omissão
+  check('Comando desconhecido negado a Free', !C.podeExecutar('comandoQualquer', FREE_).pode);
+
+  // o handler tem de passar o isOwner real, não fixo
+  const chSrc = require('fs').readFileSync(
+    path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
+  check('Handler não força isOwner: true', !/command: pedido\.comando, isOwner: true/.test(chSrc));
+  check('Handler verifica podeExecutar', /podeExecutar\(pedido\.comando/.test(chSrc));
+
+  // a assistente sabe que executa
+  const amSrc = require('fs').readFileSync(
+    path.join(__dirname, '..', 'src', 'aura', 'auraModes.js'), 'utf8');
+  check('Prompt diz que executa, não explica', /TU EXECUTAS, NÃO SÓ EXPLICAS/.test(amSrc));
+  check('Prompt manda perguntar se ambíguo', /PERGUNTA o que falta/.test(amSrc));
 
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);

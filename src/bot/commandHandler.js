@@ -1433,18 +1433,34 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // restart, permissões, 18+) — esses continuam a exigir o
       // prefixo escrito à mão, porque um erro de interpretação
       // nesses é irreversível.
-      if (isOwner) {
+      // v6.57: TODOS executam por conversa, filtrado por CARGO.
+      // Antes só o Dono. Um VIP a perguntar "qual o meu saldo"
+      // recebia conversa fiada ("verifica no aplicativo do banco")
+      // em vez do comando real — a assistente sabia falar mas não
+      // sabia FAZER.
+      {
         try {
           const auraCmds = require('../aura/auraCommands');
           const pedido = auraCmds.detectarComando(cleanText);
 
-          if (pedido && !auraCmds.estaBloqueado(pedido.comando)) {
+          // cargo de quem pediu
+          let _ehAdmin = false;
+          if (ctx.isGroup) {
+            try { _ehAdmin = await isGroupAdminForHandler(sock, ctx); } catch {}
+          }
+          const _perm = pedido
+            ? auraCmds.podeExecutar(pedido.comando, { isOwner, isVip, isAdmin: _ehAdmin })
+            : { pode: false };
+
+          if (pedido && _perm.pode) {
             const argv = pedido.args ? pedido.args.split(/\s+/) : [];
             const cmdCtx = { ...ctx, args: argv, prefix };
             const caseCtx = {
               sock, msg, ctx: cmdCtx, args: argv,
               text: pedido.args, prefix,
-              command: pedido.comando, isOwner: true, config: commandConfig,
+              // v6.57: era `isOwner: true` fixo — com a execução aberta
+              // a todos, isso daria privilégios de dono a qualquer um.
+              command: pedido.comando, isOwner, config: commandConfig,
             };
 
             let correu = false;
@@ -1459,7 +1475,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               const fn = nativeCommands[pedido.comando] || packageCommands[pedido.comando];
               if (typeof fn === 'function') {
                 try {
-                  await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner: true, fillVars, config: commandConfig });
+                  await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner, fillVars, config: commandConfig });
                   correu = true;
                 } catch (e) {
                   console.warn('[Aura cmd] nativo', e.message?.slice(0, 50));
