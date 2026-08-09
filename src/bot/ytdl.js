@@ -138,7 +138,15 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
   if (audioOnly) {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '128K');
   } else {
-    args.push('-f', 'bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/best[height<=720][ext=mp4]/best[height<=720]');
+    // v7.4: formato inteligente — limita tamanho para WhatsApp (~15MB)
+    // Usa AV1 quando disponível (menor tamanho) senão H.264
+    const maxH = parseInt(videoUrl) || 720;
+    args.push('-f',
+      `bestvideo[height<=${maxH}][ext=mp4][filesize<15M]+bestaudio[ext=m4a]/` +
+      `bestvideo[height<=${maxH}][ext=mp4]+bestaudio[ext=m4a]/` +
+      `best[height<=${maxH}][ext=mp4]/` +
+      `best[height<=${maxH}]`
+    );
     args.push('--merge-output-format', 'mp4');
   }
   args.push(videoUrl);
@@ -157,6 +165,15 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
       if (isWebM) throw new Error('yt-dlp gerou WebM em vez de MP3 — ffmpeg não converteu');
       const ext = path.extname(files[0]).toLowerCase();
       if (ext === '.webm' || ext === '.mka') throw new Error('yt-dlp gerou ' + ext + ' em vez de .mp3');
+    } else {
+      // v7.4: Se vídeo > 15MB, comprime para caber no WhatsApp
+      if (buf.length > 15 * 1024 * 1024) {
+        console.log('[ytdl] Video ' + (buf.length / 1048576).toFixed(0) + 'MB — comprimindo...');
+        const compressed = await compressVideoForWhatsApp(buf);
+        if (compressed && compressed.length < buf.length) {
+          return compressed;
+        }
+      }
     }
 
     return buf;
@@ -269,6 +286,31 @@ async function szDownloadMP4(videoUrl) {
   const url = d?.result?.download || d?.download_url || d?.url;
   if (!d?.status || !url) throw new Error('SZ: ' + (d?.error || 'sem URL'));
   return { url, title: d?.result?.title || d?.title || '', quality: d?.result?.quality || '720p' };
+}
+
+// ─── Comprimir vídeo para WhatsApp (máx ~15MB) ──────────────
+async function compressVideoForWhatsApp(inputBuf) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-compress-'));
+  const inPath = path.join(tmp, 'input.mp4');
+  const outPath = path.join(tmp, 'output.mp4');
+  try {
+    fs.writeFileSync(inPath, inputBuf);
+    // Comprime: 480p, CRF 28, áudio 96k
+    const r = spawnSync(ffmpegBin(), [
+      '-y', '-i', inPath,
+      '-vf', 'scale=-2:480',
+      '-c:v', 'libx264', '-crf', '28', '-preset', 'fast',
+      '-c:a', 'aac', '-b:a', '96k',
+      '-movflags', '+faststart',
+      outPath,
+    ], { timeout: 180000, stdio: 'pipe' });
+    if (!fs.existsSync(outPath) || fs.statSync(outPath).size < 1024) {
+      throw new Error('compressao falhou');
+    }
+    return fs.readFileSync(outPath);
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
+  }
 }
 
 // ─── Extrai MP3 de buffer M4A/MP4 ────────────────────────────
