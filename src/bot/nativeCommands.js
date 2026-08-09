@@ -1293,7 +1293,6 @@ module.exports = {
       '',
       '🎞️ *GIFs & SHORTS*',
       '👑 ' + p + 'gif18 [tipo] — GIF animado 18+',
-      '👑 ' + p + 'gifreact [tipo] — GIF de reacção (kiss, hug…)',
       '👑 ' + p + 'shorts18 [nome] — vídeos curtos animados',
       '',
       '🎭 *FIGURINHAS 18+*',
