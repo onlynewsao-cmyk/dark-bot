@@ -257,6 +257,37 @@ const check = (nome, cond, extra = '') => {
   check('Manda variar o tamanho das respostas', /Não respondes sempre do mesmo tamanho/i.test(ahC));
   check('Manda não comentar tudo no grupo', /NÃO comentas tudo/i.test(ahC));
 
+  // ── 16. Adapta-se ao ambiente (v6.58) ──────────────────────
+  // "em grupos com várias ou poucas pessoas ela me trata do mesmo jeito"
+  console.log('\n▸ Trata o Dark conforme o sítio');
+
+  const base = { isOwner: true, userName: 'Dark', userRole: 'owner' };
+  const pPV = A.buildAuraSystemPrompt({ ...base, isPrivateChat: true });
+  const pPeq = A.buildAuraSystemPrompt({ ...base, isPrivateChat: false, pessoasNoGrupo: 4, groupName: 'Familia' });
+  const pGde = A.buildAuraSystemPrompt({ ...base, isPrivateChat: false, pessoasNoGrupo: 40, groupName: 'Trabalho' });
+
+  check('Os 3 ambientes geram prompts diferentes',
+    pPV !== pPeq && pPeq !== pGde && pPV !== pGde);
+  check('PV autoriza tratamento íntimo', /ESTÃO SÓ OS DOIS/.test(pPV));
+  check('Grupo grande manda conter-se', /grupo GRANDE|NADA de "amor"/.test(pGde));
+  check('Grupo grande sabe quantas pessoas', /40 pessoas/.test(pGde));
+  check('Grupo pequeno é intermédio', /Grupo pequeno/.test(pPeq));
+  check('PV não tem aviso de contenção', !/NADA de "amor"/.test(pPV));
+  check('Nome do grupo chega ao prompt', /Trabalho/.test(pGde));
+
+  // regras de comportamento em grupo
+  const ahG = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
+  check('Manda levar intimidades para o PV', /Assuntos íntimos: leva para o PV/.test(ahG));
+  check('Proíbe respostas de sistema', /não posso cumprir esse\s*\n?\s*pedido|soe a sistema/.test(ahG));
+  check('Tem exemplos concretos de desconversa', /Guarda isso para logo/.test(ahG));
+  check('Manda ser mais discreta com mais gente', /mais gente houver, mais discreta/.test(ahG));
+
+  // o handler passa mesmo o tamanho do grupo
+  const chG = require('fs').readFileSync(
+    path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
+  check('Handler envia pessoasNoGrupo ao prompt',
+    /pessoasNoGrupo:\s*ctx\.groupMeta\?\.participants\?\.length/.test(chG));
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

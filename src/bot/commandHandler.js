@@ -1310,6 +1310,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           isPrivateChat: !ctx.isGroup, isReplyToAura: isReplyToBot,
           darkAttacked, darkMentioned, mood: auraModule.getMood().mood,
           userCountry, mediaContext, isAudio, isImage, isVideo,
+          // v6.58: ela precisa de saber ONDE está para se adaptar
+          pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,
+          groupName: ctx.groupName || '',
         });
       } else {
         // Assistente profissional — sem romance, sem "Dark", sem intimidade
@@ -1386,6 +1389,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             isAudio,
             isImage,
             isVideo,
+            pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,  // v6.58
           });
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
