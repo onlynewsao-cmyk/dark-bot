@@ -203,6 +203,60 @@ const check = (nome, cond, extra = '') => {
   check('Visão analisa pessoas/texto/local', /PESSOAS:.*quantas|LOCAL:/s.test(chTxt2));
   check('Acções só para o Dono', /if \(isOwner\) \{[\s\S]{0,200}auraActions/.test(chTxt2));
 
+  // ── 14. Ela DECIDE se responde (v6.56) ─────────────────────
+  // "Tá parecendo um bot, responde SEMPRE, mesmo o que não é pra ela"
+  console.log('\n▸ Decide se responde (não reage a tudo)');
+  const DEC = require(path.join(AURA, 'auraDecide'));
+
+  const sempre = [
+    ['aura tudo bem?', { isOwner: true, isGroup: true }],
+    ['o que achas?', { isOwner: true, isGroup: true }],
+    ['faz um sticker', { isOwner: true, isGroup: true }],
+    ['oi', { isOwner: true, isGroup: false }],
+    ['seja o que for', { isOwner: true, isGroup: true, mencionada: true }],
+    ['qualquer coisa', { isOwner: true, isGroup: true, respostaAoBot: true }],
+  ];
+  const naoRespondeu = sempre.filter(([t, o]) => !DEC.deveResponder({ texto: t, ...o }).responde);
+  check('Responde sempre quando falam com ela', naoRespondeu.length === 0,
+    naoRespondeu.map(x => x[0]).join(' | ') || `${sempre.length}/${sempre.length}`);
+
+  const nunca = [
+    ['bom dia pessoal', { isOwner: false, isGroup: true }],
+    ['eu acho que sim', { isOwner: false, isGroup: true }],
+    ['@244111222333 vem cá', { isOwner: true, isGroup: true }],
+  ];
+  const meteuSe = nunca.filter(([t, o]) => DEC.deveResponder({ texto: t, ...o }).responde);
+  check('Não se mete na conversa dos outros', meteuSe.length === 0,
+    meteuSe.map(x => x[0]).join(' | ') || `${nunca.length}/${nunca.length}`);
+
+  // comentário solto: nem sempre, nem nunca
+  let n = 0;
+  for (let i = 0; i < 200; i++) {
+    if (DEC.deveResponder({ texto: 'que calor hoje', isOwner: true, isGroup: true, pessoasNoGrupo: 12, msgsDesdeUltima: 5 }).responde) n++;
+  }
+  check('Comentário solto é selectivo', n > 20 && n < 180, `${n}/200 (~${Math.round(n / 2)}%)`);
+
+  // grupo grande = mais reservada
+  let g = 0, p2 = 0;
+  for (let i = 0; i < 200; i++) {
+    if (DEC.deveResponder({ texto: 'olha isto', isOwner: true, isGroup: true, pessoasNoGrupo: 20, msgsDesdeUltima: 5 }).responde) g++;
+    if (DEC.deveResponder({ texto: 'olha isto', isOwner: true, isGroup: true, pessoasNoGrupo: 2, msgsDesdeUltima: 5 }).responde) p2++;
+  }
+  check('Mais reservada em grupo grande', g < p2, `grande ${g} < pequeno ${p2}`);
+
+  check('Escolhe o formato da resposta', typeof DEC.comoResponder === 'function' &&
+    DEC.comoResponder({ texto: 'manda audio', pediuAudio: true }) === 'audio');
+  check('Tem reacções contextuais', /😂/.test(DEC.escolherReacao('kkkk que engraçado')));
+
+  // ── 15. Sem cargos no modo AURA (v6.56) ────────────────────
+  console.log('\n▸ A AURA humana não fala de cargos');
+  const ahC = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
+  check('Prompt proíbe mencionar VIP/planos', /NUNCA menciones VIP/i.test(ahC));
+  check('Já não trata por subdono/trial', !/userRole === 'subdono'/.test(ahC));
+  check('Diz que não é atendimento', /NÃO és um atendimento/i.test(ahC));
+  check('Manda variar o tamanho das respostas', /Não respondes sempre do mesmo tamanho/i.test(ahC));
+  check('Manda não comentar tudo no grupo', /NÃO comentas tudo/i.test(ahC));
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

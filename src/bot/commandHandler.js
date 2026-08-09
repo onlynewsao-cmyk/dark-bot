@@ -106,6 +106,20 @@ async function isGroupAdminForHandler(sock, ctx) {
   } catch { return false; }
 }
 
+// v6.56: conta mensagens desde a última vez que a AURA falou num chat.
+// Serve para ela não responder a tudo seguido — quem acabou de falar
+// tende a deixar os outros falarem.
+const _msgCount = new Map();
+function _contaMsg(jid) {
+  _msgCount.set(jid, (_msgCount.get(jid) || 0) + 1);
+}
+function _msgsDesdeAura(jid) {
+  return _msgCount.get(jid) || 0;
+}
+function _resetMsgs(jid) {
+  _msgCount.set(jid, 0);
+}
+
 function getSenderInfo(msg) {
   const remoteJid = msg.key.remoteJid;
   const isGroup = remoteJid?.endsWith('@g.us');
@@ -1116,6 +1130,43 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
+      // ── v6.56: ELA DECIDE SE RESPONDE ────────────────────────
+      // Antes respondia a 100% das mensagens do Dark, mesmo às que
+      // não eram para ela. Uma pessoa num grupo lê muita coisa e só
+      // fala quando faz sentido — era isso que a denunciava como bot.
+      if (_auraAwakeHere) {
+        try {
+          const decide = require('../aura/auraDecide');
+          const nPessoas = ctx.groupMeta?.participants?.length || 0;
+
+          const d = decide.deveResponder({
+            texto: text,
+            isOwner,
+            isGroup: ctx.isGroup,
+            mencionada: isBotMentioned,
+            respostaAoBot: isReplyToBot,
+            temMedia: !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage),
+            pessoasNoGrupo: nPessoas,
+            msgsDesdeUltima: _msgsDesdeAura(ctx.remoteJid),
+          });
+
+          if (!d.responde) {
+            // Às vezes reage com emoji em vez de ficar totalmente muda —
+            // mostra que leu, sem interromper a conversa.
+            if (isOwner && Math.random() < 0.2) {
+              sock.sendMessage(ctx.remoteJid, {
+                react: { text: decide.escolherReacao(text), key: msg.key },
+              }).catch(() => {});
+            }
+            _contaMsg(ctx.remoteJid);
+            return false;
+          }
+          _resetMsgs(ctx.remoteJid);
+        } catch (e) {
+          console.warn('[Aura decide]', e.message?.slice(0, 50));
+        }
+      }
+
       // v6.43: o modo do chat decide TUDO — persona, emojis, tom.
       const _modes = _auraModes;
       const _awake = _auraAwakeHere;
@@ -1485,9 +1536,23 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // distância entre os termos, mas falhava com acentos.
       const _txtAudio = String(cleanText || '').toLowerCase()
         .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const pediuAudio =
+      const _pedidoExplicito =
         /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(_txtAudio) &&
         /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|quero|faz|faca|grav[ae]|poe|poem|diz|fala|responde)\b/.test(_txtAudio);
+
+      // v6.56: ELA ESCOLHE O FORMATO.
+      // Uma pessoa não responde sempre por texto — às vezes manda
+      // áudio porque lhe apetece. Aqui ela decide (raro e só em
+      // momentos afectivos, para não ser mecânico).
+      let _formato = 'texto';
+      try {
+        const decide = require('../aura/auraDecide');
+        _formato = decide.comoResponder({
+          texto: cleanText, isOwner, isGroup: ctx.isGroup, pediuAudio: _pedidoExplicito,
+        });
+      } catch {}
+
+      const pediuAudio = _pedidoExplicito || _formato === 'audio';
 
       if (pediuAudio && finalAnswer.length > 0 && finalAnswer.length < 900) {
         try {
