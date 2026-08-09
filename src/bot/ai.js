@@ -930,7 +930,10 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // EXPORTS
 // ─────────────────────────────────────────────
 // TTS com fallback
-async function speakWithFallback(text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
+// v6.53: o voiceId por omissão era '21m00Tcm4TlvDq8ikWAM' (Rachel),
+// uma library voice que o plano free NÃO pode usar → HTTP 402.
+// Passa a null para o speakElevenLabs escolher uma voz da conta.
+async function speakWithFallback(text, voiceId = null) {
   // Tentar ElevenLabs primeiro
   try {
     const audio = await speakElevenLabs(text, voiceId);

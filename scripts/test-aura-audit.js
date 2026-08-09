@@ -116,6 +116,44 @@ const check = (nome, cond, extra = '') => {
   const ncSrc = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands.js'), 'utf8');
   check('Avisa no grupo se o PV falhar', /pvOk === false/.test(ncSrc) && /Não consegui enviar no teu PV/.test(ncSrc));
 
+  // ── 9. Bugs do diálogo real reportado (v6.53) ──────────────
+  console.log('\n▸ Bugs do diálogo reportado');
+
+  // "aura dormi" (sem o 'e') não era reconhecido
+  const formasDormir = ['aura dormi', 'aura dorme', 'aura durma', 'aura vai dormir'];
+  const falhas = formasDormir.filter(t => I.detectAuraIntent(t, O) !== 'sleep');
+  check('Reconhece "dormi/dorme/durma"', falhas.length === 0, falhas.join(', ') || `${formasDormir.length}/4`);
+
+  // LID: no PV o senderNumber saía errado e ela rejeitava o Dono
+  const { getSenderInfo } = require(path.join(__dirname, '..', 'src', 'bot', 'commandHandler'));
+  const pvLid = getSenderInfo({ key: { remoteJid: '18923@lid', remoteJidAlt: '244945280380@s.whatsapp.net' } });
+  check('PV com LID resolve o número real', pvLid.senderNumber === '244945280380', pvLid.senderNumber);
+  const grpLid = getSenderInfo({ key: { remoteJid: '1@g.us', participant: '18923@lid', participantAlt: '244945280380@s.whatsapp.net' } });
+  check('Grupo com LID resolve o número real', grpLid.senderNumber === '244945280380', grpLid.senderNumber);
+
+  // o prompt tem de dizer o que ela consegue fazer
+  const ah = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
+  check('Prompt diz que ela VÊ imagens', /VER IMAGENS/i.test(ah));
+  check('Prompt diz que ela FALA em áudio', /FALAR EM ÁUDIO/i.test(ah));
+  check('Prompt proíbe recusar perguntas gerais', /RESPONDER A TUDO/i.test(ah));
+  check('Prompt proíbe duvidar do Dono', /NUNCA duvides de que é ele/i.test(ah));
+
+  // pedido de áudio é detectado nas formas reais
+  const detectaAudio = (t) => {
+    const x = String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(x) &&
+           /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|quero|faz|faca|grav[ae]|poe|poem|diz|fala|responde)\b/.test(x);
+  };
+  const pedidos = ['Mande um áudio por favor', 'manda áudio', 'me manda um audio', 'grava um áudio'];
+  const naoDetectados = pedidos.filter(t => !detectaAudio(t));
+  check('Detecta pedido de áudio (inclui imperativo)', naoDetectados.length === 0, naoDetectados.join(', ') || `${pedidos.length}/4`);
+  check('Não confunde conversa sobre áudio', !detectaAudio('o que achas do audio do filme'));
+
+  // voiceId antigo dava 402
+  const aiSrc = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'ai.js'), 'utf8');
+  check('speakWithFallback já não usa a voz que dá 402',
+    !/speakWithFallback\(text, voiceId = '21m00Tcm4TlvDq8ikWAM'\)/.test(aiSrc));
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

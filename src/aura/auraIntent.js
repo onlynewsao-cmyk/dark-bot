@@ -55,7 +55,10 @@ const WAKE_PATTERNS = [
 
 // ── DORMIR ─────────────────────────────────────────────────
 const SLEEP_PATTERNS = [
-  /\b(dorme|dormir|descansa|descansar)\b/,
+  // v6.53: 'dormi' (sem o 'e') é como se escreve na fala real —
+  // o utilizador escreveu "aura dormi" e ela fingiu que ia dormir
+  // em vez de mudar mesmo de modo.
+  /\b(dorme|dormi|dormir|durma|descansa|descansar|vai\s+dormir)\b/,
   /\b(sai|sair|vai|vaza|some|sumir)\s*(daqui|embora|dai)?\b/,
   /\b(desativa|desativar|desactiva|desligar|desliga)\s*(te|a aura|aura)?\b/,
   /\b(modo\s+)?aura\s+(off|desligado|inativo|inactivo)\b/,
