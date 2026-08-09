@@ -207,17 +207,12 @@ module.exports = function registerDownloadCases(registerCase) {
 
     await react('⏳');
     try {
-      let r;
-      try {
-        r = await systemZeroPlay.ytAudio(url);          // 1º API
-      } catch {
-        r = await ytdl.getAudio(url, '128k');           // 2º yt-dlp local
-      }
+      const r = await ytdl.getAudio(url, '128k');  // usa cadeia completa de fallbacks
       await sendAudioCard(sock, ctx.remoteJid, msg, r);
       await react('✅');
     } catch (e) {
       await react('❌');
-      return reply('❌ Falha no download de áudio.');
+      return reply('❌ Falha no download de áudio: ' + (e.message || '').slice(0, 100));
     }
   });
 
@@ -232,20 +227,13 @@ module.exports = function registerDownloadCases(registerCase) {
 
     await react('⏳');
     try {
-      let r;
-      try {
-        r = await systemZeroPlay.ytVideo(url, '720');   // 1º API
-        const buf = await mediaHandler.fetchBuffer(r.url);
-        r.buffer = buf;
-      } catch {
-        r = await ytdl.getVideo(url, '720');            // 2º yt-dlp local
-      }
+      const r = await ytdl.getVideo(url, '720');  // usa cadeia completa de fallbacks
       const cap = `🎬 *${r.title || 'Vídeo'}*\n👤 ${r.author || ''}\n⏱️ ${r.duration || '?'} | 📺 ${r.quality || '720p'}`;
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
       await react('✅');
     } catch (e) {
       await react('❌');
-      return reply('❌ Falha no download de vídeo.');
+      return reply('❌ Falha no download de vídeo: ' + (e.message || '').slice(0, 100));
     }
   });
 
