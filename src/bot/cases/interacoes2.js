@@ -127,7 +127,7 @@ module.exports = function registerInteracoes2(registerCase) {
         const t = await RE.getTheme(ctx.remoteJid);
         await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' INTERAÇÃO', [caption], { botName: config.bot.name }), mentions }, { quoted: msg });
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
     }, true);
   }
 
@@ -149,7 +149,7 @@ module.exports = function registerInteracoes2(registerCase) {
         const t = await RE.getTheme(ctx.remoteJid);
         await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' NSFW', [caption, '', '> 🔞 Conteúdo adulto'], { botName: config.bot.name }), mentions }, { quoted: msg });
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
     }, true);
   }
 

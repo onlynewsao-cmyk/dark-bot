@@ -28,7 +28,7 @@ module.exports = function registerIACases(registerCase) {
     const hasAI = !!(config.ai.groqApiKey || config.ai.geminiApiKey || config.ai.openrouterApiKey || config.ai.openaiApiKey);
     if (!hasAI) return reply('❌ IA sem chave. Configure GROQ_API_KEY no Render.');
 
-    await react('🤔');
+    react('🤔');
     try {
       const mem  = await AiMemory.getOrCreate(ctx.senderNumber).catch(() => null);
       const u    = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
@@ -47,23 +47,23 @@ module.exports = function registerIACases(registerCase) {
 
       if (mem) { mem.addMessage('assistant', answer); await mem.save().catch(() => {}); }
 
-      await react('✅');
+      react('✅');
       return reply('🧠 *' + config.bot.name + ' IA:*\n\n' + sanitizeAI(answer));
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Erro na IA. Tente novamente.');
     }
   });
 
   // case 'noticias'
   registerCase(['noticias', 'news', 'jornal'], async ({ text, reply, react }) => {
-    await react('📰');
+    react('📰');
     try {
       const digest = await ai.getPrettyNewsDigest(text || '');
-      await react('✅');
+      react('✅');
       return reply(sanitizeAI(digest));
     } catch {
-      await react('❌');
+      react('❌');
       return reply('❌ Notícias indisponíveis agora.');
     }
   });
@@ -73,13 +73,13 @@ module.exports = function registerIACases(registerCase) {
     text, prefix, reply, react,
   }) => {
     if (!text) return reply(`🔎 Uso: *${prefix}pesquisar* <assunto>`);
-    await react('🔎');
+    react('🔎');
     try {
       const r = await ai.getWebDigest(text);
-      await react('✅');
+      react('✅');
       return reply(sanitizeAI(r));
     } catch {
-      await react('❌');
+      react('❌');
       return reply('❌ Pesquisa falhou.');
     }
   });
@@ -89,16 +89,16 @@ module.exports = function registerIACases(registerCase) {
     text, prefix, reply, react,
   }) => {
     if (!text) return reply(`🧠 Uso: *${prefix}deepsearch* <pergunta detalhada>`);
-    await react('⏳');
+    react('⏳');
     try {
       const r = await Promise.race([
         ai.chat(text + ' (responda detalhadamente com fontes e contexto)'),
         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000)),
       ]);
-      await react('✅');
+      react('✅');
       return reply('🧠 *DeepSearch:*\n\n' + sanitizeAI(r, { maxLength: 4000 }));
     } catch {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha na pesquisa.');
     }
   });
@@ -108,13 +108,13 @@ module.exports = function registerIACases(registerCase) {
     sock, msg, ctx, text, prefix, reply, react,
   }) => {
     if (!text) return reply(`🎨 Uso: *${prefix}imagem* <descrição>`);
-    await react('🎨');
+    react('🎨');
     try {
       const buf = await ai.generateImage(text);
       await sock.sendMessage(ctx.remoteJid, { image: buf, caption: `🎨 ${text}` }, { quoted: msg });
-      await react('✅');
+      react('✅');
     } catch {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha a gerar imagem.');
     }
   });

@@ -56,7 +56,7 @@ function makeModelHandler(modelName) {
     const text = args.join(' ').trim();
     if (!text) return reply(`🤖 *${modelName.toUpperCase()}*\n\nUso: \`${prefix}${command} <pergunta>\`\n\n> Modelo: ${MODEL_MAP[modelName] || 'default'}`);
     
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🤖', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🤖', key: msg.key } });
     
     try {
       const persona = MODEL_PERSONA[modelName] || `You are ${modelName}, an AI assistant.`;
@@ -71,9 +71,9 @@ function makeModelHandler(modelName) {
       ], { botName: config.bot.name });
       
       await sock.sendMessage(ctx.remoteJid, { text: response }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply(`❌ ${modelName}: ${e.message}`);
     }
   };
@@ -97,13 +97,13 @@ module.exports = function registerIA2(registerCase) {
   registerCase(['ia', 'chat', 'ask'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`🧠 *IA com Memória*\n\nUso: \`${prefix}ia <pergunta>\`\n\n💡 A IA lembra do contexto da conversa!`);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🧠', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🧠', key: msg.key } });
     try {
       const answer = await ai.chat(text, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: sanitizeAI(answer) }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ IA: ' + e.message);
     }
   }, true);
@@ -112,53 +112,53 @@ module.exports = function registerIA2(registerCase) {
   registerCase(['corrigir'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`✍️ Uso: \`${prefix}corrigir <texto>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '✍️', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '✍️', key: msg.key } });
     try {
       const answer = await ai.chat(`Corrige os erros ortográficos e gramaticais do seguinte texto. Responde APENAS com o texto corrigido, sem explicações:\n\n${text}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `✍️ *Corrigido:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['explicar'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`📖 Uso: \`${prefix}explicar <conceito>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
     try {
       const answer = await ai.chat(`Explica de forma clara e simples o seguinte conceito:\n\n${text}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `📖 *Explicação:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['resumir'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`📝 Uso: \`${prefix}resumir <texto longo>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '📝', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '📝', key: msg.key } });
     try {
       const answer = await ai.chat(`Resume o seguinte texto em 3-5 pontos principais:\n\n${text}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `📝 *Resumo:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['resumirurl'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url || !/^https?:\/\//i.test(url)) return reply(`🔗 Uso: \`${prefix}resumirurl <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🔗', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🔗', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(url, { timeout: 10000, headers: { 'User-Agent': 'Mozilla/5.0' } });
       const text = String(r.data).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 3000);
       const answer = await ai.chat(`Resume o conteúdo desta página web em 3-5 pontos:\n\n${text}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `🔗 *Resumo de ${url.slice(0, 50)}...*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['resumirchat'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const n = parseInt(args[0]) || 20;
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '💬', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '💬', key: msg.key } });
     try {
       const { messageCache } = require('../messageListener');
       const msgs = [...messageCache.values()]
@@ -173,49 +173,49 @@ module.exports = function registerIA2(registerCase) {
       if (!msgs) return reply('💬 Sem mensagens recentes para resumir.');
       const answer = await ai.chat(`Resume esta conversa de grupo em 3-5 pontos:\n\n${msgs}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `💬 *Resumo das últimas ${n} mensagens:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['ideias'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const topic = args.join(' ').trim() || 'criativo';
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '💡', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '💡', key: msg.key } });
     try {
       const answer = await ai.chat(`Dá-me 5 ideias criativas sobre: ${topic}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `💡 *Ideias sobre ${topic}:*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['debater'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const topic = args.join(' ').trim();
     if (!topic) return reply(`⚔️ Uso: \`${prefix}debater <tema>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⚔️', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⚔️', key: msg.key } });
     try {
       const answer = await ai.chat(`Apresenta argumentos A FAVOR e CONTRA o seguinte tema, de forma equilibrada:\n\n${topic}`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `⚔️ *Debate: ${topic}*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['recomendar'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`🎯 Uso: \`${prefix}recomendar <tipo> <género>\`\nEx: \`${prefix}recomendar filme acção\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🎯', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🎯', key: msg.key } });
     try {
       const answer = await ai.chat(`Recomenda 5 ${text}. Para cada um dá: título, ano, e uma frase de descrição.`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `🎯 *Recomendações: ${text}*\n\n${sanitizeAI(answer)}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
   registerCase(['aventura'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const genre = args.join(' ').trim() || 'fantasia';
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '📖', key: msg.key } });
     try {
       const answer = await ai.chat(`Cria o início de uma história interativa de ${genre}. Descreve a cena e dá 3 opções de acção (1, 2, 3). Máximo 200 palavras.`, '', {}, false);
       await sock.sendMessage(ctx.remoteJid, { text: `📖 *Aventura: ${genre}*\n\n${sanitizeAI(answer)}\n\n> Usa \`${prefix}aventura 1\` para escolher` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
@@ -263,16 +263,16 @@ module.exports = function registerIA2(registerCase) {
   registerCase(['sys-img'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const prompt = args.join(' ').trim();
     if (!prompt) return reply(`🖼️ Uso: \`${prefix}sys-img <descrição>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🖼️', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🖼️', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true`, { responseType: 'arraybuffer', timeout: 30000 });
       if (r.data && r.data.byteLength > 1000) {
         await sock.sendMessage(ctx.remoteJid, { image: Buffer.from(r.data), caption: `🖼️ *${prompt}*` }, { quoted: msg });
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
       } else throw new Error('Imagem vazia');
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ sys-img: ' + e.message);
     }
   }, true);
@@ -281,16 +281,16 @@ module.exports = function registerIA2(registerCase) {
   registerCase(['iaimg'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const prompt = args.join(' ').trim();
     if (!prompt) return reply(`🎨 Uso: \`${prefix}iaimg <descrição>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🎨', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🎨', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true`, { responseType: 'arraybuffer', timeout: 30000 });
       if (r.data && r.data.byteLength > 1000) {
         await sock.sendMessage(ctx.remoteJid, { image: Buffer.from(r.data), caption: `🎨 *${prompt}*` }, { quoted: msg });
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
       } else throw new Error('Imagem vazia');
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ iaimg: ' + e.message);
     }
   }, true);

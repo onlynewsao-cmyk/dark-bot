@@ -95,14 +95,14 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     label: quality.label || 'Standard',
   };
 
-  await sock.sendMessage(m.chat, { react: { text: '🫡', key: m.key } });
+  sock.sendMessage(m.chat, { react: { text: '🫡', key: m.key } });
 
   try {
     const { ButtonV2 } = require('@systemzero/baileys/lib/MB.cjs');
 
     const searchData = await systemZeroPlay.ytsearch(text);
     if (!searchData?.resultados?.length) {
-      await sock.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
+      sock.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
       return m.reply('Nenhum resultado encontrado.');
     }
 
@@ -144,11 +144,11 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
       await systemZeroPlay.sendPlayCard(sock, m.chat, video, prefix, msg, bodyExtra.trim());
     }
 
-    await sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+    sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
   } catch (e) {
     if (!e.message?.includes('rate-overlimit')) {
       console.error('[PLAY ERROR]', e.message);
-      await sock.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
+      sock.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
       m.reply('Erro ao buscar: ' + e.message);
     }
   }
@@ -185,13 +185,13 @@ module.exports = function registerDownloadCases(registerCase) {
   }) => {
     if (!text) return reply(`🎵 *Alta qualidade (320kbps)*\n\nExemplo: \`${prefix}playhq nome da música\``);
 
-    await react('⏳');
+    react('⏳');
     try {
       const r = await ytdl.getAudio(text, '320k');
       await sendAudioCard(sock, ctx.remoteJid, msg, r);
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha no download.');
     }
   });
@@ -208,7 +208,7 @@ module.exports = function registerDownloadCases(registerCase) {
     const quality = parts[1] || '128k';
     if (!url) return reply('🎵 Uso: ' + prefix + 'ytd <url>');
 
-    await react('⏳');
+    react('⏳');
     try {
       let r;
       try {
@@ -218,9 +218,9 @@ module.exports = function registerDownloadCases(registerCase) {
       }
       if (!r || !r.buffer || r.buffer.length < 1024) throw new Error('audio vazio');
       await sendAudioCard(sock, ctx.remoteJid, msg, r);
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha no download de audio: ' + (e.message || '').slice(0, 100));
     }
   });
@@ -237,7 +237,7 @@ module.exports = function registerDownloadCases(registerCase) {
     const resolution = parts[2] || parts[1] || '720';
     if (!url) return reply('🎬 Uso: ' + prefix + 'gyt <url>');
 
-    await react('⏳');
+    react('⏳');
     try {
       let r;
       try {
@@ -250,9 +250,9 @@ module.exports = function registerDownloadCases(registerCase) {
       if (!r || !r.buffer || r.buffer.length < 4096) throw new Error('video vazio');
       const cap = '🎬 *' + (r.title || 'Video') + '*\n👤 ' + (r.author || '') + '\n⏱️ ' + (r.duration || '?') + ' | 📺 ' + (r.quality || resolution + 'p');
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha no download de video: ' + (e.message || '').slice(0, 100));
     }
   });
@@ -268,14 +268,14 @@ module.exports = function registerDownloadCases(registerCase) {
       `• \`${prefix}video\`  — 720p HD\n` +
       `• \`${prefix}video2\` — 1080p FHD`
     );
-    await react('⏳');
+    react('⏳');
     try {
       const r   = await ytdl.getVideo(text, '720');
       const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 720p HD`;
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha no download de vídeo.');
     }
   });
@@ -287,14 +287,14 @@ module.exports = function registerDownloadCases(registerCase) {
     sock, msg, ctx, text, prefix, reply, react,
   }) => {
     if (!text) return reply(`🎬 *Full HD (1080p)*\n\nExemplo: \`${prefix}video2 nome do vídeo\``);
-    await react('⏳');
+    react('⏳');
     try {
       const r   = await ytdl.getVideo(text, '1080');
       const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 1080p FHD`;
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       return reply('❌ Falha no download FHD.');
     }
   });
