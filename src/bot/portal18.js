@@ -401,6 +401,14 @@ async function searchImages(tags = '', count = 3) {
       } catch {}
       throw new Error('sex.com falhou');
     }},
+    { name: 'sex.com-gifs', fn: async () => {
+      try {
+        const sexcom = require('./sexcom');
+        const r = await sexcom.searchGifs(safe, count);
+        if (r?.length) return r.map(g => ({ ...g, source: 'sex.com', animated: true }));
+      } catch {}
+      throw new Error('sex.com gifs falhou');
+    }},
     { name: 'nekos.life', fn: () => nekosLifeImage('lewd') },
     { name: 'safebooru', fn: () => safebooruImages(safe, count) },
   ]);
