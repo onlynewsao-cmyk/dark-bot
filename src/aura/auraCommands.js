@@ -176,4 +176,54 @@ function porqueNaoFaco(cmd) {
   return 'isso';
 }
 
-module.exports = { detectarComando, estaBloqueado, porqueNaoFaco, BLOQUEADOS, MAPA };
+// ── v6.57: PERMISSÃO POR CARGO ──────────────────────────────
+// A assistente também executa comandos — mas o que cada um pode
+// depende do cargo. Antes só o Dono executava por conversa; um VIP
+// ou Free que pedisse "qual o meu saldo" recebia uma conversa fiada
+// ("verifica no aplicativo do banco") em vez do comando real.
+
+// Qualquer pessoa pode: informação e coisas inofensivas
+const LIVRES = new Set([
+  'menu', 'ping', 'info', 'perfil', 'saldo', 'daily', 'trabalhar',
+  'admins', 'participantes', 'regras', 'dono', 'sticker', 'toimg',
+  'traduzir', 'clima', 'letra', 'calc', 'wikipedia', 'vip',
+]);
+
+// VIP e acima: downloads e coisas que custam recursos
+const SO_VIP = new Set([
+  'play', 'video', 'play2', 'video2', 'ytmp3', 'ytmp4',
+  'imagem', 'ia', 'gpt', 'resumir', 'pesquisar',
+]);
+
+// Admin do grupo e acima: moderação
+const SO_ADMIN = new Set([
+  'ban', 'kick', 'promote', 'demote', 'mute', 'unmute',
+  'fechar', 'abrir', 'warn', 'antilink', 'antispam', 'welcome',
+  'todos', 'marcar', 'tagall', 'link', 'linkgrupo',
+]);
+
+/**
+ * O cargo permite executar este comando por conversa?
+ * @param {string} cmd
+ * @param {{isOwner:boolean, isVip:boolean, isAdmin:boolean}} quem
+ * @returns {{pode:boolean, precisa?:string}}
+ */
+function podeExecutar(cmd, quem = {}) {
+  const c = String(cmd || '').toLowerCase().trim();
+  if (estaBloqueado(c)) return { pode: false, precisa: 'comando de dono' };
+
+  const { isOwner = false, isVip = false, isAdmin = false } = quem;
+  if (isOwner) return { pode: true };                       // dono faz tudo (menos bloqueados)
+  if (LIVRES.has(c)) return { pode: true };
+  if (SO_ADMIN.has(c)) return isAdmin || isVip
+    ? { pode: true }
+    : { pode: false, precisa: 'ser admin do grupo' };
+  if (SO_VIP.has(c)) return isVip
+    ? { pode: true }
+    : { pode: false, precisa: 'ser VIP' };
+
+  // desconhecido → só dono, por segurança
+  return { pode: false, precisa: 'permissão' };
+}
+
+module.exports = { detectarComando, estaBloqueado, podeExecutar, porqueNaoFaco, BLOQUEADOS, MAPA, LIVRES, SO_VIP, SO_ADMIN };
