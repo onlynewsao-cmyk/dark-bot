@@ -62,6 +62,13 @@ const CASES_SOURCE = new Map();
 const CASES_META = new Map(); // guarda metadata: formato, origem, deps
 
 // ─────────────────────────────────────────────────────
+// REGISTRO DE CÓDIGO-FONTE POR FICHEIRO
+// Populado durante loadCases() — permite !downcase para QUALQUER comando
+// ─────────────────────────────────────────────────────
+const FILE_SOURCES = new Map();   // cmd → { file, code, aliases, line }
+const COMMAND_REGISTRY = new Map(); // cmd → { aliases, file, source }
+
+// ─────────────────────────────────────────────────────
 // WRAPPER "m" — estilo clássico COMPLETO
 // ─────────────────────────────────────────────────────
 function buildM(sock, msg, ctx) {
@@ -439,6 +446,46 @@ function registerCase(commands, handler, sourceOrOpts = null) {
 }
 
 // ─────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────
+// EXTRAIR SOURCE DE CADA registerCase() DUM FICHEIRO
+// ─────────────────────────────────────────────────────
+function extractSourceFromFile(filePath, fileName) {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    const results = [];
+    const regex = /registerCase\s*\(\s*(\[[^\]]+\]|["'`][^"'`]+["'`])\s*,\s*((?:async\s+)?(?:function|\([^)]*\)\s*=>|\w+))/g;
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const cmdsRaw = match[1].trim();
+      const startPos = match.index;
+      let cmds = [];
+      try {
+        if (cmdsRaw.startsWith("[")) cmds = JSON.parse(cmdsRaw.replace(/'/g, "\""));
+        else cmds = [cmdsRaw.replace(/["']/g, "")];
+      } catch { cmds = [cmdsRaw]; }
+      let depth = 0, started = false, endPos = startPos;
+      for (let j = startPos; j < Math.min(content.length, startPos + 50000); j++) {
+        if (content[j] === "(") { depth++; started = true; }
+        if (content[j] === ")") { depth--; }
+        if (started && depth === 0) { endPos = j + 1; break; }
+      }
+      let blockCode = content.slice(startPos, endPos);
+      let handlerCode = blockCode
+        .replace(/^registerCase\s*\(\s*(?:\[[^\]]+\]|["'`][^"'`]+["'`])\s*,\s*/, "")
+        .replace(/\s*,\s*(?:true|false|\{[^}]*\})\s*\)\s*;?\s*$/, "")
+        .replace(/\)\s*;?\s*$/, "")
+        .trim();
+      const beforeMatch = content.slice(0, startPos);
+      const lineNum = (beforeMatch.match(/\n/g) || []).length + 1;
+      results.push({ commands: cmds, code: handlerCode, fullBlock: blockCode, file: fileName, line: lineNum });
+    }
+    return results;
+  } catch (e) {
+    console.warn("[Cases] extractSourceFromFile " + fileName + ":", (e.message || "").slice(0, 80));
+    return [];
+  }
+}
+
 // CARREGAR FICHEIROS src/bot/cases/
 // ─────────────────────────────────────────────────────
 function loadCases() {
@@ -462,7 +509,21 @@ function loadCases() {
       console.warn(`[Cases] Falha ao carregar ${file}:`, e.message?.slice(0, 80));
     }
   }
-  console.log(`[Cases] ${CASES.size} cases carregados`);
+  // Populate source registries
+  for (const file of files) {
+    const fullPath = path.join(dir, file);
+    try {
+      const sources = extractSourceFromFile(fullPath, file);
+      for (const src of sources) {
+        for (const cmd of src.commands) {
+          const key = cmd.toLowerCase().trim();
+          FILE_SOURCES.set(key, { file, code: src.code, fullBlock: src.fullBlock, line: src.line, aliases: src.commands });
+          COMMAND_REGISTRY.set(key, { aliases: src.commands, file, source: "case_file" });
+        }
+      }
+    } catch {}
+  }
+  console.log(`[Cases] ${CASES.size} cases carregados | " + FILE_SOURCES.size + " fontes extraídas`);
 }
 
 // ─────────────────────────────────────────────────────
@@ -797,61 +858,168 @@ function registerManagementCases() {
     m.reply(`✅ Case *${prefix}${cmd}* removido com sucesso.`);
   });
 
-  // ── !downcase <cmd> ─────────────────────────────────────
-  registerCase(['downcase', 'getcasecode', 'viewcase', 'showcase'], async ({ m, args, isOwner, prefix }) => {
+
+  // ── !downcase <cmd> — GERADOR UNIVERSAL DE CÓDIGO ──────────────
+  registerCase(['downcase', 'getcasecode', 'viewcase', 'showcase', 'vercode'], async ({ m, sock, msg, ctx, args, isOwner, prefix }) => {
     if (!isOwner) return m.reply('🚫 Só o Dono.');
     const cmd = (args[0] || '').toLowerCase().trim();
-    if (!cmd) return m.reply('❌ Uso: *' + prefix + 'downcase* <comando>');
+    if (!cmd) return m.reply('Uso: *' + prefix + 'downcase* <comando>');
 
-    // 1. Cases dinâmicos
+    await m.react('🔍');
+
+    // ═══ 1. CASES DINÂMICOS (DB) ═══
     const dynSrc = await getDynamicCaseSource(cmd);
     if (dynSrc) {
       const meta = CASES_META.get(cmd) || {};
-      const fullCode = 'case ' + "'" + cmd + "'" + ': {\n' + dynSrc + '\nbreak;\n}';
-      await m.reply(
-        `📄 *Código do case: ${prefix}${cmd}* (dinâmico)\n` +
-        `📝 Formato: ${meta.format || detectFormat(dynSrc)}\n` +
-        `📅 Criado: ${meta.addedAt || '?'}\n\n` +
-        '\\\\' + fullCode.slice(0, 3000)
-      );
+      const fullCode = "case '" + cmd + "': {\n" + dynSrc + "\nbreak;\n}";
+      await sock.sendMessage(ctx.remoteJid, {
+        document: Buffer.from(fullCode, 'utf8'),
+        fileName: cmd + '_dynamic.js',
+        mimetype: 'application/javascript',
+        caption: '📄 *' + prefix + cmd + '* — Case Dinâmico\n📝 Formato: ' + (meta.format || detectFormat(dynSrc)) + '\n📊 Linhas: ' + fullCode.split('\n').length,
+      }, { quoted: msg });
+      await m.react('✅');
       return;
     }
 
-    // 2. Memória
-    const memSrc = CASES_SOURCE.get(cmd);
-    if (memSrc) {
-      const fullCode = 'case ' + "'" + cmd + "'" + ': {\n' + memSrc + '\nbreak;\n}';
-      await m.reply('📄 *Código do case: ' + prefix + cmd + '* (memória)\n\n\\\\');
+    // ═══ 2. FICHEIRO DE CASES (source registry) ═══
+    const fileSrc = FILE_SOURCES.get(cmd);
+    if (fileSrc) {
+      const aliases = fileSrc.aliases.filter(a => a !== cmd);
+      const aliasLine = aliases.length ? '\n📎 Aliases: ' + aliases.map(a => prefix + a).join(', ') : '';
+      const fileCode = fileSrc.fullBlock || fileSrc.code;
+      await sock.sendMessage(ctx.remoteJid, {
+        document: Buffer.from(fileCode, 'utf8'),
+        fileName: cmd + '_' + fileSrc.file,
+        mimetype: 'application/javascript',
+        caption: '📄 *' + prefix + cmd + '* — Case File\n📁 Ficheiro: ' + fileSrc.file + ':' + fileSrc.line + '\n📊 Linhas: ' + fileCode.split('\n').length + aliasLine,
+      }, { quoted: msg });
+      await m.react('✅');
       return;
     }
 
-    // 3. Ficheiros
+    // ═══ 3. COMANDOS NATIVOS ═══
     try {
-      const casesDir = path.join(__dirname, 'cases');
-      if (fs.existsSync(casesDir)) {
-        const files = fs.readdirSync(casesDir).filter(f => f.endsWith('.js'));
-        for (const file of files) {
-          const content = fs.readFileSync(path.join(casesDir, file), 'utf8');
-          if (content.includes("'" + cmd + "'") || content.includes('"' + cmd + '"')) {
-            let regStart = content.lastIndexOf('registerCase', content.indexOf("'" + cmd + "'") >= 0 ? content.indexOf("'" + cmd + "'") : content.indexOf('"' + cmd + '"'));
-            if (regStart === -1) regStart = 0;
-            let code = content.slice(regStart, Math.min(content.length, regStart + 3500));
-            if (code.length > 3500) code = code.slice(0, 3500) + '\n... (truncado)';
-            await m.reply('📄 *Código do case: ' + prefix + cmd + '*\n📁 Ficheiro: ' + file + '\n\n\\\\');
-            return;
-          }
-        }
+      const nc = require('./nativeCommands');
+      if (nc[cmd] && typeof nc[cmd] === 'function') {
+        const fnStr = nc[cmd].toString();
+        await sock.sendMessage(ctx.remoteJid, {
+          document: Buffer.from(fnStr, 'utf8'),
+          fileName: 'native_' + cmd + '.js',
+          mimetype: 'application/javascript',
+          caption: '📄 *' + prefix + cmd + '* — Comando Nativo\n📊 Tamanho: ' + fnStr.length + ' chars\n⚠️ Código interno — edita com cuidado.',
+        }, { quoted: msg });
+        await m.react('✅');
+        return;
       }
-    } catch (e) {
-      console.warn('[downcase] erro:', e.message);
+    } catch {}
+
+    // ═══ 4. PACOTES ═══
+    const pkgPaths = { interactions: './packages/interactions', family: './packages/family', economy: './packages/economy', games: './packages/games', cheats: './packages/cheats' };
+    for (const [pkgName, pkgPath] of Object.entries(pkgPaths)) {
+      try {
+        const pkg = require(pkgPath);
+        if (pkg[cmd] && typeof pkg[cmd] === 'function') {
+          const fnStr = pkg[cmd].toString();
+          await sock.sendMessage(ctx.remoteJid, {
+            document: Buffer.from(fnStr, 'utf8'),
+            fileName: pkgName + '_' + cmd + '.js',
+            mimetype: 'application/javascript',
+            caption: '📄 *' + prefix + cmd + '* — Pacote: ' + pkgName + '\n📊 Tamanho: ' + fnStr.length + ' chars',
+          }, { quoted: msg });
+          await m.react('✅');
+          return;
+        }
+      } catch {}
     }
 
+    // ═══ 5. NÃO ENCONTRADO ═══
     if (CASES.has(cmd)) {
-      m.reply('📄 *' + prefix + cmd + '* existe mas vem de um pacote nativo.\nCódigo não disponível via downcase.');
+      m.reply('📄 *' + prefix + cmd + '* existe mas o código-fonte não está acessível.');
     } else {
-      m.reply('❌ Comando *' + prefix + cmd + '* não encontrado.');
+      const allCmds = Array.from(CASES.keys());
+      const similar = allCmds.filter(c => c.includes(cmd) || cmd.includes(c)).slice(0, 5);
+      const sug = similar.length ? '\n\n💡 *Comandos parecidos:*\n' + similar.map(c => '  • ' + prefix + c).join('\n') : '';
+      m.reply('❌ Comando *' + prefix + cmd + '* não encontrado.' + sug);
     }
   });
+
+  // ── !auditcmds — AUDITORIA DE COMANDOS ──────────────────────────
+  registerCase(['auditcmds', 'audit', 'verificarcmds', 'cmdcheck'], async ({ m, sock, msg, ctx, isOwner, prefix }) => {
+    if (!isOwner) return m.reply('🚫 Só o Dono.');
+
+    await m.react('🔍');
+
+    // Duplicados
+    const duplicates = [];
+    const cmdSources = new Map();
+    for (const [c, meta] of COMMAND_REGISTRY.entries()) {
+      if (!cmdSources.has(c)) cmdSources.set(c, []);
+      cmdSources.get(c).push(meta.file);
+    }
+    for (const [c, files] of cmdSources.entries()) {
+      const unique = [...new Set(files)];
+      if (unique.length > 1) duplicates.push({ cmd: c, files: unique });
+    }
+
+    // Aliases excessivos
+    const tooManyAliases = [];
+    const seen = new Set();
+    for (const [c, src] of FILE_SOURCES.entries()) {
+      if (seen.has(c)) continue;
+      for (const a of src.aliases) seen.add(a);
+      if (src.aliases.length > 2) {
+        tooManyAliases.push({ cmd: src.aliases[0], aliases: src.aliases, file: src.file, count: src.aliases.length });
+      }
+    }
+
+    // Contagens
+    let nativeCount = 0, pkgCount = 0;
+    try { nativeCount = Object.keys(require('./nativeCommands')).filter(k => typeof require('./nativeCommands')[k] === 'function').length; } catch {}
+    for (const p of ['interactions', 'family', 'economy', 'games', 'cheats']) {
+      try { pkgCount += Object.keys(require('./packages/' + p)).filter(k => typeof require('./packages/' + p)[k] === 'function').length; } catch {}
+    }
+
+    // Relatório
+    let r = '🕸️ *AUDITORIA DE COMANDOS*\n\n';
+    r += '📊 *Resumo:*\n';
+    r += '  • Cases: ' + CASES.size + '\n';
+    r += '  • Fontes: ' + FILE_SOURCES.size + '\n';
+    r += '  • Nativos: ' + nativeCount + '\n';
+    r += '  • Pacotes: ' + pkgCount + '\n';
+    r += '  • Total: ' + (CASES.size + nativeCount + pkgCount) + '\n\n';
+
+    if (duplicates.length) {
+      r += '⚠️ *DUPLICADOS (' + duplicates.length + '):*\n';
+      for (const d of duplicates.slice(0, 15)) r += '  🔁 *' + prefix + d.cmd + '* → ' + d.files.join(', ') + '\n';
+      if (duplicates.length > 15) r += '  ... +' + (duplicates.length - 15) + '\n';
+      r += '\n';
+    } else {
+      r += '✅ Sem duplicados\n\n';
+    }
+
+    if (tooManyAliases.length) {
+      r += '📎 *ALIASES >2 (' + tooManyAliases.length + '):*\n';
+      for (const a of tooManyAliases.slice(0, 15)) r += '  📌 *' + prefix + a.cmd + '* (' + a.count + '): ' + a.aliases.join(', ') + '\n  📁 ' + a.file + '\n';
+      r += '\n';
+    } else {
+      r += '✅ Todos ≤2 aliases\n\n';
+    }
+
+    const fileCounts = {};
+    for (const [, s] of FILE_SOURCES.entries()) fileCounts[s.file] = (fileCounts[s.file] || 0) + 1;
+    const sorted = Object.entries(fileCounts).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    r += '📁 *Top ficheiros:*\n';
+    for (const [f, c] of sorted) r += '  • ' + f + ': ' + c + ' cmds\n';
+
+    if (r.length > 3500) {
+      await sock.sendMessage(ctx.remoteJid, { document: Buffer.from(r, 'utf8'), fileName: 'audit.txt', mimetype: 'text/plain', caption: '🕸️ Auditoria: ' + duplicates.length + ' dup, ' + tooManyAliases.length + ' aliases>' }, { quoted: msg });
+    } else {
+      await m.reply(r);
+    }
+    await m.react('✅');
+  });
+
 
   // ── !listcases ──────────────────────────────────────────
   registerCase(['listcases', 'listcmds', 'mycases', 'listcase'], async ({ m, isOwner, prefix }) => {
@@ -929,6 +1097,9 @@ module.exports = {
   CASES_SOURCE,
   CASES_META,
   extractCaseCode,
+  FILE_SOURCES,
+  COMMAND_REGISTRY,
+  extractSourceFromFile,
   init,
   FORMAT,
 };
