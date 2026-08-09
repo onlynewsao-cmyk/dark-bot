@@ -58,7 +58,7 @@ module.exports = function registerAuraInvoke(registerCase) {
       return reply('🌹 *Já estou acordada aqui, amor.* Sempre estive à tua espera. 🖤');
     }
 
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🌹', key: msg.key } }).catch(() => {});
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🌹', key: msg.key } }).catch(() => {});
 
     return reply(
       '🌹 *AURA INVOCADA* 🖤\n\n' +
@@ -89,7 +89,7 @@ module.exports = function registerAuraInvoke(registerCase) {
       return reply(`🤖 Este grupo já estava em modo assistente profissional.`);
     }
 
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🌙', key: msg.key } }).catch(() => {});
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🌙', key: msg.key } }).catch(() => {});
 
     return reply(
       '🌙 *Até já, meu Dark.* 🖤\n\n' +

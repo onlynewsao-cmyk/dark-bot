@@ -25,7 +25,7 @@ module.exports = function registerOnlineCases(registerCase) {
       `Uso: *${prefix}claude* <pergunta>\nEx: *${prefix}claude* Explica quantum computing`
     );
 
-    await react('🤖');
+    react('🤖');
     try {
       const sessionId = ctx.isGroup ? ctx.remoteJid : ctx.senderNumber;
       const { data } = await axios.get(
@@ -38,11 +38,11 @@ module.exports = function registerOnlineCases(registerCase) {
       // Processa blocos de código se existirem
       const resp = data.text;
       await sock.sendMessage(ctx.remoteJid, { text: resp }, { quoted: m.msg });
-      await react('✅');
+      react('✅');
 
     } catch (e) {
       console.error('[CLAUDE]', e?.message);
-      await react('💔');
+      react('💔');
       m.reply('❌ Erro ao consultar o Claude. Tente novamente.');
     }
   });
@@ -56,7 +56,7 @@ module.exports = function registerOnlineCases(registerCase) {
       `Uso: *${prefix}copilot* <pergunta>\nEx: *${prefix}copilot* Qual a capital do Brasil?`
     );
 
-    await react('👀');
+    react('👀');
     try {
       const { data } = await axios.get(`${SZ}/api/copilot2`, {
         params: { text, model: 'gpt-5', apikey: KEY },
@@ -66,11 +66,11 @@ module.exports = function registerOnlineCases(registerCase) {
       if (!data?.status || !data?.result) throw new Error('Sem resposta');
 
       await sock.sendMessage(ctx.remoteJid, { text: data.result }, { quoted: m.msg });
-      await react('✅');
+      react('✅');
 
     } catch (e) {
       console.error('[COPILOT]', e?.message);
-      await react('💔');
+      react('💔');
       m.reply('❌ Erro ao consultar o Copilot.');
     }
   });
@@ -174,7 +174,7 @@ module.exports = function registerOnlineCases(registerCase) {
       `🎵 Uso: *${prefix}ytaudio* <url YouTube>\nPara busca por nome usa: *${prefix}play* <nome>`
     );
 
-    await react('⏳');
+    react('⏳');
     try {
       const res  = await fetch(`${SZ}/api/ytmp3?text=${encodeURIComponent(url)}&apikey=${KEY}`, { signal: AbortSignal.timeout(60000) });
       const data = await res.json();
@@ -186,9 +186,9 @@ module.exports = function registerOnlineCases(registerCase) {
         mimetype: 'audio/mpeg',
         ptt:      false,
       }, { quoted: m.msg });
-      await react('✅');
+      react('✅');
     } catch (e) {
-      await react('❌');
+      react('❌');
       m.reply('❌ Falha no download de áudio: ' + e.message?.slice(0, 80));
     }
   });

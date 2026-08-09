@@ -47,10 +47,10 @@ async function makeThemedSticker(sock, msg, ctx, styleName, overlayText = '') {
     });
     if (stk && stk.length > 50) {
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } else throw new Error('Sticker vazio');
   } catch (e) {
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
     return sock.sendMessage(ctx.remoteJid, { text: '❌ Erro: ' + e.message }, { quoted: msg });
   }
 }
@@ -65,14 +65,14 @@ module.exports = function registerStickers2(registerCase) {
   };
   for (const [cmd, style] of Object.entries(figStyles)) {
     registerCase([cmd], async ({ sock, msg, ctx }) => {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
       return makeThemedSticker(sock, msg, ctx, style);
     }, true);
   }
 
   // ═══ BRAT (fundo branco + auto-scale para não overflow) ═══
   registerCase(['brat'], async ({ sock, msg, ctx, args }) => {
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const text = args.join(' ').trim() || 'brat';
     try {
       const sharp = require('sharp');
@@ -100,16 +100,16 @@ module.exports = function registerStickers2(registerCase) {
         packName: ' brat', authorName: ctx.pushName,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
     }
   }, true);
 
   // ═══ BRAT2 (SEMPRE palavra por palavra) ═══
   registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const input = args.join(' ').trim() || 'brat';
     try {
       const sharp = require('sharp');
@@ -167,9 +167,9 @@ module.exports = function registerStickers2(registerCase) {
         packName: ' brat2', authorName: ctx.pushName,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
     }
   }, true);
@@ -177,7 +177,7 @@ module.exports = function registerStickers2(registerCase) {
   // ═══ ESTILOS DE STICKER (faber, jeff, norian) ═══
   for (const cmd of ['faber', 'jeff', 'norian']) {
     registerCase([cmd], async ({ sock, msg, ctx }) => {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
       return makeThemedSticker(sock, msg, ctx, cmd.toUpperCase());
     }, true);
   }
@@ -186,7 +186,7 @@ module.exports = function registerStickers2(registerCase) {
   registerCase(['legenda'], async ({ sock, msg, ctx, args }) => {
     const text = args.join(' ').trim();
     if (!text) return sock.sendMessage(ctx.remoteJid, { text: '✍️ Uso: `!legenda teu texto` + marca uma imagem' }, { quoted: msg });
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const buf = await getImageBuffer(msg);
     if (!buf) return sock.sendMessage(ctx.remoteJid, { text: '📸 Marca uma imagem!' }, { quoted: msg });
     try {
@@ -203,9 +203,9 @@ module.exports = function registerStickers2(registerCase) {
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
     }
   }, true);
@@ -246,7 +246,7 @@ module.exports = function registerStickers2(registerCase) {
   registerCase(['ptvmsg'], async ({ sock, msg, ctx, reply }) => {
     const buf = await getImageBuffer(msg);
     if (!buf) return reply('📸 Marca uma imagem para criar PTV.');
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const sharp = require('sharp');
       const webpBuf = await sharp(buf).resize(512, 512, { fit: 'cover' }).webp({ quality: 80 }).toBuffer();
@@ -255,16 +255,16 @@ module.exports = function registerStickers2(registerCase) {
         video: webpBuf, mimetype: 'video/mp4', gifPlayback: true,
         caption: '🎬 PTV Message',
       }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ ' + e.message);
     }
   }, true);
 
   // ═══ RVISU (efeito visual reverso) ═══
   registerCase(['rvisu'], async ({ sock, msg, ctx }) => {
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const buf = await getImageBuffer(msg);
     if (!buf) return sock.sendMessage(ctx.remoteJid, { text: '📸 Marca uma imagem!' }, { quoted: msg });
     try {
@@ -280,9 +280,9 @@ module.exports = function registerStickers2(registerCase) {
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return sock.sendMessage(ctx.remoteJid, { text: '❌ ' + e.message }, { quoted: msg });
     }
   }, true);
@@ -291,16 +291,16 @@ module.exports = function registerStickers2(registerCase) {
   registerCase(['imagem'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const prompt = args.join(' ').trim();
     if (!prompt) return reply(`🎨 Uso: \`${prefix}imagem <descrição>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=512&height=512&nologo=true`, { responseType: 'arraybuffer', timeout: 30000 });
       if (r.data && r.data.byteLength > 1000) {
         await sock.sendMessage(ctx.remoteJid, { image: Buffer.from(r.data), caption: `🎨 *${prompt}*` }, { quoted: msg });
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
       } else throw new Error('Imagem vazia');
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ IA Imagem: ' + e.message);
     }
   }, true);

@@ -11,7 +11,7 @@ module.exports = function registerExtraCases(registerCase) {
   // ═══ CLAUDE IA (via SystemZone) ═══
   registerCase(['claude'], async ({ sock, msg, ctx, text, reply }) => {
     if (!text) return reply('_Por favor, informe o texto que deseja enviar ao Claude._');
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🤖', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🤖', key: msg.key } });
     const sessionId = ctx.isGroup ? ctx.remoteJid : ctx.senderJid;
     try {
       const { data } = await axios.get(
@@ -20,9 +20,9 @@ module.exports = function registerExtraCases(registerCase) {
       );
       if (!data?.text) throw new Error('Sem resposta do Claude');
       await sock.sendMessage(ctx.remoteJid, { text: data.text }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '💔', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '💔', key: msg.key } });
       reply('_Erro ao consultar Claude. Tente novamente._');
     }
   });
@@ -31,16 +31,16 @@ module.exports = function registerExtraCases(registerCase) {
   registerCase(['copilot'], async ({ sock, msg, ctx, text, prefix, reply }) => {
     if (!text) return reply(`cadê a pergunta?\nExemplo: *${prefix}copilot Qual a capital do Brasil?*`);
     try {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '👀', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '👀', key: msg.key } });
       const { data } = await axios.get('https://systemzone.store/api/copilot2', {
         params: { text, model: 'gpt-5' },
         timeout: 30000,
       });
       if (!data?.status || !data?.result) throw new Error('Sem resposta');
       await sock.sendMessage(ctx.remoteJid, { text: data.result }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '💔', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '💔', key: msg.key } });
       reply('Erro ao consultar o Copilot.');
     }
   });
@@ -114,7 +114,7 @@ module.exports = function registerExtraCases(registerCase) {
   registerCase(['manga', 'mangá', 'lermanga'], async ({ sock, msg, ctx, text, prefix, reply }) => {
     if (!text) return reply(`📚 *Como usar:*\n\n${prefix}manga <nome do mangá>\n\n📌 *Exemplos:*\n${prefix}manga one piece\n${prefix}manga naruto`);
     try {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
       const slug = text.trim().toLowerCase().replace(/\s+/g, '-');
       const url = `https://mangalivre.blog/manga/${slug}/`;
       const { data } = await axios.get(url, {
@@ -141,7 +141,7 @@ module.exports = function registerExtraCases(registerCase) {
       }
 
       if (!capitulos.length) {
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
         return reply(`⚠️ Nenhum capítulo encontrado para "${text}".\nTente o nome exacto do mangá.`);
       }
 
@@ -149,9 +149,9 @@ module.exports = function registerExtraCases(registerCase) {
       const txt = `📚 *${titulo}*\n📖 ${capitulos.length} capítulos encontrados\n\n${list}\n\n💡 Para ler, usa:\n${prefix}mangacap <número do capítulo>`;
       
       await sock.sendMessage(ctx.remoteJid, { text: txt }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       reply(`❌ Erro: ${e.message}`);
     }
   });
@@ -160,7 +160,7 @@ module.exports = function registerExtraCases(registerCase) {
   registerCase(['mangacap', 'capitulo', 'lercap'], async ({ sock, msg, ctx, text, args, prefix, reply }) => {
     if (!text) return reply(`Uso: ${prefix}mangacap <url do capítulo>\nOu responde a uma mensagem com o link.`);
     try {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
       const url = text.match(/https?:\/\/\S+/)?.[0] || text;
       const { data } = await axios.get(url, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://mangalivre.blog/' },
@@ -171,7 +171,7 @@ module.exports = function registerExtraCases(registerCase) {
       const paginas = [...new Set(imgMatches.map(m => m[1]))].filter(u => !u.includes('avatar') && !u.includes('logo') && !u.includes('banner') && !u.includes('ads'));
 
       if (!paginas.length) {
-        await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
         return reply('❌ Nenhuma página encontrada neste capítulo.');
       }
 
@@ -189,9 +189,9 @@ module.exports = function registerExtraCases(registerCase) {
         await reply(`📖 Enviadas 10/${paginas.length} páginas. Restantes não enviadas por limite.`);
       }
       
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       reply(`❌ Erro: ${e.message}`);
     }
   });

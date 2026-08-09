@@ -51,22 +51,22 @@ module.exports = function registerDownloads2(registerCase) {
   registerCase(['tiktok', 'tt', 'ttk', 'ttk2', 'tiktok2'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🎶 Uso: \`${prefix}tiktok <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.tiktok(url);
       if (r.video || r.url || r.download) await sendVideo(sock, ctx.remoteJid, msg, r);
       else if (r.images?.length) { for (const img of r.images.slice(0, 10)) await sock.sendMessage(ctx.remoteJid, { image: { url: img } }, { quoted: msg }); }
       else throw new Error('Sem resultado');
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok: ' + e.message); }
   });
 
   // ═══ INSTAGRAM ═══
   registerCase(['instagram', 'ig', 'instamp3', 'instamp4', 'igstory'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`📸 Uso: \`${prefix}instagram <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.instagram(url);
@@ -75,28 +75,28 @@ module.exports = function registerDownloads2(registerCase) {
         if (item.video || item.url?.match(/\.mp4/i)) await sendVideo(sock, ctx.remoteJid, msg, item);
         else await sock.sendMessage(ctx.remoteJid, { image: { url: item.image || item.url || item.thumbnail } }, { quoted: msg });
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Instagram: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Instagram: ' + e.message); }
   });
 
   // ═══ FACEBOOK ═══
   registerCase(['facebook', 'fb', 'fbvideo', 'fbphoto', 'fbfoto'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`📘 Uso: \`${prefix}facebook <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.facebook(url);
       await sendVideo(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Facebook: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Facebook: ' + e.message); }
   });
 
   // ═══ TWITTER ═══
   registerCase(['twitter', 'tw', 'twitterdl'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🐦 Uso: \`${prefix}twitter <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.twitter(url);
@@ -105,41 +105,41 @@ module.exports = function registerDownloads2(registerCase) {
         if (item.video || item.url?.match(/\.mp4/i)) await sendVideo(sock, ctx.remoteJid, msg, item);
         else await sock.sendMessage(ctx.remoteJid, { image: { url: item.image || item.url } }, { quoted: msg });
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Twitter: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Twitter: ' + e.message); }
   });
 
   // ═══ SPOTIFY ═══
   registerCase(['spotify', 'spotify2', 'sp'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`💚 Uso: \`${prefix}spotify <nome ou url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.spotify(query);
       await sendAudio(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Spotify: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Spotify: ' + e.message); }
   });
 
   // ═══ SOUNDCLOUD ═══
   registerCase(['soundcloud', 'sc', 'scdl'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`☁️ Uso: \`${prefix}soundcloud <nome ou url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const r = await dl.soundcloud(query);
       await sendAudio(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'SoundCloud: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'SoundCloud: ' + e.message); }
   });
 
   // ═══ PINTEREST (imagem/vídeo) ═══
   registerCase(['pinterest2', 'pintemp3', 'pintemp4'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`📌 Uso: \`${prefix}pinterest <busca ou url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
       if (/^https?:\/\//i.test(query)) {
@@ -151,47 +151,47 @@ module.exports = function registerDownloads2(registerCase) {
         if (results?.length) await sock.sendMessage(ctx.remoteJid, { image: { url: results[0].image_url || results[0].url } }, { quoted: msg });
         else throw new Error('Sem resultados');
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Pinterest: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Pinterest: ' + e.message); }
   });
 
   // ═══ YOUTUBE AUDIO (aliases de ytd) ═══
   registerCase(['baixaraudio', 'dlmp3', 'ytmp3', 'ytaudio', 'tomp3', 'ytmp3s', 'dlmp3s'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🎵 Uso: \`${prefix}ytd <url YouTube>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const ytdl = require('../ytdl');
       const r = await ytdl.getAudio(url, '128k');
       await sendAudio(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Áudio: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Áudio: ' + e.message); }
   });
 
   // ═══ YOUTUBE VIDEO (aliases de gyt/video) ═══
   registerCase(['baixarvideo', 'dlmp4', 'ytmp4', 'yt4', 'vid', 'fhd', 'ytmp4s', 'yt4v2', 'yt4k', 'ytplay4'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🎬 Uso: \`${prefix}video <url ou busca>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const ytdl = require('../ytdl');
       const r = await ytdl.getVideo(url, '720');
       await sendVideo(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Vídeo: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Vídeo: ' + e.message); }
   });
 
   // ═══ VIDEO FHD (aliases de video2) ═══
   registerCase(['vid2', 'playvid', 'playvid2'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`📺 Uso: \`${prefix}video2 <busca ou url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const ytdl = require('../ytdl');
       const r = await ytdl.getVideo(query, '1080');
       await sendVideo(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'FHD: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'FHD: ' + e.message); }
   });
 
   // ═══ PLAY POR ID ═══
@@ -199,20 +199,20 @@ module.exports = function registerDownloads2(registerCase) {
     const id = args.join(' ').trim();
     if (!id) return reply(`🎵 Uso: \`${prefix}playid <id ou url>\``);
     const url = id.startsWith('http') ? id : `https://youtube.com/watch?v=${id}`;
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const ytdl = require('../ytdl');
       const r = await ytdl.getAudio(url, '128k');
       await sendAudio(sock, ctx.remoteJid, msg, r);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, e.message); }
   });
 
   // ═══ GDRIVE ═══
   registerCase(['gdrive'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`📁 Uso: \`${prefix}gdrive <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const id = url.match(/\/d\/([^/]+)/)?.[1] || url.match(/id=([^&]+)/)?.[1];
@@ -224,15 +224,15 @@ module.exports = function registerDownloads2(registerCase) {
       const buf = Buffer.concat(chunks);
       const fname = r.headers['content-disposition']?.match(/filename="?([^"]+)"?/)?.[1] || 'arquivo';
       await sock.sendMessage(ctx.remoteJid, { document: buf, fileName: fname, mimetype: r.headers['content-type'] || 'application/octet-stream' }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'GDrive: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'GDrive: ' + e.message); }
   });
 
   // ═══ MEDIAFIRE ═══
   registerCase(['mediafire'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(` Uso: \`${prefix}mediafire <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const page = (await axios.get(url, { timeout: 15000 })).data;
@@ -244,8 +244,8 @@ module.exports = function registerDownloads2(registerCase) {
       const buf = Buffer.concat(chunks);
       const fname = url.split('/').pop() || 'arquivo';
       await sock.sendMessage(ctx.remoteJid, { document: buf, fileName: fname, mimetype: r.headers['content-type'] || 'application/octet-stream' }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MediaFire: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MediaFire: ' + e.message); }
   });
 
   // ═══ SHAZAM ═══
@@ -259,7 +259,7 @@ module.exports = function registerDownloads2(registerCase) {
   registerCase(['myinstants'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`🔊 Uso: \`${prefix}myinstants <nome do som>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://www.myinstants.com/api/search/?term=${encodeURIComponent(query)}`, { timeout: 10000 });
@@ -268,15 +268,15 @@ module.exports = function registerDownloads2(registerCase) {
       const mp3Url = `https://www.myinstants.com${results[0].mp3}`;
       const buf = await mediaHandler.fetchBuffer(mp3Url);
       await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', fileName: results[0].name + '.mp3', ptt: true }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MyInstants: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MyInstants: ' + e.message); }
   });
 
   // ═══ KWAI ═══
   registerCase(['kwai'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`📱 Uso: \`${prefix}kwai <url>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://api.zahwazein.xyz/downloader/kwai?url=${encodeURIComponent(url)}`, { timeout: 15000 });
@@ -284,15 +284,15 @@ module.exports = function registerDownloads2(registerCase) {
       if (!dlUrl) throw new Error('Sem resultado');
       const buf = await mediaHandler.fetchBuffer(dlUrl);
       await sendVideo(sock, ctx.remoteJid, msg, { buffer: buf, title: 'Kwai' });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Kwai: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Kwai: ' + e.message); }
   });
 
   // ═══ MCPLUGIN ═══
   registerCase(['mcplugin'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`⛏️ Uso: \`${prefix}mcplugin <nome do plugin>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://api.spiget.org/v2/search/resources/${encodeURIComponent(query)}?size=1`, { timeout: 10000 });
@@ -301,21 +301,21 @@ module.exports = function registerDownloads2(registerCase) {
       const dlUrl = `https://api.spiget.org/v2/resources/${plugin.id}/download`;
       const buf = await mediaHandler.fetchBuffer(dlUrl);
       await sock.sendMessage(ctx.remoteJid, { document: buf, fileName: `${plugin.name}.jar`, mimetype: 'application/java-archive', caption: `⛏️ *${plugin.name}*\n📝 ${plugin.tag || ''}` }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MCPlugin: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MCPlugin: ' + e.message); }
   });
 
   // ═══ TIKTOK SEARCH POR NOME (ttks) ═══
   registerCase(['ttks', 'ttsearch', 'tiktoksearch', 'tts'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply(`🎶 Uso: \`${prefix}ttks <nome da música ou busca>\`\nEx: \`${prefix}ttks central cee band4band\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
     try {
       const dl = require('../dl/others');
       const results = await dl.tiktokSearch(query, 3);
       if (!results.length) throw new Error('Nenhum vídeo encontrado para: ' + query);
       
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
       
       // Envia o primeiro resultado como vídeo
       const r = results[0];
@@ -333,9 +333,9 @@ module.exports = function registerDownloads2(registerCase) {
         await reply(RE.renderBlock(t, 'TIKTOK', [`🎬 Mais resultados para "${query}":`, extra, `> Usa ${prefix}ttks <número> para baixar outro`], { botName: config.bot.name }));
       }
       
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return errReply(sock, msg, ctx, 'TikTok Search: ' + e.message);
     }
   });
@@ -344,7 +344,7 @@ module.exports = function registerDownloads2(registerCase) {
   registerCase(['tiktoktxt'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const user = args.join(' ').trim();
     if (!user) return reply(`🎶 Uso: \`${prefix}tiktoktxt <username>\``);
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const axios = require('axios');
       const r = await axios.get(`https://api.zahwazein.xyz/stalker/tiktok?username=${encodeURIComponent(user.replace('@', ''))}`, { timeout: 10000 });
@@ -361,8 +361,8 @@ module.exports = function registerDownloads2(registerCase) {
         `📝 Bio: ${(d.bio || 'sem bio').slice(0, 100)}`,
       ], { botName: config.bot.name });
       await sock.sendMessage(ctx.remoteJid, { text }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok Stalk: ' + e.message); }
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok Stalk: ' + e.message); }
   });
 
   // ═══ REMOVER down/downloads do submenu (são navegação) ═══

@@ -71,7 +71,7 @@ async function applyAudioEffect(sock, msg, ctx, filterName) {
     `🔊 Filtro: \`${filter.slice(0, 40)}...\``,
   ]);
 
-  await sock.sendMessage(ctx.remoteJid, { react: { text: '🎧', key: msg.key } });
+  sock.sendMessage(ctx.remoteJid, { react: { text: '🎧', key: msg.key } });
 
   try {
     const { downloadMediaMessage } = require('@systemzero/baileys');
@@ -110,9 +110,9 @@ async function applyAudioEffect(sock, msg, ctx, filterName) {
       ptt: filterName === 'earrape' || filterName === 'blown',
     }, { quoted: msg });
 
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
   } catch (e) {
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
     return tReply(sock, msg, ctx, '🎧 ERRO', [`❌ ${e.message}`]);
   }
 }

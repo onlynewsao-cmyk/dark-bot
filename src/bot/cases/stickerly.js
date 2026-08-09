@@ -15,7 +15,7 @@ module.exports = function registerStickerlyCases(registerCase) {
   registerCase(['stickerly', 'sly', 'slypack'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const query = args.join(' ').trim();
     if (!query) return reply('🔍 Uso: ' + prefix + 'stickerly <nome do pack>\nEx: ' + prefix + 'stickerly anime cute');
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
     try {
       const sly = require('../stickerly');
       const packs = await sly.searchPacks(query);
@@ -42,9 +42,9 @@ module.exports = function registerStickerlyCases(registerCase) {
       await sock.sendMessage(ctx.remoteJid, {
         text: '✅ Pack *' + (packs[0].title || query) + '*\n📦 ' + count + ' stickers de sticker.ly\n👤 by ' + (packs[0].author || '?'),
       }, { quoted: msg });
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ sticker.ly: ' + e.message);
     }
   }, true);
@@ -61,7 +61,7 @@ module.exports = function registerStickerlyCases(registerCase) {
       '⌬ Manda até 10 mídias em álbum\n' +
       '╚═━═━═━═━═━═━═━═᳀'
     );
-    await sock.sendMessage(ctx.remoteJid, { react: { text: '🔎', key: msg.key } });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🔎', key: msg.key } });
     try {
       const partes = text.split('|').map(p => p.trim()).filter(Boolean);
       const query = partes.shift();
@@ -101,9 +101,9 @@ module.exports = function registerStickerlyCases(registerCase) {
           await sock.sendMessage(ctx.remoteJid, { image: { url }, caption: '📌 Pinterest — ' + query }, { quoted: msg });
         }
       }
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ Pinterest: ' + e.message);
     }
   }, true);
