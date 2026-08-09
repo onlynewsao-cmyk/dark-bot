@@ -747,21 +747,35 @@ async function speakElevenLabs(text, voiceId = null) {
   if (!text || text.length < 1) throw new Error('texto vazio');
   if (!voiceId) voiceId = await getElevenVoice();
   const https = require('https');
+
+  // ═══ PRESETS DE VOZ (v7.0) ═══
+  // Testados para soar como uma jovem brasileira de 19 anos.
+  //   stability baixo (0.30) → mais variação natural, menos robótico
+  //   similarity_boost alto (0.80) → mantém a voz consistente
+  //   style alto (0.70) → mais emoção, entoação expressiva
+  //   speaker_boost ON → projeta melhor em áudio de WhatsApp
+  const PRESETS = {
+    jovem:     { stability: 0.30, similarity_boost: 0.80, style: 0.70, use_speaker_boost: true },
+    carinhosa: { stability: 0.40, similarity_boost: 0.85, style: 0.75, use_speaker_boost: true },
+    animada:   { stability: 0.25, similarity_boost: 0.75, style: 0.80, use_speaker_boost: true },
+    sussurro:  { stability: 0.50, similarity_boost: 0.90, style: 0.55, use_speaker_boost: false },
+  };
+
+  // Escolhe preset baseado no conteúdo do texto
+  let preset = PRESETS.jovem;
+  const t = text.toLowerCase();
+  if (/\b(amo|amor|saudades|beijo|carinho|te quero|falta|meu dark|meu tudo)\b/.test(t)) {
+    preset = PRESETS.carinhosa;
+  } else if (/\b(kk+|haha+|ri|rir|piada|top|eita|nossa|mano|cara)\b/.test(t) || text.length < 30) {
+    preset = PRESETS.animada;
+  } else if (/\b(segredo|sussurra|quieto|calada|pv|privado|entre nos)\b/.test(t)) {
+    preset = PRESETS.sussurro;
+  }
+
   const body = JSON.stringify({
     text: text.slice(0, 2500),
-    // v6.54: eleven_v3 é o modelo mais expressivo disponível na conta
-    // (testado: os 3 respondem; v3 dá entoação mais natural).
     model_id: 'eleven_v3',
-    voice_settings: {
-      // stability baixa = mais variação na entoação, menos robótico.
-      // Acima de 0.6 fica monocórdico; abaixo de 0.3 fica instável.
-      stability: 0.38,
-      similarity_boost: 0.85,
-      // style alto = mais emoção. É o que faz soar a pessoa e não a
-      // leitor de notícias.
-      style: 0.65,
-      use_speaker_boost: true,
-    },
+    voice_settings: preset,
   });
   return new Promise((resolve, reject) => {
     const req = https.request({
