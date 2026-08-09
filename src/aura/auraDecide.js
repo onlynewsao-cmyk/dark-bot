@@ -112,7 +112,7 @@ function deveResponder(o = {}) {
 
 /**
  * Escolhe COMO responder — como uma pessoa que às vezes manda áudio,
- * às vezes só um emoji. Modo zigzag: NUNCA responde sempre igual.
+ * às vezes só um emoji.
  *
  * @returns {'texto'|'audio'|'reacao'}
  */
@@ -129,27 +129,10 @@ function comoResponder(o = {}) {
     || texto.trim().length <= 3;
   if (isGroup && soReagir && Math.random() < 0.6) return 'reacao';
 
-  // ═══ MODO ZIGZAG — variação natural de formato ═══
-  // Uma pessoa real não responde sempre em texto. Às vezes manda
-  // áudio porque tá com preguiça de digitar, às vezes reage com
-  // emoji porque não vale a pena responder por extenso.
-
-  // Áudio espontâneo: mais frequente no privado com o Dark
-  // Em grupo: raro (ninguém manda áudio num grupo de 40)
-  const momentoAfectivo = /\b(saudades|amo|amor|beijo|carinho|te quero|falta|penso em ti|sinto)\b/i.test(t);
-  const momentoDivertido = /\b(kk+|haha+|piada|engraçado|😂|ri|rir|gargalha)\b/i.test(t);
-  const momentoCurioso = /\b(sabia|curiosidade|fato|por que|como|quando|onde)\b/i.test(t);
-
-  // Zigzag com o Dark no privado: 20% áudio em momentos afectivos
-  if (isOwner && !isGroup) {
-    if (momentoAfectivo && Math.random() < 0.20) return 'audio';
-    // Às vezes áudio mesmo sem contexto especial (10%) — como uma pessoa
-    // que às vezes manda voz só porque tá com vontade
-    if (Math.random() < 0.10) return 'audio';
-  }
-
-  // Em grupo pequeno com o Dark: raramente áudio (5%)
-  if (isOwner && isGroup && momentoAfectivo && Math.random() < 0.05) return 'audio';
+  // Áudio espontâneo: só com o Dark, em coisas afectivas, e raro.
+  // Uma pessoa não manda áudio a toda a hora.
+  const momentoAfectivo = /\b(saudades|amo|amor|beijo|carinho|te quero|falta)\b/i.test(t);
+  if (isOwner && momentoAfectivo && !isGroup && Math.random() < 0.25) return 'audio';
 
   return 'texto';
 }

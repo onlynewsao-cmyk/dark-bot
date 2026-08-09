@@ -1578,23 +1578,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         try {
           const aiVoz = require('./ai');
           // tira emojis e marcações — o TTS lê-os em voz alta
-          let paraFalar = finalAnswer
+          const paraFalar = finalAnswer
             .replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '')
             .replace(/[*_~`]/g, '')
             .replace(/\s{2,}/g, ' ')
             .trim();
-
-          // v7.0: Anti-eco — remove padrões onde a IA repete o que o user disse
-          const ecoPatterns = [
-            /^(tu|voce|você)\s+(disseste|disse|falaste|falou|mencionaste|perguntaste)\s*[:,]?\s*/i,
-            /^(sobre|quanto a|em relacao a)\s+(o que|isso que|aquilo que)\s+(tu|voce|você)\s+(disseste|disse|falaste|falou)\s*[:,]?\s*/i,
-            /^(ai|ah|ok|bem)\s*[:,]?\s*(tu|voce|você)\s+(disseste|disse)\s*[:,]?\s*/i,
-            /^(quando|se)\s+(tu|voce|você)\s+(disseste|disse|falaste|falou)\s*[:,]?\s*/i,
-          ];
-          for (const pat of ecoPatterns) {
-            paraFalar = paraFalar.replace(pat, '');
-          }
-          paraFalar = paraFalar.trim();
 
           const voz = await aiVoz.speakWithFallback(paraFalar.slice(0, 500));
           if (voz && voz.length > 500) {
