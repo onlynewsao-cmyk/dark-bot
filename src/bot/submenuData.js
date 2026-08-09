@@ -164,7 +164,7 @@ function categorize(cmd) {
     baixaraudio:'downloads',
     // v7.0 — Comandos que caíam em 'outros'
     acordar:'ia', mymemory:'ia', resetia:'ia', imagine:'ia', img:'ia', pergunta:'ia', news:'ia', jornal:'ia',
-    acordaaura:'ia', auraon:'ia', auraoff:'ia', auramodo:'ia', aurastatus:'ia', auradorme:'ia', aurasai:'ia', auragrupos:'ia', auralist:'ia',
+    acordaaura:'owner', auraon:'owner', auraoff:'owner', auramodo:'owner', aurastatus:'owner', auradorme:'owner', aurasai:'owner', auragrupos:'owner', auralist:'owner',
     amaldicoar:'interacoes', bencao:'interacoes', bullying:'interacoes', chutar:'interacoes', cuspir:'interacoes',
     declarar:'interacoes', envenenar:'interacoes', espancar:'interacoes', facada:'interacoes', flertar:'interacoes',
     highfive:'interacoes', lutar:'interacoes', mimimi:'interacoes', pontape:'interacoes', rir:'interacoes',
@@ -225,7 +225,7 @@ function categorize(cmd) {
     tema:'info', tempo:'info', ver:'info', velocidade:'info', weather:'info',
     fullsticker:'stickers', renamesticker:'stickers',
     'novo-link':'admin', rpginfo:'economia', teste:'info', termo:'jogos',
-    aura:'ia', dormiraura:'ia', modoaura:'ia',
+    aura:'owner', dormiraura:'owner', modoaura:'owner',
     'microsoft-ai':'ia', rest:'info', pais:'info', getcasecode:'owner', listcase:'owner',
 
  baixarvideo:'downloads',
