@@ -85,8 +85,15 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title) {
 // Estrutura EXACTA do código de referência (case 'play'),
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
-async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0) {
+async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0, quality = {}) {
   if (!text) return m.reply(`Exemplo: ${prefix + command} Slash Inferno`);
+
+  // Qualidade por comando
+  const Q = {
+    audio: quality.audio || '128k',
+    video: quality.video || '720',
+    label: quality.label || 'Standard',
+  };
 
   await sock.sendMessage(m.chat, { react: { text: '🫡', key: m.key } });
 
@@ -123,8 +130,8 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
         try { msgBtn.setThumbnail(video.thumbnail); } catch {}
       }
 
-      msgBtn.addButton('🎵 Baixar Áudio', `${prefix}ytd ${video.youtube_url}`);
-      msgBtn.addButton('🎬 Baixar Vídeo', `${prefix}gyt ${video.youtube_url} | mp4 | 720`);
+      msgBtn.addButton(`🎵 Baixar Áudio (${Q.audio})`, `${prefix}ytd ${video.youtube_url}`);
+      msgBtn.addButton(`🎬 Baixar Vídeo (${Q.video}p)`, `${prefix}gyt ${video.youtube_url} | mp4 | ${Q.video}`);
 
       await msgBtn.send(m.chat, { quoted: msg });
       sent = true;
@@ -156,19 +163,19 @@ module.exports = function registerDownloadCases(registerCase) {
   // case 'play' — busca + ButtonV2 (resultado #1)
   // ════════════════════════════════════════════════
   registerCase(['play', 'music', 'musica', 'yt', 'ytmp3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 0));
+    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Standard' }));
 
   // ════════════════════════════════════════════════
   // case 'play2' — resultado alternativo (#2)
   // ════════════════════════════════════════════════
   registerCase(['play2', 'music2'], (caseCtx) =>
-    runPlaySearch(caseCtx, 1));
+    runPlaySearch(caseCtx, 1, { audio: '192k', video: '720', label: 'Medium' }));
 
   // ════════════════════════════════════════════════
   // case 'play3' — resultado #3
   // ════════════════════════════════════════════════
   registerCase(['play3', 'music3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 2));
+    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality' }));
 
   // ════════════════════════════════════════════════
   // case 'playhq' — alta qualidade directa (320kbps)
