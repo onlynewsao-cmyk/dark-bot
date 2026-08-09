@@ -1376,6 +1376,56 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Remove os marcadores do texto visível
       finalAnswer = finalAnswer.replace(/\[STICKER:[^\]]+\]/g, '').replace(/\[IMAGE:[^\]]+\]/g, '').replace(/\[CMD:[^\]]+\]/g, '').trim();
       
+      // v6.55: EXECUTAR COMANDOS POR CONVERSA
+      // "aura toca Shakira" → corre o .play sozinha.
+      // Só o Dono, e NUNCA os comandos perigosos (eval, broadcast,
+      // restart, permissões, 18+) — esses continuam a exigir o
+      // prefixo escrito à mão, porque um erro de interpretação
+      // nesses é irreversível.
+      if (isOwner) {
+        try {
+          const auraCmds = require('../aura/auraCommands');
+          const pedido = auraCmds.detectarComando(cleanText);
+
+          if (pedido && !auraCmds.estaBloqueado(pedido.comando)) {
+            const argv = pedido.args ? pedido.args.split(/\s+/) : [];
+            const cmdCtx = { ...ctx, args: argv, prefix };
+            const caseCtx = {
+              sock, msg, ctx: cmdCtx, args: argv,
+              text: pedido.args, prefix,
+              command: pedido.comando, isOwner: true, config: commandConfig,
+            };
+
+            let correu = false;
+            try {
+              correu = await caseHandler.runCase(pedido.comando, caseCtx);
+            } catch (e) {
+              console.warn('[Aura cmd] case', e.message?.slice(0, 50));
+            }
+
+            // não é case → tenta nativo / pacote
+            if (!correu) {
+              const fn = nativeCommands[pedido.comando] || packageCommands[pedido.comando];
+              if (typeof fn === 'function') {
+                try {
+                  await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner: true, fillVars, config: commandConfig });
+                  correu = true;
+                } catch (e) {
+                  console.warn('[Aura cmd] nativo', e.message?.slice(0, 50));
+                }
+              }
+            }
+
+            if (correu) {
+              await incrementUserCommand(ctx.senderNumber, ctx).catch(() => {});
+              return true;
+            }
+          }
+        } catch (e) {
+          console.warn('[Aura comando]', e.message?.slice(0, 60));
+        }
+      }
+
       // v6.54: ACÇÕES DO WHATSAPP — ela faz o que uma pessoa faz.
       // "cria um grupo chamado X", "cria um canal", "fecha o grupo",
       // "manda o link", "muda o nome"... Só o Dono Supremo.
