@@ -8,6 +8,8 @@
  *  4. youtubei.js (stream directo)
  *  5. Invidious público (lista de instâncias)
  *  6. Piped API (alternativo ao Invidious)
+ *  7. Loader.to (serviço externo de conversão)
+ *  8. External APIs (SocialKit, SaveNow, Cobalt, templates)
  * 
  * Áudio: baixa M4A/MP4 → extrai MP3 com ffmpeg
  * Vídeo: baixa MP4 directo
@@ -311,7 +313,16 @@ function extractAudioFromBuffer(inputBuf, bitrate = '128k') {
 
 // ─── API PÚBLICA ─────────────────────────────────────────────
 
-/** Busca + baixa áudio MP3 — multi-fallback */
+// v7.2: helpers externos (loader.to, SocialKit, SaveNow, Cobalt, etc)
+let _helpers = null;
+function getHelpers() {
+  if (!_helpers) {
+    try { _helpers = require('./dl/helpers'); } catch { _helpers = {}; }
+  }
+  return _helpers;
+}
+
+/** Busca + baixa áudio MP3 — multi-fallback (8 métodos) */
 async function getAudio(query, quality = '128k') {
   const meta = await searchVideo(query);
   if (meta.seconds > MAX_SEC) {
@@ -413,8 +424,34 @@ async function getAudio(query, quality = '128k') {
     } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
   }
 
+  // 7. Loader.to (serviço externo de conversão)
+  try {
+    const h = getHelpers();
+    if (h.loaderYoutubeAudio) {
+      const r = await h.loaderYoutubeAudio(meta.url, quality === '320k' ? '320' : '128');
+      if (r?.buffer && r.buffer.length > 1024) {
+        return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'loader.to' };
+      }
+    }
+  } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
+
+  // 8. External APIs (SocialKit, SaveNow, templates, Cobalt)
+  try {
+    const h = getHelpers();
+    if (h.externalYoutubeDownload) {
+      const r = await h.externalYoutubeDownload(meta.url, 'audio', quality === '320k' ? '320' : '128');
+      if (r?.url) {
+        const buf = await fetchBuf(r.url, 120000);
+        if (buf && buf.length > 1024) {
+          const mp3buf = extractAudioFromBuffer(buf, quality);
+          return { ...meta, title: r.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: r.source || 'External' };
+        }
+      }
+    }
+  } catch (e) { errors.push('External: ' + e.message?.slice(0, 60)); }
+
   // Todos falharam
-  console.error('[ytdl.getAudio] Todos os métodos falharam:', errors.join(' | '));
+  console.error('[ytdl.getAudio] ' + errors.length + ' métodos falharam:', errors.join(' | '));
   throw new Error('❌ Download indisponível agora. Tenta de novo em alguns minutos.\n\n🎵 Link: ' + meta.url);
 }
 
@@ -502,7 +539,32 @@ async function getVideo(query, maxHeight = '720') {
     } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 60)); }
   }
 
-  console.error('[ytdl.getVideo] Todos os métodos falharam:', errors.join(' | '));
+  // 7. Loader.to (serviço externo de conversão)
+  try {
+    const h = getHelpers();
+    if (h.loaderYoutubeVideo) {
+      const r = await h.loaderYoutubeVideo(meta.url, maxHeight);
+      if (r?.buffer && r.buffer.length > 1024) {
+        return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'loader.to' };
+      }
+    }
+  } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
+
+  // 8. External APIs (SocialKit, SaveNow, templates, Cobalt)
+  try {
+    const h = getHelpers();
+    if (h.externalYoutubeDownload) {
+      const r = await h.externalYoutubeDownload(meta.url, 'video', maxHeight);
+      if (r?.url) {
+        const buf = await fetchBuf(r.url, 180000);
+        if (buf && buf.length > 1024) {
+          return { ...meta, title: r.title || meta.title, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: r.source || 'External' };
+        }
+      }
+    }
+  } catch (e) { errors.push('External: ' + e.message?.slice(0, 60)); }
+
+  console.error('[ytdl.getVideo] ' + errors.length + ' métodos falharam:', errors.join(' | '));
   throw new Error('❌ Download de vídeo indisponível agora.\n\n🎬 Link: ' + meta.url);
 }
 
