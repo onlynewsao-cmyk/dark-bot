@@ -130,7 +130,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
         try { msgBtn.setThumbnail(video.thumbnail); } catch {}
       }
 
-      msgBtn.addButton(`🎵 Baixar Áudio (${Q.audio})`, `${prefix}ytd ${video.youtube_url}`);
+      msgBtn.addButton(`🎵 Baixar Áudio (${Q.audio})`, `${prefix}ytd ${video.youtube_url} | ${Q.audio}`);
       msgBtn.addButton(`🎬 Baixar Vídeo (${Q.video}p)`, `${prefix}gyt ${video.youtube_url} | mp4 | ${Q.video}`);
 
       await msgBtn.send(m.chat, { quoted: msg });
@@ -202,22 +202,26 @@ module.exports = function registerDownloadCases(registerCase) {
   registerCase(['ytd', 'baixaraudio', 'dlmp3'], async ({
     sock, msg, ctx, text, args, prefix, reply, react,
   }) => {
-    const url = (text || args.join(' ')).trim();
-    if (!url) return reply(`🎵 Uso: \`${prefix}ytd <url YouTube>\``);
+    // Parse: "!ytd url" ou "!ytd url | 320k"
+    const parts = (text || args.join(' ')).split('|').map(s => s.trim());
+    const url = parts[0];
+    const quality = parts[1] || '128k';
+    if (!url) return reply('🎵 Uso: ' + prefix + 'ytd <url>');
 
     await react('⏳');
     try {
       let r;
       try {
-        r = await systemZeroPlay.ytAudio(url);          // 1º API
+        r = await systemZeroPlay.ytAudio(url);
       } catch {
-        r = await ytdl.getAudio(url, '128k');           // 2º yt-dlp local
+        r = await ytdl.getAudio(url, quality);
       }
+      if (!r || !r.buffer || r.buffer.length < 1024) throw new Error('audio vazio');
       await sendAudioCard(sock, ctx.remoteJid, msg, r);
       await react('✅');
     } catch (e) {
       await react('❌');
-      return reply('❌ Falha no download de áudio.');
+      return reply('❌ Falha no download de audio: ' + (e.message || '').slice(0, 100));
     }
   });
 
@@ -227,25 +231,29 @@ module.exports = function registerDownloadCases(registerCase) {
   registerCase(['gyt', 'baixarvideo', 'dlmp4'], async ({
     sock, msg, ctx, text, args, prefix, reply, react,
   }) => {
-    const url = (text || args.join(' ')).split('|')[0].trim();
-    if (!url) return reply(`🎬 Uso: \`${prefix}gyt <url YouTube>\``);
+    // Parse: "!gyt url | mp4 | 720" ou "!gyt url"
+    const parts = (text || args.join(' ')).split('|').map(s => s.trim());
+    const url = parts[0];
+    const resolution = parts[2] || parts[1] || '720';
+    if (!url) return reply('🎬 Uso: ' + prefix + 'gyt <url>');
 
     await react('⏳');
     try {
       let r;
       try {
-        r = await systemZeroPlay.ytVideo(url, '720');   // 1º API
+        r = await systemZeroPlay.ytVideo(url, resolution);
         const buf = await mediaHandler.fetchBuffer(r.url);
         r.buffer = buf;
       } catch {
-        r = await ytdl.getVideo(url, '720');            // 2º yt-dlp local
+        r = await ytdl.getVideo(url, resolution);
       }
-      const cap = `🎬 *${r.title || 'Vídeo'}*\n👤 ${r.author || ''}\n⏱️ ${r.duration || '?'} | 📺 ${r.quality || '720p'}`;
+      if (!r || !r.buffer || r.buffer.length < 4096) throw new Error('video vazio');
+      const cap = '🎬 *' + (r.title || 'Video') + '*\n👤 ' + (r.author || '') + '\n⏱️ ' + (r.duration || '?') + ' | 📺 ' + (r.quality || resolution + 'p');
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
       await react('✅');
     } catch (e) {
       await react('❌');
-      return reply('❌ Falha no download de vídeo.');
+      return reply('❌ Falha no download de video: ' + (e.message || '').slice(0, 100));
     }
   });
 
