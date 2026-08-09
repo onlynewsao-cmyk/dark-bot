@@ -6,8 +6,8 @@
  */
 'use strict';
 
-const config = require('../../config');
-const stickerMaker = require('../stickerMaker');
+const config = require('../config');
+const stickerMaker = require('./stickerMaker');
 
 // ── Fontes fancy para watermark ──
 const FANCY = {
