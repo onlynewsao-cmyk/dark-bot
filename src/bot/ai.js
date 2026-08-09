@@ -748,8 +748,20 @@ async function speakElevenLabs(text, voiceId = null) {
   if (!voiceId) voiceId = await getElevenVoice();
   const https = require('https');
   const body = JSON.stringify({
-    text: text.slice(0, 2500), model_id: 'eleven_multilingual_v2',
-    voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
+    text: text.slice(0, 2500),
+    // v6.54: eleven_v3 é o modelo mais expressivo disponível na conta
+    // (testado: os 3 respondem; v3 dá entoação mais natural).
+    model_id: 'eleven_v3',
+    voice_settings: {
+      // stability baixa = mais variação na entoação, menos robótico.
+      // Acima de 0.6 fica monocórdico; abaixo de 0.3 fica instável.
+      stability: 0.38,
+      similarity_boost: 0.85,
+      // style alto = mais emoção. É o que faz soar a pessoa e não a
+      // leitor de notícias.
+      style: 0.65,
+      use_speaker_boost: true,
+    },
   });
   return new Promise((resolve, reject) => {
     const req = https.request({

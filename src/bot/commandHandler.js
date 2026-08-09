@@ -1291,7 +1291,21 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           }
           if (imgBuf && imgBuf.length > 500) {
             const aiMod = require('./ai');
-            const visionPrompt = prompt + '\n\n[IMPORTANTE: Tu ESTÁS a ver a imagem AGORA. Descreve o que ves e responde à pergunta. Se é um meme, ri. Se é uma pessoa, identifica. Se é um objecto, comenta. NUNCA digas que não recebeste foto — tu ESTÁS a ver ela AGORA!]';
+            // v6.54: análise detalhada em vez de "descreve a imagem".
+            // Antes dizia só "vejo um padrão de xadrez"; agora repara
+            // em pessoas, expressões, roupa, marcas, texto e local.
+            const visionPrompt = prompt + `
+
+[ESTÁS A VER A IMAGEM AGORA. Analisa com atenção:
+• PESSOAS: quantas, idade aproximada, expressão, o que vestem, o que
+  fazem. Se for alguém famoso e tiveres a certeza, diz o nome. Se não
+  tiveres a certeza, diz com quem se parece — sem inventar.
+• TEXTO: lê tudo o que estiver escrito (cartazes, ecrãs, roupa).
+• LOCAL: interior/exterior, que sítio parece, que horas do dia.
+• OBJECTOS e MARCAS que reconheças.
+• AMBIENTE: cores, luz, o que a foto transmite.
+Responde como uma pessoa que está mesmo a olhar — comenta o que te
+salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             answer = await aiMod.chatWithImage(visionPrompt, systemPrompt, imgBuf);
             console.log('[Aura Vision] OK, resposta com imagem');
           } else {
@@ -1362,6 +1376,55 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // Remove os marcadores do texto visível
       finalAnswer = finalAnswer.replace(/\[STICKER:[^\]]+\]/g, '').replace(/\[IMAGE:[^\]]+\]/g, '').replace(/\[CMD:[^\]]+\]/g, '').trim();
       
+      // v6.54: ACÇÕES DO WHATSAPP — ela faz o que uma pessoa faz.
+      // "cria um grupo chamado X", "cria um canal", "fecha o grupo",
+      // "manda o link", "muda o nome"... Só o Dono Supremo.
+      if (isOwner) {
+        try {
+          const acts = require('../aura/auraActions');
+          const ordem = acts.detectarAcao(cleanText);
+          if (ordem) {
+            const r = await acts.executar(ordem.acao, ordem.valor, {
+              sock, ctx: { ...ctx, botName: config.bot.name },
+            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 90)}` }));
+
+            if (r?.msg) {
+              await sock.sendMessage(ctx.remoteJid, { text: r.msg }, { quoted: msg });
+            }
+            if (r?.ok || r?.msg) return true;
+          }
+        } catch (e) {
+          console.warn('[Aura acção]', e.message?.slice(0, 60));
+        }
+      }
+
+      // v6.54: PEDIDO DE IMAGEM — PROCURAR, não gerar.
+      // Quem pede "manda uma foto de um cavalo" quer uma FOTO REAL.
+      // Antes a AURA gerava com IA (ou respondia com uma piada, como
+      // no "me de um cavalo" do diálogo real). Só gera quando o
+      // pedido é explícito: "cria/desenha/imagina uma imagem de...".
+      try {
+        const imgSearch = require('./imageSearch');
+        const pedido = imgSearch.detectarPedidoImagem(cleanText);
+
+        if (pedido && !pedido.gerar) {
+          const imgs = await imgSearch.buscarImagens(pedido.termo, 1).catch(() => null);
+          if (imgs?.length) {
+            const legenda = finalAnswer && finalAnswer.length < 220
+              ? finalAnswer
+              : `Aqui tens: *${pedido.termo}* 🌹`;
+            await sock.sendMessage(ctx.remoteJid, {
+              image: { url: imgs[0].url },
+              caption: `${legenda}\n\n_via ${imgs[0].fonte}_`,
+            }, { quoted: msg });
+            return true;
+          }
+          // se não encontrou, segue e manda o texto normal
+        }
+      } catch (e) {
+        console.warn('[Aura imagem]', e.message?.slice(0, 60));
+      }
+
       // v6.53: PEDIDO DE ÁUDIO — ela dizia "não posso enviar áudios"
       // mas o ElevenLabs funciona (testado: 30KB de MP3). Agora quando
       // pedem voz, ela envia MESMO em vez de recusar.
