@@ -127,7 +127,13 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-ytdlp-'));
   const outTpl = path.join(tmp, '%(title)s.%(ext)s');
 
-  const args = ['--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet'];
+  // v7.4: ffmpeg-location É OBRIGATÓRIO para converter WebM → MP3
+  // Sem isto, yt-dlp baixa WebM bruto e o WhatsApp não reproduz
+  const ffmpegPath = ffmpegBin();
+  const ffmpegDir = path.dirname(ffmpegPath);
+
+  const args = ['--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet',
+    '--ffmpeg-location', ffmpegDir];
 
   if (audioOnly) {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', '128K');
@@ -144,6 +150,15 @@ async function ytdlpDownload(videoUrl, audioOnly = true) {
     const outFile = path.join(tmp, files[0]);
     const buf = fs.readFileSync(outFile);
     if (!buf || buf.length < 1024) throw new Error('ficheiro vazio');
+
+    // v7.4: VERIFICA se o ficheiro é realmente MP3/MP4 (não WebM)
+    if (audioOnly) {
+      const isWebM = buf.slice(0, 4).toString('hex') === '1a45dfa3';
+      if (isWebM) throw new Error('yt-dlp gerou WebM em vez de MP3 — ffmpeg não converteu');
+      const ext = path.extname(files[0]).toLowerCase();
+      if (ext === '.webm' || ext === '.mka') throw new Error('yt-dlp gerou ' + ext + ' em vez de .mp3');
+    }
+
     return buf;
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch {}
