@@ -154,6 +154,55 @@ const check = (nome, cond, extra = '') => {
   check('speakWithFallback já não usa a voz que dá 402',
     !/speakWithFallback\(text, voiceId = '21m00Tcm4TlvDq8ikWAM'\)/.test(aiSrc));
 
+  // ── 10. Procurar imagens em vez de gerar (v6.54) ───────────
+  console.log('\n▸ Imagens: procura em vez de gerar');
+  const IS = require(path.join(__dirname, '..', 'src', 'bot', 'imageSearch'));
+
+  const pedeCavalo = IS.detectarPedidoImagem('Me de um cavalo');
+  check('"Me de um cavalo" é pedido de imagem', pedeCavalo?.termo === 'cavalo' && !pedeCavalo.gerar,
+    JSON.stringify(pedeCavalo));
+  check('"manda foto de praia" → buscar', IS.detectarPedidoImagem('manda uma foto de praia')?.gerar === false);
+  check('"cria imagem de dragão" → gerar', IS.detectarPedidoImagem('cria uma imagem de um dragão')?.gerar === true);
+  check('Pedido de áudio NÃO é imagem', IS.detectarPedidoImagem('Mande um áudio por favor') === null);
+  check('"me da um beijo" não é imagem', IS.detectarPedidoImagem('me da um beijo') === null);
+
+  // ── 11. Acções do WhatsApp (v6.54) ─────────────────────────
+  console.log('\n▸ Acções do WhatsApp por linguagem natural');
+  const ACT = require(path.join(AURA, 'auraActions'));
+  const casosAcao = [
+    ['cria um grupo chamado Família', 'criarGrupo', 'Família'],
+    ['cria um canal chamado Dark News', 'criarCanal', 'Dark News'],
+    ['muda o nome do grupo para Os Manos', 'nomeGrupo', 'Os Manos'],
+    ['fecha o grupo', 'fecharGrupo', undefined],
+    ['abre o grupo', 'abrirGrupo', undefined],
+    ['manda o link do grupo', 'linkGrupo', undefined],
+  ];
+  const erros = casosAcao.filter(([t, a, v]) => {
+    const r = ACT.detectarAcao(t);
+    return !r || r.acao !== a || (v !== undefined && r.valor !== v);
+  });
+  check('Detecta as 6 acções principais', erros.length === 0,
+    erros.length ? erros.map(e => e[0]).join(' | ') : '6/6');
+  check('Conversa normal não vira acção', ACT.detectarAcao('oi tudo bem') === null);
+  check('Canal é suportado (newsletterCreate)', /newsletterCreate/.test(
+    require('fs').readFileSync(path.join(AURA, 'auraActions.js'), 'utf8')));
+
+  // ── 12. Voz mais humana (v6.54) ────────────────────────────
+  console.log('\n▸ Voz');
+  const aiTxt = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'ai.js'), 'utf8');
+  check('Usa o modelo mais expressivo (eleven_v3)', /eleven_v3/.test(aiTxt));
+  check('Stability baixa (menos robótico)', /stability:\s*0\.[0-4]/.test(aiTxt));
+
+  // ── 13. Prompt sabe das novas capacidades ──────────────────
+  console.log('\n▸ Prompt actualizado');
+  const ahTxt = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
+  check('Prompt diz que PROCURA imagens', /PROCURAR IMAGENS/i.test(ahTxt));
+  check('Prompt diz que USA o WhatsApp', /USAR O WHATSAPP/i.test(ahTxt));
+
+  const chTxt2 = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
+  check('Visão analisa pessoas/texto/local', /PESSOAS:.*quantas|LOCAL:/s.test(chTxt2));
+  check('Acções só para o Dono', /if \(isOwner\) \{[\s\S]{0,200}auraActions/.test(chTxt2));
+
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

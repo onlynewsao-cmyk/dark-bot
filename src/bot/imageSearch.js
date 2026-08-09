@@ -1,0 +1,149 @@
+/**
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║   DARK BOT — Image Search v1                                 ║
+ * ║   PROCURAR imagens reais, não gerar com IA                   ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ *
+ * O PROBLEMA:
+ *   Quando se pedia "manda uma foto de um cavalo", a AURA gerava
+ *   uma imagem com IA. Mas quem pede uma foto quer uma FOTO REAL,
+ *   não um desenho inventado.
+ *
+ * FONTES (testadas ao vivo, por ordem de qualidade):
+ *   1. Pinterest    — melhor variedade (108KB reais confirmados)
+ *   2. Wikimedia    — fotos reais, licença livre
+ *   3. Openverse    — banco aberto (Flickr e outros)
+ *
+ * Fora de serviço (testadas): gimage API (502), DuckDuckGo (403),
+ * lorem.space (domínio morto).
+ */
+
+'use strict';
+
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+async function getJson(url, ms = 12000) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': UA, Accept: 'application/json' } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(to); }
+}
+
+// ── 1. Pinterest (via downloader que já existia) ────────────
+async function viaPinterest(q, n) {
+  const dl = require('./downloader');
+  const r = await dl.pinterestSearch(q);
+  return (r || []).slice(0, n).map(x => ({
+    url: typeof x === 'string' ? x : x.url,
+    fonte: 'Pinterest',
+  })).filter(x => x.url);
+}
+
+// ── 2. Wikimedia Commons ────────────────────────────────────
+async function viaWikimedia(q, n) {
+  const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json' +
+    `&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q)}` +
+    `&gsrlimit=${n + 2}&prop=imageinfo&iiprop=url`;
+  const d = await getJson(url);
+  const pages = d?.query?.pages ? Object.values(d.query.pages) : [];
+  return pages
+    .map(p => ({ url: p?.imageinfo?.[0]?.url, titulo: p?.title, fonte: 'Wikimedia' }))
+    .filter(x => x.url && /\.(jpe?g|png|webp)$/i.test(x.url))
+    .slice(0, n);
+}
+
+// ── 3. Openverse ────────────────────────────────────────────
+async function viaOpenverse(q, n) {
+  const d = await getJson(`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=${n + 2}`);
+  return (d?.results || [])
+    .map(x => ({ url: x.url, titulo: x.title, fonte: 'Openverse' }))
+    .filter(x => x.url)
+    .slice(0, n);
+}
+
+/**
+ * Procura imagens reais para um termo. Tenta as fontes em cascata.
+ * @returns {Promise<Array<{url:string, titulo?:string, fonte:string}>>}
+ */
+async function buscarImagens(termo, quantidade = 1) {
+  const q = String(termo || '').trim();
+  if (!q) throw new Error('Diz o que queres que eu procure');
+  const n = Math.max(1, Math.min(10, quantidade));
+
+  const fontes = [viaPinterest, viaWikimedia, viaOpenverse];
+  let ultimoErro = null;
+
+  for (const fn of fontes) {
+    try {
+      const r = await fn(q, n);
+      if (r?.length) return r;
+    } catch (e) { ultimoErro = e; }
+  }
+  throw new Error(`Não encontrei imagens de "${q}"` + (ultimoErro ? '' : ''));
+}
+
+// ── Detectar pedido de imagem em linguagem natural ──────────
+// "manda uma foto de um cavalo" → { querImagem: true, termo: 'cavalo' }
+const PEDIDO_RE = /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|mostra|mostre|quero|arranj[ae]|procur[ae]|busc[ae]|acha|traz|traga|d[áa]-?me|me\s+d[êe]|me\s+d[áa]|d[êe]-?me)\b/i;
+const COISA_RE = /\b(foto|fotos|imagem|imagens|figura|figuras|retrato|pic|wallpaper|papel de parede)\b/i;
+
+// v6.54: "me de um cavalo" — sem a palavra "foto". No diálogo real o
+// utilizador escreveu isto e a AURA respondeu com uma piada em vez de
+// mandar a imagem. Se há verbo de pedir + substantivo concreto, é
+// pedido de imagem: ninguém diz "me dá um cavalo" à espera de texto.
+const PEDIR_COISA_RE = /^\s*(me\s+)?(d[êea]|manda|mande|envia|envie|traz|traga|mostra|mostre|arranja|quero)\s+(me\s+)?(um|uma|uns|umas|o|a)?\s*([a-zà-ú][\w\sà-ú-]{2,40})\s*$/i;
+
+// pedidos explícitos de GERAR (aí sim, IA)
+const GERAR_RE = /\b(cria|criar|gera|gerar|desenha|desenhar|imagina|imaginar|inventa|faz\s+um\s+desenho|arte\s+de)\b/i;
+
+function detectarPedidoImagem(texto) {
+  const t = String(texto || '').trim();
+  if (!t || t.length > 200) return null;
+
+  // v6.54: "Mande um áudio por favor" era lido como pedido de imagem
+  // de "áudio por favor". Pedido de voz nunca é pedido de imagem.
+  const semAcento = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (/\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(semAcento)) return null;
+
+  const querGerar = GERAR_RE.test(t) && COISA_RE.test(t);
+  let querBuscar = PEDIDO_RE.test(t) && COISA_RE.test(t);
+
+  // "me de um cavalo" — pedido de coisa concreta, sem dizer "foto"
+  if (!querBuscar && !querGerar) {
+    const m = PEDIR_COISA_RE.exec(t);
+    if (m) {
+      const coisa = String(m[5] || '').trim();
+      // exclui pedidos que claramente não são de imagem
+      const naoEhImagem = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao)\b/i;
+      if (coisa.length >= 3 && !naoEhImagem.test(coisa)) {
+        return { gerar: false, termo: coisa.slice(0, 80) };
+      }
+    }
+    return null;
+  }
+
+  // extrai o termo: tudo depois de "de/do/da/sobre" ou depois da palavra-chave
+  let termo = t;
+  const m = t.match(/\b(?:de|do|da|dos|das|sobre|com)\s+(.{2,80})$/i);
+  if (m) {
+    termo = m[1];
+  } else {
+    termo = t.replace(PEDIDO_RE, ' ').replace(GERAR_RE, ' ').replace(COISA_RE, ' ');
+  }
+
+  // v6.54: \b não funciona bem com acentos ('dragão' virava 'dragã'
+  // porque o \b caía antes do 'o'). Usamos limites explícitos.
+  termo = termo
+    .replace(/(^|\s)(uma?|uns|umas|o|a|os|as|meu|minha|por favor|pf|pfv|pra mim|para mim|aí|ai)(?=\s|$)/gi, ' ')
+    .replace(/[?!.,;:]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (!termo || termo.length < 2) return null;
+  return { gerar: querGerar && !querBuscar, termo: termo.slice(0, 80) };
+}
+
+module.exports = { buscarImagens, detectarPedidoImagem, viaPinterest, viaWikimedia, viaOpenverse };
