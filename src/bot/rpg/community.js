@@ -10,8 +10,8 @@
  */
 'use strict';
 
-const config = require('../config');
-const rpg = require('./rpg/engine');
+const config = require('../../config');
+const rpg = require('./engine');
 
 // ══════════════════════════════════════════════════════════════
 // GRUPOS DA COMUNIDADE DARK🕸️VILLE
@@ -254,7 +254,7 @@ async function createClanGroup(sock, clanName, leaderJid, members = []) {
 // Os outros grupos → entram sozinhos pela comunidade
 // ══════════════════════════════════════════════════════════════
 async function addAllUsersToMainGroup(sock, ownerJid) {
-  const User = require('../database/models/User');
+  const User = require('../../database/models/User');
   const results = { added: [], invited: [], errors: [] };
 
   // Busca todos os usuários do dashboard
@@ -368,7 +368,7 @@ async function initCommunity(sock, ownerJid) {
 // COMUNICADOS AUTOMÁTICOS (a cada 4h)
 // ══════════════════════════════════════════════════════════════
 async function generateDailyReport() {
-  const RPGPlayer = require('../database/models/RPGPlayer');
+  const RPGPlayer = require('../../database/models/RPGPlayer');
 
   let report = '⚔️ *COMUNICADO DARK🕸️VILLE* ⚔️\n';
   report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
