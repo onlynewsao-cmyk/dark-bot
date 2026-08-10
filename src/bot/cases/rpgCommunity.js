@@ -77,7 +77,7 @@ module.exports = function registerRPGCommunity(registerCase) {
     // Testa banco de dados
     report += '\n📊 *Banco de dados:*\n';
     try {
-      const RPGPlayer = require('../database/models/RPGPlayer');
+      const RPGPlayer = require('../../database/models/RPGPlayer');
       const count = await RPGPlayer.countDocuments();
       report += '  ✅ ' + count + ' jogadores registrados\n';
     } catch (e) {
