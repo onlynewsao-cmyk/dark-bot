@@ -19,7 +19,7 @@ const rpg = require('./engine');
 const COMMUNITY_GROUPS = {
   // ── GRUPO GERAL (todos entram aqui pelo addglb) ──
   aldeia: {
-    name: '🕸️ DARK🕸️VILLE — Aldeia Central',
+    name: 'DARK VILLE - Aldeia Central',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  🕸️ DARK🕸️VILLE — Aldeia Central       ║',
@@ -45,7 +45,7 @@ const COMMUNITY_GROUPS = {
 
   // ── ARENA ──
   arena: {
-    name: '🏟️ Arena das Sombras ⚔️',
+    name: 'Arena das Sombras',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  🏟️ Arena das Sombras ⚔️               ║',
@@ -64,7 +64,7 @@ const COMMUNITY_GROUPS = {
 
   // ── DUNGEONS ──
   dungeons: {
-    name: '🕳️ Dungeons Proibidas 🐉',
+    name: 'Dungeons Proibidas',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  🕳️ Dungeons Proibidas 🐉               ║',
@@ -83,7 +83,7 @@ const COMMUNITY_GROUPS = {
 
   // ── TROCAS ──
   trocas: {
-    name: '🏪 Ville de Trocas 💰',
+    name: 'Ville de Trocas',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  🏪 Ville de Trocas 💰                  ║',
@@ -102,7 +102,7 @@ const COMMUNITY_GROUPS = {
 
   // ── CAVERNAS ──
   cavernas: {
-    name: '🦇 Cavernas Sombrias ⛏️',
+    name: 'Cavernas Sombras',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  🦇 Cavernas Sombrias ⛏️                ║',
@@ -121,7 +121,7 @@ const COMMUNITY_GROUPS = {
 
   // ── LAZER ──
   lazer: {
-    name: '😂 Lazer & Memes 🎭',
+    name: 'Lazer e Memes',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  😂 Lazer & Memes 🎭                    ║',
@@ -139,7 +139,7 @@ const COMMUNITY_GROUPS = {
 
   // ── ARSENAL DA FAMA ──
   arsenal: {
-    name: '⚔️ Arsenal da Fama 🏆',
+    name: 'Arsenal da Fama',
     desc: [
       '╔═══════════════════════════════════════╗',
       '║  ⚔️ Arsenal da Fama 🏆                  ║',
@@ -199,29 +199,44 @@ async function createCommunityGroup(sock, groupType, ownerJid) {
   const groupDef = COMMUNITY_GROUPS[groupType];
   if (!groupDef) throw new Error('Tipo de grupo inválido: ' + groupType);
 
-  try {
-    const group = await sock.groupCreate(groupDef.name, [ownerJid]);
-    const groupJid = group.id;
+  // Retry logic (max 3 tentativas)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const group = await sock.groupCreate(groupDef.name, [ownerJid]);
+      const groupJid = group.id;
 
-    // Define descrição
-    await sock.groupUpdateDescription(groupJid, groupDef.desc);
-
-    // Promove o owner a admin
-    if (groupDef.ownerAdm) {
+      // Define descrição (com delay)
+      await new Promise(r => setTimeout(r, 2000));
       try {
-        await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote');
+        await sock.groupUpdateDescription(groupJid, groupDef.desc);
       } catch {}
+
+      // Promove o owner a admin (com delay)
+      if (groupDef.ownerAdm) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote');
+        } catch {}
+      }
+
+      // Cache
+      _groupCache.set(groupType, groupJid);
+
+      console.log('[DARKRPG] Grupo criado: ' + groupDef.name + ' → ' + groupJid);
+      return { ok: true, jid: groupJid, name: groupDef.name };
+    } catch (e) {
+      console.error('[DARKRPG] Tentativa ' + attempt + ' falhou para ' + groupDef.name + ': ' + e.message);
+      
+      // Se rate-overlimit, espera mais
+      if (e.message?.includes('rate-overlimit') || e.message?.includes('429')) {
+        await new Promise(r => setTimeout(r, 15000)); // espera 15s
+      } else if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 5000)); // espera 5s
+      }
     }
-
-    // Cache
-    _groupCache.set(groupType, groupJid);
-
-    console.log('[DARKRPG] Grupo criado: ' + groupDef.name + ' → ' + groupJid);
-    return { ok: true, jid: groupJid, name: groupDef.name };
-  } catch (e) {
-    console.error('[DARKRPG] Erro ao criar grupo:', e.message);
-    return { ok: false, error: e.message };
   }
+  
+  return { ok: false, error: 'Falhou após 3 tentativas' };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -358,7 +373,7 @@ async function initCommunity(sock, ownerJid) {
   for (const [type, def] of Object.entries(COMMUNITY_GROUPS)) {
     const r = await createCommunityGroup(sock, type, ownerJid);
     results.push({ type, ...r });
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 8000));
   }
 
   return results;
