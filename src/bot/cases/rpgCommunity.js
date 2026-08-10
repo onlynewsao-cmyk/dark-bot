@@ -1,8 +1,7 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
- * ║   DARK BOT v7 — DARKRPG Community Commands v2                ║
- * ║   Comandos para criar e gerir a comunidade RPG               ║
- * ║   FASE DE TESTES — testar tudo antes de addglb               ║
+ * ║   DARK BOT v7 — DARKRPG Community Commands v3                ║
+ * ║   addglb → grupo geral | Arsenal → comunicados | 4h updates  ║
  * ╚═══════════════════════════════════════════════════════════════╝
  */
 'use strict';
@@ -31,15 +30,16 @@ module.exports = function registerRPGCommunity(registerCase) {
       let report = '🕸️ *DARK🕸️VILLE — COMUNIDADE CRIADA!*\n\n';
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
       for (const r of results) {
-        report += r.ok ? `✅ ${r.name}\n` : `❌ ${r.type}: ${r.error}\n`;
+        report += r.ok ? '✅ ' + r.name + '\n' : '❌ ' + r.type + ': ' + r.error + '\n';
       }
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
       report += '👑 *Você é ADM em todos os grupos!*\n';
       report += '🏰 *Clãs são independentes — líderes comandam.*\n\n';
       report += '🎮 *Próximos passos:*\n';
       report += '• !darkrpg-test — Testar tudo\n';
-      report += '• !addglb — Adicionar todos os usuários\n';
-      report += '• !criaclan <nome> — Criar um clã';
+      report += '• !addglb — Adicionar todos ao grupo geral\n';
+      report += '• !criaclan <nome> — Criar um clã\n';
+      report += '• !comunicado — Enviar ranking no Arsenal';
 
       await sock.sendMessage(ctx.remoteJid, { text: report }, { quoted: msg });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
@@ -60,7 +60,8 @@ module.exports = function registerRPGCommunity(registerCase) {
     report += '🏰 *Grupos:*\n';
     for (const [type, def] of Object.entries(community.COMMUNITY_GROUPS)) {
       const jid = community._groupCache.get(type);
-      report += jid ? `  ✅ ${def.name}\n` : `  ❌ ${def.name} (não criado)\n`;
+      const mainTag = def.isMain ? ' (PRINCIPAL)' : '';
+      report += jid ? '  ✅ ' + def.name + mainTag + '\n' : '  ❌ ' + def.name + ' (não criado)\n';
     }
 
     // Testa clãs
@@ -69,7 +70,7 @@ module.exports = function registerRPGCommunity(registerCase) {
       report += '  Nenhum clã criado ainda.\n';
     } else {
       for (const [name, clan] of community._clanGroups.entries()) {
-        report += `  ✅ ${name} → ${clan.jid}\n`;
+        report += '  ✅ ' + name + ' → ' + clan.jid + '\n';
       }
     }
 
@@ -78,9 +79,9 @@ module.exports = function registerRPGCommunity(registerCase) {
     try {
       const RPGPlayer = require('../database/models/RPGPlayer');
       const count = await RPGPlayer.countDocuments();
-      report += `  ✅ ${count} jogadores registrados\n`;
+      report += '  ✅ ' + count + ' jogadores registrados\n';
     } catch (e) {
-      report += `  ❌ Erro: ${e.message}\n`;
+      report += '  ❌ Erro: ' + e.message + '\n';
     }
 
     report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
@@ -98,7 +99,8 @@ module.exports = function registerRPGCommunity(registerCase) {
 
     for (const [type, def] of Object.entries(community.COMMUNITY_GROUPS)) {
       const jid = community._groupCache.get(type);
-      status += jid ? `✅ ${def.name}\n   └ ${jid}\n` : `❌ ${def.name}\n   └ Não criado\n`;
+      const mainTag = def.isMain ? ' ⭐' : '';
+      status += jid ? '✅ ' + def.name + mainTag + '\n' : '❌ ' + def.name + '\n';
     }
 
     status += '\n🏰 *Clãs:*\n';
@@ -106,7 +108,7 @@ module.exports = function registerRPGCommunity(registerCase) {
       status += '  Nenhum clã criado ainda.\n';
     } else {
       for (const [name, clan] of community._clanGroups.entries()) {
-        status += `  🏰 ${name}\n   └ Líder: ${clan.leaderJid.split('@')[0]}\n`;
+        status += '  🏰 ' + name + '\n';
       }
     }
 
@@ -114,39 +116,48 @@ module.exports = function registerRPGCommunity(registerCase) {
     return sock.sendMessage(ctx.remoteJid, { text: status }, { quoted: msg });
   }, true);
 
-  // ═══ ADDGLB — ADICIONAR TODOS OS USERS DO DASHBOARD ═══
+  // ═══ ADDGLB — ADICIONA TODOS AO GRUPO GERAL ═══
   registerCase(['addglb', 'addglobal'], async ({ sock, msg, ctx, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
 
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
 
     try {
-      const results = await community.addAllUsersToGroups(sock, ctx.senderJid);
+      const results = await community.addAllUsersToMainGroup(sock, ctx.senderJid);
 
       let report = '📤 *ADDGLB — DARK🕸️VILLE*\n\n';
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-      report += `✅ Adicionados: ${results.added.length}\n`;
-      report += `📩 Convites enviados: ${results.invited.length}\n`;
-      report += `❌ Erros: ${results.errors.length}\n`;
-      report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
-
-      if (results.added.length > 0) {
-        report += '\n✅ *Adicionados:*\n';
-        for (const r of results.added.slice(0, 10)) {
-          report += `  • ${r.user} → ${r.group}\n`;
-        }
-        if (results.added.length > 10) report += `  ... +${results.added.length - 10} mais\n`;
-      }
-
-      if (results.invited.length > 0) {
-        report += '\n📩 *Convites enviados:*\n';
-        for (const r of results.invited.slice(0, 10)) {
-          report += `  • ${r.user} → ${r.group}\n`;
-        }
-        if (results.invited.length > 10) report += `  ... +${results.invited.length - 10} mais\n`;
-      }
+      report += '✅ Adicionados ao grupo geral: ' + results.added.length + '\n';
+      report += '📩 Convites enviados: ' + results.invited.length + '\n';
+      report += '❌ Erros: ' + results.errors.length + '\n';
+      report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      report += 'ℹ️ *Os usuários agora podem entrar nos outros grupos pela comunidade.*\n';
+      report += '🏰 *Clãs criados com !criaclan têm grupo próprio.*';
 
       await sock.sendMessage(ctx.remoteJid, { text: report }, { quoted: msg });
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+    } catch (e) {
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+      return tReply(sock, msg, ctx, '❌ Erro', [e.message]);
+    }
+  }, true);
+
+  // ═══ COMUNICADO — ENVIA RANKING NO ARSENAL ═══
+  registerCase(['comunicado', 'ranking-update', 'arsenal'], async ({ sock, msg, ctx, isOwner }) => {
+    if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
+
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '📊', key: msg.key } });
+
+    try {
+      const report = await community.generateDailyReport();
+      const arsenalJid = community._groupCache.get('arsenal');
+
+      if (arsenalJid) {
+        await sock.sendMessage(arsenalJid, { text: report });
+        await sock.sendMessage(ctx.remoteJid, { text: '✅ *Comunicado enviado ao Arsenal da Fama!*' }, { quoted: msg });
+      } else {
+        await sock.sendMessage(ctx.remoteJid, { text: report }, { quoted: msg });
+      }
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -200,42 +211,29 @@ module.exports = function registerRPGCommunity(registerCase) {
     const p = prefix || '!';
 
     return sock.sendMessage(ctx.remoteJid, {
-      text: `🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️
-  *DARK🕸️VILLE — MENU RPG*
-🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️
-
-🏰 *COMUNIDADE:*
-  ${p}darkrpg — Iniciar comunidade
-  ${p}darkrpg-test — Testar tudo
-  ${p}darkrpg-status — Ver status
-  ${p}addglb — Adicionar todos
-  ${p}criaclan <nome> — Criar clã
-
-🎭 *PERSONAGEM:*
-  ${p}despertar — Inicie sua jornada
-  ${p}perfil — Veja seus status
-  ${p}nome <nome> — Mude seu nome
-  ${p}racas — Veja as 6 origens
-
-⚔️ *BATALHA:*
-  ${p}arena — Entrar na Arena
-  ${p}dungeon — Entrar nas Dungeons
-  ${p}lutar — Combate PvE
-  ${p}x1 @user — Duelo PvP
-
-🃏 *COLEÇÃO:*
-  ${p}gacha — Invocar cartas
-  ${p}cartas — Ver álbum
-  ${p}loja — Comprar itens
-  ${p}forja — Refinar armas
-
-🏰 *SOCIAL:*
-  ${p}guilda — Ver seu clã
-  ${p}raid — Boss mundial
-  ${p}mercado — Compra/venda
-  ${p}ranking — Leaderboard
-
-🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️`
+      text: '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n' +
+        '  *DARK🕸️VILLE — MENU RPG*\n' +
+        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n\n' +
+        '🏰 *COMUNIDADE:*\n' +
+        '  ' + p + 'darkrpg — Iniciar comunidade\n' +
+        '  ' + p + 'darkrpg-test — Testar tudo\n' +
+        '  ' + p + 'addglb — Adicionar todos ao grupo geral\n' +
+        '  ' + p + 'comunicado — Enviar ranking no Arsenal\n' +
+        '  ' + p + 'criaclan <nome> — Criar clã\n\n' +
+        '🎭 *PERSONAGEM:*\n' +
+        '  ' + p + 'despertar — Inicie sua jornada\n' +
+        '  ' + p + 'perfil — Veja seus status\n' +
+        '  ' + p + 'nome <nome> — Mude seu nome\n\n' +
+        '⚔️ *BATALHA:*\n' +
+        '  ' + p + 'arena — Entrar na Arena\n' +
+        '  ' + p + 'dungeon — Entrar nas Dungeons\n' +
+        '  ' + p + 'lutar — Combate PvE\n' +
+        '  ' + p + 'x1 @user — Duelo PvP\n\n' +
+        '🃏 *COLEÇÃO:*\n' +
+        '  ' + p + 'gacha — Invocar cartas\n' +
+        '  ' + p + 'loja — Comprar itens\n' +
+        '  ' + p + 'forja — Refinar armas\n\n' +
+        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️'
     }, { quoted: msg });
   }, true);
 };
