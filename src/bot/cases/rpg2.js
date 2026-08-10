@@ -403,66 +403,8 @@ module.exports = function registerRPG2(registerCase) {
   }, true);
 
   // ═══ LOJA ═══
-  registerCase(['loja', 'shop', 'mercador'], async ({ sock, msg, ctx, args }) => {
-    const p = await rpg.getPlayer(ctx.senderNumber);
-    const item = args.join(' ').toLowerCase();
-    const shop = {
-      'poção de vida': 20, 'poção de mana': 25, 'poção de XP': 50,
-      'espada de ferro': 100, 'espada de aço': 300, 'escudo de ferro': 150,
-      'armadura de couro': 200, 'anel de sorte': 500,
-    };
-    if (item && shop[item]) {
-      if (p.coins < shop[item]) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🛒 LOJA', [`❌ ${item} custa ${shop[item]} coins (tens ${p.coins})`]);
-      p.coins -= shop[item];
-      p.inventory.push(item);
-      await rpg.savePlayer(p);
-
-      return tReply(sock, msg, ctx, '🛒 LOJA', [`✅ Compraste *${item}* por ${shop[item]} coins`]);
-    }
-    const lines = Object.entries(shop).map(([k, v]) => `• ${k} — ${v} coins`);
-    await rpg.savePlayer(p);
-
-    return tReply(sock, msg, ctx, '🛒 LOJA DO GRIMWALD', [...lines, '', `💰 Tens: ${p.coins} coins`, '> !loja <item>']);
-  }, true);
 
   // ═══ TRABALHAR (narrativo) ═══
-  registerCase(['trabalhar', 'work'], async ({ sock, msg, ctx }) => {
-    const p = await rpg.getPlayer(ctx.senderNumber);
-    const jobs = [
-      { name: 'caçador de recompensas', story: 'Perseguiste um bandido pela floresta negra.', pay: R(40, 120), xp: R(15, 40), risk: 0.2 },
-      { name: 'guarda da cidade', story: 'Patrulhaste as muralhas durante a noite.', pay: R(30, 80), xp: R(10, 25), risk: 0.05 },
-      { name: 'explorador de masmorras', story: 'Desceste às profundezas em busca de tesouros.', pay: R(60, 200), xp: R(25, 60), risk: 0.4 },
-      { name: 'mercador ambulante', story: 'Vendeste poções na praça do mercado.', pay: R(20, 60), xp: R(5, 15), risk: 0 },
-      { name: 'ferreiro aprendiz', story: 'Forjaste espadas sob a orientação de Thorgar.', pay: R(25, 70), xp: R(10, 30), risk: 0.1 },
-    ];
-    const job = P(jobs);
-    const danger = Math.random() < job.risk;
-
-    if (danger) {
-      const dmg = R(10, 30);
-      p.hp = Math.max(0, p.hp - dmg);
-      await rpg.savePlayer(p);
-
-      return tReply(sock, msg, ctx, `⚒️ ${job.name.toUpperCase()}`, [
-        job.story,
-        '',
-        `⚠️ Algo correu mal! -${dmg} HP`,
-        `❤️ HP: ${p.hp}/${p.maxHp}`,
-      ]);
-    }
-
-    p.coins += job.pay;
-    const lv = rpg.addXP(p, job.xp);
-    await rpg.savePlayer(p);
-
-    return tReply(sock, msg, ctx, `⚒️ ${job.name.toUpperCase()}`, [
-      job.story,
-      '',
-      `💰 +${job.pay} coins | ⭐ +${job.xp} XP`,
-      lv ? `🎉 *NÍVEL ${p.level}!*` : '',
-    ].filter(Boolean));
-  }, true);
 
   // ═══ NPC INTERACTION ═══
   registerCase(['npc', 'falar', 'talk'], async ({ sock, msg, ctx, args }) => {
