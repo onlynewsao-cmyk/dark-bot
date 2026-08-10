@@ -1,8 +1,8 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
- * ║   DARK BOT v7 — RPG ENGINE COMPLETO                          ║
- * ║   Motor RPG: personagens, combate, skills, pets, crafting,    ║
- * ║   quests narrativas, guildas, PvP, achievements, world events ║
+ * ║   DARK BOT v7 — ANIME RPG ENGINE                             ║
+ * ║   Inspirado: Naruto, One Piece, Solo Leveling,               ║
+ * ║   Jujutsu Kaisen, Demon Slayer, Dragon Ball                  ║
  * ╚═══════════════════════════════════════════════════════════════╝
  */
 'use strict';
@@ -11,289 +11,258 @@ const R = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const P = a => a[Math.floor(Math.random() * a.length)];
 
 // ══════════════════════════════════════════════════════════════
-// RAÇAS (8 raças com bónus únicos)
+// UNIVERSO ANIME (6 universos)
 // ══════════════════════════════════════════════════════════════
-const RACES = {
-  humano:    { emoji: '🧑', bonus: { str:1, dex:1, int:1, vit:1, luk:1 }, desc: 'Versátil. Bónus equilibrado.', skill: 'Adaptar' },
-  elfo:      { emoji: '🧝', bonus: { str:0, dex:3, int:2, vit:0, luk:1 }, desc: 'Ágil e sábio. Mestre do arco.', skill: 'Tiro Certeiro' },
-  anao:      { emoji: '⛏️', bonus: { str:3, dex:0, int:0, vit:3, luk:0 }, desc: 'Resistente. Melhor forja.', skill: 'Forja Anã' },
-  orc:       { emoji: '👹', bonus: { str:4, dex:0, int:-1, vit:2, luk:0 }, desc: 'Brutal. Força devastadora.', skill: 'Fúria Verde' },
-  dragao:    { emoji: '🐲', bonus: { str:2, dex:1, int:3, vit:1, luk:0 }, desc: 'Sangue de dragão. Fogo.', skill: 'Sopro Dracônico' },
-  sombra:    { emoji: '🌑', bonus: { str:1, dex:3, int:1, vit:-1, luk:2 }, desc: 'Invisível e letal.', skill: 'Passo Sombrio' },
-  celestial: { emoji: '✨', bonus: { str:0, dex:1, int:4, vit:1, luk:1 }, desc: 'Magia divina poderosa.', skill: 'Benção Celestial' },
-  maldito:   { emoji: '💀', bonus: { str:3, dex:2, int:0, vit:-2, luk:3 }, desc: 'Poder imenso, frágil.', skill: 'Maldição' },
+const UNIVERSES = {
+  naruto:      { emoji: '🍥', name: 'Naruto', desc: 'Ninjas, Jutsus, Chakra', primaryStat: 'str' },
+  onepiece:    { emoji: '🏴‍☠️', name: 'One Piece', desc: 'Piratas, Akuma no Mi, Haki', primaryStat: 'vit' },
+  sololeveling:{ emoji: '⚔️', name: 'Solo Leveling', desc: 'Caçadores, Gates, Monarcas', primaryStat: 'dex' },
+  jujutsu:     { emoji: '👁️', name: 'Jujutsu Kaisen', desc: 'Feiticeiros, Maldições, Domínios', primaryStat: 'int' },
+  demonslayer: { emoji: '🗡️', name: 'Demon Slayer', hashiras: true, desc: 'Hashiras, Respirações, Demônios', primaryStat: 'dex' },
+  dragonball:  { emoji: '🐉', name: 'Dragon Ball', desc: 'Saiyans, Ki, Transformações', primaryStat: 'str' },
 };
 
 // ══════════════════════════════════════════════════════════════
-// CLASSES (10 classes com skills únicas)
+// PERSONAGENS (dois por universo = 12 personagens jogáveis)
 // ══════════════════════════════════════════════════════════════
-const CLASSES = {
-  guerreiro:  { emoji: '⚔️', primary: 'str', hp_bonus: 30, mp_bonus: 0,
-    skills: ['Golpe Pesado', 'Escudo de Ferro', 'Grito de Guerra', 'Fúria do Berserker'],
-    desc: 'Tanque. Dano corpo a corpo.' },
-  mago:       { emoji: '🔮', primary: 'int', hp_bonus: 0, mp_bonus: 50,
-    skills: ['Bola de Fogo', 'Escudo Arcano', 'Teletransporte', 'Meteoro'],
-    desc: 'Magia devastadora. Frágil.' },
-  arqueiro:   { emoji: '🏹', primary: 'dex', hp_bonus: 10, mp_bonus: 20,
-    skills: ['Tiro Duplo', 'Chuva de Flechas', 'Flecha Explosiva', 'Olho de Águia'],
-    desc: 'Ataque à distância. Preciso.' },
-  ladino:     { emoji: '🗡️', primary: 'dex', hp_bonus: 10, mp_bonus: 10,
-    skills: ['Ataque Furtivo', 'Roubar', 'Veneno', 'Assassinato'],
-    desc: 'Críticos altos. Furtivo.' },
-  clerigo:    { emoji: '✝️', primary: 'int', hp_bonus: 20, mp_bonus: 40,
-    skills: ['Curar', 'Purificar', 'Ressurreição', 'Julgamento Divino'],
-    desc: 'Healer. Mantém a party viva.' },
-  paladino:   { emoji: '🛡️', primary: 'vit', hp_bonus: 40, mp_bonus: 20,
-    skills: ['Escudo Sagrado', 'Proteção', 'Aura de Cura', 'Golpe Justo'],
-    desc: 'Tanque + healer híbrido.' },
-  berserker:  { emoji: '🪓', primary: 'str', hp_bonus: 20, mp_bonus: 0,
-    skills: ['Fúria', 'Giro Mortal', 'Sangue nos Olhos', 'Destruição Total'],
-    desc: 'Dano massivo. Sem defesa.' },
-  necromante: { emoji: '☠️', primary: 'int', hp_bonus: 10, mp_bonus: 40,
-    skills: ['Drenar Vida', 'Invocar Esqueleto', 'Maldição', 'Exército dos Mortos'],
-    desc: 'Invoca mortos. Vampiro.' },
-  bardo:      { emoji: '🎵', primary: 'luk', hp_bonus: 10, mp_bonus: 30,
-    skills: ['Canção de Cura', 'Nota Discordante', 'Encanto', 'Sinfonia Final'],
-    desc: 'Suporte versátil. Buff/debuff.' },
-  alquimista: { emoji: '⚗️', primary: 'int', hp_bonus: 15, mp_bonus: 35,
-    skills: ['Bomba', 'Poção Curativa', 'Veneno', 'Pedra Filosofal'],
-    desc: 'Crafting + explosivos.' },
+const CHARACTERS = {
+  // ── NARUTO ──
+  naruto: {
+    emoji: '🍥', universe: 'naruto',
+    desc: 'Hokage. Rasengan, Kurama, Modo Sábio.',
+    skills: ['Rasengan', 'Rasenshuriken', 'Modo Sábio', 'Bijuudama'],
+    stats: { str: 8, dex: 7, int: 6, vit: 9, luk: 8 },
+    transform: { name: 'Modo Kurama', mult: 2.5, req_level: 20 },
+  },
+  sasuke: {
+    emoji: '⚡', universe: 'naruto',
+    desc: 'Uchiha. Sharingan, Chidori, Rinnegan.',
+    skills: ['Chidori', 'Amaterasu', 'Susanoo', 'Indra\'s Arrow'],
+    stats: { str: 7, dex: 9, int: 8, vit: 6, luk: 7 },
+    transform: { name: 'Susanoo Perfeito', mult: 2.3, req_level: 20 },
+  },
+  // ── ONE PIECE ──
+  luffy: {
+    emoji: '🏴‍☠️', universe: 'onepiece',
+    desc: 'Gear 5. Borracha, Haki do Rei.',
+    skills: ['Gomu Gomu no Pistol', 'Gear 2', 'Gear 4', 'Gear 5'],
+    stats: { str: 9, dex: 6, int: 4, vit: 10, luk: 8 },
+    transform: { name: 'Gear 5', mult: 3.0, req_level: 25 },
+  },
+  zoro: {
+    emoji: '⚔️', universe: 'onepiece',
+    desc: 'Espadachim. 3 espadas, Haki.',
+    skills: ['Santoryu', 'Onigiri', '1080 Pound Cannon', 'King of Hell'],
+    stats: { str: 10, dex: 7, int: 3, vit: 8, luk: 5 },
+    transform: { name: 'King of Hell', mult: 2.2, req_level: 18 },
+  },
+  // ── SOLO LEVELING ──
+  sunjinwoo: {
+    emoji: '⚔️', universe: 'sololeveling',
+    desc: 'Monarca das Sombras. Exército de sombras.',
+    skills: ['Adaga Dupla', 'Dominação', 'Exército das Sombras', 'Arise'],
+    stats: { str: 9, dex: 10, int: 7, vit: 7, luk: 9 },
+    transform: { name: 'Monarca das Sombras', mult: 3.0, req_level: 30 },
+  },
+  igris: {
+    emoji: '🗡️', universe: 'sololeveling',
+    desc: 'Cavaleiro Vermelho. Espadachim leal.',
+    skills: ['Corte Vermelho', 'Investida', 'Proteção', 'Fúria'],
+    stats: { str: 8, dex: 8, int: 5, vit: 9, luk: 6 },
+    transform: { name: 'Cavaleiro Negro', mult: 2.0, req_level: 15 },
+  },
+  // ── JUJUTSU KAISEN ──
+  gojo: {
+    emoji: '👁️', universe: 'jujutsu',
+    desc: 'Infinito. Olho de 6 caminhos.',
+    skills: ['Infinito', 'Vazio', 'Púrpura', 'Domínio: Vazio Infinito'],
+    stats: { str: 7, dex: 8, int: 10, vit: 6, luk: 8 },
+    transform: { name: 'Vazio Infinito', mult: 3.5, req_level: 30 },
+  },
+  itadori: {
+    emoji: '👊', universe: 'jujutsu',
+    desc: 'Vessel de Sukuna. Punhos Negros.',
+    skills: ['Punho Negro', 'Divergência', 'Black Flash', 'Sukuna'],
+    stats: { str: 9, dex: 7, int: 5, vit: 8, luk: 7 },
+    transform: { name: 'Sukuna Forma Completa', mult: 3.0, req_level: 25 },
+  },
+  // ── DEMON SLAYER ──
+  tanjiro: {
+    emoji: '🗡️', universe: 'demonslayer',
+    desc: 'Espada Negra. Respiração da Água.',
+    skills: ['Respiração da Água', 'Hinokami Kagura', 'Espada Negra', 'Verdadeira Respiração'],
+    stats: { str: 7, dex: 8, int: 7, vit: 7, luk: 8 },
+    transform: { name: 'Marca Hashira', mult: 2.2, req_level: 18 },
+  },
+  rengoku: {
+    emoji: '🔥', universe: 'demonslayer',
+    desc: 'Hashira da Chama. Juramento.',
+    skills: ['Respiração da Chama', 'Incandescent', 'Rengoku', 'Juramento'],
+    stats: { str: 9, dex: 7, int: 6, vit: 9, luk: 6 },
+    transform: { name: 'Forma Secreta', mult: 2.5, req_level: 22 },
+  },
+  // ── DRAGON BALL ──
+  goku: {
+    emoji: '🐉', universe: 'dragonball',
+    desc: 'Saiyan. Kamehameha, Ultra Instinto.',
+    skills: ['Kamehameha', 'Super Saiyan', 'Genkidama', 'Ultra Instinto'],
+    stats: { str: 10, dex: 8, int: 5, vit: 10, luk: 7 },
+    transform: { name: 'Ultra Instinto', mult: 4.0, req_level: 35 },
+  },
+  vegeta: {
+    emoji: '👑', universe: 'dragonball',
+    desc: 'Príncipe Saiyan. Final Flash.',
+    skills: ['Final Flash', 'Big Bang Attack', 'Super Saiyan Blue', 'Ultra Ego'],
+    stats: { str: 10, dex: 7, int: 6, vit: 9, luk: 5 },
+    transform: { name: 'Ultra Ego', mult: 3.5, req_level: 30 },
+  },
 };
 
 // ══════════════════════════════════════════════════════════════
-// BIOMAS (12 zonas com perigo e recursos únicos)
+// RANKS (sistema estilo Solo Leveling)
 // ══════════════════════════════════════════════════════════════
-const BIOMES = {
-  floresta:       { emoji: '🌲', danger: 1, desc: 'Árvores antigas. Lobos e cogumelos.', loot: ['erva medicinal', 'madeira', 'cogumelo'] },
-  montanha:       { emoji: '⛰️', danger: 2, desc: 'Picos gelados. Minérios raros.', loot: ['minério de ferro', 'pedra preciosa', 'gelo'] },
-  deserto:        { emoji: '🏜️', danger: 2, desc: 'Areias mortais. Escorpiões.', loot: ['cacto', 'ouro arenoso', 'fóssil'] },
-  pantano:        { emoji: '🌿', danger: 3, desc: 'Névoa tóxica. Sapos gigantes.', loot: ['lamacenta', 'erva venenosa', 'sapo'] },
-  vulcao:         { emoji: '🌋', danger: 4, desc: 'Lava e demónios. Mithril.', loot: ['mithril', 'obsidiana', 'magma'] },
-  abismo:         { emoji: '🕳️', danger: 5, desc: 'O vazio. Morte certa para fracos.', loot: ['cristal negro', 'essência do vazio', 'fragmento estelar'] },
-  cidade:         { emoji: '🏰', danger: 0, desc: 'Comércio, tavernas, guildas.', loot: ['moeda antiga', 'mapa da cidade'] },
-  cemiterio:      { emoji: '🪦', danger: 3, desc: 'Os mortos não descansam.', loot: ['osso antigo', 'alma penada', 'ervilha'] },
-  templo:         { emoji: '🛕', danger: 2, desc: 'Ruínas sagradas. Tesouros.', loot: ['relicário', 'pergaminho', 'amuleto'] },
-  floresta_negra: { emoji: '🌑', danger: 4, desc: 'Escuridão eterna. Sombras.', loot: ['sombra líquida', 'flor negra', 'olho de corvo'] },
-  praia:          { emoji: '🏖️', danger: 1, desc: 'Mar calmo. Tesouros naufragados.', loot: ['concha', 'coral', 'pérola', 'tesouro perdido'] },
-  caverna:        { emoji: '🕳️', danger: 3, desc: 'Morcegos e cristais brilhantes.', loot: ['cristal', 'morcego', 'estalactite'] },
-};
+const RANKS = [
+  { name: 'E', emoji: '⚪', min_level: 1,  mult: 1.0, desc: 'Iniciante' },
+  { name: 'D', emoji: '🟢', min_level: 5,  mult: 1.2, desc: 'Aprendiz' },
+  { name: 'C', emoji: '🔵', min_level: 10, mult: 1.5, desc: 'Veterano' },
+  { name: 'B', emoji: '🟣', min_level: 20, mult: 2.0, desc: 'Elite' },
+  { name: 'A', emoji: '🟡', min_level: 30, mult: 2.5, desc: 'Mestre' },
+  { name: 'S', emoji: '🔴', min_level: 50, mult: 3.5, desc: 'Lendário' },
+  { name: 'SS', emoji: '⭐', min_level: 70, mult: 5.0, desc: 'Mítico' },
+  { name: 'SSS', emoji: '💎', min_level: 100, mult: 8.0, desc: 'Deus' },
+];
+
+function getRank(level) {
+  let rank = RANKS[0];
+  for (const r of RANKS) {
+    if (level >= r.min_level) rank = r;
+  }
+  return rank;
+}
 
 // ══════════════════════════════════════════════════════════════
-// INIMIGOS (3 tiers × 10+ tipos = 30+ inimigos)
+// INIMIGOS POR UNIVERSO
 // ══════════════════════════════════════════════════════════════
 const ENEMIES = {
-  normal: [
-    { name: 'Goblin', emoji: '👺', hp_mult: 1, str_mult: 1, loot: ['moeda de bronze', 'adaga enferrujada'] },
-    { name: 'Esqueleto', emoji: '💀', hp_mult: 1.1, str_mult: 0.9, loot: ['osso', 'espada quebrada'] },
-    { name: 'Lobo Sombrio', emoji: '🐺', hp_mult: 0.9, str_mult: 1.2, loot: ['pele de lobo', 'presa'] },
-    { name: 'Aranha Gigante', emoji: '🕷️', hp_mult: 0.8, str_mult: 1.3, loot: ['teia', 'veneno'] },
-    { name: 'Bandido', emoji: '🦹', hp_mult: 1, str_mult: 1.1, loot: ['moeda de prata', 'capuz'] },
-    { name: 'Slime', emoji: '🟢', hp_mult: 1.5, str_mult: 0.5, loot: ['gelatina', 'núcleo mágico'] },
-    { name: 'Morcego Vampiro', emoji: '🦇', hp_mult: 0.7, str_mult: 1.4, loot: ['asa de morcego', 'sangue'] },
-    { name: 'Rato Gigante', emoji: '🐀', hp_mult: 0.6, str_mult: 0.8, loot: ['queijo', 'rabo de rato'] },
+  naruto: [
+    { name: 'Zetsu', emoji: '🌿', tier: 'normal', hp_mult: 1, loot: ['scroll', 'shuriken'] },
+    { name: 'Orochimaru', emoji: '🐍', tier: 'elite', hp_mult: 3, loot: ['pergaminho proibido', 'kunai venenosa'] },
+    { name: 'Madara', emoji: '👁️', tier: 'boss', hp_mult: 8, loot: ['Sharingan Eterno', 'Hashirama Cells'] },
   ],
-  elite: [
-    { name: 'Cavaleiro Negro', emoji: '🖤', hp_mult: 3, str_mult: 2.5, loot: ['espada negra', 'armadura negra', 'elmo'] },
-    { name: 'Mago Sombrio', emoji: '🧙', hp_mult: 2, str_mult: 3, loot: ['cajado sombrio', 'grimório', 'poção de mana'] },
-    { name: 'Orc Berserker', emoji: '👹', hp_mult: 3.5, str_mult: 2, loot: ['machado de guerra', 'chifre de orc'] },
-    { name: 'Necromante', emoji: '☠️', hp_mult: 2.5, str_mult: 2.8, loot: ['amuleto negro', 'essência sombria'] },
-    { name: 'Golem de Pedra', emoji: '🗿', hp_mult: 4, str_mult: 1.5, loot: ['núcleo de pedra', 'fragmento de rocha'] },
+  onepiece: [
+    { name: 'Marinheiro', emoji: '⚓', tier: 'normal', hp_mult: 1, loot: ['berrie', 'mapa'] },
+    { name: 'Kaido', emoji: '🐉', tier: 'boss', hp_mult: 10, loot: ['Akuma no Mi', 'Poneglyph'] },
+    { name: 'Big Mom', emoji: '👵', tier: 'boss', hp_mult: 8, loot: ['Soul Fragment', 'Zeus'] },
   ],
-  boss: [
-    { name: 'Dragão Ancião', emoji: '🐲', hp_mult: 8, str_mult: 5, loot: ['escama de dragão', 'coração de fogo', 'gem lendária'] },
-    { name: 'Rei Demónio', emoji: '👿', hp_mult: 7, str_mult: 6, loot: ['coroa demoníaca', 'espada do caos'] },
-    { name: 'Lich Imortal', emoji: '💀', hp_mult: 6, str_mult: 7, loot: ['cetro do lich', 'grimório eterno'] },
-    { name: 'Titã Sombrio', emoji: '🌑', hp_mult: 10, str_mult: 4, loot: ['essência titânica', 'armadura titânica'] },
-    { name: 'Deus Caído', emoji: '⚡', hp_mult: 12, str_mult: 8, loot: ['fragmento divino', 'espada celestial'] },
+  sololeveling: [
+    { name: 'Soldado das Sombras', emoji: '👤', tier: 'normal', hp_mult: 1, loot: ['cristal mana', 'essência'] },
+    { name: 'Monarca dos Demônios', emoji: '👹', tier: 'boss', mult: 12, loot: ['Coroa do Monarca', 'Exército'] },
+  ],
+  jujutsu: [
+    { name: 'Maldição Grau 4', emoji: '👁️', tier: 'normal', hp_mult: 0.8, loot: ['dedo Sukuna', 'energia amaldiçoada'] },
+    { name: 'Mahito', emoji: '😈', tier: 'elite', hp_mult: 4, loot: ['Transfiguração', 'Black Flash'] },
+    { name: 'Sukuna', emoji: '👹', tier: 'boss', hp_mult: 15, loot: ['Décimo Dedo', 'Corte Espacial'] },
+  ],
+  demonslayer: [
+    { name: 'Demônio Comum', emoji: '👹', tier: 'normal', hp_mult: 1, loot: ['cristal demoníaco', 'sangue'] },
+    { name: 'Muzan', emoji: '🧛', tier: 'boss', hp_mult: 12, loot: ['Sangue de Muzan', 'Blue Spider Lily'] },
+  ],
+  dragonball: [
+    { name: 'Saibaman', emoji: '🌱', tier: 'normal', hp_mult: 0.5, loot: ['capsule', 'senzu'] },
+    { name: 'Frieza', emoji: '👽', tier: 'boss', hp_mult: 10, loot: ['Esfera do Dragão', 'Death Beam'] },
+    { name: 'Jiren', emoji: '💪', tier: 'boss', hp_mult: 14, loot: ['Ultra Instinto Fragment', 'Ki Cristal'] },
   ],
 };
 
 // ══════════════════════════════════════════════════════════════
-// ITENS & LOOT TABLE
+// ITENS
 // ══════════════════════════════════════════════════════════════
-const RARITY = {
-  comum:    { emoji: '⚪', color: 'branco', mult: 1 },
-  incomum:  { emoji: '🟢', color: 'verde', mult: 2 },
-  raro:     { emoji: '🔵', color: 'azul', mult: 5 },
-  epico:    { emoji: '🟣', color: 'roxo', mult: 10 },
-  lendario: { emoji: '🟡', color: 'dourado', mult: 25 },
-  mitico:   { emoji: '🔴', color: 'vermelho', mult: 50 },
-};
-
 const ITEMS = {
-  // Poções
+  // Cura
   'poção de vida':    { type: 'consumivel', emoji: '🧪', effect: { hp: 50 }, rarity: 'comum', price: 20 },
+  'elixir da vida':   { type: 'consumivel', emoji: '❤️‍🔥', effect: { hp_full: true }, rarity: 'epico', price: 500 },
   'poção de mana':    { type: 'consumivel', emoji: '💧', effect: { mp: 30 }, rarity: 'comum', price: 25 },
   'poção de XP':      { type: 'consumivel', emoji: '⭐', effect: { xp: 100 }, rarity: 'incomum', price: 50 },
-  'poção de força':   { type: 'consumivel', emoji: '💪', effect: { str_buff: 5, duration: 300 }, rarity: 'raro', price: 100 },
-  'elixir da vida':   { type: 'consumivel', emoji: '❤️‍🔥', effect: { hp_full: true }, rarity: 'epico', price: 500 },
-  
+  'poção de força':   { type: 'consumivel', emoji: '💪', effect: { str_buff: 5 }, rarity: 'raro', price: 100 },
+
   // Armas
-  'adaga enferrujada': { type: 'arma', emoji: '🗡️', effect: { str: 1 }, rarity: 'comum', price: 10 },
-  'espada de ferro':   { type: 'arma', emoji: '⚔️', effect: { str: 3 }, rarity: 'comum', price: 100 },
-  'espada de aço':     { type: 'arma', emoji: '⚔️', effect: { str: 5 }, rarity: 'incomum', price: 300 },
-  'espada negra':      { type: 'arma', emoji: '🗡️', effect: { str: 8, luk: 2 }, rarity: 'raro', price: 800 },
-  'machado de guerra': { type: 'arma', emoji: '🪓', effect: { str: 10 }, rarity: 'raro', price: 1000 },
-  'cajado sombrio':    { type: 'arma', emoji: '🪄', effect: { int: 8, mp: 20 }, rarity: 'raro', price: 900 },
-  'espada do caos':    { type: 'arma', emoji: '⚔️', effect: { str: 15, luk: 5 }, rarity: 'lendario', price: 5000 },
-  'espada celestial':  { type: 'arma', emoji: '⚔️', effect: { str: 20, int: 10 }, rarity: 'mitico', price: 50000 },
-  
+  'shuriken':         { type: 'arma', emoji: '⭐', effect: { str: 2 }, rarity: 'comum', price: 30 },
+  'kunai':            { type: 'arma', emoji: '🗡️', effect: { str: 4 }, rarity: 'comum', price: 50 },
+  'katana':           { type: 'arma', emoji: '⚔️', effect: { str: 8 }, rarity: 'incomum', price: 300 },
+  'espada negra':     { type: 'arma', emoji: '🗡️', effect: { str: 12 }, rarity: 'raro', price: 800 },
+  'zangetsu':         { type: 'arma', emoji: '⚔️', effect: { str: 18 }, rarity: 'lendario', price: 5000 },
+  'espada celestial': { type: 'arma', emoji: '⚔️', effect: { str: 25, int: 10 }, rarity: 'mitico', price: 50000 },
+
   // Armaduras
-  'armadura de couro':  { type: 'armadura', emoji: '🥋', effect: { vit: 3 }, rarity: 'comum', price: 200 },
-  'escudo de ferro':    { type: 'armadura', emoji: '🛡️', effect: { vit: 5 }, rarity: 'incomum', price: 150 },
-  'armadura negra':     { type: 'armadura', emoji: '🖤', effect: { vit: 10, dex: -1 }, rarity: 'raro', price: 1200 },
-  'armadura titânica':  { type: 'armadura', emoji: '🛡️', effect: { vit: 20 }, rarity: 'lendario', price: 8000 },
-  
-  // Acessórios
-  'anel de sorte':      { type: 'acessorio', emoji: '💍', effect: { luk: 5 }, rarity: 'incomum', price: 500 },
-  'amuleto dos mortos': { type: 'acessorio', emoji: '📿', effect: { int: 5, vit: 3 }, rarity: 'raro', price: 1500 },
-  'coroa demoníaca':    { type: 'acessorio', emoji: '👑', effect: { str: 8, int: 8 }, rarity: 'lendario', price: 10000 },
-  
+  'bandana ninja':    { type: 'armadura', emoji: '🥷', effect: { vit: 3 }, rarity: 'comum', price: 100 },
+  'colete anti-bala': { type: 'armadura', emoji: '🦺', effect: { vit: 8 }, rarity: 'incomum', price: 400 },
+  'armadura hashira': { type: 'armadura', emoji: '🛡️', effect: { vit: 15 }, rarity: 'epico', price: 3000 },
+
   // Materiais
-  'minério de ferro':   { type: 'material', emoji: '🪨', rarity: 'comum', price: 10 },
-  'mithril':            { type: 'material', emoji: '💎', rarity: 'raro', price: 500 },
-  'obsidiana':          { type: 'material', emoji: '⬛', rarity: 'incomum', price: 100 },
-  'cristal negro':      { type: 'material', emoji: '🔮', rarity: 'epico', price: 2000 },
-  'essência do vazio':  { type: 'material', emoji: '🌀', rarity: 'lendario', price: 5000 },
-  'fragmento estelar':  { type: 'material', emoji: '⭐', rarity: 'mitico', price: 25000 },
-  'gem lendária':       { type: 'material', emoji: '💎', rarity: 'lendario', price: 10000 },
+  'cristal mana':      { type: 'material', emoji: '💎', rarity: 'comum', price: 15 },
+  'cristal demoníaco': { type: 'material', emoji: '🔮', rarity: 'raro', price: 200 },
+  'essência':          { type: 'material', emoji: '✨', rarity: 'incomum', price: 80 },
+  'scroll':            { type: 'material', emoji: '📜', rarity: 'comum', price: 25 },
+  'pergaminho proibido':{ type: 'material', emoji: '📜', rarity: 'epico', price: 1500 },
+  'Akuma no Mi':       { type: 'material', emoji: '🍎', rarity: 'lendario', price: 10000 },
+  'Esfera do Dragão':  { type: 'material', emoji: '🔮', rarity: 'mitico', price: 50000 },
+  'Sharingan Eterno':  { type: 'material', emoji: '👁️', rarity: 'mitico', price: 100000 },
 };
 
 // ══════════════════════════════════════════════════════════════
-// CRAFTING (receitas)
-// ══════════════════════════════════════════════════════════════
-const RECIPES = {
-  'espada de aço':     { ingredients: { 'minério de ferro': 3, 'madeira': 1 }, result: 'espada de aço' },
-  'armadura de couro': { ingredients: { 'pele de lobo': 2, 'madeira': 1 }, result: 'armadura de couro' },
-  'poção de vida':     { ingredients: { 'erva medicinal': 2, 'cogumelo': 1 }, result: 'poção de vida' },
-  'poção de mana':     { ingredients: { 'lamacenta': 2, 'erva medicinal': 1 }, result: 'poção de mana' },
-  'bomba':             { ingredients: { 'magma': 1, 'obsidiana': 2 }, result: 'bomba' },
-  'elixir da vida':    { ingredients: { 'poção de vida': 5, 'essência do vazio': 1 }, result: 'elixir da vida' },
-  'espada negra':      { ingredients: { 'espada de aço': 1, 'cristal negro': 2 }, result: 'espada negra' },
-};
-
-// ══════════════════════════════════════════════════════════════
-// PETS (15 pets com habilidades)
-// ══════════════════════════════════════════════════════════════
-const PETS = {
-  gatinho:     { emoji: '🐱', rarity: 'comum', skill: 'Ronronar', effect: { luk: 2 }, evolve: 'gato_sombrio' },
-  cachorro:    { emoji: '🐶', rarity: 'comum', skill: 'Latido', effect: { str: 2 }, evolve: 'lobo' },
-  dragao_bebe: { emoji: '🐲', rarity: 'raro', skill: 'Sopro', effect: { str: 5, int: 3 }, evolve: 'dragao_adulto' },
-  fada:        { emoji: '🧚', rarity: 'raro', skill: 'Cura', effect: { int: 5, vit: 3 }, evolve: 'fada_rainha' },
-  lobo:        { emoji: '🐺', rarity: 'incomum', skill: 'Uivo', effect: { str: 4 }, evolve: 'lobo_alfa' },
-  coruja:      { emoji: '🦉', rarity: 'incomum', skill: 'Sabedoria', effect: { int: 4 }, evolve: 'fenix' },
-  fenix:       { emoji: '🔥', rarity: 'lendario', skill: 'Renascimento', effect: { str: 10, int: 10 }, evolve: null },
-  serpente:    { emoji: '🐍', rarity: 'incomum', skill: 'Veneno', effect: { dex: 4 }, evolve: 'hidra' },
-  urso:        { emoji: '🐻', rarity: 'incomum', skill: 'Grito', effect: { vit: 5 }, evolve: 'urso_polar' },
-  aranha:      { emoji: '🕷️', rarity: 'comum', skill: 'Teia', effect: { dex: 3 }, evolve: 'aranha_gigante' },
-  cavalo:      { emoji: '🐴', rarity: 'comum', skill: 'Velocidade', effect: { dex: 3 }, evolve: 'unicórnio' },
-  unicórnio:   { emoji: '🦄', rarity: 'epico', skill: 'Cura Mágica', effect: { int: 8, luk: 5 }, evolve: null },
-  gato_sombrio:{ emoji: '🐈‍⬛', rarity: 'incomum', skill: 'Furtividade', effect: { dex: 5, luk: 3 }, evolve: null },
-  lobo_alfa:   { emoji: '🐺', rarity: 'raro', skill: 'Liderança', effect: { str: 7 }, evolve: null },
-  dragao_adulto:{ emoji: '🐲', rarity: 'lendario', skill: 'Destruição', effect: { str: 15, int: 10 }, evolve: null },
-  hidra:       { emoji: '🐉', rarity: 'epico', skill: 'Regeneração', effect: { vit: 10, str: 5 }, evolve: null },
-};
-
-// ══════════════════════════════════════════════════════════════
-// NPCs
-// ══════════════════════════════════════════════════════════════
-const NPCS = {
-  mercador:   { name: 'Grimwald', emoji: '🧔', dialogues: ['Bem-vindo! Tenho o que precisas.', 'Cuidado com o pântano.', 'O dragão acordou...'] },
-  ferreiro:   { name: 'Thorgar', emoji: '⚒️', dialogues: ['Trás minério e forjo-te uma lâmina!', 'Esta espada? 500 coins.', 'Precisas de mithril.'] },
-  curandeira: { name: 'Elara', emoji: '🧙‍♀️', dialogues: ['Curar-te-ei... por um preço.', 'Cuidado com o abismo.', 'Toma esta poção.'] },
-  tavernerio: { name: 'Bjorn', emoji: '🍺', dialogues: ['Senta-te! Cerveja? 5 coins.', 'Há um torneio amanhã.', 'O encapuzado ali...'] },
-  misterioso: { name: '???', emoji: '🌑', dialogues: ['Não devias estar aqui.', 'O destino é uma roda.', 'Procura a chave no templo.'] },
-};
-
-// ══════════════════════════════════════════════════════════════
-// QUESTS (15 quests narrativas em 5 capítulos)
+// QUESTS POR UNIVERSO
 // ══════════════════════════════════════════════════════════════
 const QUESTS = [
-  { id:'prologo', title:'📜 O Despertar', chapter:1,
-    story:'Acordas numa cela escura. Memórias fragmentadas. Uma voz: "Foge... antes que eles voltem."',
+  // NARUTO
+  { id:'academia_ninja', title:'🍥 Academia Ninja', universe:'naruto', chapter:1,
+    story:'Acabas de entrar na Academia Ninja de Konoha. Iruka-sensei olha para ti. "Vamos ver do que és feito."',
     choices:[
-      { text:'🚪 Fugir pela porta', next:'fuga', reward:{ xp:50, coins:20 } },
-      { text:'🔍 Investigar a cela', next:'investigar', reward:{ xp:30, item:'chave enferrujada' } },
-      { text:'💀 Esperar em silêncio', next:'emboscada', reward:{ xp:10 } },
+      { text:'🎯 Provar o meu valor', next:'exame_chunin', reward:{ xp:80, coins:50 } },
+      { text:'📚 Estudar jutsus primeiro', next:'treino_jutsu', reward:{ xp:40, item:'scroll' } },
     ]},
-  { id:'fuga', title:'📜 A Fuga', chapter:1,
-    story:'Corres pelo corredor. Guardas! Vês uma janela e uma escada para catacumbas.',
+  { id:'exame_chunin', title:'🍥 Exame Chunin', universe:'naruto', chapter:2,
+    story:'Estás no Exame Chunin. Oponente aparece. "Vamos lutar!"',
     choices:[
-      { text:'🪟 Saltar pela janela', next:'telhado', reward:{ xp:80, hp_cost:20 } },
-      { text:'🕳️ Descer às catacumbas', next:'catacumbas', reward:{ xp:60, item:'mapa antigo' } },
+      { text:'⚔️ Usar taijutsu', next:'luta_chunin', reward:{ xp:120, hp_cost:30 } },
+      { text:'🌀 Usar jutsu', next:'jutsu_chunin', reward:{ xp:100, mp_cost:20 } },
     ]},
-  { id:'investigar', title:'📜 Segredos da Cela', chapter:1,
-    story:'Pedra solta na parede. Atrás: diário antigo e chave. O diário fala de conspiração...',
+  { id:'treino_jutsu', title:'🍥 Treino de Jutsu', universe:'naruto', chapter:2,
+    story:'Kakashi aparece. "Vou te ensinar um jutsu poderoso. Mas é difícil."',
     choices:[
-      { text:'📖 Ler o diário', next:'conspiracao', reward:{ xp:100 } },
-      { text:'🔑 Usar a chave', next:'fuga', reward:{ xp:40 } },
+      { text:'🍥 Rasengan', next:'aprender_rasengan', reward:{ xp:200, item:'kunai', skill:'Rasengan' } },
+      { text:'⚡ Chidori', next:'aprender_chidori', reward:{ xp:200, item:'shuriken', skill:'Chidori' } },
     ]},
-  { id:'emboscada', title:'📜 A Emboscada', chapter:1,
-    story:'Dois guardas entram. "O prisioneiro acordou. Mata-o."',
+
+  // ONE PIECE
+  { id:'grand_line', title:'🏴‍☠️ Grand Line', universe:'onepiece', chapter:1,
+    story:'O teu navio parte para a Grand Line. "AVANTE! O One Piece é nosso!"',
     choices:[
-      { text:'⚔️ Lutar', next:'luta_guardas', reward:{ xp:70, hp_cost:30 } },
-      { text:'🗣️ Negociar', next:'negociar', reward:{ xp:40, coins:-50 } },
+      { text:'⚓ Navegar pela Rota Principal', next:'ilha_unknown', reward:{ xp:100, coins:200 } },
+      { text:'🏝️ Explorar ilha misteriosa', next:'ilha_misteriosa', reward:{ xp:80, item:'mapa' } },
     ]},
-  { id:'telhado', title:'📜 Nos Telhados', chapter:2,
-    story:'A cidade abaixo. Uma taverna e um beco escuro.',
+
+  // DEMON SLAYER
+  { id:'corpo_caçadores', title:'🗡️ Corpo de Caçadores', universe:'demonslayer', chapter:1,
+    story:'Recebeste a tua Espada Nichirin. "O primeiro demônio aparece."',
     choices:[
-      { text:'🍺 Taverna', next:'taverna', reward:{ xp:50 } },
-      { text:'🌑 Beco escuro', next:'beco', reward:{ xp:80 } },
+      { text:'🗡️ Respiração da Água', next:'treino_agua', reward:{ xp:100, item:'katana' } },
+      { text:'🔥 Respiração do Fogo', next:'treino_fogo', reward:{ xp:100, item:'katana' } },
     ]},
-  { id:'catacumbas', title:'📜 As Catacumbas', chapter:2,
-    story:'Escuridão. O mapa brilha. Ossos no chão. Passos atrás de ti.',
+
+  // JUJUTSU KAISEN
+  { id:'escola_jujutsu', title:'👁️ Escola de Jujutsu', universe:'jujutsu', chapter:1,
+    story:'Gojo-sensei aparece. "Vou te treinar. Mas primeiro, sobrevive."',
     choices:[
-      { text:'🏃 Correr', next:'saida_catacumbas', reward:{ xp:60 } },
-      { text:'⚔️ Enfrentar', next:'luta_morto', reward:{ xp:100, item:'amuleto dos mortos' } },
+      { text:'👁️ Aprender o Infinito', next:'treino_infinito', reward:{ xp:200, mp_cost:50 } },
+      { text:'👊 Punho Negro', next:'treino_punho', reward:{ xp:150, item:'kunai' } },
     ]},
-  { id:'conspiracao', title:'📜 A Conspiração', chapter:2,
-    story:'O rei foi envenenado pelo conselheiro. Tu és o único que sabe.',
+
+  // DRAGON BALL
+  { id:'treino_kami', title:'🐉 Treino com Kami', universe:'dragonball', chapter:1,
+    story:'Kami-sama te convidou para treinar na Torre de Karin.',
     choices:[
-      { text:'🏰 Ir ao castelo', next:'castelo', reward:{ xp:200, coins:500, title:'Portador da Verdade' } },
-      { text:'🌑 Procurar aliados', next:'beco', reward:{ xp:120 } },
-    ]},
-  { id:'taverna', title:'📜 A Taverna do Lobo', chapter:2,
-    story:'Bjorn serve cerveja. "Tens cara de problema." Um encapuzado observa.',
-    choices:[
-      { text:'🗣️ Falar com encapuzado', next:'beco', reward:{ xp:80 } },
-      { text:'🍺 Pedir info ao Bjorn', next:'info_taverna', reward:{ xp:50, coins:30 } },
-      { text:'💤 Descansar', next:'descanso', reward:{ hp_restore:100 } },
-    ]},
-  { id:'beco', title:'📜 O Encontro', chapter:3,
-    story:'O encapuzado revela-se: sombra com olhos brilhantes. "Sei quem és. Posso ajudar... por um preço."',
-    choices:[
-      { text:'🤝 Aceitar', next:'alianca', reward:{ xp:150, item:'adaga das sombras', faction:'sombras' } },
-      { text:'🚫 Recusar', next:'solo', reward:{ xp:100, title:'Lobo Solitário' } },
-    ]},
-  { id:'castelo', title:'📜 O Castelo', chapter:3,
-    story:'Guardas bloqueiam a entrada. "Ninguém entra sem convite real."',
-    choices:[
-      { text:'🃏 Mostrar o diário', next:'audiencia', reward:{ xp:150 } },
-      { text:'🧗 Escalar o muro', next:'infiltrar', reward:{ xp:200, hp_cost:40 } },
-    ]},
-  { id:'alianca', title:'📜 Aliança das Sombras', chapter:4,
-    story:'"Vamos derrubar o conselheiro juntos. Mas primeiro, precisamos de provas."',
-    choices:[
-      { text:'🕵️ Infiltrar o castelo', next:'infiltrar', reward:{ xp:200, item:'manto das sombras' } },
-      { text:'📜 Procurar documentos', next:'arquivo', reward:{ xp:150 } },
-    ]},
-  { id:'infiltrar', title:'📜 Infiltração', chapter:4,
-    story:'Dentro do castelo. O conselheiro está no salão do trono. 3 guardas.',
-    choices:[
-      { text:'⚔️ Atacar', next:'batalha_final', reward:{ xp:300, hp_cost:50 } },
-      { text:'🤫 Passar despercebido', next:'provas', reward:{ xp:250 } },
-    ]},
-  { id:'batalha_final', title:'📜 A Batalha Final', chapter:5,
-    story:'O conselheiro revela-se: um necromante! "O rei era fraco. Eu trago poder!"',
-    choices:[
-      { text:'⚔️ Lutar até à morte', next:'vitoria', reward:{ xp:500, coins:2000, title:'Herói do Reino' } },
-      { text:'🔮 Usar magia antiga', next:'vitoria_magica', reward:{ xp:600, item:'cetro do rei' } },
-    ]},
-  { id:'vitoria', title:'📜 Vitória!', chapter:5,
-    story:'O necromante cai. O rei é libertado. "Tu salvaste o reino!"',
-    choices:[
-      { text:'👑 Aceitar título real', next:'reinado', reward:{ xp:1000, coins:5000, title:'Rei Herói' } },
-      { text:'🚶 Partir em aventura', next:'prologo', reward:{ xp:500, title:'Aventureiro Lendário' } },
+      { text:'🐉 Aprender Kamehameha', next:'treino_kamehameha', reward:{ xp:200, skill:'Kamehameha' } },
+      { text:'💪 Treinar o corpo', next:'treino_corpo', reward:{ xp:100, hp_cost:50 } },
     ]},
 ];
 
@@ -301,50 +270,50 @@ const QUESTS = [
 // COMBATE
 // ══════════════════════════════════════════════════════════════
 function calcDamage(attacker, defender, skill = 'basic') {
-  const atkStat = attacker.stats?.[CLASSES[attacker.class]?.primary || 'str'] || 5;
+  const charDef = CHARACTERS[attacker.character];
+  const primaryStat = charDef ? (UNIVERSES[charDef.universe]?.primaryStat || 'str') : 'str';
+  const atkStat = attacker.stats?.[primaryStat] || 5;
   const defStat = defender.stats?.vit || 5;
-  const base = atkStat * 2 + R(1, atkStat);
+  const rank = getRank(attacker.level || 1);
+  const base = atkStat * 2 + R(1, atkStat) * rank.mult;
   const defense = defStat;
-  const crit = Math.random() < (attacker.stats?.luk || 1) * 0.02;
-  let dmg = Math.max(1, base - defense);
+  const crit = Math.random() < (attacker.stats?.luk || 1) * 0.03;
+  let dmg = Math.max(1, Math.floor(base - defense));
   if (crit) dmg = Math.floor(dmg * 2.5);
   if (skill === 'heavy') dmg = Math.floor(dmg * 1.5);
   if (skill === 'magic') dmg = Math.floor(dmg * 1.3 + (attacker.stats?.int || 0));
   return { dmg, crit };
 }
 
-function generateEnemy(level, type = 'normal') {
-  const pool = ENEMIES[type] || ENEMIES.normal;
-  const template = P(pool);
-  const mult = type === 'boss' ? 5 : type === 'elite' ? 2.5 : 1;
+function generateEnemy(level, universe = null, tier = 'normal') {
+  const uni = universe || P(Object.keys(ENEMIES));
+  const pool = ENEMIES[uni] || ENEMIES.naruto;
+  const tierPool = pool.filter(e => e.tier === tier) || pool;
+  const template = P(tierPool);
+  const rank = getRank(level);
+  const hp = Math.floor((50 + level * 20) * (template.hp_mult || 1) * rank.mult);
   return {
-    name: template.name,
-    emoji: template.emoji,
-    level,
-    hp: Math.floor((50 + level * 20) * template.hp_mult * mult),
-    maxHp: Math.floor((50 + level * 20) * template.hp_mult * mult),
+    name: template.name, emoji: template.emoji, level, hp, maxHp: hp,
     stats: {
-      str: Math.floor(level * 2 * template.str_mult * mult),
-      dex: Math.floor(level * 1.5 * mult),
-      int: Math.floor(level * 1.2 * mult),
-      vit: Math.floor(level * 1.8 * mult),
+      str: Math.floor(level * 2 * rank.mult),
+      dex: Math.floor(level * 1.5 * rank.mult),
+      int: Math.floor(level * 1.2 * rank.mult),
+      vit: Math.floor(level * 1.8 * rank.mult),
       luk: Math.floor(level * 0.5),
     },
-    loot: template.loot || [],
-    type,
+    loot: template.loot || [], tier, universe: uni,
   };
 }
 
-function generateLoot(enemy, playerLevel) {
+function generateLoot(enemy) {
   const loot = [];
-  const baseChance = enemy.type === 'boss' ? 0.9 : enemy.type === 'elite' ? 0.5 : 0.15;
+  const chance = enemy.tier === 'boss' ? 0.9 : enemy.tier === 'elite' ? 0.5 : 0.2;
   for (const item of (enemy.loot || [])) {
-    if (Math.random() < baseChance) loot.push(item);
+    if (Math.random() < chance) loot.push(item);
   }
-  // Chance de item raro
-  if (Math.random() < (enemy.type === 'boss' ? 0.3 : 0.05)) {
-    const rareItems = Object.entries(ITEMS).filter(([, v]) => v.rarity === 'raro' || v.rarity === 'epico');
-    if (rareItems.length) loot.push(P(rareItems)[0]);
+  if (Math.random() < (enemy.tier === 'boss' ? 0.3 : 0.05)) {
+    const rare = Object.entries(ITEMS).filter(([, v]) => v.rarity === 'raro' || v.rarity === 'epico');
+    if (rare.length) loot.push(P(rare)[0]);
   }
   return loot;
 }
@@ -396,8 +365,8 @@ function addXP(p, amount) {
 }
 
 module.exports = {
-  RACES, CLASSES, BIOMES, NPCS, QUESTS, ENEMIES, ITEMS, RARITY, RECIPES, PETS,
-  calcDamage, generateEnemy, generateLoot,
+  UNIVERSES, CHARACTERS, RANKS, ENEMIES, ITEMS, QUESTS,
+  getRank, calcDamage, generateEnemy, generateLoot,
   getPlayer, savePlayer, levelUp, addXP,
   _cache,
 };
