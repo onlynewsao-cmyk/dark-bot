@@ -54,12 +54,42 @@ const RPGPlayerSchema = new mongoose.Schema({
     completed: [{ type: String }],
   },
 
+  // Pets (máx 3)
+  pets: [{
+    id: { type: String },
+    name: { type: String },
+    level: { type: Number, default: 1 },
+    xp: { type: Number, default: 0 },
+    hp: { type: Number, default: 100 },
+    maxHp: { type: Number, default: 100 },
+    active: { type: Boolean, default: false },
+  }],
+
+  // Skills desbloqueadas
+  skills: [{ type: String }],
+
+  // Títulos desbloqueados
+  titles: [{ type: String }],
+
+  // Achievements
+  achievements: [{
+    id: { type: String },
+    name: { type: String },
+    unlockedAt: { type: Date, default: Date.now },
+  }],
+
   // Estatísticas
-  kills:    { type: Number, default: 0 },
-  deaths:   { type: Number, default: 0 },
-  streak:   { type: Number, default: 0 },
-  karma:    { type: Number, default: 0 },
+  kills:      { type: Number, default: 0 },
+  deaths:     { type: Number, default: 0 },
+  bossKills:  { type: Number, default: 0 },
+  streak:     { type: Number, default: 0 },
+  bestStreak: { type: Number, default: 0 },
+  karma:      { type: Number, default: 0 },
   reputation: { type: Number, default: 0 },
+
+  // Crafting
+  craftingLevel: { type: Number, default: 1 },
+  recipesKnown:  [{ type: String }],
 
   // Cooldowns
   lastDaily:   { type: Date, default: null },
@@ -67,19 +97,21 @@ const RPGPlayerSchema = new mongoose.Schema({
   lastBattle:  { type: Date, default: null },
   lastExplore: { type: Date, default: null },
   lastQuest:   { type: Date, default: null },
+  lastCraft:   { type: Date, default: null },
+  lastPet:     { type: Date, default: null },
 
 }, { timestamps: true });
 
 // ─── Helpers ────────────────────────────────────────
 const RACES = {
-  humano:    { bonus: { str: 1, dex: 1, int: 1, vit: 1, luk: 1 } },
-  elfo:      { bonus: { str: 0, dex: 3, int: 2, vit: 0, luk: 1 } },
-  anao:      { bonus: { str: 3, dex: 0, int: 0, vit: 3, luk: 0 } },
-  orc:       { bonus: { str: 4, dex: 0, int: -1, vit: 2, luk: 0 } },
-  dragao:    { bonus: { str: 2, dex: 1, int: 3, vit: 1, luk: 0 } },
-  sombra:    { bonus: { str: 1, dex: 3, int: 1, vit: -1, luk: 2 } },
-  celestial: { bonus: { str: 0, dex: 1, int: 4, vit: 1, luk: 1 } },
-  maldito:   { bonus: { str: 3, dex: 2, int: 0, vit: -2, luk: 3 } },
+  humano:    { bonus: { str:1, dex:1, int:1, vit:1, luk:1 } },
+  elfo:      { bonus: { str:0, dex:3, int:2, vit:0, luk:1 } },
+  anao:      { bonus: { str:3, dex:0, int:0, vit:3, luk:0 } },
+  orc:       { bonus: { str:4, dex:0, int:-1, vit:2, luk:0 } },
+  dragao:    { bonus: { str:2, dex:1, int:3, vit:1, luk:0 } },
+  sombra:    { bonus: { str:1, dex:3, int:1, vit:-1, luk:2 } },
+  celestial: { bonus: { str:0, dex:1, int:4, vit:1, luk:1 } },
+  maldito:   { bonus: { str:3, dex:2, int:0, vit:-2, luk:3 } },
 };
 
 RPGPlayerSchema.statics.getOrCreate = async function(number, name = 'Aventureiro', race = 'humano', cls = 'guerreiro') {
@@ -87,14 +119,12 @@ RPGPlayerSchema.statics.getOrCreate = async function(number, name = 'Aventureiro
   if (p) return p;
 
   const r = RACES[race] || RACES.humano;
-  const base = { str: 5, dex: 5, int: 5, vit: 5, luk: 5 };
+  const base = { str:5, dex:5, int:5, vit:5, luk:5 };
   for (const [k, v] of Object.entries(r.bonus)) base[k] += v;
 
   p = await this.create({
     whatsappNumber: number,
-    name,
-    race,
-    class: cls,
+    name, race, class: cls,
     hp: 100 + base.vit * 5,
     maxHp: 100 + base.vit * 5,
     mp: 50 + base.int * 3,
@@ -103,24 +133,6 @@ RPGPlayerSchema.statics.getOrCreate = async function(number, name = 'Aventureiro
     inventory: ['poção de vida', 'poção de vida'],
   });
   return p;
-};
-
-RPGPlayerSchema.methods.addXP = function(amount) {
-  this.xp += amount;
-  let leveled = false;
-  while (this.xp >= this.xpNext) {
-    this.xp -= this.xpNext;
-    this.level++;
-    this.xpNext = this.level * 100 + this.level * this.level * 10;
-    this.maxHp += 10 + this.stats.vit * 2;
-    this.maxMp += 5 + this.stats.int;
-    this.hp = this.maxHp;
-    this.mp = this.maxMp;
-    const stats = ['str', 'dex', 'int', 'vit', 'luk'];
-    this.stats[stats[Math.floor(Math.random() * stats.length)]]++;
-    leveled = true;
-  }
-  return leveled;
 };
 
 module.exports = mongoose.model('RPGPlayer', RPGPlayerSchema);
