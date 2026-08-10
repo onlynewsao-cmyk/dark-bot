@@ -1,14 +1,13 @@
 /**
  * ╔═══════════════════════════════════════════════════════════════╗
- * ║   DARK BOT v7 — DARKRPG Community System                     ║
+ * ║   DARK BOT v7 — DARKRPG Community System v2                  ║
  * ║   O bot cria e gere TODA a comunidade RPG automaticamente    ║
  * ║                                                               ║
- * ║   Grupos: Arena, Trocas, Dungeons, Clãs, Cavernas,          ║
- * ║           Lazer, Arsenal da Fama                             ║
- * ║                                                               ║
- * ║   O bot é admin em TODOS os grupos e modera tudo.            ║
- * ║   Líderes de clã são admins do grupo do seu clã.             ║
- * ║   O dono supremo tem modo Deus.                              ║
+ * ║   • Owner é ADM em todos os grupos (menos clãs)              ║
+ * ║   • Emojis nos grupos (menos clãs)                           ║
+ * ║   • addglb busca users do dashboard + convite personalizado  ║
+ * ║   • Textos personalizados RPG com emojis e signos            ║
+ * ║   • Aldeia Central: DARK🕸️VILLE                              ║
  * ╚═══════════════════════════════════════════════════════════════╝
  */
 'use strict';
@@ -17,72 +16,213 @@ const config = require('../config');
 const rpg = require('./rpg/engine');
 
 // ══════════════════════════════════════════════════════════════
-// GRUPOS DA COMUNIDADE DARKRPG
+// SIGNOS / EMBLEMAS RPG PARA EMBELLEZAR TEXTOS
+// ══════════════════════════════════════════════════════════════
+const RPG_EMOJIS = {
+  rank: { E:'⚪', D:'🟢', C:'🔵', B:'🟣', A:'🟡', S:'🔴', SS:'⭐', SSS:'💎' },
+  element: { fogo:'🔥', agua:'💧', terra:'🌿', vento:'🌀', luz:'✨', treva:'🌑', trovao:'⚡', gelo:'❄️' },
+  status: { hp:'❤️', mp:'💙', atk:'⚔️', def:'🛡️', spd:'💨', luk:'🍀' },
+  action: { atacar:'⚔️', defender:'🛡️', fugir:'🏃', curar:'💚', skill:'🌀', item:'🎒' },
+  social: { clan:'🏰', guild:'👑', arena:'🏟️', dungeon:'🕳️', mercado:'🏪', taverna:'🍺' },
+};
+
+// ══════════════════════════════════════════════════════════════
+// GRUPOS DA COMUNIDADE DARK🕸️VILLE
 // ══════════════════════════════════════════════════════════════
 const COMMUNITY_GROUPS = {
+  // ── ALDEIA CENTRAL ──
+  aldeia: {
+    name: '🕸️ DARK🕸️VILLE — Aldeia Central',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  🕸️ DARK🕸️VILLE — Aldeia Central  ║',
+      '║  O coração da comunidade RPG       ║',
+      '╠═══════════════════════════════════╣',
+      '║  🏟️ Arena — Batalhas PvP           ║',
+      '║  🕳️ Dungeons — PvE e Bosses        ║',
+      '║  🏪 Trocas — Mercado livre         ║',
+      '║  🦇 Cavernas — Exploração          ║',
+      '║  😂 Lazer — Memes e diversão       ║',
+      '║  ⚔️ Arsenal — Rankings e fama       ║',
+      '║  🏰 Clãs — Grupos de guildas       ║',
+      '╚═══════════════════════════════════╝',
+      '',
+      '📜 Use !menu-rpg para ver todos os comandos',
+      '⚔️ Use !despertar para começar sua jornada',
+    ].join('\n'),
+    emoji: '🕸️',
+    isClan: false,
+    ownerAdm: true,
+  },
+
+  // ── ARENA ──
   arena: {
-    name: '⚔️ Arena DARKRPG',
-    desc: 'Batalhas PvP 1x1 e torneios. O bot é o juiz.',
-    icon: null,
-    rules: 'Duelos com aposta mínima 100 berries. O bot decide o vencedor.',
+    name: '🏟️ Arena das Sombras ⚔️',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  🏟️ Arena das Sombras ⚔️          ║',
+      '║  Batalhas PvP 1x1 e Torneios       ║',
+      '╠═══════════════════════════════════╣',
+      '║  • !x1 @user [aposta] — Duelo     ║',
+      '║  • !arena — Torneio automático     ║',
+      '║  • O DARK BOT é o juiz supremo     ║',
+      '║  • AURA narra as batalhas          ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '🏟️',
+    isClan: false,
+    ownerAdm: true,
   },
-  trocas: {
-    name: '🏪 Ville de Trocas',
-    desc: 'Mercado livre de itens, cartas e armas.',
-    icon: null,
-    rules: 'Preço mínimo 50 berries. Sem scam.',
-  },
+
+  // ── DUNGEONS ──
   dungeons: {
-    name: '🕳️ Dungeons DARKRPG',
-    desc: 'Portais PvE, bosses, exploração.',
-    icon: null,
-    rules: 'Use !portal para entrar. Drops automáticos.',
+    name: '🕳️ Dungeons Proibidas 🐉',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  🕳️ Dungeons Proibidas 🐉          ║',
+      '║  Portais PvE, Bosses, Raids        ║',
+      '╠═══════════════════════════════════╣',
+      '║  • !portal entrar — Abrir dungeon  ║',
+      '║  • !raid — Boss mundial            ║',
+      '║  • !lutar — Combate PvE            ║',
+      '║  • Drops automáticos               ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '🕳️',
+    isClan: false,
+    ownerAdm: true,
   },
+
+  // ── TROCAS ──
+  trocas: {
+    name: '🏪 Ville de Trocas 💰',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  🏪 Ville de Trocas 💰             ║',
+      '║  Mercado livre de itens e cartas   ║',
+      '╠═══════════════════════════════════╣',
+      '║  • !mercado — Ver ofertas          ║',
+      '║  • !vender <item> — Anunciar       ║',
+      '║  • !comprar <id> — Comprar         ║',
+      '║  • !loja — Loja do sistema         ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '🏪',
+    isClan: false,
+    ownerAdm: true,
+  },
+
+  // ── CAVERNAS ──
   cavernas: {
-    name: '🦇 Cavernas',
-    desc: 'Exploração, mineração, pesca, coleta.',
-    icon: null,
-    rules: 'Recursos respawn a cada 30 minutos.',
+    name: '🦇 Cavernas Sombrias ⛏️',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  🦇 Cavernas Sombrias ⛏️           ║',
+      '║  Exploração, mineração, pesca      ║',
+      '╠═══════════════════════════════════╣',
+      '║  • !explorar — Explorar biomas     ║',
+      '║  • !minerar — Minerar recursos     ║',
+      '║  • !pescar — Pescar itens          ║',
+      '║  • !colher — Colher plantas        ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '🦇',
+    isClan: false,
+    ownerAdm: true,
   },
+
+  // ── LAZER ──
   lazer: {
-    name: '😂 Lazer & Memes',
-    desc: 'Zoeira, memes, diversão.',
-    icon: null,
-    rules: 'Sem spam. Sem conteúdo 18+.',
+    name: '😂 Lazer & Memes 🎭',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  😂 Lazer & Memes 🎭               ║',
+      '║  Diversão, zoeira, memes           ║',
+      '╠═══════════════════════════════════╣',
+      '║  • Sem spam                        ║',
+      '║  • Sem conteúdo 18+                ║',
+      '║  • Respeite os membros             ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '😂',
+    isClan: false,
+    ownerAdm: true,
   },
+
+  // ── ARSENAL ──
   arsenal: {
-    name: '⚔️ Arsenal da Fama',
-    desc: 'Rankings, conquistas, top jogadores.',
-    icon: null,
-    rules: 'Rankings atualizados automaticamente.',
+    name: '⚔️ Arsenal da Fama 🏆',
+    desc: [
+      '╔═══════════════════════════════════╗',
+      '║  ⚔️ Arsenal da Fama 🏆             ║',
+      '║  Rankings, conquistas, top jogadores║',
+      '╠═══════════════════════════════════╣',
+      '║  • !ranking — Leaderboard          ║',
+      '║  • !top — Top jogadores            ║',
+      '║  • !conquistas — Achievements      ║',
+      '║  • Rankings atualizados automático ║',
+      '╚═══════════════════════════════════╝',
+    ].join('\n'),
+    emoji: '⚔️',
+    isClan: false,
+    ownerAdm: true,
   },
 };
 
 // ══════════════════════════════════════════════════════════════
-// CACHE DE GRUPOS CRIADOS
+// CONVITE PERSONALIZADO RPG (não parece invasão de PV)
 // ══════════════════════════════════════════════════════════════
-const _groupCache = new Map(); // groupName → groupJid
-const _clanGroups = new Map(); // clanName → groupJid
+function generateInviteMessage(userName, groupName) {
+  const greetings = [
+    `⚔️ *${userName}!*`,
+    `🏰 *${userName}, a Aldeia te chama!*`,
+    `🕸️ *${userName}, há um portal aberto para ti!*`,
+  ];
+
+  const bodies = [
+    `A comunidade *DARK🕸️VILLE* cresceu e agora temos um novo espaço: *${groupName}*.\n\nSe quiseres entrar, é só aceitar o convite. Sem pressão — a escolha é tua. 🎮`,
+    `O mundo do *DARKRPG* expandiu! *${groupName}* está ativo e há vagas para aventureiros.\n\nSe tiveres interesse, o convite está aqui. 🗡️`,
+    `Novidades na *DARK🕸️VILLE*! O grupo *${groupName}* foi criado para quem quer participar.\n\nAceita quando quiseres. ⚔️`,
+  ];
+
+  const closings = [
+    `🎮 *Use !menu-rpg para ver os comandos*\n⚔️ *Use !despertar para começar*`,
+    `🏰 *A jornada espera por ti!*\n⚔️ *!despertar* para iniciar`,
+    `🕸️ *O DARK te aguarda!*\n⚔️ *!despertar* para começar a aventura`,
+  ];
+
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+  const body = bodies[Math.floor(Math.random() * bodies.length)];
+  const closing = closings[Math.floor(Math.random() * closings.length)];
+
+  return `${greeting}\n\n${body}\n\n${closing}`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// CACHE
+// ══════════════════════════════════════════════════════════════
+const _groupCache = new Map(); // groupType → groupJid
+const _clanGroups = new Map(); // clanName → { jid, leaderJid }
 
 // ══════════════════════════════════════════════════════════════
 // CRIAR GRUPO DA COMUNIDADE
 // ══════════════════════════════════════════════════════════════
-async function createCommunityGroup(sock, groupType, participants = []) {
+async function createCommunityGroup(sock, groupType, ownerJid) {
   const groupDef = COMMUNITY_GROUPS[groupType];
   if (!groupDef) throw new Error('Tipo de grupo inválido: ' + groupType);
 
   try {
-    // Cria o grupo
-    const group = await sock.groupCreate(groupDef.name, participants);
+    // Cria o grupo com o owner
+    const group = await sock.groupCreate(groupDef.name, [ownerJid]);
     const groupJid = group.id;
 
     // Define descrição
-    await sock.groupUpdateDescription(groupJid, groupDef.desc + '\n\n📜 Regras: ' + groupDef.rules);
+    await sock.groupUpdateDescription(groupJid, groupDef.desc);
 
-    // Tenta definir ícone (se existir)
-    if (groupDef.icon) {
+    // Promove o owner a admin (sempre, menos clãs)
+    if (groupDef.ownerAdm) {
       try {
-        await sock.groupUpdatePicture(groupJid, groupDef.icon);
+        await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote');
       } catch {}
     }
 
@@ -98,11 +238,19 @@ async function createCommunityGroup(sock, groupType, participants = []) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// CRIAR GRUPO DE CLÃ
+// CRIAR GRUPO DE CLÃ (SEM emojis, SEM owner como adm)
 // ══════════════════════════════════════════════════════════════
 async function createClanGroup(sock, clanName, leaderJid, members = []) {
   const groupName = '🏰 Clã ' + clanName;
-  const desc = 'Clã ' + clanName + ' — Grupo oficial do clã.\nLíder: @' + leaderJid.split('@')[0];
+  const desc = [
+    '╔═══════════════════════════════════╗',
+    '║  🏰 Clã ' + clanName.padEnd(25) + '║',
+    '║  Grupo oficial do clã              ║',
+    '╠═══════════════════════════════════╣',
+    '║  👑 Líder: @' + leaderJid.split('@')[0].padEnd(22) + '║',
+    '║  📜 Regras do clã definidas pelo líder ║',
+    '╚═══════════════════════════════════╝',
+  ].join('\n');
 
   try {
     const participants = [leaderJid, ...members];
@@ -116,7 +264,7 @@ async function createClanGroup(sock, clanName, leaderJid, members = []) {
     await sock.groupParticipantsUpdate(groupJid, [leaderJid], 'promote');
 
     // Cache
-    _clanGroups.set(clanName, groupJid);
+    _clanGroups.set(clanName, { jid: groupJid, leaderJid });
 
     console.log('[DARKRPG] Clã criado: ' + clanName + ' → ' + groupJid);
     return { ok: true, jid: groupJid, name: groupName, leader: leaderJid };
@@ -151,14 +299,60 @@ async function removeUserFromGroup(sock, groupJid, userJid) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ADICIONAR USUÁRIO A TODOS OS GRUPOS (addglb)
+// ADDGLB — ADICIONAR TODOS OS USERS DO DASHBOARD
 // ══════════════════════════════════════════════════════════════
-async function addUserToAllGroups(sock, userJid) {
-  const results = [];
-  for (const [type, jid] of _groupCache.entries()) {
-    const r = await addUserToGroup(sock, jid, userJid);
-    results.push({ group: type, ...r });
+async function addAllUsersToGroups(sock, ownerJid) {
+  const User = require('../database/models/User');
+  const results = { added: [], invited: [], errors: [] };
+
+  // Busca todos os usuários do dashboard
+  let users = [];
+  try {
+    users = await User.find({ active: { $ne: false } }).lean();
+  } catch (e) {
+    results.errors.push('Erro ao buscar usuários: ' + e.message);
+    return results;
   }
+
+  if (!users.length) {
+    results.errors.push('Nenhum usuário encontrado no dashboard.');
+    return results;
+  }
+
+  // Para cada grupo da comunidade
+  for (const [groupType, groupJid] of _groupCache.entries()) {
+    const groupDef = COMMUNITY_GROUPS[groupType];
+    if (!groupDef || groupDef.isClan) continue; // Pula clãs
+
+    for (const user of users) {
+      const userJid = user.whatsappNumber + '@s.whatsapp.net';
+
+      // Pula o owner
+      if (userJid === ownerJid) continue;
+
+      try {
+        const addResult = await addUserToGroup(sock, groupJid, userJid);
+        if (addResult.ok) {
+          results.added.push({ user: user.name || user.whatsappNumber, group: groupDef.name });
+        } else {
+          // Se não conseguiu adicionar, envia convite personalizado
+          try {
+            const inviteMsg = generateInviteMessage(user.name || 'Aventureiro', groupDef.name);
+            await sock.sendMessage(userJid, { text: inviteMsg });
+            results.invited.push({ user: user.name || user.whatsappNumber, group: groupDef.name });
+          } catch (e2) {
+            results.errors.push(user.name + ': ' + e2.message);
+          }
+        }
+      } catch (e) {
+        results.errors.push(user.name + ': ' + e.message);
+      }
+
+      // Pequena pausa para não floodar
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+
   return results;
 }
 
@@ -166,11 +360,11 @@ async function addUserToAllGroups(sock, userJid) {
 // PROMOVER LÍDER DE CLÃ
 // ══════════════════════════════════════════════════════════════
 async function promoteClanLeader(sock, clanName, leaderJid) {
-  const groupJid = _clanGroups.get(clanName);
-  if (!groupJid) return { ok: false, error: 'Clã não encontrado' };
+  const clan = _clanGroups.get(clanName);
+  if (!clan) return { ok: false, error: 'Clã não encontrado' };
 
   try {
-    await sock.groupParticipantsUpdate(groupJid, [leaderJid], 'promote');
+    await sock.groupParticipantsUpdate(clan.jid, [leaderJid], 'promote');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e.message };
@@ -178,16 +372,16 @@ async function promoteClanLeader(sock, clanName, leaderJid) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// INICIALIZAR COMUNIDADE DARKRPG
+// INICIALIZAR COMUNIDADE DARK🕸️VILLE
 // ══════════════════════════════════════════════════════════════
 async function initCommunity(sock, ownerJid) {
   const results = [];
 
   // Cria todos os grupos da comunidade
   for (const [type, def] of Object.entries(COMMUNITY_GROUPS)) {
-    const r = await createCommunityGroup(sock, type, [ownerJid]);
+    const r = await createCommunityGroup(sock, type, ownerJid);
     results.push({ type, ...r });
-    // Pequena pausa entre criações
+    // Pausa entre criações
     await new Promise(resolve => setTimeout(resolve, 2000));
   }
 
@@ -199,13 +393,15 @@ async function initCommunity(sock, ownerJid) {
 // ══════════════════════════════════════════════════════════════
 module.exports = {
   COMMUNITY_GROUPS,
+  RPG_EMOJIS,
   _groupCache,
   _clanGroups,
   createCommunityGroup,
   createClanGroup,
   addUserToGroup,
   removeUserFromGroup,
-  addUserToAllGroups,
+  addAllUsersToGroups,
   promoteClanLeader,
   initCommunity,
+  generateInviteMessage,
 };
