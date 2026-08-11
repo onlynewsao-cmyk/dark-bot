@@ -92,6 +92,17 @@ function detectarAcao(texto) {
     return { acao: 'grupoNaComunidade', valor: extrairNome(texto) };
   }
 
+  // 1b. v6.66: convite/link da comunidade — antes de "ligar" e "criar",
+  // senão "manda o convite da comunidade" cai no sítio errado.
+  if (/\b(convite|link|invite|entrar)\b/.test(t) && /\bcomunidade\b/.test(t)) {
+    return { acao: 'conviteComunidade' };
+  }
+  // "adiciona-me à comunidade" / "mete-me na comunidade"
+  if (/\b(adiciona|add|mete|poe|põe|coloca|entra)\b/.test(t) &&
+      /\b(me|nos)\b/.test(t) && /\bcomunidade\b/.test(t)) {
+    return { acao: 'conviteComunidade' };
+  }
+
   // 2. Ligar este grupo a uma comunidade
   if (/\b(liga|ligar|junta|juntar|vincula|vincular|associa|mete|poe)\b/.test(t) &&
       /\bcomunidade\b/.test(t)) {
@@ -145,6 +156,73 @@ function detectarAcao(texto) {
 
 // ── Executores ──────────────────────────────────────────────
 
+/**
+ * v6.66 — Descobre QUAL é a comunidade, sem depender de a AURA a ter
+ * criado nesta sessão (o Render reinicia e o Map em memória esvazia).
+ *
+ * Ordem: mãe deste grupo → guardada no MongoDB → a última que criei →
+ * varrimento (1 query). Se só houver uma comunidade, é essa.
+ */
+async function _descobrirComunidade(sock, ctx, jid, emGrupo) {
+  const C = require('../bot/rpg/community');
+
+  // 1. Estou dentro de um grupo que já pertence a uma comunidade?
+  if (emGrupo) {
+    try {
+      const meta = await sock.groupMetadata(jid);
+      const parent = meta?.linkedParent || meta?.parentGroup;
+      if (parent) return { jid: parent, nome: 'esta comunidade' };
+    } catch {}
+  }
+
+  // 2. Já adoptada e guardada no MongoDB?
+  // v6.66: confirma que ainda existe. Se o Dono a apagou, o JID em
+  // cache fica morto e daria "item-not-found" para sempre.
+  try {
+    await C.loadState();
+    const guardada = C.getCommunityJid();
+    if (guardada) {
+      let viva = true;
+      try {
+        const meta = typeof sock.communityMetadata === 'function'
+          ? await sock.communityMetadata(guardada)
+          : await sock.groupMetadata(guardada);
+        viva = !!meta;
+      } catch { viva = false; }
+
+      if (viva) return { jid: guardada, nome: 'DARK VILLE' };
+      await C.forgetCommunity();   // apagada → esquece e procura outra
+    }
+  } catch {}
+
+  // 3. Criada nesta sessão?
+  const recente = _ultimaComunidade.get(String(ctx?.senderNumber || ''));
+  if (recente) return { jid: recente, nome: 'a comunidade' };
+
+  // 4. Varre o WhatsApp (1 query).
+  try {
+    const scan = await C.scanCommunities(sock);
+    if (scan.ok && scan.comunidades.length === 1) {
+      const c = scan.comunidades[0];
+      return { jid: c.id, nome: c.subject || 'a comunidade' };
+    }
+    if (scan.ok && scan.comunidades.length > 1) {
+      const pref = scan.comunidades.find(c => /dark|ville/i.test(c.subject || ''));
+      if (pref) return { jid: pref.id, nome: pref.subject };
+      return {
+        jid: null,
+        erro: 'Tenho várias comunidades: ' + scan.comunidades.map(c => c.subject).join(', ') +
+              '. Diz-me qual — ou usa *!darkrpg <nome>* para eu fixar uma.',
+      };
+    }
+  } catch {}
+
+  return {
+    jid: null,
+    erro: 'Não encontrei nenhuma comunidade onde eu esteja. Adiciona-me à comunidade primeiro (e dá-me admin).',
+  };
+}
+
 async function executar(acao, valor, { sock, ctx }) {
   const jid = ctx?.remoteJid;
   const emGrupo = !!ctx?.isGroup;
@@ -153,13 +231,36 @@ async function executar(acao, valor, { sock, ctx }) {
     case 'criarGrupo': {
       if (!valor) return { ok: false, msg: 'Diz-me o nome do grupo. Ex: *cria um grupo chamado Família*' };
       const donoJid = ctx.senderJid || `${ctx.senderNumber}@s.whatsapp.net`;
-      const g = await sock.groupCreate(valor, [donoJid]);
+
+      // v6.66: se houver comunidade adoptada, o grupo nasce lá dentro
+      // (é o que o Dono espera). Sem comunidade, grupo normal.
+      const C = require('../bot/rpg/community');
+      let commJid = null, commNome = '';
+      try {
+        await C.loadState();
+        commJid = C.getCommunityJid();
+        if (commJid) commNome = 'DARK VILLE';
+      } catch {}
+
+      const g = await C.createNamedGroup(sock, valor, donoJid, commJid, { forcarLink: !!commJid });
+      if (!g.ok) {
+        const limitado = /rate-overlimit|429/i.test(String(g.error));
+        return {
+          ok: false,
+          msg: limitado
+            ? 'O WhatsApp travou-me por criar grupos a mais. Espera ~1h e pede outra vez.'
+            : `Não consegui criar o grupo: ${g.error}`,
+        };
+      }
+
       let link = '';
       try {
-        const code = await sock.groupInviteCode(g.id);
+        const code = await sock.groupInviteCode(g.jid);
         if (code) link = `\nhttps://chat.whatsapp.com/${code}`;
       } catch {}
-      return { ok: true, msg: `Pronto, criei o grupo *${valor}* e já te meti lá dentro.${link}` };
+
+      const onde = commJid ? ` dentro da comunidade *${commNome}*` : '';
+      return { ok: true, msg: `Pronto, criei o grupo *${valor}*${onde} e já te meti lá dentro.${link}` };
     }
 
     case 'criarCanal': {
@@ -208,35 +309,47 @@ async function executar(acao, valor, { sock, ctx }) {
 
     case 'grupoNaComunidade': {
       if (!valor) return { ok: false, msg: 'Diz o nome do grupo. Ex: *cria um grupo na comunidade chamado Avisos*' };
-      if (typeof sock.communityCreateGroup !== 'function') {
-        return { ok: false, msg: 'A minha versão do WhatsApp não deixa isso.' };
-      }
 
-      // a comunidade: a última criada, ou a mãe deste grupo
-      let comunidade = _ultimaComunidade.get(String(ctx?.senderNumber || ''));
-      if (!comunidade && emGrupo) {
-        try {
-          const meta = await sock.groupMetadata(jid);
-          comunidade = meta?.linkedParent || meta?.parentGroup || '';
-        } catch {}
-      }
-      if (!comunidade) {
-        return { ok: false, msg: 'Não sei em que comunidade. Cria uma primeiro, ou usa isto dentro de um grupo que já pertença a ela.' };
-      }
-
+      const C = require('../bot/rpg/community');
       const donoJid = ctx.senderJid || `${ctx.senderNumber}@s.whatsapp.net`;
-      const g = await sock.communityCreateGroup(valor, [donoJid], comunidade);
-      const gid = g?.id || g?.jid || '';
+
+      // v6.66: já não depende de eu ter criado a comunidade nesta
+      // sessão. Procuro-a: a mãe deste grupo → a guardada no
+      // MongoDB → a única onde eu esteja.
+      const comunidade = await _descobrirComunidade(sock, ctx, jid, emGrupo);
+      if (!comunidade.jid) return { ok: false, msg: comunidade.erro };
+
+      // Garante que o Dono está lá dentro e é admin. Se o WhatsApp
+      // não deixar adicionar, manda o convite.
+      const dono = await C.ensureOwnerInCommunity(sock, comunidade.jid, donoJid);
+
+      const g = await C.createNamedGroup(sock, valor, donoJid, comunidade.jid, { forcarLink: true });
+      if (!g.ok) {
+        const limitado = /rate-overlimit|429/i.test(String(g.error));
+        return {
+          ok: false,
+          msg: limitado
+            ? 'O WhatsApp travou-me por criar grupos a mais. Espera ~1h e pede outra vez.'
+            : `Não consegui criar o grupo: ${g.error}`,
+        };
+      }
+
+      _ultimaComunidade.set(String(ctx?.senderNumber || ''), comunidade.jid);
 
       let link = '';
       try {
-        if (gid) {
-          const code = await sock.groupInviteCode(gid);
-          if (code) link = `\nhttps://chat.whatsapp.com/${code}`;
-        }
+        const code = await sock.groupInviteCode(g.jid);
+        if (code) link = `\nhttps://chat.whatsapp.com/${code}`;
       } catch {}
 
-      return { ok: true, msg: `Criei o grupo *${valor}* dentro da comunidade.${link}` };
+      let extra = '';
+      if (dono.acoes?.length) extra = '\n\n' + dono.acoes.map(a => '▸ ' + a).join('\n');
+      if (dono.convite) extra += `\n${dono.convite}`;
+
+      return {
+        ok: true,
+        msg: `Criei o grupo *${valor}* dentro da comunidade *${comunidade.nome}*.${link}${extra}`,
+      };
     }
 
     case 'ligarComunidade': {
@@ -244,12 +357,38 @@ async function executar(acao, valor, { sock, ctx }) {
       if (typeof sock.communityLinkGroup !== 'function') {
         return { ok: false, msg: 'A minha versão do WhatsApp não deixa isso.' };
       }
-      const comunidade = _ultimaComunidade.get(String(ctx?.senderNumber || ''));
-      if (!comunidade) {
-        return { ok: false, msg: 'Não sei a que comunidade. Cria uma primeiro com *cria uma comunidade chamada X*.' };
+      // v6.66: descobre a comunidade em vez de exigir que eu a tenha criado.
+      const c = await _descobrirComunidade(sock, ctx, jid, false);
+      if (!c.jid) return { ok: false, msg: c.erro };
+      try {
+        await sock.communityLinkGroup(jid, c.jid);
+      } catch (e) {
+        return { ok: false, msg: `Não consegui ligar: ${e.message}` };
       }
-      await sock.communityLinkGroup(jid, comunidade);
-      return { ok: true, msg: 'Liguei este grupo à comunidade.' };
+      return { ok: true, msg: `Liguei este grupo à comunidade *${c.nome}*.` };
+    }
+
+    // v6.66: "manda o convite da comunidade"
+    case 'conviteComunidade': {
+      const C = require('../bot/rpg/community');
+      const donoJid = ctx.senderJid || `${ctx.senderNumber}@s.whatsapp.net`;
+      const c = await _descobrirComunidade(sock, ctx, jid, emGrupo);
+      if (!c.jid) return { ok: false, msg: c.erro };
+
+      const dono = await C.ensureOwnerInCommunity(sock, c.jid, donoJid);
+      const link = dono.convite || await C.getCommunityInvite(sock, c.jid);
+
+      if (!link) {
+        return {
+          ok: false,
+          msg: `Encontrei a comunidade *${c.nome}* mas o WhatsApp não me deu o link. ` +
+               'Preciso de ser admin dela.',
+        };
+      }
+      const estado = dono.dentro
+        ? (dono.admin ? 'Já estás lá dentro e és admin.' : 'Já estás lá dentro.')
+        : 'Ainda não estás lá — entra por aqui:';
+      return { ok: true, msg: `Comunidade *${c.nome}*.\n${estado}\n${link}` };
     }
 
     case 'nomeGrupo': {

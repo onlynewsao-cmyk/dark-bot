@@ -314,3 +314,90 @@ Corre **`!darkrpg`** no WhatsApp. Antes disso confirma duas coisas:
    criar grupos lá dentro (vais ver `não consegui promover-te` no relatório).
 
 Se tiveres mais que uma comunidade, usa `!darkrpg DARK VILLE` para escolher.
+
+---
+
+# v6.66 — A AURA trabalha com a comunidade única
+
+O utilizador apagou as outras comunidades e deixou **uma**. Pediu: *"já me
+adiciona ou manda o convite da comunidade, a aura cria os grupos e ela
+adiciona na comunidade"*.
+
+## O que estava partido na AURA
+
+### 1. Só sabia da comunidade se a tivesse criado naquela sessão 🔴
+
+```js
+const _ultimaComunidade = new Map();   // memória pura
+```
+
+O `grupoNaComunidade` lia deste `Map`. Como o Render reinicia o processo, a
+AURA respondia **"Não sei em que comunidade"** a seguir a qualquer deploy — e
+sempre, no caso do utilizador, porque a comunidade foi criada **à mão na app**,
+não pela AURA.
+
+**Corrigido:** `_descobrirComunidade()` procura por esta ordem:
+1. A **mãe do grupo actual** (`linkedParent`) — 1 query, se já estiver dentro
+2. A **adoptada e guardada no MongoDB** (0 queries)
+3. A criada nesta sessão
+4. **Varrimento** (1 query) — se só houver uma comunidade, é essa
+
+### 2. Gastava 5 queries por grupo 🔴
+
+A AURA chamava `sock.communityCreateGroup()` — o mesmo caminho que dava
+`rate-overlimit` no `.darkrpg`. Agora usa o `createNamedGroup()`, com **1
+query** e `<linked_parent>` embutido no stanza de criação.
+
+### 3. Nunca metia o Dono na comunidade nem mandava convite 🟠
+
+Não havia nada disso. Agora `ensureOwnerInCommunity()`: lê o estado, faz `add`
+se estiver fora, `promote` se não for admin — e se o WhatsApp recusar o `add`
+(privacidade), **manda o link de convite** em vez de falhar.
+
+### 4. Se apagasses a comunidade, ficava preso a um JID morto 🟠
+
+O JID guardado no MongoDB nunca era revalidado — daria `item-not-found` para
+sempre. Agora confirma que a comunidade ainda existe; se não, `forgetCommunity()`
+limpa e procura outra.
+
+### 5. `cria um grupo chamado X` nascia fora da comunidade 🟠
+
+Agora, se houver comunidade adoptada, o grupo nasce **lá dentro**.
+
+## Frases que ela entende
+
+| Dizes | Faz |
+|---|---|
+| `cria um grupo na comunidade chamado Avisos` | cria lá dentro |
+| `cria um grupo chamado Off-Topic` | também vai para a comunidade |
+| `manda o convite da comunidade` | link + estado (dentro? admin?) |
+| `adiciona-me à comunidade` | add + promote, ou convite |
+| `quero o link da comunidade` | idem |
+| `liga este grupo à comunidade` | linka o grupo actual |
+
+## Teste novo: `npm run test:auracom`
+
+`scripts/test-aura-comunidade.js` — **18 verificações, 18 OK**:
+
+- Detecta as 6 ordens em português
+- Dono fora + WhatsApp recusa `add` → **manda o link**
+- Dono fora + `add` funciona → adiciona **e** promove
+- Cria grupo na comunidade **sem a ter criado** (o bug do reinício)
+- Grupo nasce **dentro** da comunidade, com **1 query** (não 5)
+- Depois de adoptada, **0 varrimentos**
+- Dentro dum subgrupo, usa a mãe
+- `rate-overlimit` → mensagem humana
+- Sem comunidade → diz o que fazer, **não cria solto**
+- Comunidade apagada → esquece o JID morto e usa a viva
+
+Suite completa: **343 testes, 0 falhas**.
+
+## O que fazer agora
+
+1. Confirma que o **bot está dentro** da comunidade e é **admin** dela.
+2. Corre **`!darkrpg`** uma vez — adopta a comunidade e fixa-a no MongoDB.
+3. A partir daí, fala com a AURA à vontade:
+   *"aura cria um grupo na comunidade chamado Arena"*.
+
+Se ainda não estiveres na comunidade, diz-lhe *"manda o convite da comunidade"*
+— ela adiciona-te, ou dá-te o link se o WhatsApp não deixar.
