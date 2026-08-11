@@ -44,7 +44,12 @@ const ai           = require('./ai');
 // 'blood', 'dead', 'animal', 'forced' — são comuns em anime/manga
 // normal e bloqueiam pesquisas legítimas. O filtro de tags (-loli -cub)
 // nas APIs já trata do conteúdo proibido.
-const BLOCKED_TERMS = /\b(menor|menores|criança|crianca|infantil|kid|kids|child|children|underage|loli|lolita|shota|incesto|incest|rape|abuso|abuse|abus|zoofilia|bestiality|snuff|gore|scat|necro|necrophilia)\b/i;
+// v6.62: o commit 74b1438 aliviou o filtro para tirar falsos
+// positivos (animal, blood, morto, forced) — faz sentido.
+// Mas levou também teen/colegial/schoolgirl/schoolboy, que são
+// proteção legal, não conveniência. Repostos.
+// Os falsos positivos que retiraste continuam fora.
+const BLOCKED_TERMS = /\b(menor|menores|criança|crianca|infantil|kid|kids|child|children|underage|loli|lolita|shota|teen|teens|colegial|schoolgirl|schoolboy|incesto|incest|rape|abuso|abuse|abus|zoofilia|bestiality|snuff|gore|scat|necro|necrophilia)\b/i;
 
 function isBlocked(q = '') {
   return BLOCKED_TERMS.test(String(q || ''));

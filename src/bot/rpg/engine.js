@@ -275,6 +275,23 @@ async function getPlayer(number) {
   const RPGPlayer = require('../../database/models/RPGPlayer');
   let p = await RPGPlayer.findOne({ whatsappNumber: num });
   if (!p) p = await RPGPlayer.getOrCreate(num);
+
+  // v6.62: garante os campos que os cases assumem existir.
+  // Jogadores criados por versões antigas do schema não tinham
+  // `inventory` e o `.minerar` rebentava com
+  // "Cannot read properties of undefined (reading 'push')".
+  if (p) {
+    if (!Array.isArray(p.inventory)) p.inventory = [];
+    if (!Array.isArray(p.items)) p.items = [];
+    if (typeof p.level !== 'number') p.level = 1;
+    if (typeof p.xp !== 'number') p.xp = 0;
+    if (typeof p.hp !== 'number') p.hp = 100;
+    if (typeof p.maxHp !== 'number') p.maxHp = p.hp || 100;
+    if (typeof p.kills !== 'number') p.kills = 0;
+    if (typeof p.deaths !== 'number') p.deaths = 0;
+    if (!p.name) p.name = 'Aventureiro';
+  }
+
   _cache.set(num, p);
   return p;
 }
@@ -311,6 +328,227 @@ function hpBar(current, max, len = 10) {
   return '█'.repeat(filled) + '░'.repeat(len - filled);
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// v6.62 — CAMADA DE COMPATIBILIDADE
+// O engine v7 (adaptado do NazumaMarce) trouxe ORIGINS/RANKS/SKILLS
+// e substituiu o modelo antigo. Mas o cases/rpg2.js continua a usar
+// RACES, CLASSES, BIOMES, QUESTS e generateEnemy — 13 referências.
+// Sem isto, 7 comandos rebentavam em produção:
+//   .minerar  → "Cannot read properties of undefined (reading 'montanha')"
+//   .dungeon  → "rpg.generateEnemy is not a function"
+//   .classes  → "Cannot convert undefined or null to object"
+//   (+ pescar, arena, rankrpg, forjar)
+// Em vez de reescrever o rpg2.js inteiro, mapeamos o que falta.
+// ══════════════════════════════════════════════════════════════
+
+// RACES ← derivadas das ORIGINS do v7
+const RACES = {};
+for (const [k, v] of Object.entries(ORIGINS || {})) {
+  RACES[k] = {
+    emoji: v.emoji || '🧬',
+    desc: v.desc || v.name || k,
+    bonus: v.bonus || { str: 1, dex: 1, int: 1, vit: 1, luk: 1 },
+  };
+}
+if (!RACES.humano) {
+  RACES.humano = { emoji: '🧑', desc: 'Equilibrado em tudo', bonus: { str: 2, dex: 2, int: 2, vit: 2, luk: 2 } };
+}
+
+// CLASSES ← as origens também servem de classe (o v7 fundiu os dois)
+const CLASSES = {};
+for (const [k, v] of Object.entries(ORIGINS || {})) {
+  CLASSES[k] = {
+    emoji: v.emoji || '⚔️',
+    desc: v.desc || v.name || k,
+    primary: v.primary || (v.bonus ? Object.entries(v.bonus).sort((a, b) => b[1] - a[1])[0][0] : 'str'),
+  };
+}
+if (!CLASSES.guerreiro) {
+  CLASSES.guerreiro = { emoji: '⚔️', desc: 'Força bruta e resistência', primary: 'str' };
+}
+
+// BIOMES — usados por .explorar, .minerar, .pescar e .biomas
+const BIOMES = {
+  floresta:  { emoji: '🌲', desc: 'Mata densa e silenciosa',   nivel: 1,  loot: ['madeira', 'erva', 'cogumelo'] },
+  montanha:  { emoji: '⛰️', desc: 'Picos gelados e minas',      nivel: 5,  loot: ['ferro', 'carvão', 'pedra'] },
+  praia:     { emoji: '🏖️', desc: 'Areia branca e maré calma',  nivel: 3,  loot: ['concha', 'peixe', 'pérola'] },
+  caverna:   { emoji: '🕳️', desc: 'Escuridão e ecos',           nivel: 8,  loot: ['cristal', 'ouro', 'osso'] },
+  deserto:   { emoji: '🏜️', desc: 'Sol implacável',             nivel: 12, loot: ['areia', 'cacto', 'relíquia'] },
+  pantano:   { emoji: '🐊', desc: 'Lama e criaturas',           nivel: 15, loot: ['veneno', 'raiz', 'sanguessuga'] },
+  vulcao:    { emoji: '🌋', desc: 'Lava e cinzas',              nivel: 20, loot: ['obsidiana', 'enxofre', 'rubi'] },
+  abismo:    { emoji: '🌑', desc: 'O fundo do mundo',           nivel: 30, loot: ['fragmento sombrio', 'alma'] },
+};
+// .mapa usa v.danger para desenhar os avisos
+for (const b of Object.values(BIOMES)) {
+  b.danger = Math.max(1, Math.min(5, Math.ceil(b.nivel / 6)));
+}
+
+// NPCS — usados por .npc / .falar
+const NPCS = {
+  ferreiro:  { emoji: '🔨', name: 'Grom, o Ferreiro',   fala: 'Traz-me ferro e eu faço-te uma lâmina que corta a noite.' },
+  taverneira:{ emoji: '🍺', name: 'Mara da Taverna',    fala: 'Senta-te. Ouvi coisas sobre as cavernas a norte...' },
+  mago:      { emoji: '🧙', name: 'Velho Aldric',       fala: 'O poder tem preço. Estás pronto para pagar?' },
+  mercador:  { emoji: '💰', name: 'Zeno, o Mercador',   fala: 'Tudo tem preço, amigo. Até o silêncio.' },
+  curandeira:{ emoji: '💚', name: 'Irmã Elina',         fala: 'Deixa-me ver essas feridas. Não sejas teimoso.' },
+  guarda:    { emoji: '🛡️', name: 'Capitão Rurik',      fala: 'Mantém-te longe de sarilhos e ficamos bem.' },
+};
+
+// QUESTS — histórias curtas com escolhas
+const QUESTS = [
+  {
+    id: 'inicio', titulo: 'O Chamado',
+    texto: 'Um mensageiro encapuzado estende-te um pergaminho selado. "Só tu podes ler isto."',
+    escolhas: [
+      { txt: 'Abrir o pergaminho', next: 'pergaminho', xp: 20 },
+      { txt: 'Recusar e ir embora', next: null, xp: 5 },
+    ],
+  },
+  {
+    id: 'pergaminho', titulo: 'O Selo Quebrado',
+    texto: 'O papel arde ao toque. Uma marca fica-te na palma da mão.',
+    escolhas: [
+      { txt: 'Seguir a marca', next: null, xp: 50, item: 'marca antiga' },
+      { txt: 'Tentar apagá-la', next: null, xp: 15 },
+    ],
+  },
+];
+
+/**
+ * Gera um inimigo de acordo com o nível. Usa os BOSSES do v7 quando
+ * o nível é alto; senão monta um inimigo comum.
+ */
+function generateEnemy(level = 1, tipo = null) {
+  const lvl = Math.max(1, Math.floor(level));
+
+  // nível alto → tenta um boss real do catálogo v7
+  if (lvl >= 25 && BOSSES) {
+    const pool = Array.isArray(BOSSES)
+      ? BOSSES
+      : Object.values(BOSSES).flat().filter(Boolean);
+    if (pool.length) {
+      const b = pool[Math.floor(Math.random() * pool.length)];
+      if (b) {
+        const nomeBoss = b.name || b.nome || 'Boss';
+        return {
+          // v6.62: o cases/rpg2.js usa .name/.level; outros usam
+          // .nome/.nivel. Devolvemos os dois para não partir nenhum.
+          nome: nomeBoss, name: nomeBoss,
+          emoji: b.emoji || '💀',
+          nivel: lvl, level: lvl,
+          hp: b.hp || lvl * 40,
+          maxHp: b.hp || lvl * 40,
+          atk: b.atk || lvl * 6,
+          def: b.def || lvl * 3,
+          xp: b.xp || lvl * 30,
+          gold: b.gold || lvl * 25,
+          boss: true,
+        };
+      }
+    }
+  }
+
+  const comuns = [
+    { nome: 'Goblin',     emoji: '👺' }, { nome: 'Lobo Sombrio', emoji: '🐺' },
+    { nome: 'Esqueleto',  emoji: '💀' }, { nome: 'Slime',        emoji: '🟢' },
+    { nome: 'Bandido',    emoji: '🗡️' }, { nome: 'Aranha Gigante', emoji: '🕷️' },
+    { nome: 'Espectro',   emoji: '👻' }, { nome: 'Ogro',         emoji: '👹' },
+  ];
+  const e = comuns[Math.floor(Math.random() * comuns.length)];
+  const hp = lvl * 18 + 30;
+
+  const nomeFinal = tipo && tipo !== 'normal' && tipo !== 'boss' && tipo !== 'elite' ? tipo : e.nome;
+  return {
+    nome: nomeFinal, name: nomeFinal,
+    emoji: e.emoji, nivel: lvl, level: lvl,
+    hp, maxHp: hp,
+    atk: lvl * 4 + 5, def: lvl * 2 + 2,
+    xp: lvl * 12 + 10, gold: lvl * 8 + 5,
+    boss: false,
+  };
+}
+
+
+/**
+ * v6.62: calcDamage — usado por .dungeon e .arena.
+ * O engine v7 não o trouxe e os dois comandos rebentavam com
+ * "rpg.calcDamage is not a function".
+ */
+function calcDamage(atacante, alvo, skill = 'basic') {
+  const atk = Number(atacante?.atk ?? atacante?.str ?? 10);
+  const def = Number(alvo?.def ?? alvo?.vit ?? 5);
+
+  // multiplicador por tipo de golpe
+  const mult = skill === 'basic' ? 1
+    : skill === 'forte' || skill === 'heavy' ? 1.6
+    : skill === 'especial' || skill === 'ultimate' ? 2.2
+    : 1.2;
+
+  const base = Math.max(1, atk * mult - def * 0.5);
+  const variacao = 0.85 + Math.random() * 0.3;      // ±15%
+  const critico = Math.random() < 0.12;             // 12% de crítico
+
+  const dano = Math.max(1, Math.round(base * variacao * (critico ? 1.8 : 1)));
+  return { dano, dmg: dano, critico, crit: critico, skill };
+}
+
+
+// RECIPES — usadas por .forjar / .forge (cases/economia2.js).
+// O engine v7 tem WEAPONS e REFINEMENT mas não receitas de crafting,
+// e o comando rebentava com "Cannot convert undefined or null to object".
+const RECIPES = {
+  'espada de ferro':   { emoji: '⚔️', ingredients: { ferro: 3, madeira: 1 },            atk: 12, valor: 150 },
+  'escudo de ferro':   { emoji: '🛡️', ingredients: { ferro: 4, madeira: 2 },            def: 10, valor: 140 },
+  'arco longo':        { emoji: '🏹', ingredients: { madeira: 4, erva: 2 },             atk: 10, valor: 120 },
+  'cajado arcano':     { emoji: '🔮', ingredients: { madeira: 2, cristal: 2 },          atk: 15, valor: 220 },
+  'armadura de couro': { emoji: '🥋', ingredients: { couro: 5, ferro: 1 },              def: 8,  valor: 130 },
+  'poção de vida':     { emoji: '🧪', ingredients: { erva: 3, cogumelo: 1 },            cura: 50, valor: 60 },
+  'poção de mana':     { emoji: '💙', ingredients: { erva: 2, cristal: 1 },             mana: 40, valor: 70 },
+  'lâmina sombria':    { emoji: '🗡️', ingredients: { obsidiana: 3, 'fragmento sombrio': 1 }, atk: 30, valor: 600 },
+  'anel de sorte':     { emoji: '💍', ingredients: { ouro: 2, rubi: 1 },                luk: 5,  valor: 400 },
+  'elmo de aço':       { emoji: '⛑️', ingredients: { ferro: 5, couro: 2 },              def: 12, valor: 180 },
+};
+
+
+/**
+ * v6.62: generateLoot — só era chamado quando o jogador VENCIA o
+ * combate, por isso o erro aparecia de forma intermitente (6 em 25
+ * execuções do .dungeon). Fácil de não notar num teste único.
+ */
+function generateLoot(enemyOrLevel = 1, levelArg = 1) {
+  // aceita as duas assinaturas usadas no código:
+  //   generateLoot(enemy, playerLevel)   ← cases/economia2.js
+  //   generateLoot(level, boss)
+  const ehObjecto = enemyOrLevel && typeof enemyOrLevel === 'object';
+  const level = ehObjecto
+    ? (enemyOrLevel.nivel || enemyOrLevel.level || levelArg || 1)
+    : (Number(enemyOrLevel) || 1);
+  const boss = ehObjecto ? !!enemyOrLevel.boss : !!levelArg;
+
+  const comuns  = ['erva', 'cogumelo', 'madeira', 'pedra', 'couro', 'osso'];
+  const raros   = ['ferro', 'cristal', 'carvão', 'pérola', 'rubi'];
+  const epicos  = ['obsidiana', 'fragmento sombrio', 'relíquia', 'alma'];
+
+  const qtd = boss ? 3 : (Math.random() < 0.35 ? 2 : 1);
+  const drops = [];
+
+  for (let i = 0; i < qtd; i++) {
+    const sorte = Math.random() + (level / 200) + (boss ? 0.25 : 0);
+    const pool = sorte > 0.9 ? epicos : sorte > 0.6 ? raros : comuns;
+    drops.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  // v6.62: o cases/economia2.js faz `loot.forEach(i => inventory.push(i))`
+  // — espera um ARRAY de itens. Devolvemos o array com as
+  // propriedades gold/xp anexadas, para servir os dois usos.
+  const resultado = drops.slice();
+  resultado.items = drops;
+  resultado.itens = drops;
+  resultado.gold = Math.round((level * 8 + 5) * (boss ? 3 : 1) * (0.8 + Math.random() * 0.4));
+  resultado.xp = Math.round((level * 12 + 10) * (boss ? 2.5 : 1));
+  return resultado;
+}
+
 module.exports = {
   ORIGINS, RANKS, SKILLS, WEAPONS, BOSSES, CARD_CATALOG, RARITY_WEIGHTS: [
     { rarity:'Mítico', chance:3, emoji:'🔴' },
@@ -319,6 +557,8 @@ module.exports = {
     { rarity:'Raro', chance:100, emoji:'🔵' },
   ],
   SHOP, REFINEMENT, DAILY_REWARDS, ACHIEVEMENTS,
+  // v6.62: compatibilidade com cases/rpg2.js
+  RACES, CLASSES, BIOMES, QUESTS, NPCS, RECIPES, generateEnemy, calcDamage, generateLoot,
   getRank, addXP, hpBar,
   getPlayer, savePlayer,
   _cache,

@@ -25,6 +25,10 @@
 
 'use strict';
 
+// v6.61: guarda a última comunidade criada por cada dono, para
+// "cria um grupo na comunidade" saber onde meter o grupo.
+const _ultimaComunidade = new Map();
+
 function norm(s) {
   return String(s || '')
     .toLowerCase()
@@ -38,7 +42,7 @@ function extrairNome(texto) {
   const m = String(texto).match(/(?:chamad[oa]|com o nome|de nome|nome|:)\s+["'“”]?([^"'“”\n]{2,60})["'“”]?\s*$/i);
   if (m) return m[1].trim();
   // "cria um grupo Família" — nome no fim, sem palavra-chave
-  const m2 = String(texto).match(/(?:grupo|canal|newsletter)\s+(?:novo\s+)?["'“”]?([^"'“”\n]{2,60})["'“”]?\s*$/i);
+  const m2 = String(texto).match(/(?:grupo|canal|newsletter|comunidade)\s+(?:novo\s+|nova\s+)?["'“”]?([^"'“”\n]{2,60})["'“”]?\s*$/i);
   if (m2) {
     const n = m2[1].trim();
     if (!/^(aqui|agora|novo|nova|por favor|pf)$/i.test(n)) return n;
@@ -74,6 +78,29 @@ function detectarAcao(texto) {
   // 'abre um canal CHAMADO x' é criar; 'abre o grupo' já foi tratado acima
   if (/\b(cria|criar|faz|fazer|monta|montar|abre|abrir)\b/.test(t) && /\b(canal|newsletter)\b/.test(t)) {
     return { acao: 'criarCanal', valor: extrairNome(texto) };
+  }
+
+  // ── v6.61: a ordem importa (mais específico primeiro) ─────
+  // "cria um grupo NA COMUNIDADE" tem de ser testado antes de
+  // "cria uma comunidade" — senão a segunda regra apanha-o e
+  // acaba a criar uma comunidade chamada "Avisos".
+
+  // 1. Grupo DENTRO da comunidade
+  if (/\b(cria|criar|faz|fazer|adiciona|add|abre|abrir)\b/.test(t) &&
+      /\bgrupo\b/.test(t) &&
+      /\b(na|dentro da|nesta|da|pra|para a)\s+comunidade\b/.test(t)) {
+    return { acao: 'grupoNaComunidade', valor: extrairNome(texto) };
+  }
+
+  // 2. Ligar este grupo a uma comunidade
+  if (/\b(liga|ligar|junta|juntar|vincula|vincular|associa|mete|poe)\b/.test(t) &&
+      /\bcomunidade\b/.test(t)) {
+    return { acao: 'ligarComunidade' };
+  }
+
+  // 3. Criar a comunidade
+  if (/\b(cria|criar|faz|fazer|monta|montar|abre|abrir)\b/.test(t) && /\bcomunidade\b/.test(t)) {
+    return { acao: 'criarComunidade', valor: extrairNome(texto) };
   }
 
   // ── Criar grupo ───────────────────────────────────────────
@@ -150,6 +177,81 @@ async function executar(acao, valor, { sock, ctx }) {
       };
     }
 
+    // ── v6.61: COMUNIDADES ────────────────────────────────
+    // A API do Baileys tem communityCreate/communityCreateGroup/
+    // communityLinkGroup, mas o bot nunca as usava — por isso
+    // "criar comunidade" nunca funcionou.
+    case 'criarComunidade': {
+      if (!valor) return { ok: false, msg: 'Diz-me o nome. Ex: *cria uma comunidade chamada Dark Net*' };
+      if (typeof sock.communityCreate !== 'function') {
+        return { ok: false, msg: 'A minha versão do WhatsApp não deixa criar comunidades.' };
+      }
+      const c = await sock.communityCreate(valor, `Comunidade do ${ctx?.botName || 'DARK BOT'}`);
+      const cid = c?.id || c?.jid || '';
+      if (!cid) return { ok: false, msg: 'Pedi para criar mas o WhatsApp não devolveu a comunidade.' };
+
+      // guarda a última comunidade — para "cria um grupo na comunidade"
+      _ultimaComunidade.set(String(ctx?.senderNumber || ''), cid);
+
+      let link = '';
+      try {
+        const code = await sock.communityInviteCode?.(cid);
+        if (code) link = `\nhttps://chat.whatsapp.com/${code}`;
+      } catch {}
+
+      return {
+        ok: true,
+        msg: `Criei a comunidade *${valor}*.${link}\n\n` +
+             `Agora podes dizer *"cria um grupo na comunidade chamado X"*.`,
+      };
+    }
+
+    case 'grupoNaComunidade': {
+      if (!valor) return { ok: false, msg: 'Diz o nome do grupo. Ex: *cria um grupo na comunidade chamado Avisos*' };
+      if (typeof sock.communityCreateGroup !== 'function') {
+        return { ok: false, msg: 'A minha versão do WhatsApp não deixa isso.' };
+      }
+
+      // a comunidade: a última criada, ou a mãe deste grupo
+      let comunidade = _ultimaComunidade.get(String(ctx?.senderNumber || ''));
+      if (!comunidade && emGrupo) {
+        try {
+          const meta = await sock.groupMetadata(jid);
+          comunidade = meta?.linkedParent || meta?.parentGroup || '';
+        } catch {}
+      }
+      if (!comunidade) {
+        return { ok: false, msg: 'Não sei em que comunidade. Cria uma primeiro, ou usa isto dentro de um grupo que já pertença a ela.' };
+      }
+
+      const donoJid = ctx.senderJid || `${ctx.senderNumber}@s.whatsapp.net`;
+      const g = await sock.communityCreateGroup(valor, [donoJid], comunidade);
+      const gid = g?.id || g?.jid || '';
+
+      let link = '';
+      try {
+        if (gid) {
+          const code = await sock.groupInviteCode(gid);
+          if (code) link = `\nhttps://chat.whatsapp.com/${code}`;
+        }
+      } catch {}
+
+      return { ok: true, msg: `Criei o grupo *${valor}* dentro da comunidade.${link}` };
+    }
+
+    case 'ligarComunidade': {
+      if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
+      if (typeof sock.communityLinkGroup !== 'function') {
+        return { ok: false, msg: 'A minha versão do WhatsApp não deixa isso.' };
+      }
+      const comunidade = _ultimaComunidade.get(String(ctx?.senderNumber || ''));
+      if (!comunidade) {
+        return { ok: false, msg: 'Não sei a que comunidade. Cria uma primeiro com *cria uma comunidade chamada X*.' };
+      }
+      await sock.communityLinkGroup(jid, comunidade);
+      return { ok: true, msg: 'Liguei este grupo à comunidade.' };
+    }
+
     case 'nomeGrupo': {
       if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
       if (!valor) return { ok: false, msg: 'Diz para que nome. Ex: *muda o nome do grupo para X*' };
@@ -208,4 +310,4 @@ async function executar(acao, valor, { sock, ctx }) {
   }
 }
 
-module.exports = { detectarAcao, executar, extrairNome, extrairPara, norm };
+module.exports = { detectarAcao, executar, extrairNome, extrairPara, norm, _ultimaComunidade };
