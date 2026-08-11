@@ -27,14 +27,31 @@ module.exports = function registerRPGCommunity(registerCase) {
     try {
       const results = await community.initCommunity(sock, ctx.senderJid);
 
-      let report = '🕸️ *DARK🕸️VILLE — COMUNIDADE CRIADA!*\n\n';
+      const falhas = results.filter(r => !r.ok && r.type !== 'aviso');
+      const limitado = results.some(r => /rate-overlimit|429/i.test(String(r.error || '')));
+
+      let report = falhas.length
+        ? '🕸️ *DARK🕸️VILLE — PARCIAL*\n\n'
+        : '🕸️ *DARK🕸️VILLE — COMUNIDADE CRIADA!*\n\n';
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
       for (const r of results) {
-        report += r.ok ? '✅ ' + r.name + '\n' : '❌ ' + r.type + ': ' + r.error + '\n';
+        if (r.type === 'aviso') continue;
+        report += r.ok ? '✅ ' + r.name + '\n' : '❌ ' + (r.name || r.type) + ': ' + r.error + '\n';
       }
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
-      report += '👑 *Você é ADM em todos os grupos!*\n';
-      report += '🏰 *Clãs são independentes — líderes comandam.*\n\n';
+
+      if (limitado) {
+        // v6.64: em vez de só dizer "rate-overlimit", explica o que fazer.
+        report += '⚠️ *O WhatsApp limitou a conta (rate-overlimit).*\n\n';
+        report += 'Não é bug do bot — é o WhatsApp a travar criação de\n';
+        report += 'grupos em série. O que já foi criado está guardado.\n\n';
+        report += '🕐 *Espera ~1 hora e corre !darkrpg outra vez.*\n';
+        report += 'Ele continua de onde parou, sem duplicar nada.\n\n';
+      } else if (!falhas.length) {
+        report += '👑 *Você é ADM em todos os grupos!*\n';
+        report += '🏰 *Clãs são independentes — líderes comandam.*\n\n';
+      }
+
       report += '🎮 *Próximos passos:*\n';
       report += '• !darkrpg-test — Testar tudo\n';
       report += '• !addglb — Adicionar todos ao grupo geral\n';
