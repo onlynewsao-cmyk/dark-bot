@@ -55,7 +55,9 @@ module.exports = function registerRPG2(registerCase) {
     const name = args.join(' ').trim() || ctx.pushName;
     const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
     const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
-    await rpg.savePlayer(p);
+    // v6.62: usava `p` sem o carregar → "p is not defined".
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    if (p) { p.name = name; await rpg.savePlayer(p); }
 
     return tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
       `👤 Nome: *${name}*`,
@@ -375,16 +377,23 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ RANKING RPG ═══
   registerCase(['rankrpg', 'toprpg', 'rankglobal'], async ({ sock, msg, ctx }) => {
-    const sorted = [...rpg._players.entries()]
-      .sort((a, b) => b[1].level - a[1].level || b[1].kills - a[1].kills)
+    // v6.62: `rpg._players` não existe no engine v7 (é `_cache`), e
+    // havia um savePlayer(p) com `p` inexistente. Além disso o `if`
+    // sem chavetas fazia o return correr SEMPRE — o ranking nunca
+    // aparecia, mesmo com jogadores.
+    const fonte = rpg._cache || rpg._players || new Map();
+    const sorted = [...fonte.entries()]
+      .sort((a, b) => (b[1]?.level || 0) - (a[1]?.level || 0) || (b[1]?.kills || 0) - (a[1]?.kills || 0))
       .slice(0, 10);
-    if (!sorted.length) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🏆 RANKING', ['🏆 Sem jogadores ainda!']);
+    if (!sorted.length) {
+      return tReply(sock, msg, ctx, '🏆 RANKING', ['🏆 Sem jogadores ainda!']);
+    }
     const lines = sorted.map(([id, p], i) => {
       const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
       return `${medal} *${p.name}* — Nv.${p.level} ⚔️${p.kills} 💀${p.deaths}`;
     });
-    await rpg.savePlayer(p);
+    // v6.62: o `p` aqui era o do .map() acima, já fora de escopo.
+    // Um ranking não grava nada — só lista.
 
     return tReply(sock, msg, ctx, '🏆 RANKING RPG', lines);
   }, true);
@@ -392,8 +401,11 @@ module.exports = function registerRPG2(registerCase) {
   // ═══ INVENTÁRIO ═══
   registerCase(['inventario', 'inv', 'bau'], async ({ sock, msg, ctx }) => {
     const p = await rpg.getPlayer(ctx.senderNumber);
-    if (!p.inventory.length) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🎒 INVENTÁRIO', ['🎒 Vazio!']);
+    // v6.62: `p.inventory` podia ser undefined, e o `if` sem chavetas
+    // fazia o return correr SEMPRE — o inventário nunca aparecia.
+    if (!p || !Array.isArray(p.inventory) || !p.inventory.length) {
+      return tReply(sock, msg, ctx, '🎒 INVENTÁRIO', ['🎒 Vazio!']);
+    }
     const counts = {};
     p.inventory.forEach(i => counts[i] = (counts[i] || 0) + 1);
     const lines = Object.entries(counts).map(([k, v]) => `• ${k} x${v}`);
@@ -410,7 +422,7 @@ module.exports = function registerRPG2(registerCase) {
   registerCase(['npc', 'falar', 'talk'], async ({ sock, msg, ctx, args }) => {
     const npcKey = args[0]?.toLowerCase() || P(Object.keys(rpg.NPCS));
     const npc = rpg.NPCS[npcKey] || P(Object.values(rpg.NPCS));
-    await rpg.savePlayer(p);
+    // v6.62: savePlayer(p) com `p` inexistente — este comando só mostra.
 
     return tReply(sock, msg, ctx, `${npc.emoji} ${npc.name}`, [
       `"${P(npc.dialogues)}"`,
@@ -424,7 +436,7 @@ module.exports = function registerRPG2(registerCase) {
     const lines = Object.entries(rpg.BIOMES).map(([k, v]) =>
       `${v.emoji} *${k}* — ${'⚠️'.repeat(v.danger)} ${v.desc}`
     );
-    await rpg.savePlayer(p);
+    // v6.62: savePlayer(p) com `p` inexistente — este comando só mostra.
 
     return tReply(sock, msg, ctx, '🗺️ MAPA DO MUNDO', lines);
   }, true);
@@ -447,7 +459,8 @@ module.exports = function registerRPG2(registerCase) {
   registerCase(['racas', 'classes', 'rpginfo'], async ({ sock, msg, ctx }) => {
     const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — STR+${v.bonus.str} DEX+${v.bonus.dex} INT+${v.bonus.int} VIT+${v.bonus.vit} LUK+${v.bonus.luk}`).join('\n');
     const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* (${v.primary})`).join('\n');
-    await rpg.savePlayer(p);
+    // v6.62: havia um `await rpg.savePlayer(p)` aqui com `p` inexistente.
+    // Este comando só MOSTRA informação — não há nada para gravar.
 
     return tReply(sock, msg, ctx, '📖 INFO RPG', ['🧬 RAÇAS:', races, '', '⚔️ CLASSES:', classes]);
   }, true);

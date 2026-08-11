@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "postinstall": "pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true",
-    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:smoke && npm run test:casehandler",
+    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:rpgcom && npm run test:smoke && npm run test:casehandler",
     "test:syntax": "node scripts/check-syntax.js",
     "test:ejs": "node scripts/check-ejs.js",
     "test:commands": "node scripts/audit-commands.js",
@@ -20,7 +20,8 @@
     "test:submenus": "node scripts/test-submenus.js",
     "test:menu18": "node scripts/test-menu18.js",
     "test:auracmds": "node scripts/test-aura-comandos.js",
-    "test:casehandler": "node scripts/test-casehandler-v7.js"
+    "test:casehandler": "node scripts/test-casehandler-v7.js",
+    "test:rpgcom": "node scripts/test-rpg-comunidades.js"
   },
   "engines": {
     "node": ">=18.0.0"
