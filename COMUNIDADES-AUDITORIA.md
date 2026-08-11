@@ -152,3 +152,80 @@ verdadeiro pode dizer**:
 **Corre `.darkrpg` no WhatsApp e manda-me o relatório que ele imprime.** Agora
 que os erros já não são engolidos, o texto que aparecer diz exactamente onde
 parou.
+
+---
+
+# v6.64 — O `rate-overlimit` resolvido
+
+O utilizador correu `.darkrpg` no WhatsApp real. A comunidade **foi criada**,
+mas os 6 grupos falharam todos com `rate-overlimit`. Pista decisiva que ele
+deu: **a AURA cria grupos sem problema** (`.criargrupo`).
+
+Se a AURA consegue e o `.darkrpg` não, a conta não está limitada. A diferença
+está no código.
+
+## Causa raiz: 5 queries por grupo em vez de 1
+
+Contagem lida no `@systemzero/baileys` 1.1.1:
+
+**AURA → `sock.groupCreate()`**
+| # | Query |
+|---|---|
+| 1 | `create` |
+| — | `extractGroupMetadata()` = parse **local** do XML, 0 queries |
+| | **TOTAL: 1 query** ✅ |
+
+**`.darkrpg` (antes) → `sock.communityCreateGroup()` + descrição + promote**
+| # | Query |
+|---|---|
+| 1 | `create` |
+| 2 | `parseGroupResult()` → `sock.groupMetadata()` ← **escondida** |
+| 3 | `groupUpdateDescription()` → `groupMetadata()` ← **escondida** |
+| 4 | `groupUpdateDescription()` → `set` |
+| 5 | `groupParticipantsUpdate()` promote |
+| | **TOTAL: 5 queries × 6 grupos = 30** ❌ |
+
+O `communityCreateGroup` do Baileys chama `parseGroupResult()`, que dispara um
+`groupMetadata()` **extra** só para converter a resposta num objecto. O
+`groupUpdateDescription` faz outro. São 4 queries desperdiçadas por grupo.
+
+Ao 2º/3º grupo o WhatsApp corta. E como o retry também gastava 5 queries,
+nunca recuperava — daí os **6 falharem seguidos**.
+
+## Correcção
+
+1. **1 query por grupo.** Mandamos o stanza `create` em cru via `sock.query`
+   (o mesmo XML que o Baileys manda) e lemos o JID direto do XML de resposta
+   com `getBinaryNodeChild`. Zero queries escondidas — igual à AURA.
+2. **`<linked_parent>` no próprio stanza de criação**, que é o que a app do
+   WhatsApp faz. O grupo nasce dentro da comunidade sem chamada separada.
+3. **Descrição e promote adiados** para depois de todos os grupos existirem.
+   São cosmética: se falharem, o grupo existe na mesma.
+4. **15s entre grupos** (era 8s) e **60s** de espera após `rate-overlimit`
+   (era 15s — não chegava nem perto).
+5. **Pára ao primeiro `rate-overlimit`** em vez de queimar mais 5 tentativas,
+   e explica ao dono o que fazer.
+6. **Retomável:** o que já foi criado está no MongoDB. Correr `.darkrpg` outra
+   vez continua de onde parou, sem duplicar.
+
+## Teste novo: `npm run test:ratelimit`
+
+`scripts/test-comunidades-ratelimit.js` — 8 verificações, 8 OK. Conta as
+queries e simula o WhatsApp a cortar a meio:
+
+- 1 query por grupo (era 5)
+- `linked_parent` + `participant` vão no stanza de criação
+- Com apenas 4 queries de folga ainda cria 4 grupos (antes: 0)
+- Ao levar corte, pára e avisa em vez de insistir
+- Ao retomar, reaproveita os já criados e acaba os 6
+
+Suite completa: **303 testes, 0 falhas**.
+
+## O que fazer agora
+
+Espera **~1 hora** desde a última tentativa (o WhatsApp ainda tem a conta
+marcada) e corre `.darkrpg` outra vez. A comunidade DARK VILLE já existe e
+está guardada — ele salta-a e cria só os grupos, um a cada 15s.
+
+Se voltar a dar `rate-overlimit` logo no primeiro grupo, a conta está mesmo
+em castigo temporário e só o tempo resolve.

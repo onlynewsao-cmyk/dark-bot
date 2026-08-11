@@ -219,61 +219,132 @@ async function createWhatsAppCommunity(sock, ownerJid) {
 
 // ══════════════════════════════════════════════════════════════
 // 2. CRIAR GRUPO DENTRO DA COMUNIDADE
+//
+// ── v6.64: PORQUE É QUE DAVA SEMPRE rate-overlimit ─────────────
+// O utilizador reportou: a AURA cria grupos bem (.criargrupo), mas
+// o .darkrpg falhava nos 6 grupos com "rate-overlimit". A conta não
+// estava limitada — o problema era o NÚMERO DE QUERIES.
+//
+// Contagem real (lida no código do @systemzero/baileys 1.1.1):
+//
+//   AURA → sock.groupCreate()
+//     1. create ................................. 1 query
+//     extractGroupMetadata() = parse LOCAL do XML  0 queries
+//     TOTAL: 1 query  ✅
+//
+//   .darkrpg (antes) → sock.communityCreateGroup()
+//     1. create ................................. 1
+//     2. parseGroupResult() → sock.groupMetadata()  1  ← ESCONDIDA
+//     3. groupUpdateDescription → groupMetadata()   1  ← ESCONDIDA
+//     4. groupUpdateDescription → set ........... 1
+//     5. groupParticipantsUpdate promote ........ 1
+//     TOTAL: 5 queries × 6 grupos = 30 queries
+//
+// O communityCreateGroup do Baileys chama parseGroupResult(), que
+// faz um groupMetadata() EXTRA só para converter a resposta — e o
+// groupUpdateDescription faz outro. São 4 queries desperdiçadas por
+// grupo. Ao 2º/3º grupo o WhatsApp corta com rate-overlimit, e como
+// o retry também gastava 5 queries, nunca recuperava.
+//
+// Agora mandamos o stanza `create` em cru (mesmo XML que o Baileys
+// manda) via sock.query e lemos o JID do XML de resposta — sem
+// nenhuma query escondida. 1 query por grupo, igual à AURA.
 // ══════════════════════════════════════════════════════════════
+
+/** Lê o JID do grupo direto do XML de resposta — zero queries extra. */
+function _jidDoResultado(result) {
+  try {
+    const B = require('@systemzero/baileys');
+    const node = B.getBinaryNodeChild(result, 'group');
+    const id = node?.attrs?.id;
+    if (!id) return null;
+    return String(id).includes('@') ? id : id + '@g.us';
+  } catch { return null; }
+}
+
+/**
+ * Cria o grupo com UMA query. Se houver comunidade, manda o
+ * <linked_parent> no próprio stanza de criação — que é o que o
+ * WhatsApp faz quando crias um grupo dentro de uma comunidade pela app.
+ */
+async function _criarGrupoCru(sock, subject, participants, communityJid) {
+  const B = require('@systemzero/baileys');
+  const content = participants.map(jid => ({ tag: 'participant', attrs: { jid } }));
+  if (communityJid) content.push({ tag: 'linked_parent', attrs: { jid: communityJid } });
+
+  const result = await sock.query({
+    tag: 'iq',
+    attrs: { type: 'set', xmlns: 'w:g2', to: '@g.us' },
+    content: [{
+      tag: 'create',
+      attrs: { subject, key: B.generateMessageIDV2() },
+      content,
+    }],
+  });
+
+  return _jidDoResultado(result);
+}
+
 async function createGroupInCommunity(sock, groupType, ownerJid, communityJid) {
   const groupDef = COMMUNITY_GROUPS[groupType];
   if (!groupDef) return { ok: false, error: 'Tipo invalido: ' + groupType };
 
-  // v6.63: o erro da última tentativa era deitado fora — o dono via
-  // sempre "Falhou apos 3 tentativas" sem saber porquê. E o
-  // `group.id` rebentava se o Baileys devolvesse null.
   let lastErr = 'desconhecido';
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      let group;
+      let groupJid = null;
       let dentroDaComunidade = false;
 
-      if (communityJid && typeof sock.communityCreateGroup === 'function') {
-        console.log('[DARKRPG] Criando grupo na comunidade: ' + groupDef.name);
-        group = await sock.communityCreateGroup(groupDef.name, [ownerJid], communityJid);
-        dentroDaComunidade = true;
-      } else {
-        console.log('[DARKRPG] Criando grupo normal: ' + groupDef.name);
-        group = await sock.groupCreate(groupDef.name, [ownerJid]);
+      // Caminho rápido: 1 query, com o linked_parent embutido.
+      if (typeof sock.query === 'function') {
+        console.log('[DARKRPG] Criando ' + groupDef.name + (communityJid ? ' (na comunidade)' : ''));
+        groupJid = await _criarGrupoCru(sock, groupDef.name, [ownerJid], communityJid);
+        dentroDaComunidade = !!communityJid;
       }
 
-      const groupJid = group?.id || group?.jid || null;
+      // Fallback: Baileys sem sock.query exposto.
+      if (!groupJid) {
+        const g = communityJid && typeof sock.communityCreateGroup === 'function'
+          ? await sock.communityCreateGroup(groupDef.name, [ownerJid], communityJid)
+          : await sock.groupCreate(groupDef.name, [ownerJid]);
+        groupJid = g?.id || g?.jid || null;
+        dentroDaComunidade = !!communityJid;
+      }
+
       if (!groupJid) throw new Error('WhatsApp nao devolveu o ID do grupo');
-
-      // Se caiu no fallback (grupo solto) mas há comunidade, liga-o.
-      if (!dentroDaComunidade && communityJid && typeof sock.communityLinkGroup === 'function') {
-        await new Promise(r => setTimeout(r, 1500));
-        try { await sock.communityLinkGroup(groupJid, communityJid); } catch {}
-      }
-
-      await new Promise(r => setTimeout(r, 2000));
-      try { await sock.groupUpdateDescription(groupJid, groupDef.desc); } catch {}
-
-      if (groupDef.ownerAdm) {
-        await new Promise(r => setTimeout(r, 1000));
-        try { await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote'); } catch {}
-      }
 
       _groupCache.set(groupType, groupJid);
       await _persist();
       console.log('[DARKRPG] Grupo criado: ' + groupDef.name + ' → ' + groupJid);
+
+      // A descrição e o promote são OPCIONAIS: cada um custa queries
+      // e o grupo já existe. Ficam para o passo 3 do initCommunity,
+      // depois de todos os grupos estarem criados.
       return { ok: true, jid: groupJid, name: groupDef.name, linked: dentroDaComunidade };
     } catch (e) {
       lastErr = e.message || String(e);
       console.error('[DARKRPG] Tentativa ' + attempt + '/3 falhou: ' + lastErr);
       if (attempt < 3) {
-        const wait = /rate-overlimit|429/i.test(lastErr) ? 15000 : 5000;
+        // rate-overlimit precisa de MUITO mais que 15s para acalmar.
+        const wait = /rate-overlimit|429/i.test(lastErr) ? 60000 : 5000;
+        console.log('[DARKRPG] A esperar ' + (wait / 1000) + 's...');
         await new Promise(r => setTimeout(r, wait));
       }
     }
   }
   return { ok: false, error: lastErr, name: groupDef.name };
+}
+
+/** Descrição + promote, feitos DEPOIS de todos os grupos existirem. */
+async function _acabarGrupo(sock, groupType, groupJid, ownerJid) {
+  const def = COMMUNITY_GROUPS[groupType];
+  if (!def) return;
+  try { await sock.groupUpdateDescription(groupJid, def.desc); } catch {}
+  await new Promise(r => setTimeout(r, 3000));
+  if (def.ownerAdm) {
+    try { await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote'); } catch {}
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -394,7 +465,16 @@ async function initCommunity(sock, ownerJid) {
 
   const cJid = comm.ok ? comm.jid : null;
 
-  // 2. Cria grupos dentro da comunidade (salta os que já existem)
+  // A criação da comunidade já custou queries — deixa o WhatsApp
+  // respirar antes de começar os grupos.
+  if (comm.ok && !_communityJid_jaExistia(comm)) {
+    await new Promise(r => setTimeout(r, 10000));
+  }
+
+  // 2. Cria grupos (1 query cada) — salta os que já existem.
+  // v6.64: 15s entre grupos em vez de 8s. Com 6 grupos são ~90s,
+  // mas é a diferença entre criar e apanhar rate-overlimit.
+  const criados = [];
   for (const [type, def] of Object.entries(COMMUNITY_GROUPS)) {
     if (_groupCache.get(type)) {
       results.push({ type, ok: true, name: def.name + ' (já existia)', jid: _groupCache.get(type) });
@@ -402,11 +482,33 @@ async function initCommunity(sock, ownerJid) {
     }
     const r = await createGroupInCommunity(sock, type, ownerJid, cJid);
     results.push({ type, ...r });
-    await new Promise(r => setTimeout(r, 8000)); // 8s entre grupos
+    if (r.ok) criados.push([type, r.jid]);
+
+    // Se levou rate-overlimit mesmo assim, para já: insistir só piora.
+    if (!r.ok && /rate-overlimit|429/i.test(String(r.error))) {
+      results.push({
+        type: 'aviso', ok: false,
+        error: 'WhatsApp limitou a conta. Espera ~1h e corre !darkrpg outra vez — os grupos já criados são reaproveitados.',
+      });
+      break;
+    }
+
+    await new Promise(r => setTimeout(r, 15000));
+  }
+
+  // 3. Descrição + promote só no fim, com os grupos já criados.
+  // Se falhar aqui, o grupo existe na mesma — é só cosmética.
+  for (const [type, jid] of criados) {
+    await _acabarGrupo(sock, type, jid, ownerJid);
+    await new Promise(r => setTimeout(r, 4000));
   }
 
   await _persist();
   return results;
+}
+
+function _communityJid_jaExistia(comm) {
+  return typeof comm?.name === 'string' && comm.name.includes('já existia');
 }
 
 // ══════════════════════════════════════════════════════════════
