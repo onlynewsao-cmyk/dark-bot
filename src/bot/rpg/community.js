@@ -156,6 +156,17 @@ async function _persist() {
   }
 }
 
+/**
+ * v6.66 — Esquece a comunidade guardada. Serve para quando o Dono a
+ * apaga no WhatsApp: o JID em cache fica morto e tudo falharia com
+ * "item-not-found" para sempre.
+ */
+async function forgetCommunity() {
+  _communityJid = null;
+  _groupCache.clear();
+  await _persist();
+}
+
 async function loadState() {
   if (_loaded) return { communityJid: _communityJid, groups: _groupCache, clans: _clanGroups };
   _loaded = true;
@@ -283,6 +294,115 @@ async function _criarGrupoCru(sock, subject, participants, communityJid) {
   });
 
   return _jidDoResultado(result);
+}
+
+/**
+ * v6.66 — Garante que o dono está DENTRO da comunidade e é admin.
+ * Se o WhatsApp não deixar adicionar (privacidade), devolve o link
+ * de convite para ele entrar sozinho.
+ *
+ * Devolve { dentro, admin, acoes[], convite }
+ */
+async function ensureOwnerInCommunity(sock, communityJid, ownerJid) {
+  const onum = _num(ownerJid);
+  const res = { dentro: false, admin: false, acoes: [], convite: null };
+
+  // Estado actual (1 query)
+  let meta = null;
+  try {
+    meta = typeof sock.communityMetadata === 'function'
+      ? await sock.communityMetadata(communityJid)
+      : await sock.groupMetadata(communityJid);
+  } catch (e) {
+    res.acoes.push('não consegui ler a comunidade: ' + e.message);
+  }
+
+  const eu = (meta?.participants || []).find(p => _num(p.id) === onum);
+  if (eu) { res.dentro = true; res.admin = p_admin(eu); }
+
+  if (!res.dentro) {
+    try {
+      const r = await sock.groupParticipantsUpdate(communityJid, [ownerJid], 'add');
+      const st = Array.isArray(r) ? String(r[0]?.status || '200') : '200';
+      if (st === '200') { res.dentro = true; res.acoes.push('adicionei-te à comunidade'); }
+      else res.acoes.push('o WhatsApp não deixou adicionar-te (' + st + ')');
+    } catch (e) {
+      res.acoes.push('não consegui adicionar-te: ' + e.message);
+    }
+  }
+
+  // Não entrou? Manda o convite — é o plano B que o utilizador pediu.
+  if (!res.dentro) {
+    res.convite = await getCommunityInvite(sock, communityJid);
+    if (res.convite) res.acoes.push('mandei-te o link de convite');
+  }
+
+  if (res.dentro && !res.admin) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const r = await sock.groupParticipantsUpdate(communityJid, [ownerJid], 'promote');
+      const st = Array.isArray(r) ? String(r[0]?.status || '200') : '200';
+      if (st === '200') { res.admin = true; res.acoes.push('promovi-te a admin'); }
+      else res.acoes.push('não consegui promover-te (' + st + ') — preciso de ser admin');
+    } catch (e) {
+      res.acoes.push('não consegui promover-te: ' + e.message);
+    }
+  }
+
+  return res;
+}
+
+/** Link de convite da comunidade (ou do grupo). Null se não der. */
+async function getCommunityInvite(sock, jid) {
+  try {
+    const code = typeof sock.communityInviteCode === 'function'
+      ? await sock.communityInviteCode(jid)
+      : await sock.groupInviteCode(jid);
+    return code ? 'https://chat.whatsapp.com/' + code : null;
+  } catch {
+    try {
+      const code = await sock.groupInviteCode(jid);
+      return code ? 'https://chat.whatsapp.com/' + code : null;
+    } catch { return null; }
+  }
+}
+
+/**
+ * v6.66 — Cria UM grupo com nome livre, dentro da comunidade.
+ * É o que a AURA usa. 1 query, com <linked_parent> embutido.
+ */
+async function createNamedGroup(sock, nome, ownerJid, communityJid, opts = {}) {
+  let lastErr = 'desconhecido';
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      let jid = null;
+
+      if (typeof sock.query === 'function') {
+        jid = await _criarGrupoCru(sock, nome, [ownerJid], communityJid);
+      }
+      if (!jid) {
+        const g = communityJid && typeof sock.communityCreateGroup === 'function'
+          ? await sock.communityCreateGroup(nome, [ownerJid], communityJid)
+          : await sock.groupCreate(nome, [ownerJid]);
+        jid = g?.id || g?.jid || null;
+      }
+      if (!jid) throw new Error('o WhatsApp não devolveu o ID do grupo');
+
+      // Se não nasceu ligado (fallback), liga agora.
+      if (communityJid && opts.forcarLink && typeof sock.communityLinkGroup === 'function') {
+        try { await sock.communityLinkGroup(jid, communityJid); } catch {}
+      }
+
+      return { ok: true, jid, nome };
+    } catch (e) {
+      lastErr = e.message || String(e);
+      if (attempt < 2 && /rate-overlimit|429/i.test(lastErr)) {
+        await new Promise(r => setTimeout(r, 60000));
+      } else break;
+    }
+  }
+  return { ok: false, error: lastErr, nome };
 }
 
 async function createGroupInCommunity(sock, groupType, ownerJid, communityJid) {
@@ -783,6 +903,7 @@ module.exports = {
   generateLeaderboard,
   generateWelcomeMessage,
   loadState,
+  forgetCommunity,
   getCommunityJid: () => _communityJid,
   _communityJid: () => _communityJid,
   _groupCache,
@@ -790,6 +911,9 @@ module.exports = {
   createWhatsAppCommunity,
   scanCommunities,
   adoptCommunity,
+  ensureOwnerInCommunity,
+  getCommunityInvite,
+  createNamedGroup,
   createGroupInCommunity,
   createClanGroup,
   addAllUsersToMainGroup,
