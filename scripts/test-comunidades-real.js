@@ -35,9 +35,13 @@ let ok=0,fail=0; const t=(n,c,e='')=>{c?ok++:fail++;console.log(`  ${c?'✅':'�
 console.log('\n╔═══ COMUNIDADES WHATSAPP — AUDITORIA REAL ═══╗');
 console.log('\n▸ A. Comunidade cria e PERSISTE');
 let n=0;
+// v6.65: o initCommunity passou a ADOPTAR por omissão (criar à mão
+// custa 0 queries). Para criar do zero é preciso criarSeNaoExistir.
 const sockOK={communityCreate:async()=>({id:'comm1@g.us'}),communityCreateGroup:async(s)=>({id:'g'+(++n)+'@g.us'}),
- groupUpdateDescription:async()=>{},groupParticipantsUpdate:async()=>[{status:'200'}],communityLinkGroup:async()=>{},groupCreate:async()=>({id:'gx@g.us'})};
-const r=await C.initCommunity(sockOK,OWNER);
+ groupUpdateDescription:async()=>{},groupParticipantsUpdate:async()=>[{status:'200'}],communityLinkGroup:async()=>{},groupCreate:async()=>({id:'gx@g.us'}),
+ groupFetchAllParticipating:async()=>({}),
+ query:async(node)=>({tag:'iq',attrs:{},content:[{tag:'group',attrs:{id:'g'+(++n)},content:[]}]})};
+const r=await C.initCommunity(sockOK,OWNER,{criarSeNaoExistir:true,rescan:true});
 t('Comunidade + 6 grupos criados', r.filter(x=>x.ok).length===7, r.filter(x=>x.ok).length+'/7');
 t('Estado gravado no MongoDB', !!STORE['darkrpg_community_v1'], JSON.stringify(STORE['darkrpg_community_v1']||{}).slice(0,60));
 t('Arsenal ficou no cache', !!C._groupCache.get('arsenal'), C._groupCache.get('arsenal'));

@@ -229,3 +229,88 @@ está guardada — ele salta-a e cria só os grupos, um a cada 15s.
 
 Se voltar a dar `rate-overlimit` logo no primeiro grupo, a conta está mesmo
 em castigo temporário e só o tempo resolve.
+
+---
+
+# v6.65 — O bot adopta a comunidade que tu criaste
+
+O utilizador criou a comunidade pela app do WhatsApp (com o **Geral** e o
+**Comunicados** que o WhatsApp gera sozinho) e pediu: *"cabe ao bot
+identificar e adicionar o dono lá e criar os grupos e adicionar na
+comunidade e depois o RPG"*.
+
+Isto é a solução certa para o `rate-overlimit`: **criar a comunidade pela app
+custa ZERO queries ao bot**. O gasto passa a ser só os grupos.
+
+## Como funciona agora
+
+`!darkrpg` deixou de criar às cegas. A sequência é:
+
+1. **Varre** (`groupFetchAllParticipating` — **1 query**) e devolve todas as
+   comunidades e grupos com metadata: `isCommunity`, `linkedParent`,
+   `isCommunityAnnounce`, `participants`.
+2. **Escolhe** a comunidade: a que tiver `DARK`/`VILLE` no nome; se só houver
+   uma, essa; senão a mais recente. `!darkrpg <nome>` força outra.
+3. **Adopta os subgrupos** que já lá estão. O `Geral` fica registado como
+   `geral` (é o que o `.addglb` usa) e o `Comunicados` é reaproveitado como
+   **Arsenal da Fama** — não cria um duplicado.
+4. **Mete o dono lá dentro**: se estiver fora, `add`; se não for admin,
+   `promote`. Se já for admin, não gasta query nenhuma.
+5. **Cria só os grupos que faltam** (1 query cada, com `<linked_parent>`
+   embutido) e liga-os à comunidade.
+
+Como o `Comunicados` é reaproveitado, são **5 grupos novos** em vez de 6.
+
+## O que o dono vê
+
+```
+🕸️ DARK🕸️VILLE — PRONTA!
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ DARK VILLE (adoptada)
+✅ Arena das Sombras
+✅ Dungeons Proibidas
+✅ Ville de Trocas
+✅ Cavernas Sombras
+✅ Lazer e Memes
+✅ Arsenal da Fama (já existia)
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔎 Encontrei a tua comunidade:
+📛 DARK VILLE
+
+📂 Já lá estavam:
+  • DARK VILLE
+  • Comunicados
+
+👑 Tu:
+  ✅ Dentro da comunidade
+  ✅ Admin
+  ▸ promovido a admin
+```
+
+Se não houver comunidade nenhuma, explica: cria pela app, adiciona o bot, e
+corre outra vez. Quem quiser mesmo que o bot crie usa `!darkrpg criar`.
+
+## Teste novo: `npm run test:adopcao`
+
+`scripts/test-comunidade-adopcao.js` — **22 verificações, 22 OK**:
+
+- Identifica a comunidade e **não confunde com grupos soltos**
+- Regista o `Geral` e reaproveita o `Comunicados` como Arsenal
+- Dono fora → adiciona e promove; já admin → não gasta queries
+- Fluxo completo: adopta + cria os grupos, **todos ligados à comunidade**
+- Correr 2x **não duplica** nada
+- Sem comunidade → mensagem que explica o que fazer
+- Várias comunidades → escolhe por nome (`!darkrpg Família`)
+
+Suite completa: **325 testes, 0 falhas**.
+
+## O que fazer agora
+
+Corre **`!darkrpg`** no WhatsApp. Antes disso confirma duas coisas:
+
+1. O **bot está dentro** da comunidade que criaste.
+2. O bot é **admin da comunidade** — sem isso não te consegue promover nem
+   criar grupos lá dentro (vais ver `não consegui promover-te` no relatório).
+
+Se tiveres mais que uma comunidade, usa `!darkrpg DARK VILLE` para escolher.
