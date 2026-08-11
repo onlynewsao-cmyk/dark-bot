@@ -38,6 +38,10 @@ function makeSock(limite){
     groupUpdateDescription:async(j,d)=>{bump('groupMetadata(desc)');bump('desc:set');},
     groupParticipantsUpdate:async()=>{bump('promote');return[{status:'200'}];},
     communityCreate:async()=>{bump('communityCreate');return{id:'comm@g.us'};},
+    // v6.65: o initCommunity adopta por omissão. Aqui queremos testar
+    // a CRIAÇÃO, por isso devolvemos "nenhuma comunidade" e passamos
+    // criarSeNaoExistir para forçar o caminho de criar.
+    groupFetchAllParticipating:async()=>({}),
   };
 }
 (async()=>{
@@ -59,7 +63,7 @@ t('xmlns w:g2 e to @g.us', capt.attrs.xmlns==='w:g2'&&capt.attrs.to==='@g.us', J
 console.log('\n▸ Cenário do utilizador: WhatsApp corta às 4 queries');
 C._groupCache.clear();
 const s3=makeSock(4);
-const R=await C.initCommunity(s3,OWNER);
+const R=await C.initCommunity(s3,OWNER,{criarSeNaoExistir:true,rescan:true});
 const okC=R.filter(r=>r.ok&&r.type!=='community').length;
 t('Cria grupos apesar do limite apertado', okC>=3, okC+' grupos com só 4 queries de folga');
 t('Se levar rate-overlimit, para e avisa', true, R.find(r=>r.type==='aviso')?'avisou':'não precisou');
@@ -67,7 +71,7 @@ t('Se levar rate-overlimit, para e avisa', true, R.find(r=>r.type==='aviso')?'av
 console.log('\n▸ Retomar depois do corte: reaproveita o que já existe?');
 const antes=C._groupCache.size;
 const s4=makeSock(9999);
-const R2=await C.initCommunity(s4,OWNER);
+const R2=await C.initCommunity(s4,OWNER,{criarSeNaoExistir:true,rescan:true});
 const reap=R2.filter(r=>r.type!=='community'&&/já existia/.test(r.name||'')).length;
 t('Não recria os grupos já feitos', reap===antes, reap+'/'+antes+' reaproveitados');
 t('Acaba os 6 grupos', C._groupCache.size===6, C._groupCache.size+'/6');

@@ -19,26 +19,57 @@ async function tReply(sock, msg, ctx, title, lines) {
 module.exports = function registerRPGCommunity(registerCase) {
 
   // ═══ INICIAR DARKRPG ═══
-  registerCase(['darkrpg', 'rpginit', 'iniciar-rpg'], async ({ sock, msg, ctx, isOwner }) => {
+  registerCase(['darkrpg', 'rpginit', 'iniciar-rpg'], async ({ sock, msg, ctx, isOwner, args }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode iniciar o DARKRPG.']);
 
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🚀', key: msg.key } });
 
     try {
-      const results = await community.initCommunity(sock, ctx.senderJid);
+      // v6.65: `!darkrpg <nome>` escolhe a comunidade; sem argumento
+      // procura a que tenha DARK/VILLE no nome. Só cria do zero com
+      // `!darkrpg criar` — criar à mão pela app não gasta queries e é
+      // o que evita o rate-overlimit.
+      const arg = (args || []).join(' ').trim();
+      const criar = /^criar$/i.test(arg);
+      const results = await community.initCommunity(sock, ctx.senderJid, {
+        nome: criar ? null : (arg || null),
+        criarSeNaoExistir: criar,
+        rescan: true,
+      });
 
       const falhas = results.filter(r => !r.ok && r.type !== 'aviso');
       const limitado = results.some(r => /rate-overlimit|429/i.test(String(r.error || '')));
+      const commRes = results.find(r => r.type === 'community');
+      const ad = commRes?.adopcao;
 
       let report = falhas.length
         ? '🕸️ *DARK🕸️VILLE — PARCIAL*\n\n'
-        : '🕸️ *DARK🕸️VILLE — COMUNIDADE CRIADA!*\n\n';
+        : '🕸️ *DARK🕸️VILLE — PRONTA!*\n\n';
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
       for (const r of results) {
         if (r.type === 'aviso') continue;
         report += r.ok ? '✅ ' + r.name + '\n' : '❌ ' + (r.name || r.type) + ': ' + r.error + '\n';
       }
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+      // Relatório da adopção: o que encontrei na tua comunidade.
+      if (ad) {
+        report += '🔎 *Encontrei a tua comunidade:*\n';
+        report += '📛 ' + ad.nome + '\n';
+        if (ad.existentes?.length) {
+          report += '\n📂 *Já lá estavam:*\n';
+          for (const g of ad.existentes.slice(0, 10)) report += '  • ' + g.nome + '\n';
+        }
+        report += '\n👑 *Tu:*\n';
+        report += ad.dono.dentro ? '  ✅ Dentro da comunidade\n' : '  ❌ Fora da comunidade\n';
+        report += ad.dono.admin ? '  ✅ Admin\n' : '  ⚠️ Não és admin\n';
+        for (const a of ad.dono.acoes || []) report += '  ▸ ' + a + '\n';
+        if (ad.outras?.length) {
+          report += '\nℹ️ Outras comunidades tuas: ' + ad.outras.join(', ') + '\n';
+          report += 'Usa *!darkrpg <nome>* para escolher outra.\n';
+        }
+        report += '\n';
+      }
 
       if (limitado) {
         // v6.64: em vez de só dizer "rate-overlimit", explica o que fazer.
@@ -50,6 +81,16 @@ module.exports = function registerRPGCommunity(registerCase) {
       } else if (!falhas.length) {
         report += '👑 *Você é ADM em todos os grupos!*\n';
         report += '🏰 *Clãs são independentes — líderes comandam.*\n\n';
+      }
+
+      // Não encontrou comunidade nenhuma → diz como resolver.
+      if (!commRes?.ok && /não encontrei nenhuma comunidade/i.test(String(commRes?.error || ''))) {
+        report += '💡 *Como resolver:*\n';
+        report += '1. Cria a comunidade pela app do WhatsApp\n';
+        report += '2. Adiciona-me a ela (e dá-me admin)\n';
+        report += '3. Corre *!darkrpg* outra vez\n\n';
+        report += 'Criar pela app não gasta nada — é assim que se evita\n';
+        report += 'o rate-overlimit. Se preferires que eu crie: *!darkrpg criar*\n\n';
       }
 
       report += '🎮 *Próximos passos:*\n';

@@ -450,18 +450,187 @@ async function addAllUsersToMainGroup(sock, ownerJid, mainType) {
 // ══════════════════════════════════════════════════════════════
 // 5. INICIALIZAR COMUNIDADE COMPLETA
 // ══════════════════════════════════════════════════════════════
-async function initCommunity(sock, ownerJid) {
+// ══════════════════════════════════════════════════════════════
+// 4b. DETECTAR COMUNIDADE JÁ CRIADA À MÃO  (v6.65)
+//
+// O utilizador criou a comunidade pela app do WhatsApp (com o
+// "Geral" e o "Comunicados" que o WhatsApp cria sozinho). Criar
+// à mão custa ZERO queries ao bot — é a via que não apanha
+// rate-overlimit. Agora o bot adopta o que existe em vez de
+// tentar criar tudo de novo.
+//
+// UMA query (groupFetchAllParticipating) traz comunidades E grupos
+// com metadata completa: isCommunity, linkedParent, participants.
+// ══════════════════════════════════════════════════════════════
+
+/** Normaliza um JID para comparar (tira :device e sufixos). */
+function _num(jid) {
+  return String(jid || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+}
+
+/**
+ * Varre o WhatsApp à procura de comunidades onde o bot está.
+ * Devolve { comunidades: [...], porParent: Map(commJid -> [grupos]) }
+ * Custo: 1 query.
+ */
+async function scanCommunities(sock) {
+  let todos = {};
+  try {
+    todos = (await sock.groupFetchAllParticipating()) || {};
+  } catch (e) {
+    return { ok: false, error: e.message, comunidades: [], porParent: new Map() };
+  }
+
+  const lista = Object.values(todos);
+  const comunidades = lista.filter(g => g?.isCommunity);
+  const porParent = new Map();
+
+  for (const g of lista) {
+    if (!g?.linkedParent) continue;
+    if (!porParent.has(g.linkedParent)) porParent.set(g.linkedParent, []);
+    porParent.get(g.linkedParent).push(g);
+  }
+
+  return { ok: true, comunidades, porParent, todos: lista };
+}
+
+/**
+ * Escolhe a comunidade a adoptar: a que tem "DARK" / "VILLE" no
+ * nome; senão, se só houver uma, essa; senão a mais recente.
+ */
+function _escolherComunidade(comunidades) {
+  if (!comunidades.length) return null;
+  const preferida = comunidades.find(c => /dark|ville/i.test(c.subject || ''));
+  if (preferida) return preferida;
+  if (comunidades.length === 1) return comunidades[0];
+  return [...comunidades].sort((a, b) => (b.creation || 0) - (a.creation || 0))[0];
+}
+
+/**
+ * Adopta a comunidade que o dono criou à mão:
+ *   1. Encontra-a (1 query)
+ *   2. Regista os subgrupos que já lá estão (Geral, Comunicados...)
+ *   3. Garante que o dono está lá dentro e é admin
+ * Custo: 1 query + o mínimo para adicionar/promover o dono.
+ */
+async function adoptCommunity(sock, ownerJid, nomeAlvo) {
+  await loadState();
+
+  const scan = await scanCommunities(sock);
+  if (!scan.ok) return { ok: false, error: 'Não consegui ler os teus grupos: ' + scan.error };
+  if (!scan.comunidades.length) {
+    return { ok: false, error: 'Não encontrei nenhuma comunidade onde eu esteja. Cria a comunidade e adiciona-me a ela primeiro.' };
+  }
+
+  const alvo = nomeAlvo
+    ? scan.comunidades.find(c => (c.subject || '').toLowerCase().includes(String(nomeAlvo).toLowerCase()))
+    : _escolherComunidade(scan.comunidades);
+
+  if (!alvo) {
+    return {
+      ok: false,
+      error: 'Não encontrei "' + nomeAlvo + '". Tenho estas: ' +
+        scan.comunidades.map(c => c.subject).join(', '),
+    };
+  }
+
+  _communityJid = alvo.id;
+
+  // ── Subgrupos que já existem (o Geral e o Comunicados do WhatsApp)
+  const subs = scan.porParent.get(alvo.id) || [];
+  const existentes = subs.map(g => ({ jid: g.id, nome: g.subject || '' }));
+
+  // O "Geral"/"Comunicados" servem de casa para o addglb.
+  const geral = subs.find(g => g.isCommunityAnnounce)
+    || subs.find(g => /geral|general/i.test(g.subject || ''));
+  const avisos = subs.find(g => /comunicad|avis|announce|news/i.test(g.subject || ''));
+
+  if (geral) _groupCache.set('geral', geral.id);
+  if (avisos) _groupCache.set('arsenal', avisos.id);
+
+  // Reconhece grupos DARKRPG que já lá estejam (se correres 2x).
+  for (const [type, def] of Object.entries(COMMUNITY_GROUPS)) {
+    if (_groupCache.get(type)) continue;
+    const hit = subs.find(g => (g.subject || '').toLowerCase() === def.name.toLowerCase());
+    if (hit) _groupCache.set(type, hit.id);
+  }
+
+  // ── O dono está lá dentro? É admin?
+  const onum = _num(ownerJid);
+  const dono = { dentro: false, admin: false, acoes: [] };
+
+  const eu = (alvo.participants || []).find(p => _num(p.id) === onum);
+  if (eu) {
+    dono.dentro = true;
+    dono.admin = p_admin(eu);
+  }
+
+  if (!dono.dentro) {
+    try {
+      const r = await sock.groupParticipantsUpdate(alvo.id, [ownerJid], 'add');
+      const st = Array.isArray(r) ? String(r[0]?.status || '200') : '200';
+      if (st === '200') { dono.dentro = true; dono.acoes.push('adicionado à comunidade'); }
+      else dono.acoes.push('não consegui adicionar-te (status ' + st + ') — entra pelo link');
+    } catch (e) {
+      dono.acoes.push('não consegui adicionar-te: ' + e.message);
+    }
+  }
+
+  if (dono.dentro && !dono.admin) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const r = await sock.groupParticipantsUpdate(alvo.id, [ownerJid], 'promote');
+      const st = Array.isArray(r) ? String(r[0]?.status || '200') : '200';
+      if (st === '200') { dono.admin = true; dono.acoes.push('promovido a admin'); }
+      else dono.acoes.push('não consegui promover-te (status ' + st + ') — o bot pode não ser admin');
+    } catch (e) {
+      dono.acoes.push('não consegui promover-te: ' + e.message);
+    }
+  }
+
+  await _persist();
+
+  return {
+    ok: true,
+    jid: alvo.id,
+    nome: alvo.subject || 'Comunidade',
+    existentes,
+    geral: geral ? geral.subject : null,
+    avisos: avisos ? avisos.subject : null,
+    dono,
+    outras: scan.comunidades.filter(c => c.id !== alvo.id).map(c => c.subject),
+  };
+}
+
+function p_admin(p) {
+  return p?.admin === 'admin' || p?.admin === 'superadmin';
+}
+
+// ══════════════════════════════════════════════════════════════
+// 5. INICIALIZAR COMUNIDADE COMPLETA
+// ══════════════════════════════════════════════════════════════
+async function initCommunity(sock, ownerJid, opts = {}) {
   await loadState();
   const results = [];
 
-  // 1. Cria comunidade (ou reaproveita a que já existe)
+  // 1. v6.65: PRIMEIRO tenta adoptar uma comunidade já criada à mão.
+  // Criar pela app custa 0 queries ao bot — é o caminho que não
+  // apanha rate-overlimit. Só cria do zero se não houver nenhuma.
   let comm;
-  if (_communityJid) {
+  if (_communityJid && !opts.rescan) {
     comm = { ok: true, jid: _communityJid, name: 'DARK VILLE (já existia)' };
   } else {
-    comm = await createWhatsAppCommunity(sock, ownerJid);
+    const ad = await adoptCommunity(sock, ownerJid, opts.nome);
+    if (ad.ok) {
+      comm = { ok: true, jid: ad.jid, name: ad.nome + ' (adoptada)', adopcao: ad };
+    } else if (opts.criarSeNaoExistir) {
+      comm = await createWhatsAppCommunity(sock, ownerJid);
+    } else {
+      comm = { ok: false, error: ad.error };
+    }
   }
   results.push({ type: 'community', ...comm });
+  if (!comm.ok) return results;
 
   const cJid = comm.ok ? comm.jid : null;
 
@@ -619,6 +788,8 @@ module.exports = {
   _groupCache,
   _clanGroups,
   createWhatsAppCommunity,
+  scanCommunities,
+  adoptCommunity,
   createGroupInCommunity,
   createClanGroup,
   addAllUsersToMainGroup,
