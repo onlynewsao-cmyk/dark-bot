@@ -53,6 +53,7 @@ module.exports = function registerRPGCommunity(registerCase) {
   registerCase(['darkrpg-test', 'rpgtest'], async ({ sock, msg, ctx, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
 
+    await community.loadState();
     let report = '🧪 *TESTE DARKRPG*\n\n';
     report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
 
@@ -94,6 +95,7 @@ module.exports = function registerRPGCommunity(registerCase) {
   registerCase(['darkrpg-status', 'rpgstatus'], async ({ sock, msg, ctx, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
 
+    await community.loadState();
     let status = '📊 *STATUS DARK🕸️VILLE*\n\n';
     status += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n';
 
@@ -130,6 +132,12 @@ module.exports = function registerRPGCommunity(registerCase) {
       report += '✅ Adicionados ao grupo geral: ' + results.added.length + '\n';
       report += '📩 Convites enviados: ' + results.invited.length + '\n';
       report += '❌ Erros: ' + results.errors.length + '\n';
+      // v6.63: mostra os erros reais em vez de só contar.
+      if (results.errors.length) {
+        report += '\n⚠️ *Motivos:*\n';
+        for (const e of results.errors.slice(0, 5)) report += '  • ' + String(e).slice(0, 70) + '\n';
+        if (results.errors.length > 5) report += '  • (+' + (results.errors.length - 5) + ')\n';
+      }
       report += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
       report += 'ℹ️ *Os usuários agora podem entrar nos outros grupos pela comunidade.*\n';
       report += '🏰 *Clãs criados com !criaclan têm grupo próprio.*';
@@ -149,6 +157,7 @@ module.exports = function registerRPGCommunity(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '📊', key: msg.key } });
 
     try {
+      await community.loadState();
       const report = await community.generateDailyReport();
       const arsenalJid = community._groupCache.get('arsenal');
 
@@ -171,7 +180,15 @@ module.exports = function registerRPGCommunity(registerCase) {
     if (!clanName) return tReply(sock, msg, ctx, '❌ Uso', ['!criaclan <nome do clã>']);
 
     const p = await rpg.getPlayer(ctx.senderNumber);
-    if (p.coins < 5000) return tReply(sock, msg, ctx, '❌ Berries', ['Precisas de 5000 berries para criar um clã.']);
+    if (!p) return tReply(sock, msg, ctx, '❌ Ficha', ['Ainda não tens personagem. Usa *!criarpersonagem*.']);
+    if ((p.coins || 0) < 5000) {
+      return tReply(sock, msg, ctx, '❌ Berries', [
+        'Precisas de 5000 berries para criar um clã.',
+        'Tens: ' + (p.coins || 0),
+      ]);
+    }
+    // v6.63: já estás num clã? Antes deixava criar vários e o berries ia-se.
+    if (p.guild) return tReply(sock, msg, ctx, '🏰 Clã', ['Já estás no clã *' + p.guild + '*.']);
 
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
 
@@ -220,19 +237,28 @@ module.exports = function registerRPGCommunity(registerCase) {
         '  ' + p + 'addglb — Adicionar todos ao grupo geral\n' +
         '  ' + p + 'comunicado — Enviar ranking no Arsenal\n' +
         '  ' + p + 'criaclan <nome> — Criar clã\n\n' +
+        // v6.63: o menu citava despertar/x1/gacha/forja/cartas/raid/
+        // portal/addclan — NENHUM desses cases existe. O utilizador
+        // escrevia e não acontecia nada. Só ficam os que respondem.
         '🎭 *PERSONAGEM:*\n' +
-        '  ' + p + 'despertar — Inicie sua jornada\n' +
-        '  ' + p + 'perfil — Veja seus status\n' +
-        '  ' + p + 'nome <nome> — Mude seu nome\n\n' +
+        '  ' + p + 'criarpersonagem — Cria a tua ficha\n' +
+        '  ' + p + 'perfil — Vê os teus status\n' +
+        '  ' + p + 'nome <nome> — Muda o teu nome\n' +
+        '  ' + p + 'racas — Vê raças e classes\n' +
+        '  ' + p + 'vidas — Vê as tuas vidas\n\n' +
         '⚔️ *BATALHA:*\n' +
-        '  ' + p + 'arena — Entrar na Arena\n' +
-        '  ' + p + 'dungeon — Entrar nas Dungeons\n' +
         '  ' + p + 'lutar — Combate PvE\n' +
-        '  ' + p + 'x1 @user — Duelo PvP\n\n' +
-        '🃏 *COLEÇÃO:*\n' +
-        '  ' + p + 'gacha — Invocar cartas\n' +
+        '  ' + p + 'quest — Missões\n' +
+        '  ' + p + 'explorar — Explora os biomas\n' +
+        '  ' + p + 'descansar — Recupera HP\n\n' +
+        '🃏 *ITENS:*\n' +
+        '  ' + p + 'inventario — O teu baú\n' +
         '  ' + p + 'loja — Comprar itens\n' +
-        '  ' + p + 'forja — Refinar armas\n\n' +
+        '  ' + p + 'pocao — Usar poção\n\n' +
+        '🏰 *SOCIAL:*\n' +
+        '  ' + p + 'guilda — Criar/ver guilda\n' +
+        '  ' + p + 'ranking — Leaderboard\n' +
+        '  ' + p + 'regras — Regras da comunidade\n\n' +
         '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️'
     }, { quoted: msg });
   }, true);
