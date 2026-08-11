@@ -19,7 +19,10 @@ async function tReply(sock, msg, ctx, title, lines) {
 module.exports = function registerRPGSetup(registerCase) {
 
   // ═══ SETUP DARKRPG ═══
-  registerCase(['darkrpg', 'rpgsetup', 'rpginit'], async ({ sock, msg, ctx, isOwner }) => {
+  // v6.63: colidia com o !darkrpg de rpgCommunity.js (que cria a
+  // comunidade a sério). Como rpgCommunity.js carrega primeiro e o
+  // registerCase usa onlyIfNew, ESTE case estava morto — inalcançável.
+  registerCase(['darkrpg-guia', 'rpgsetup', 'rpgguia'], async ({ sock, msg, ctx, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode configurar o DARKRPG.']);
 
     return tReply(sock, msg, ctx, '⚔️ DARKRPG — SETUP COMPLETO', [
@@ -56,7 +59,9 @@ module.exports = function registerRPGSetup(registerCase) {
   }, true);
 
   // ═══ REGRAS DA COMUNIDADE ═══
-  registerCase(['regras', 'rules', 'normas'], async ({ sock, msg, ctx }) => {
+  // v6.63: 'regras'/'rules'/'normas' já são de cases/grupos.js
+  // (carrega antes) — este case nunca corria. Renomeado.
+  registerCase(['regrasrpg', 'regrasville', 'rpgregras'], async ({ sock, msg, ctx }) => {
     return sock.sendMessage(ctx.remoteJid, { text: community.COMMUNITY_RULES }, { quoted: msg });
   }, true);
 
@@ -77,7 +82,9 @@ module.exports = function registerRPGSetup(registerCase) {
   }, true);
 
   // ═══ BOAS-VINDAS ═══
-  registerCase(['welcome', 'boasvindas', 'bv'], async ({ sock, msg, ctx, args, isOwner }) => {
+  // v6.63: 'welcome'/'boasvindas'/'bv' são de cases/grupos.js.
+  // Este estava morto. Renomeado para não colidir.
+  registerCase(['bvrpg', 'welcomerpg'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
 
     const action = (args[0] || '').toLowerCase();
@@ -170,7 +177,8 @@ ${event.desc}
   }, true);
 
   // ═══ DARKRPG MENU ═══
-  registerCase(['menu-rpg', 'menurpg', 'rpgmenu'], async ({ sock, msg, ctx, prefix }) => {
+  // v6.63: colidia com o menu-rpg de rpgCommunity.js. Renomeado.
+  registerCase(['menu-rpg2', 'menurpgfull'], async ({ sock, msg, ctx, prefix }) => {
     const p = prefix || '!';
 
     return sock.sendMessage(ctx.remoteJid, {
