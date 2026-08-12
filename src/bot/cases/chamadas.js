@@ -85,8 +85,12 @@ module.exports = function registerChamadas(registerCase) {
       return sock.sendMessage(ctx.remoteJid, { text: `❌ Não consegui criar a chamada: ${r.error}` }, { quoted: msg });
     }
 
+    const comoFoi = r.tocou
+      ? `📞 *A tocar!*\n\nEstou a ligar para ${numero} agora. O telemóvel está a tocar.`
+      : `📞 *Chamada criada!*\n\nEnviei o link ao número ${numero}. Quando ele clicar, a chamada abre.`;
+
     return sock.sendMessage(ctx.remoteJid, {
-      text: `📞 *Chamada criada!*\n\nEnviei o link ao número ${numero}. Quando ele clicar, a chamada abre.\n\nTipo: ${r.tipo === 'video' ? '📹 vídeo' : '📞 voz'}`,
+      text: `${comoFoi}\n\nTipo: ${r.tipo === 'video' ? '📹 vídeo' : '📞 voz'}`,
     }, { quoted: msg });
   }, true);
 
