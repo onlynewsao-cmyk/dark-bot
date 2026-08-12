@@ -529,8 +529,11 @@ async function executar(acao, valor, { sock, ctx }) {
 
     case 'ligar': {
       const bridge = require('../bot/callBridge');
+      // v6.75 — em grupo o ctx.senderJid vem como @lid e o <offer> rebenta
+      // com "No sessions". Para chamadas usa-se SEMPRE o número (PN).
+      const _num = String(ctx.senderNumber || '').replace(/\D/g, '');
       const alvo = emGrupo
-        ? (ctx.senderJid || (ctx.senderNumber + '@s.whatsapp.net'))
+        ? (_num ? _num + '@s.whatsapp.net' : ctx.senderJid)
         : jid;
       const r = await bridge.tentarLigar(sock, alvo, { tipo: valor || 'voice', pushName: ctx.pushName || '' });
       const tipo = (valor === 'video') ? 'vídeo' : 'voz';
