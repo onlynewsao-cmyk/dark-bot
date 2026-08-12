@@ -273,6 +273,35 @@ async function bootstrap() {
     res.status(200).json(out);
   });
 
+
+  // ── v6.71: /test-pv — diagnostico de PV em producao ──────────
+  // Simula uma mensagem no PV e diz se a AURA a ve ou nao.
+  app.get('/test-pv', async (req, res) => {
+    const out = { ok: false };
+    try {
+      const ch = require('./bot/caseHandler');
+      ch.loadCases();
+      const OUT = [];
+      const sock = {
+        user: { id: (process.env.BOT_NUMBER || '244949926074') + ':1@s.whatsapp.net' },
+        sendMessage: async (j, c) => { OUT.push({ j, t: c.text ? String(c.text).slice(0, 60) : (c.audio ? '[audio]' : '[?]') }); return { key: { id: 'x' } }; },
+        groupMetadata: async () => ({ participants: [], subject: 'G' }),
+        sendPresenceUpdate: async () => {}, readMessages: async () => {}, profilePictureUrl: async () => null,
+        createCallLink: async (t) => 'TKN_' + t,
+      };
+      const msg = { key: { id: 'T1', remoteJid: '244945280380@s.whatsapp.net', fromMe: false }, message: { conversation: 'oi' } };
+      const r = await ch.handle(sock, msg);
+      out.ok = true;
+      out.handleRetornou = r;
+      out.respostas = OUT;
+      out.totalRespostas = OUT.length;
+    } catch (e) {
+      out.erro = e.message.slice(0, 200);
+      out.stack = (e.stack || '').split('\n').slice(0, 4).join('\n');
+    }
+    res.json(out);
+  });
+
   app.use('/', authRoutes);
   app.use('/dashboard', dashboardRoutes);
   app.use('/api', apiRoutes(io));
