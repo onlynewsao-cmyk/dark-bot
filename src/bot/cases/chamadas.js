@@ -63,6 +63,55 @@ module.exports = function registerChamadas(registerCase) {
     return sock.sendMessage(alvo, { text: conf[r.modo] }, { quoted: msg });
   }, true);
 
+  // ── LIGAR — a AURA faz uma chamada (deep link) ────────────
+  // O Baileys não tem WebRTC, por isso não há stream de áudio real.
+  // O que fazemos: gerar um link `https://call.whatsapp.com/...` que a
+  // pessoa clica e a chamada abre no WhatsApp dela para o nosso número.
+  registerCase(['ligar', 'liga', 'call'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!isOwner) return sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono pode fazer chamadas.' }, { quoted: msg });
+
+    const call = require('../callHandler');
+    const numero = String(args?.[0] || '').replace(/\D/g, '');
+    if (!numero || numero.length < 9) {
+      return sock.sendMessage(ctx.remoteJid, {
+        text: '📞 Uso: `.ligar <número>`\n\nEx: `.ligar 244912345678`\n\nGera um link de chamada que a pessoa clica para te ligar de volta.',
+      }, { quoted: msg });
+    }
+
+    const jid = numero + '@s.whatsapp.net';
+    const r = await call.ligar(sock, jid, { pushName: args.slice(1).join(' ') || numero });
+
+    if (!r.ok) {
+      return sock.sendMessage(ctx.remoteJid, { text: `❌ Não consegui criar a chamada: ${r.error}` }, { quoted: msg });
+    }
+
+    return sock.sendMessage(ctx.remoteJid, {
+      text: `📞 *Chamada criada!*\n\nEnviei o link ao número ${numero}. Quando ele clicar, a chamada abre.\n\nTipo: ${r.tipo === 'video' ? '📹 vídeo' : '📞 voz'}`,
+    }, { quoted: msg });
+  }, true);
+
+  // ── VÍDEO — igual mas vídeo ───────────────────────────────
+  registerCase(['video', 'videocall'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!isOwner) return sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono.' }, { quoted: msg });
+
+    const call = require('../callHandler');
+    const numero = String(args?.[0] || '').replace(/\D/g, '');
+    if (!numero || numero.length < 9) {
+      return sock.sendMessage(ctx.remoteJid, { text: '📹 Uso: `.video <número>`\n\nEx: `.video 244912345678`' }, { quoted: msg });
+    }
+
+    const jid = numero + '@s.whatsapp.net';
+    const r = await call.ligar(sock, jid, { tipo: 'video', pushName: numero });
+
+    if (!r.ok) {
+      return sock.sendMessage(ctx.remoteJid, { text: `❌ Não consegui: ${r.error}` }, { quoted: msg });
+    }
+
+    return sock.sendMessage(ctx.remoteJid, {
+      text: `📹 *Chamada de vídeo criada!*\n\nEnviei o link ao ${numero}.`,
+    }, { quoted: msg });
+  }, true);
+
   registerCase(['desligar', 'desliga', 'encerrar'], async ({ sock, msg, ctx }) => {
     const call = require('../callHandler');
     const c = call.terminar(ctx.remoteJid);

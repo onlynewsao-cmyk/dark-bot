@@ -141,6 +141,61 @@ async function falar(sock, jid, texto, quoted) {
   }
 }
 
+/**
+ * v6.69 — Criar uma chamada (outbound) via deep link do WhatsApp.
+ * O Baileys não tem WebRTC, por isso não há stream de áudio real.
+ * O que fazemos: gerar um link `https://call.whatsapp.com/...` que a
+ * pessoa clica e a chamada abre no WhatsApp dela. É a via oficial.
+ *
+ * Devolve { ok, link, token } ou { ok:false, error }.
+ */
+async function criarChamada(sock, tipo = 'audio') {
+  if (typeof sock.createCallLink !== 'function') {
+    return { ok: false, error: 'Esta versão do Baileys não suporta criar chamadas.' };
+  }
+  try {
+    const token = await sock.createCallLink(tipo === 'video' ? 'video' : 'audio', null, 30000);
+    if (!token) return { ok: false, error: 'O WhatsApp não devolveu o token da chamada.' };
+
+    const { CALL_AUDIO_PREFIX, CALL_VIDEO_PREFIX } = require('@systemzero/baileys');
+    const prefix = tipo === 'video' ? CALL_VIDEO_PREFIX : CALL_AUDIO_PREFIX;
+    return { ok: true, token, link: prefix + token, tipo };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+/**
+ * v6.69 — Liga a um número (via deep link) e avisa a pessoa.
+ * A AURA gera o link e envia ao contacto. Quando ele clica, a chamada
+ * abre no WhatsApp dele para o nosso número.
+ */
+async function ligar(sock, jid, opts = {}) {
+  const numero = _num(jid);
+  const tipo = opts.tipo === 'video' ? 'video' : 'audio';
+  const nome = opts.pushName || numero;
+
+  // Gera o link de chamada
+  const chamada = await criarChamada(sock, tipo);
+  if (!chamada.ok) {
+    return { ok: false, error: chamada.error };
+  }
+
+  // Avisa a pessoa
+  const txt = opts.mensagem ||
+    (tipo === 'video'
+      ? `Vídeo chamada do Dark. Clica para atender:`
+      : `Chamada do Dark. Clica para atender:`);
+
+  try {
+    await sock.sendMessage(jid, {
+      text: `${txt}\n${chamada.link}`,
+    });
+  } catch {}
+
+  return { ok: true, link: chamada.link, token: chamada.token, tipo, jid };
+}
+
 // ══════════════════════════════════════════════════════════════
 // AVATAR — a cara dela nas chamadas de vídeo (v6.69)
 // Não há stream de vídeo (o Baileys não tem WebRTC), mas quem liga
@@ -396,6 +451,6 @@ async function continuarConversa(sock, jid, audioBuffer, opts = {}) {
 module.exports = {
   onCall, atenderChamada, rejeitarChamada, continuarConversa,
   falar, ouvir, entender, ehDespedida, obterAvatar, enviarAvatar,
-  setMode, getMode, loadModes, chamadaActiva, terminar,
+  setMode, getMode, loadModes, chamadaActiva, terminar, criarChamada, ligar,
   _activas, _modos,
 };
