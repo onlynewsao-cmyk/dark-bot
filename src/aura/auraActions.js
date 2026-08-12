@@ -50,6 +50,30 @@ function extrairNome(texto) {
   return null;
 }
 
+/**
+ * v6.67 — Extrai o nome do grupo em "liga o grupo Arena à comunidade".
+ * Devolve null se for "liga ESTE grupo" (aí é o grupo actual).
+ */
+function extrairNomeGrupoLigar(texto) {
+  const t = String(texto || '');
+  if (/\b(este|esse|deste|desse|aqui|actual|atual)\s+grupo\b/i.test(t)) return null;
+  if (/\bgrupo\s+(este|esse|aqui)\b/i.test(t)) return null;
+
+  // "liga o grupo Arena à comunidade" | "adiciona o grupo Arena na comunidade"
+  let m = t.match(/\bgrupo\s+(?:chamad[oa]\s+)?["'“]?(.+?)["'”]?\s+(?:[àaá]|na|no|em|para|pra|de|da)\s+comunidade\b/i);
+  if (m) return m[1].trim();
+
+  // "adiciona um grupo na comunidade chamado Suporte"
+  m = t.match(/\bum?\s+grupo\s+.*?\s+comunidade\s+(?:chamad[oa]\s+)["'“]?(.+?)["'”]?\s*$/i);
+  if (m) return m[1].trim();
+
+  // "adiciona à comunidade o grupo Arena"
+  m = t.match(/comunidade\s+(?:o\s+)?grupo\s+(?:chamad[oa]\s+)?["'“]?(.+?)["'”]?\s*$/i);
+  if (m) return m[1].trim();
+
+  return null;
+}
+
 /** Extrai o valor depois de "para". */
 function extrairPara(texto) {
   const m = String(texto).match(/\bpara\s+["'“”]?([^"'“”\n]{1,120})["'“”]?\s*$/i);
@@ -85,8 +109,11 @@ function detectarAcao(texto) {
   // "cria uma comunidade" — senão a segunda regra apanha-o e
   // acaba a criar uma comunidade chamada "Avisos".
 
-  // 1. Grupo DENTRO da comunidade
-  if (/\b(cria|criar|faz|fazer|adiciona|add|abre|abrir)\b/.test(t) &&
+  // 1. Grupo DENTRO da comunidade — CRIAR um novo.
+  // v6.67: 'adiciona' e 'add' saíram daqui. "adiciona o grupo Arena
+  // na comunidade" é LIGAR um grupo que já existe, não criar outro
+  // — e o extrairNome devolvia lixo ("Arena na comunidade").
+  if (/\b(cria|criar|faz|fazer|abre|abrir)\b/.test(t) &&
       /\bgrupo\b/.test(t) &&
       /\b(na|dentro da|nesta|da|pra|para a)\s+comunidade\b/.test(t)) {
     return { acao: 'grupoNaComunidade', valor: extrairNome(texto) };
@@ -103,7 +130,18 @@ function detectarAcao(texto) {
     return { acao: 'conviteComunidade' };
   }
 
-  // 2. Ligar este grupo a uma comunidade
+  // 2. Ligar um grupo NOMEADO à comunidade (o grupo já existe)
+  // v6.67: "liga o grupo Arena à comunidade" / "adiciona o grupo X
+  // à comunidade" — antes caía no ligarComunidade, que só liga o
+  // grupo ONDE a mensagem foi escrita.
+  if (/\b(liga|ligar|junta|juntar|vincula|vincular|associa|adiciona|mete|poe|põe|coloca)\b/.test(t) &&
+      /\bcomunidade\b/.test(t) && /\bgrupo\b/.test(t)) {
+    const nome = extrairNomeGrupoLigar(texto);
+    if (nome) return { acao: 'ligarGrupoNomeado', valor: nome };
+    return { acao: 'ligarComunidade' };
+  }
+
+  // 2b. Ligar ESTE grupo a uma comunidade
   if (/\b(liga|ligar|junta|juntar|vincula|vincular|associa|mete|poe)\b/.test(t) &&
       /\bcomunidade\b/.test(t)) {
     return { acao: 'ligarComunidade' };
@@ -323,14 +361,16 @@ async function executar(acao, valor, { sock, ctx }) {
       // não deixar adicionar, manda o convite.
       const dono = await C.ensureOwnerInCommunity(sock, comunidade.jid, donoJid);
 
+      // v6.67: já não desiste ao primeiro erro — tenta criar dentro,
+      // depois pela API, depois cria solto e liga a seguir.
       const g = await C.createNamedGroup(sock, valor, donoJid, comunidade.jid, { forcarLink: true });
       if (!g.ok) {
-        const limitado = /rate-overlimit|429/i.test(String(g.error));
         return {
           ok: false,
-          msg: limitado
+          msg: g.limitado
             ? 'O WhatsApp travou-me por criar grupos a mais. Espera ~1h e pede outra vez.'
-            : `Não consegui criar o grupo: ${g.error}`,
+            : `Não consegui criar o grupo *${valor}*: ${g.error}` +
+              (g.via?.length ? `\n\nTentei por: ${g.via.join(' → ')}` : ''),
         };
       }
 
@@ -346,10 +386,32 @@ async function executar(acao, valor, { sock, ctx }) {
       if (dono.acoes?.length) extra = '\n\n' + dono.acoes.map(a => '▸ ' + a).join('\n');
       if (dono.convite) extra += `\n${dono.convite}`;
 
+      // Criou mas não conseguiu ligar → diz a verdade, não finge.
+      if (!g.ligado) {
+        return {
+          ok: true,
+          msg: `Criei o grupo *${valor}*, mas não consegui metê-lo na comunidade ` +
+               `*${comunidade.nome}*.${link}\n\nProvavelmente não sou admin da comunidade. ` +
+               `Dá-me admin e diz *"liga o grupo ${valor} à comunidade"*.${extra}`,
+        };
+      }
+
       return {
         ok: true,
         msg: `Criei o grupo *${valor}* dentro da comunidade *${comunidade.nome}*.${link}${extra}`,
       };
+    }
+
+    // v6.67: "liga o grupo X à comunidade" — o grupo já existe.
+    case 'ligarGrupoNomeado': {
+      if (!valor) return { ok: false, msg: 'Diz qual grupo. Ex: *liga o grupo Arena à comunidade*' };
+      const C = require('../bot/rpg/community');
+      const c = await _descobrirComunidade(sock, ctx, jid, emGrupo);
+      if (!c.jid) return { ok: false, msg: c.erro };
+
+      const r = await C.linkExistingGroup(sock, valor, c.jid);
+      if (!r.ok) return { ok: false, msg: `Não consegui ligar *${valor}*: ${r.error}` };
+      return { ok: true, msg: `Meti o grupo *${r.nome}* na comunidade *${c.nome}*.` };
     }
 
     case 'ligarComunidade': {

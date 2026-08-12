@@ -147,7 +147,7 @@ const check = (nome, cond, extra = '') => {
   const casos = [
     ['cria uma comunidade chamada Dark Net', 'criarComunidade', 'Dark Net'],
     ['cria um grupo na comunidade chamado Avisos', 'grupoNaComunidade', 'Avisos'],
-    ['adiciona um grupo na comunidade chamado Suporte', 'grupoNaComunidade', 'Suporte'],
+    ['adiciona um grupo na comunidade chamado Suporte', 'ligarGrupoNomeado', 'Suporte'],
     ['liga este grupo a comunidade', 'ligarComunidade', undefined],
   ];
   const erros = casos.filter(([t, a, v]) => {

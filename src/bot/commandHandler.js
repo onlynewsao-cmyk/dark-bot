@@ -696,18 +696,45 @@ async function _handleInner(sock, msg) {
       await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark 🖤' }, { quoted: msg });
       return true;
     }
-    if (/aura.*(manda|envia).*áudio|voz|fala/.test(t)) {
+    // ── v6.67: BUG DO ECO ────────────────────────────────────
+    // A regex era:  /aura.*(manda|envia).*áudio|voz|fala/
+    // O `|` tem precedência mínima, por isso isto lia-se como
+    //   (aura.*(manda|envia).*áudio) OU (voz) OU (fala)
+    // Bastava a palavra "fala" ou "voz" EM QUALQUER SÍTIO para cair
+    // aqui. "fala oi" entrava, e o replace a seguir não removia nada
+    // (exigia "aura" antes), por isso o textoFala ficava "fala oi" —
+    // ela LIA EM VOZ ALTA O QUE O DONO ESCREVEU. Era isto o eco.
+    //
+    // Agora: só é ordem de voz se houver um verbo de pedido E a
+    // palavra audio/voz. "fala oi" passa para a IA responder como
+    // pessoa, que é o que se espera.
+    const _tv = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const _ordemVoz =
+      /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(_tv) &&
+      /\b(manda|mande|envia|envie|grava|grave|quero|faz|faca|poe|responde|diz|fala)\b/.test(_tv);
+
+    if (_ordemVoz) {
       try {
-        const textoFala = text.replace(/aura.*(manda|envia|quer|diz|fala|áudio|voz)/i, '').trim() || 'Oi meu Dark! Eu sou a Aura!';
-        const buf = await require('./ai').speakWithFallback(textoFala);
-        if (buf && buf.length > 500) {
-          await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: msg });
-        } else {
-          await sock.sendMessage(ctx.remoteJid, { text: `_🎤 ${textoFala}_` }, { quoted: msg });
+        // v6.67: o que ela deve DIZER é só o que vem depois de
+        // "dizendo/que/:" — não a frase toda do pedido.
+        const mConteudo = text.match(/\b(?:dizendo|a dizer|que diga|diga|dizer|falando|assim|isto|isso)\b[:,]?\s+([\s\S]{2,300})$/i)
+          || text.match(/[:"“]\s*([^"”\n]{2,300})["”]?\s*$/);
+
+        const textoFala = (mConteudo?.[1] || '').trim();
+
+        if (textoFala) {
+          // Pedido explícito com conteúdo: lê ESSE conteúdo.
+          const buf = await require('./ai').speakWithFallback(textoFala);
+          if (buf && buf.length > 500) {
+            await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: msg });
+            return true;
+          }
         }
-        return true;
+        // Sem conteúdo ("manda um áudio") → deixa a IA pensar numa
+        // resposta dela; o bloco de voz lá em baixo converte-a.
+        // NÃO devolve aqui: era isso que causava o eco.
       } catch (e) {
-        await sock.sendMessage(ctx.remoteJid, { text: '❌ Erro ao gerar voz: ' + e.message }, { quoted: msg });
+        console.warn('[Aura voz-directa]', e.message?.slice(0, 60));
       }
     }
     // AURA canta
@@ -1125,8 +1152,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // v6.54: Dark SEMPRE activa a Aura (sem prefixo) — ela responde a TUDO dele
   // v6.43: o Dark só é ouvido sem prefixo onde a AURA está acordada.
   // Num grupo alheio o bot não pode responder a tudo o que ele escreve.
+  //
+  // v6.67: PV DE TODOS — no privado a AURA responde a qualquer pessoa,
+  // não só ao Dark. Uma pessoa real atende a quem lhe fala. O único
+  // requisito: não ser comando (prefixo) e ter texto. Grupos mantêm as
+  // regras de menção/trigger para não virar spam.
+  const isPv = !ctx.isGroup;
   const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0 && _auraAwakeHere;
-  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText)) {
+  const pvDeTodos = isPv && !prefixInfo && text.length > 0 && !text.startsWith('!') && !text.startsWith('.') && !text.startsWith('/');
+  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
@@ -1324,6 +1358,33 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       }
       
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
+      // ── v6.67: ACÇÕES DO WHATSAPP — ANTES DA IA ──────────────
+      // Estava DEPOIS da chamada ao modelo. Resultado real: o Dono
+      // pedia "cria um grupo na comunidade DARK RPG chamado Arena",
+      // o modelo respondia "_ri muito_ 🤣" e — se a IA falhasse ou
+      // devolvesse um fallback — a acção nunca chegava a correr.
+      // Uma ordem é uma ordem: executa-se primeiro, conversa-se
+      // depois. Assim nunca mais responde com uma gargalhada a um
+      // pedido concreto.
+      if (isOwner) {
+        try {
+          const acts = require('../aura/auraActions');
+          const ordem = acts.detectarAcao(cleanText);
+          if (ordem) {
+            const r = await acts.executar(ordem.acao, ordem.valor, {
+              sock, ctx: { ...ctx, botName: config.bot.name },
+            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 90)}` }));
+
+            if (r?.msg) {
+              await sock.sendMessage(ctx.remoteJid, { text: r.msg }, { quoted: msg });
+            }
+            if (r?.ok || r?.msg) return true;
+          }
+        } catch (e) {
+          console.warn('[Aura acção]', e.message?.slice(0, 60));
+        }
+      }
+
       let answer;
       if (isImage) {
         try {
@@ -1494,28 +1555,6 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           }
         } catch (e) {
           console.warn('[Aura comando]', e.message?.slice(0, 60));
-        }
-      }
-
-      // v6.54: ACÇÕES DO WHATSAPP — ela faz o que uma pessoa faz.
-      // "cria um grupo chamado X", "cria um canal", "fecha o grupo",
-      // "manda o link", "muda o nome"... Só o Dono Supremo.
-      if (isOwner) {
-        try {
-          const acts = require('../aura/auraActions');
-          const ordem = acts.detectarAcao(cleanText);
-          if (ordem) {
-            const r = await acts.executar(ordem.acao, ordem.valor, {
-              sock, ctx: { ...ctx, botName: config.bot.name },
-            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 90)}` }));
-
-            if (r?.msg) {
-              await sock.sendMessage(ctx.remoteJid, { text: r.msg }, { quoted: msg });
-            }
-            if (r?.ok || r?.msg) return true;
-          }
-        } catch (e) {
-          console.warn('[Aura acção]', e.message?.slice(0, 60));
         }
       }
 
