@@ -760,7 +760,7 @@ async function _handleInner(sock, msg) {
       }
     }
     // AURA canta
-    if (/aura.*(canta|canta.*música|sing)/.test(t) && isOwner) {
+    if (/\baura\b.*\b(canta|cantar|cante|sing)\b/i.test(t) && isOwner) {
       const musica = text.replace(/aura.*canta/i, '').trim();
       if (musica) {
         await sock.sendMessage(ctx.remoteJid, { text: `🎵 _Aura canta: ${musica}_
@@ -773,13 +773,21 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       return true;
     }
     // AURA sussurra
-    if (/aura.*(sussurra|whisper)/.test(t) && isOwner) {
+    if (/\baura\b.*\b(sussurra|sussurrar|whisper)\b/i.test(t) && isOwner) {
       const sussurro = text.replace(/aura.*(sussurra|whisper)/i, '').trim() || 'Tô aqui meu Dark...';
       await sock.sendMessage(ctx.remoteJid, { text: `_suspira_ ...${sussurro}...` }, { quoted: msg });
       return true;
     }
     // AURA ri
-    if (/aura.*(ri|laugh|😂)/.test(t) && isOwner) {
+    // ── v6.69: BUG QUE MATAVA AS ORDENS ──────────────────────
+    // A regex era /aura.*(ri|laugh|😂)/ — sem \b. O "ri" apanhava
+    // qualquer palavra que o contivesse:
+    //   "aura CRIa um grupo..."  → RI     ← foi isto que o Dono viu
+    //   "aura escREVe"           → passava por sorte
+    // Por isso "aura cria um grupo na comunidade DARK RPG chamado
+    // Arena" respondia "_ri muito_ 🤣🤣🤣" e a acção nunca corria.
+    // Agora exige a palavra inteira E que seja o pedido principal.
+    if (/\baura\b[\s,]*(por favor\s*)?\b(ri|rir|risada|gargalha|gargalhada|laugh)\b\s*$/i.test(t) && isOwner) {
       const ri = ['_ri_ 😂', '_ri muito_ 🤣🤣🤣', '_gargalha_ 😂😂😂'];
       await sock.sendMessage(ctx.remoteJid, { text: ri[Math.floor(Math.random() * ri.length)] }, { quoted: msg });
       return true;
@@ -1120,7 +1128,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // não está ali. Só menção ao bot / resposta directa é que chamam o
   // assistente. Senão o bot saltava a cada vez que alguém dissesse "aura"
   // (que em gíria é comum: "que aura", "mede minha aura"...).
-  const auraTriggerActive = _auraAwakeHere ? isAuraTrigger : false;
+  // ── v6.69: chamar pelo nome funciona SEMPRE ─────────────────
+  // Antes: `_auraAwakeHere ? isAuraTrigger : false`. Num grupo em
+  // modo assistente (auraMode undefined/'assistant' — que é o caso
+  // de 42 dos 44 grupos na base real) dizer "aura ..." não fazia
+  // NADA. Era esta a razão de ela parecer morta nos grupos.
+  // Agora, chamar pelo nome sempre a acorda para responder — o modo
+  // continua a decidir a PERSONA (AURA íntima vs assistente sóbria),
+  // não se ela existe.
+  const auraTriggerActive = isAuraTrigger;
 
   // ── v6.44: A AURA ENTENDE — sem comandos ────────────────────────────
   // O Dark não escreve ".aura". Ele fala com ela: "aura, acorda",
@@ -1180,7 +1196,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // requisito: não ser comando (prefixo) e ter texto. Grupos mantêm as
   // regras de menção/trigger para não virar spam.
   const isPv = !ctx.isGroup;
-  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0 && _auraAwakeHere;
+  // v6.69: no PV o Dono é sempre ouvido (não depende do modo do chat);
+  // em grupo mantém-se a regra de só onde ela está acordada, senão o
+  // bot respondia a tudo o que ele escreve em grupos alheios.
+  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0 && (isPv || _auraAwakeHere);
   const pvDeTodos = isPv && !prefixInfo && text.length > 0 && !text.startsWith('!') && !text.startsWith('.') && !text.startsWith('/');
   if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos)) {
     try {
