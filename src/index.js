@@ -238,6 +238,7 @@ async function bootstrap() {
         'v6.72 pv_media': chSrc.includes('hasIncomingMedia'),
         'v6.72 call_aceitar': callSrc.includes('tentarAceitarChamada'),
         'v6.73 call_baileys_secundario': fsx.existsSync(path.join(__dirname, 'bot', 'callSocket.js')),
+        'v6.74 live_voip_opcional': fsx.existsSync(path.join(__dirname, 'bot', 'liveVoip.js')),
       };
 
       out.bot = {

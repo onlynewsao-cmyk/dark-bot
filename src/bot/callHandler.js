@@ -407,19 +407,7 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
       ? 'Atendi a chamada de vídeo. Manda um áudio que eu ouço e respondo.'
       : 'Atendi. Manda um áudio que eu ouço e respondo.');
 
-  if (isVideo) {
-    try {
-      const img = await ai.generateImage(
-        'cinematic portrait of a 19 year old brazilian woman, dark hair, warm eyes, soft light, looking at camera, romantic, photorealistic'
-      );
-      if (img && img.length > 1000) {
-        await sock.sendMessage(from, { image: img, caption: saudacao });
-      }
-    } catch (e) {
-      console.warn('[Call avatar]', e.message?.slice(0, 50));
-    }
-  }
-
+  // Sem foto gerada: isso NÃO é atender ao vivo e só poluía o chat.
   await falar(sock, from, saudacao);
 
   return {

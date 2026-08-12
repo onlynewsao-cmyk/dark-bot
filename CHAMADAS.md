@@ -20,6 +20,21 @@ aberto desde 2023 exactamente por isto.
 **Não te vou vender um stream de áudio que a biblioteca não tem.** O que
 implementei é a coisa mais próxima que funciona a sério — e funciona mesmo.
 
+## Chamada ao vivo (RTP)
+
+Ferramenta testada: **baileys-caller** (WASM VoIP do WhatsApp Web).
+
+| | |
+|---|---|
+| Voz 1:1 de **saída** | possível, se existir sessão em `data/auth-voip` |
+| Atender **entrada** | a lib **não faz** |
+| Vídeo | a lib **não faz** |
+| Grupo | a lib **não faz** |
+
+Não está nas dependencies do Render: o módulo nativo `wrtc` rebenta o build Free. O bot principal **não depende** disto. Sem a lib ou sem o 3.º QR, cai no PTT (como já estava).
+
+---
+
 ## v6.73 — Baileys secundário só para chamadas
 
 Há agora **dois aparelhos ligados** no mesmo número:
