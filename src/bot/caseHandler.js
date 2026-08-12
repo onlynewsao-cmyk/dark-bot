@@ -523,7 +523,7 @@ function loadCases() {
       }
     } catch {}
   }
-  console.log(`[Cases] ${CASES.size} cases carregados | " + FILE_SOURCES.size + " fontes extraídas`);
+  console.log(`[Cases] ${CASES.size} cases carregados | ${FILE_SOURCES.size} fontes extraídas`);
 }
 
 // ─────────────────────────────────────────────────────

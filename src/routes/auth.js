@@ -1,11 +1,45 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const { rateLimit } = require('express-rate-limit');
 const router = express.Router();
 const User = require('../database/models/User');
 
 function renderLogin(res, error = null, username = '') {
   return res.render('auth/login', { title: 'Login', error, username });
 }
+
+// ── Protecção contra força bruta e criação de contas em massa ──
+// Só conta os pedidos POST (falhados, no caso do login). Em memória,
+// sem I/O: não afecta o tempo de resposta.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  limit: 10,                // 10 tentativas falhadas por IP
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // quem acerta a senha nunca é bloqueado
+  // O login falhado responde 200 (HTML com erro) e só o sucesso redirecciona.
+  // Sem isto, o contador nunca subia e o limite não funcionava.
+  requestWasSuccessful: (req, res) => res.statusCode === 302,
+  handler: (req, res) => renderLogin(
+    res.status(429),
+    'Demasiadas tentativas de login. Aguarde 15 minutos e tente novamente.',
+    (req.body?.username || '').toLowerCase().trim(),
+  ),
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  limit: 5,                 // 5 contas por IP por hora
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (req, res) => res.status(429).render('auth/register', {
+    title: 'Criar Conta',
+    error: 'Demasiadas contas criadas a partir deste endereço. Tente novamente dentro de 1 hora.',
+    username: (req.body?.username || '').toLowerCase().trim(),
+    name: req.body?.name || '',
+    whatsappNumber: req.body?.whatsappNumber || '',
+  }),
+});
 
 function isDatabaseReady() {
   return mongoose.connection.readyState === 1;
@@ -23,7 +57,7 @@ router.get('/login', (req, res) => {
   renderLogin(res);
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const username = (req.body.username || '').toLowerCase().trim();
   const password = req.body.password || '';
 
@@ -80,7 +114,7 @@ router.get('/register', (req, res) => {
   res.render('auth/register', { title: 'Criar Conta', error: null, username: '', name: '', whatsappNumber: '' });
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { username, password, name, whatsappNumber } = req.body;
   const cleanUsername = (username || '').toLowerCase().trim();
   const renderErr = (msg) => res.render('auth/register', {
