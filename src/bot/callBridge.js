@@ -6,6 +6,7 @@
 'use strict';
 
 const callHandler = require('./callHandler');
+const realCall = require('./realCall');
 
 function detectarPedidoChamada(texto) {
   const t = String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -50,6 +51,21 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
       return null;
     }
   };
+
+  // Chamada REAL (o telemóvel toca): monta o stanza <call><offer> a partir dos
+  // internos que o socket já expõe. Substitui o antigo sock.offerCall, que não
+  // existe nesta lib e falhava sempre.
+  if (realCall.suportado(sock)) {
+    const r = await tryFn('realCall', async () => {
+      const res = await realCall.ligar(sock, alvoJid, { isVideo });
+      if (!res.ok) throw new Error(res.motivo + (res.detalhe ? ': ' + res.detalhe : ''));
+      return res;
+    });
+    if (r) {
+      try { callHandler.marcarActiva?.(alvoJid, { callId: r.callId, origem: 'realCall' }); } catch {}
+      return { ok: true, metodo: 'realCall', callId: r.callId, tipo, tentativas };
+    }
+  }
 
   if (typeof sock.offerCall === 'function') {
     const r = await tryFn('offerCall', () => sock.offerCall(alvoJid, { isVideo }));
