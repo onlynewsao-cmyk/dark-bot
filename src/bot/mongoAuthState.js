@@ -1,32 +1,44 @@
 /**
  * Auth state do Baileys persistido no MongoDB.
- * Corrigido para evitar Duplicate Key e garantir limpeza total.
+ * prefix: '' → sessão principal (creds)
+ * prefix: 'call' → Baileys secundário de chamadas (call:creds)
+ * As duas sessões NÃO se misturam — são dois aparelhos ligados.
  */
 const { proto, initAuthCreds, BufferJSON } = require('@systemzero/baileys');
 const Session = require('../database/models/Session');
 
-async function useMongoAuthState() {
+function keyName(prefix, fileName) {
+  return prefix ? `${prefix}:${fileName}` : fileName;
+}
+
+async function useMongoAuthState({ prefix = '' } = {}) {
+  const p = String(prefix || '');
+
   async function writeData(data, fileName) {
     const content = JSON.stringify(data, BufferJSON.replacer);
-    // Usa a coleção whatsapp_sessions definida no modelo
-    await Session.findOneAndUpdate({ fileName }, { content }, { upsert: true });
+    await Session.findOneAndUpdate(
+      { fileName: keyName(p, fileName) },
+      { content },
+      { upsert: true }
+    );
   }
 
   async function readData(fileName) {
     try {
-      const doc = await Session.findOne({ fileName });
+      const doc = await Session.findOne({ fileName: keyName(p, fileName) });
       if (!doc) return null;
       return JSON.parse(doc.content, BufferJSON.reviver);
     } catch { return null; }
   }
 
   async function removeData(fileName) {
-    try { await Session.deleteOne({ fileName }); } catch {}
+    try { await Session.deleteOne({ fileName: keyName(p, fileName) }); } catch {}
   }
 
   const creds = (await readData('creds')) || initAuthCreds();
 
   return {
+    prefix: p,
     state: {
       creds,
       keys: {
@@ -55,11 +67,16 @@ async function useMongoAuthState() {
       },
     },
     saveCreds: async () => writeData(creds, 'creds'),
-    clearSession: async () => { 
-      console.log('🧹 Limpando todas as sessões do WhatsApp no MongoDB...');
-      await Session.deleteMany({}); 
+    clearSession: async () => {
+      if (p) {
+        console.log(`🧹 Limpando sessão ${p}:* no MongoDB...`);
+        await Session.deleteMany({ fileName: new RegExp('^' + p + ':') });
+      } else {
+        console.log('🧹 Limpando sessão principal do WhatsApp (sem prefixo)...');
+        await Session.deleteMany({ fileName: { $not: /:/ } });
+      }
     },
   };
 }
 
-module.exports = { useMongoAuthState };
+module.exports = { useMongoAuthState, keyName };

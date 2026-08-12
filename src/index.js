@@ -12,6 +12,7 @@ const { connectDB } = require('./database/connection');
 const User = require('./database/models/User');
 const Command = require('./database/models/Command');
 const { getBot } = require('./bot/whatsapp');
+const { getCallBot } = require('./bot/callSocket');
 const scheduler = require('./bot/scheduler');
 const botConfigCache = require('./bot/botConfigCache');
 
@@ -165,15 +166,17 @@ async function bootstrap() {
   // Endpoint SEM autenticação, público, resposta rápida.
   app.get('/health', (req, res) => {
     const botStatus = getBot(io).getStatus();
+    const callStatus = getCallBot(io).getStatus();
     res.status(200).json({
       status: 'ok',
       bot: botStatus.status,
+      callbot: callStatus.status,
       db: conn ? 'connected' : 'unavailable',
       uptime: botStatus.uptime || 0,
       messages: botStatus.messageCount || 0,
       commands: botStatus.commandCount || 0,
       ts: Date.now(),
-      version: '6.0.0',
+      version: '6.73.0',
     });
   });
 
@@ -224,12 +227,17 @@ async function bootstrap() {
       // O código em execução tem as correcções da v6.69?
       const fsx = require('fs');
       const chSrc = fsx.readFileSync(path.join(__dirname, 'bot', 'commandHandler.js'), 'utf8');
+      const callSrc = fsx.readFileSync(path.join(__dirname, 'bot', 'callHandler.js'), 'utf8');
       out.correccoes = {
         'v6.69 regex_ri_com_fronteira': chSrc.includes('gargalhada|laugh'),
         'v6.69 trigger_sem_depender_do_modo': chSrc.includes('const auraTriggerActive = isAuraTrigger;'),
         'v6.69 pv_do_dono_sempre': chSrc.includes('(isPv || _auraAwakeHere)'),
         'v6.67 pvDeTodos': chSrc.includes('pvDeTodos'),
         'v6.68 callHandler_ligado': fsx.existsSync(path.join(__dirname, 'bot', 'callHandler.js')),
+        'v6.72 unwrap_ephemeral': chSrc.includes('unwrapWhatsAppMessage'),
+        'v6.72 pv_media': chSrc.includes('hasIncomingMedia'),
+        'v6.72 call_aceitar': callSrc.includes('tentarAceitarChamada'),
+        'v6.73 call_baileys_secundario': fsx.existsSync(path.join(__dirname, 'bot', 'callSocket.js')),
       };
 
       out.bot = {
@@ -336,18 +344,25 @@ async function bootstrap() {
   io.on('connection', (socket) => {
     const bot = getBot(io);
     socket.emit('bot:status', bot.getStatus());
+    socket.emit('callbot:status', getCallBot(io).getStatus());
   });
 
   // Bot - tenta auto-conectar se já tem sessão (MongoDB ou local)
   const bot = getBot(io);
+  const callBot = getCallBot(io);
   if (conn) {
     // Verifica sessão no Mongo
     try {
       const Session = require('./database/models/Session');
-      const hasSession = await Session.countDocuments();
-      if (hasSession > 0) {
+      const hasMain = await Session.countDocuments({ fileName: { $not: /^call:/ } });
+      if (hasMain > 0) {
         console.log('🔄 Sessão WhatsApp encontrada no MongoDB - reconectando...');
         bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+      }
+      const hasCall = await Session.countDocuments({ fileName: /^call:/ });
+      if (hasCall > 0) {
+        console.log('🔄 Sessão de CHAMADAS encontrada — a ligar Baileys secundário...');
+        callBot.start({ mode: 'qr' }).catch(e => console.error('CallBot auto-start:', e.message));
       }
     } catch (e) {}
   } else {

@@ -20,6 +20,21 @@ aberto desde 2023 exactamente por isto.
 **Não te vou vender um stream de áudio que a biblioteca não tem.** O que
 implementei é a coisa mais próxima que funciona a sério — e funciona mesmo.
 
+## v6.73 — Baileys secundário só para chamadas
+
+Há agora **dois aparelhos ligados** no mesmo número:
+
+1. **Bot principal** — mensagens, menus, AURA, grupos
+2. **Call-Baileys** — só o evento `call` + notas de voz durante a chamada
+
+A sessão do segundo fica em `call:creds` no MongoDB. **Não partilha credenciais** com o principal (isso dava 440).
+
+No dashboard → **Conectar**: gera o QR/Pair do bloco *Baileys de Chamadas* **depois** do bot principal já estar online. Escaneia como segundo dispositivo.
+
+Se o call-bot estiver ligado, o principal deixa as chamadas para ele.
+
+---
+
 ## v6.72 — o que mudou agora
 
 - Mensagens reais do WhatsApp (ephemeral / viewOnce / edited) são **desembrulhadas** antes de a AURA as ver. Sem isto o PV chegava vazio.

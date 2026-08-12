@@ -94,8 +94,8 @@ class WhatsAppBot {
   async getAuthState() {
     if (mongoose.connection.readyState === 1) {
       try {
-        this.mongoAuth = await useMongoAuthState();
-        this.log('info', '🗄️ Auth: MongoDB');
+        this.mongoAuth = await useMongoAuthState({ prefix: '' });
+        this.log('info', '🗄️ Auth: MongoDB (principal)');
         return { state: this.mongoAuth.state, saveCreds: this.mongoAuth.saveCreds };
       } catch (e) {
         this.log('warn', 'MongoAuth falhou: ' + e.message);
@@ -109,7 +109,8 @@ class WhatsAppBot {
     if (mongoose.connection.readyState === 1) {
       try {
         const Session = require('../database/models/Session');
-        await Session.deleteMany({});
+        // Não apaga a sessão do Baileys de chamadas (call:*)
+        await Session.deleteMany({ fileName: { $not: /^call:/ } });
       } catch {}
     }
     if (this.mongoAuth) {
@@ -358,6 +359,15 @@ class WhatsAppBot {
       // sério: assume a chamada e conversa por notas de voz — ela
       // atende, fala, ouve, entende e responde em áudio.
       this.sock.ev.on('call', async (calls) => {
+        // Se o Baileys secundário de chamadas está ligado, ele trata.
+        // Evita atender duas vezes (PTT em dobro).
+        try {
+          const { getCallBot } = require('./callSocket');
+          if (getCallBot().isConnected()) {
+            this.log('info', '[Call] a cargo do Baileys secundário');
+            return;
+          }
+        } catch {}
         for (const call of calls) {
           try {
             const callHandler = require('./callHandler');

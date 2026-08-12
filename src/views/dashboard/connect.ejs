@@ -91,6 +91,62 @@
       </div>
     </div>
 
+    <!-- BAILEYS SECUNDÁRIO — SÓ CHAMADAS -->
+    <div class="card" style="margin-top:1.2rem;border:1px solid #8B5CF6">
+      <h2>📞 Baileys de Chamadas (secundário)</h2>
+      <p class="muted" style="margin-bottom:.75rem">
+        Segundo aparelho no <strong>mesmo número</strong>. Sessão isolada — não usa as credenciais do bot principal.
+        Liga este QR <em>depois</em> do bot principal já estar online.
+      </p>
+      <div class="bot-status" style="margin-bottom:.75rem">
+        <span class="status-dot status-<%= callState.status %>" id="callStatusDot"></span>
+        <span id="callStatusText"><%= callState.status %></span>
+      </div>
+      <div class="connect-grid">
+        <div>
+          <div class="qr-area" id="callQrArea">
+            <% if (callState.qr) { %>
+              <img src="<%= callState.qr %>" alt="QR Chamadas" />
+            <% } else if (callState.status === 'connected') { %>
+              <div class="qr-placeholder success">
+                <div class="qr-icon">📞</div>
+                <p><strong>Chamadas online</strong></p>
+                <p class="muted small"><%= callState.user?.id?.split(':')[0] %></p>
+              </div>
+            <% } else { %>
+              <div class="qr-placeholder">
+                <div class="qr-icon">📞</div>
+                <p>Gera o QR das chamadas</p>
+              </div>
+            <% } %>
+          </div>
+          <div class="button-row">
+            <button class="btn btn-primary" id="btnCallQr" onclick="startCallQR()">📞 Gerar QR Chamadas</button>
+            <% if (callState.status === 'connected') { %>
+              <button class="btn btn-danger btn-sm" onclick="disconnectCallBot()">Desligar chamadas</button>
+            <% } %>
+          </div>
+        </div>
+        <div>
+          <div class="form-group">
+            <label>Número (DDI) para pair code das chamadas</label>
+            <input type="tel" id="callPairNumber" placeholder="Ex: 244949926074" value="<%= owner.number %>" />
+          </div>
+          <div class="pair-area" id="callPairArea">
+            <% if (callState.pairingCode) { %>
+              <div style="text-align:center">
+                <div class="muted small">PAIR CODE CHAMADAS:</div>
+                <div class="pair-code"><%= callState.pairingCode %></div>
+              </div>
+            <% } else { %>
+              <div class="qr-placeholder"><div class="qr-icon">🔐</div><p>Pair code das chamadas</p></div>
+            <% } %>
+          </div>
+          <button class="btn btn-success" id="btnCallPair" onclick="startCallPair()">🔐 Pair Code Chamadas</button>
+        </div>
+      </div>
+    </div>
+
     <!-- LOG DE CONEXÃO -->
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
