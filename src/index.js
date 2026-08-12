@@ -207,6 +207,72 @@ async function bootstrap() {
     );
   });
 
+  // ── /diag — Diagnóstico REAL do processo em produção (v6.70) ─────────
+  // O Dono reportou 2x que a AURA não responde, mas os testes locais
+  // passam todos. Isto mostra o que o processo do Render TEM MESMO
+  // em memória: commit, chaves, guardas do fluxo e config da base.
+  // Sem isto, estou a adivinhar em vez de diagnosticar.
+  app.get('/diag', async (req, res) => {
+    const out = { ok: true, hora: new Date().toISOString() };
+    try {
+      const { execSync } = require('child_process');
+      try {
+        out.commit = execSync('git rev-parse --short HEAD', { cwd: path.join(__dirname, '..') })
+          .toString().trim();
+      } catch { out.commit = '(sem git no Render — normal)'; }
+
+      // O código em execução tem as correcções da v6.69?
+      const fsx = require('fs');
+      const chSrc = fsx.readFileSync(path.join(__dirname, 'bot', 'commandHandler.js'), 'utf8');
+      out.correccoes = {
+        'v6.69 regex_ri_com_fronteira': chSrc.includes('gargalhada|laugh'),
+        'v6.69 trigger_sem_depender_do_modo': chSrc.includes('const auraTriggerActive = isAuraTrigger;'),
+        'v6.69 pv_do_dono_sempre': chSrc.includes('(isPv || _auraAwakeHere)'),
+        'v6.67 pvDeTodos': chSrc.includes('pvDeTodos'),
+        'v6.68 callHandler_ligado': fsx.existsSync(path.join(__dirname, 'bot', 'callHandler.js')),
+      };
+
+      out.bot = {
+        nome: config.bot.name,
+        prefixo: config.bot.prefix,
+        owner: config.owner.number,
+        numero: process.env.BOT_NUMBER || '(não definido)',
+      };
+      out.chaves = {
+        groq: !!config.ai?.groqApiKey, gemini: !!config.ai?.geminiApiKey,
+        elevenlabs: !!config.ai?.elevenlabsKey, assemblyai: !!config.ai?.assemblyaiKey,
+        mongodb: !!process.env.MONGODB_URI,
+      };
+
+      const _b = getBot(io);
+      const st = _b.getStatus();
+      out.whatsapp = { estado: st.status, mensagens: st.messageCount, comandos: st.commandCount, uptime: st.uptime };
+
+      // Conflito de sessão: duas instâncias com as mesmas credenciais.
+      // É a causa nº1 de "online mas não responde a nada".
+      out.conflitos_de_sessao = _b._conflitos || 0;
+      if (out.conflitos_de_sessao > 0) {
+        out.AVISO = 'Há outra instância ligada com as mesmas credenciais (Render + local, ou dois deploys). Fecha as outras.';
+      }
+      if (st.status === 'connected' && st.uptime > 300 && (st.messageCount || 0) === 0) {
+        out.AVISO_SILENCIO = 'Ligado há mais de 5 min sem receber UMA mensagem — sinal de sessão roubada por outra instância.';
+      }
+
+      // As guardas que podem calar a AURA
+      const bcc = require('./bot/botConfigCache');
+      out.guardas = {
+        ai_auto_enabled: await bcc.get('ai_auto_enabled', true),
+        bot_interaction_enabled: await bcc.get('bot_interaction_enabled', true),
+        disabled_groups: await bcc.get('disabled_groups', []),
+        disabled_users: await bcc.get('disabled_users', []),
+        owner_lid: await bcc.get('owner_lid', ''),
+      };
+    } catch (e) {
+      out.ok = false; out.erro = e.message;
+    }
+    res.status(200).json(out);
+  });
+
   app.use('/', authRoutes);
   app.use('/dashboard', dashboardRoutes);
   app.use('/api', apiRoutes(io));
