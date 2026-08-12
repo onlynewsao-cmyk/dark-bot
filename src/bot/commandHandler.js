@@ -1272,7 +1272,12 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   } catch {}
   if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar)) {
     try {
-      const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
+      let cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
+      try {
+        const assunto = require('../aura/auraAssunto');
+        assunto.actualizar(ctx.remoteJid, cleanText, { groupName: ctx.groupName });
+        cleanText = assunto.resolver(cleanText, ctx.remoteJid, { groupName: ctx.groupName });
+      } catch {}
 
       // ── v6.56: ELA DECIDE SE RESPONDE ────────────────────────
       // Antes respondia a 100% das mensagens do Dark, mesmo às que
