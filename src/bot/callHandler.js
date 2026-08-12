@@ -197,6 +197,27 @@ async function tentarAceitarChamada(sock, call) {
     ? sock.generateMessageTag()
     : String(Date.now());
 
+  // v6.77 — handshake COMPLETO de atendimento (ack -> receipt -> preaccept
+  // -> accept), igual ao que um telemóvel real envia. Estava escrito em
+  // atenderChamada.js mas nunca era chamado: o onCall só tentava
+  // acceptCall/answerCall (inexistentes no fork) e um <accept> solto com
+  // 'call-creator' ERRADO (punha `from` em vez do criador da chamada).
+  // Sem preaccept o servidor não considera a chamada estabelecida.
+  try {
+    const A = require('./atenderChamada');
+    const r = await Promise.race([
+      A.atender(sock, call),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 4000ms')), 4000)),
+    ]);
+    if (r && r.atendeu) {
+      tentativas.push({ metodo: 'handshake_completo', ok: true, passos: r.passos });
+      return { ok: true, metodo: 'handshake_completo', tentativas };
+    }
+    tentativas.push({ metodo: 'handshake_completo', ok: false, passos: r?.passos });
+  } catch (e) {
+    tentativas.push({ metodo: 'handshake_completo', ok: false, erro: String(e?.message || e).slice(0, 80) });
+  }
+
   if (typeof sock.query === 'function') {
     if (await tentar('iq_accept', () => sock.query({
       tag: 'call',
@@ -454,12 +475,14 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
       ? 'Olá! Não consigo entrar na chamada de vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
       : 'Olá! Não consigo falar pela chamada, mas estou aqui: manda um áudio que eu ouço e respondo.');
 
-  await falar(sock, from, saudacao);
-
-  // Em segundo plano, por compatibilidade com forks que tenham WebRTC.
+  // v6.77 — ATENDER PRIMEIRO, falar depois. O handshake tem uma janela
+  // curta (o WhatsApp desiste em poucos segundos); se esperarmos pelo TTS
+  // o <accept> chega tarde e a chamada cai a tocar. Falar demora ~1-3s.
   const aceite = await tentarAceitarChamada(sock, call).catch(() => ({
     ok: false, metodo: 'erro', tentativas: [],
   }));
+
+  await falar(sock, from, saudacao);
 
   return {
     ok: true,
