@@ -58,13 +58,28 @@ function suportado(sock) {
  * @param {string} numero  número ou JID do destino
  * @param {object} opts  { isVideo }
  */
+function _falha(motivo, extra) {
+  _ultimo = { quando: new Date().toISOString(), ok: false, motivo, ...(extra || {}) };
+  try { console.log('[realCall] FALHA:', JSON.stringify(_ultimo)); } catch {}
+  return { ok: false, motivo, ...(extra || {}) };
+}
+
 async function ligar(sock, numero, opts = {}) {
   const jid = normalizarJid(numero);
-  if (!jid) return { ok: false, motivo: 'numero_invalido' };
-  if (!suportado(sock)) return { ok: false, motivo: 'socket_sem_suporte' };
+  if (!jid) return _falha('numero_invalido');
+  if (!suportado(sock)) {
+    return _falha('socket_sem_suporte', {
+      tem: {
+        query: typeof sock?.query,
+        getUSyncDevices: typeof sock?.getUSyncDevices,
+        assertSessions: typeof sock?.assertSessions,
+        createParticipantNodes: typeof sock?.createParticipantNodes
+      }
+    });
+  }
 
   const meId = sock?.authState?.creds?.me?.id || sock?.user?.id;
-  if (!meId) return { ok: false, motivo: 'nao_autenticado' };
+  if (!meId) return _falha('nao_autenticado');
 
   const { encodeSignedDeviceIdentity, jidEncode } = _lib();
   const isVideo = !!opts.isVideo;
@@ -98,7 +113,7 @@ async function ligar(sock, numero, opts = {}) {
     const encKey = randomBytes(32);
 
     const devs = await sock.getUSyncDevices([jid], true, false);
-    if (!devs || !devs.length) return { ok: false, motivo: 'destino_sem_whatsapp' };
+    if (!devs || !devs.length) return _falha('destino_sem_whatsapp', { jid });
 
     const devices = devs.map(({ user, device }) => jidEncode(user, 's.whatsapp.net', device));
     await sock.assertSessions(devices, true);
@@ -150,7 +165,11 @@ async function ligar(sock, numero, opts = {}) {
 
     return { ok: true, callId, to: jid, isVideo, ack: _ultimo };
   } catch (e) {
-    return { ok: false, motivo: 'falha_offer', detalhe: e?.message || String(e) };
+    return _falha('falha_offer', {
+      jid,
+      erro: e?.message || String(e),
+      stack: String(e?.stack || '').split('\n').slice(0, 4).join(' | ')
+    });
   }
 }
 
