@@ -21,6 +21,25 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
   const tentativas = [];
   const isVideo = tipo === 'video';
 
+  // 1. RTP ao vivo (só voz 1:1, só SAÍDA, só se houver sessão voip isolada)
+  if (!isVideo) {
+    try {
+      const live = require('./liveVoip');
+      const num = String(alvoJid).split('@')[0].replace(/\D/g, '');
+      let audioPath = null;
+      try {
+        const ai = require('./ai');
+        const buf = await ai.speakWithFallback('Oi, sou a Aura. Estou na linha.');
+        audioPath = await live.gravarTtsTemp(buf);
+      } catch {}
+      const r = await live.ligarAoVivo(num, { audioPath });
+      tentativas.push({ metodo: 'rtp_vivo', ok: !!r.ok, detalhe: r.motivo || r.metodo });
+      if (r.ok) return { ok: true, metodo: 'rtp_vivo', tipo: 'voice', tentativas };
+    } catch (e) {
+      tentativas.push({ metodo: 'rtp_vivo', ok: false, erro: String(e.message || e).slice(0, 70) });
+    }
+  }
+
   const tryFn = async (nome, fn) => {
     try {
       const r = await fn();
