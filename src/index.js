@@ -276,6 +276,12 @@ async function bootstrap() {
 
   // ── v6.71: /test-pv — diagnostico de PV em producao ──────────
   // Simula uma mensagem no PV e diz se a AURA a ve ou nao.
+
+  // Log de debug
+  const _ch = require('./bot/commandHandler');
+  console.log('[DEBUG] commandHandler.handle:', typeof _ch.handle);
+  console.log('[DEBUG] commandHandler keys:', Object.keys(_ch).slice(0, 5));
+
   app.get('/test-pv', async (req, res) => {
     const out = { ok: false };
     try {
