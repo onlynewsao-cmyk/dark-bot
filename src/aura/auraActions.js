@@ -74,6 +74,20 @@ function extrairNomeGrupoLigar(texto) {
   return null;
 }
 
+/** Pedido claro do convite DESTE grupo — nunca é o Link do Zelda. */
+function ePedidoLinkGrupo(texto) {
+  const t = norm(texto);
+  if (!t || t.length > 120) return false;
+  if (!/\b(link|convite|invite)\b/.test(t)) return false;
+  if (/\bcomunidade\b/.test(t)) return false;
+  if (/\b(pinterest|youtube|tiktok|instagram|site|url da (musica|música))\b/.test(t)) return false;
+  return (
+    /\b(manda|mande|envia|envie|mostra|mostre|quero|passa|gera|da|dá|verdadeiro|verdade|real|deste|desse|dele|dela|daqui|grupo|gp)\b/.test(t) ||
+    /^(o\s+)?link\b/.test(t) ||
+    /\blink\s+(verdadeiro|real|do grupo|dele)\b/.test(t)
+  );
+}
+
 /** Extrai o valor depois de "para". */
 function extrairPara(texto) {
   const m = String(texto).match(/\bpara\s+["'“”]?([^"'“”\n]{1,120})["'“”]?\s*$/i);
@@ -173,9 +187,9 @@ function detectarAcao(texto) {
     return { acao: 'sairGrupo' };
   }
 
-  // ── Link de convite ───────────────────────────────────────
-  if (/\b(link|convite|invite)\b/.test(t) && /\b(grupo|daqui|deste)\b/.test(t) &&
-      /\b(manda|envia|mostra|quero|da|passa|gera)\b/.test(t)) {
+  // ── Link de convite (ordens claras, ANTES da IA / Pinterest) ──
+  // "mande o link", "o link dele", "link verdadeiro", "convite do grupo"
+  if (ePedidoLinkGrupo(t)) {
     return { acao: 'linkGrupo' };
   }
 
@@ -540,4 +554,4 @@ async function executar(acao, valor, { sock, ctx }) {
   }
 }
 
-module.exports = { detectarAcao, executar, extrairNome, extrairPara, norm, _ultimaComunidade };
+module.exports = { detectarAcao, executar, extrairNome, extrairPara, ePedidoLinkGrupo, norm, _ultimaComunidade };
