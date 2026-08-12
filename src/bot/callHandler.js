@@ -71,7 +71,8 @@ async function getMode(jid, isOwner) {
   if (_modosMem.has(k)) return _modosMem.get(k);
   const porNum = [..._modosMem.entries()].find(([id]) => jidNum(id) === jidNum(k));
   if (porNum) return porNum[1];
-  return isOwner ? 'atender' : 'rejeitar';
+  // Primeiro passo: ATENDE sempre, a não ser que o Dono mude o modo.
+  return 'atender';
 }
 
 async function setMode(jid, modo) {
@@ -102,31 +103,45 @@ function chamadaActiva(jid) {
   return hit[1];
 }
 
+let _ultimoSock = null;
+
 function terminar(jid) {
   const k = String(jid || '');
+  let rec = null;
   if (_activas.has(k)) {
-    const c = _activas.get(k);
+    rec = _activas.get(k);
     _activas.delete(k);
-    return c;
-  }
-  for (const [id, c] of _activas) {
-    if (jidNum(id) === jidNum(k)) {
-      _activas.delete(id);
-      return c;
+  } else {
+    for (const [id, c] of _activas) {
+      if (jidNum(id) === jidNum(k)) {
+        rec = c;
+        _activas.delete(id);
+        break;
+      }
     }
   }
-  return null;
+  if (rec && _ultimoSock) {
+    try {
+      require('./atenderChamada').desligar(_ultimoSock, {
+        from: rec.from, id: rec.id, creator: rec.creator,
+      }).catch(() => {});
+    } catch {}
+  }
+  return rec;
 }
 
 function marcarActiva(from, call, isOwner) {
   const rec = {
     id: call?.id || ('c' + Date.now()),
     from,
+    creator: call?.creator || call?.callCreator || from,
     isVideo: !!call?.isVideo,
+    isGroup: !!call?.isGroup,
     inicio: Date.now(),
     ultimo: Date.now(),
     turnos: 0,
     isOwner: !!isOwner,
+    soAtendeu: true,
   };
   _activas.set(String(from), rec);
   setTimeout(() => {
@@ -339,6 +354,7 @@ async function ligar(sock, jid, { tipo = 'voice', pushName = '' } = {}) {
 }
 
 async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
+  if (sock) _ultimoSock = sock;
   if (!call) return { ok: true, ignorado: true, motivo: 'sem_call' };
   if (call.status && call.status !== 'offer') {
     return { ok: true, ignorado: true, motivo: 'nao_e_offer' };

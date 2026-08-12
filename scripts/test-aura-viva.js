@@ -173,16 +173,14 @@ const txt1 = r => (r.respostas && r.respostas[0] && (r.respostas[0].text || (r.r
   await call.setMode('244945280380@s.whatsapp.net', 'atender');
   const rc = await call.onCall(sock, { id: 'c1', from: '244945280380@s.whatsapp.net', status: 'offer', isVideo: false },
     { ownerJid: '244945280380@s.whatsapp.net', ownerNumber: '244945280380', isOwner: true });
-  t('Atende chamada de VOZ', rc.modo === 'atender' && OUT.some(o => o.audio), rc.modo);
+  t('Atende chamada de VOZ', rc.modo === 'atender', rc.modo);
 
   OUT.length = 0;
   call.terminar('244945280380@s.whatsapp.net');
-  const _ger = ai.generateImage;
-  ai.generateImage = async () => Buffer.alloc(20000, 9);
   const rv = await call.onCall(sock, { id: 'c2', from: '244945280380@s.whatsapp.net', status: 'offer', isVideo: true },
     { ownerJid: '244945280380@s.whatsapp.net', ownerNumber: '244945280380', isOwner: true });
   t('Atende chamada de VÍDEO', rv.modo === 'atender', rv.modo);
-  t('Vídeo → manda AVATAR (não fica sem imagem)', OUT.some(o => o.image),
+  t('Atender não manda conversa', !OUT.some(o => o.audio || o.image || o.text),
     OUT.map(o => o.image ? 'IMG' : (o.audio ? 'AUDIO' : 'txt')).join(','));
   ai.generateImage = _ger;
   call.terminar('244945280380@s.whatsapp.net');
