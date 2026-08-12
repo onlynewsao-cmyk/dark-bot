@@ -328,6 +328,18 @@ async function continuarConversa(sock, jid, audioBuf, { pushName = '' } = {}) {
 async function ligar(sock, jid, { tipo = 'voice', pushName = '' } = {}) {
   const isVideo = tipo === 'video';
   try {
+    // 1º: chamada REAL — faz o telemóvel TOCAR. Só cai no link se falhar.
+    try {
+      const realCall = require('./realCall');
+      if (realCall.suportado(sock)) {
+        const r = await realCall.ligar(sock, jid, { isVideo });
+        if (r.ok) {
+          try { marcarActiva(jid, { callId: r.callId, origem: 'realCall' }); } catch {}
+          return { ok: true, tipo: isVideo ? 'video' : 'voice', metodo: 'realCall', callId: r.callId, tocou: true };
+        }
+      }
+    } catch {}
+
     if (typeof sock.createCallLink === 'function') {
       const token = await sock.createCallLink(isVideo ? 'video' : 'audio');
       const url = String(token || '').startsWith('http')
