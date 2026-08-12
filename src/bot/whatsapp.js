@@ -316,6 +316,54 @@ class WhatsAppBot {
         try { await groupEvents.handle(this.sock, event); } catch {}
       });
 
+      // ── v6.67: CHAMADAS ──────────────────────────────────────
+      // O Baileys não participa em chamadas de voz/vídeo (não tem
+      // WebRTC). Mas detecta quando alguém liga, rejeita com estilo
+      // e notifica o Dono. Assim ele sabe que alguém tentou falar
+      // com ele mesmo que o bot não possa atender.
+      this.sock.ev.on('call', async (calls) => {
+        for (const call of calls) {
+          try {
+            if (call.status !== 'offer') return; // só interessa quando oferecem
+
+            const chamador = call.from;
+            const ehVideo = !!call.isVideo;
+            const tipo = ehVideo ? 'vídeo' : 'voz';
+
+            // Rejeita a chamada
+            try {
+              await this.sock.rejectCall(call.id, chamador);
+            } catch (e) {
+              console.warn('[Call] rejeitar:', e.message?.slice(0, 60));
+            }
+
+            // Mensagem automática educada para quem ligou
+            const msgChamador =
+              `Olá! O Dark não pode atender chamadas de ${tipo} agora. ` +
+              `Deixa uma mensagem por aqui que ele lê quando puder. 👋`;
+            try {
+              await this.sock.sendMessage(chamador, { text: msgChamador });
+            } catch {}
+
+            // Notifica o Dono
+            try {
+              const ownerJid = (config.owner?.number || env.OWNER_NUMBER || '') + '@s.whatsapp.net';
+              if (ownerJid && ownerJid !== chamador) {
+                await this.sock.sendMessage(ownerJid, {
+                  text: `📞 Alguém te ligou!\n\n` +
+                        `De: ${chamador.split('@')[0]}\n` +
+                        `Tipo: ${tipo === 'vídeo' ? '📹 Chamada de vídeo' : '📞 Chamada de voz'}\n` +
+                        `Quando: ${new Date().toLocaleString('pt-AO')}\n\n` +
+                        `Rejeitei e avisei que te deixassem mensagem.`,
+                });
+              }
+            } catch {}
+          } catch (e) {
+            console.warn('[Call]', e.message?.slice(0, 60));
+          }
+        }
+      });
+
       // Pair Code - Chamado imediatamente após criar o socket (não espera conexão)
       if (cleanMode === 'pair') {
         try {

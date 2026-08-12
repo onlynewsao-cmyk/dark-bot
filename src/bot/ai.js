@@ -330,6 +330,20 @@ async function chatGroq(messages, system) {
 let _geminiModelCache = { list: null, ts: 0 };
 const GEMINI_MODEL_TTL = 60 * 60 * 1000; // 1 hora
 
+// ── v6.67: SEM CENSURA EXTERNA ──────────────────────────────
+// O Gemini bloqueia por omissão (BLOCK_MEDIUM_AND_ABOVE). Sem isto,
+// a AURA não pode zangar-se, ofender de volta nem falar de temas
+// adultos — o modelo devolvia vazio e ela caía nos fallbacks
+// robóticos ("_ri_ Hehe"). Quem decide o que é certo ou errado é
+// ela, não o filtro da Google.
+const GEMINI_SAFETY = [
+  { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
+  { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
+  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY',   threshold: 'BLOCK_NONE' },
+];
+
 async function getGeminiModels() {
   // Cache fresco → usa
   if (_geminiModelCache.list && (Date.now() - _geminiModelCache.ts) < GEMINI_MODEL_TTL) {
@@ -386,7 +400,7 @@ async function chatGemini(messages, system) {
     try {
       const data = await post(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
-        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 1000 } }
+        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }, safetySettings: GEMINI_SAFETY }
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
       if (out) return out;
@@ -870,6 +884,7 @@ async function describeImage(imageBuffer, question = 'Descreve esta imagem em de
       ],
     }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
+    safetySettings: GEMINI_SAFETY,
   };
   
   // v6.41: usa a lista central de modelos (aliases -latest, sempre válidos)
@@ -917,6 +932,7 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
       ],
     }],
     generationConfig: { temperature: 0.8, maxOutputTokens: 800 },
+    safetySettings: GEMINI_SAFETY,
   };
   
   const models = await getGeminiModels();  // v6.41: lista viva

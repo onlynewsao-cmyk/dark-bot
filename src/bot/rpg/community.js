@@ -372,37 +372,119 @@ async function getCommunityInvite(sock, jid) {
  * É o que a AURA usa. 1 query, com <linked_parent> embutido.
  */
 async function createNamedGroup(sock, nome, ownerJid, communityJid, opts = {}) {
+  const via = [];
   let lastErr = 'desconhecido';
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      let jid = null;
+  // ── v6.67: TRÊS CAMINHOS, pela ordem que o utilizador pediu ──
+  //   1. criar já dentro da comunidade (<linked_parent> no stanza)
+  //   2. API communityCreateGroup
+  //   3. criar grupo normal e DEPOIS ligá-lo (communityLinkGroup)
+  // Antes, se o caminho 1 falhasse, desistia. Agora tenta os outros:
+  // um grupo criado e ligado a seguir dá exactamente no mesmo.
+  const tentativas = [];
 
+  if (communityJid && typeof sock.query === 'function') {
+    tentativas.push({
+      nome: 'dentro da comunidade',
+      run: () => _criarGrupoCru(sock, nome, [ownerJid], communityJid),
+      ligado: true,
+    });
+  }
+  if (communityJid && typeof sock.communityCreateGroup === 'function') {
+    tentativas.push({
+      nome: 'API de comunidade',
+      run: async () => {
+        const g = await sock.communityCreateGroup(nome, [ownerJid], communityJid);
+        return g?.id || g?.jid || null;
+      },
+      ligado: true,
+    });
+  }
+  // Criar solto — depois liga-se. Também serve sem comunidade nenhuma.
+  tentativas.push({
+    nome: communityJid ? 'criar e ligar depois' : 'grupo normal',
+    run: async () => {
       if (typeof sock.query === 'function') {
-        jid = await _criarGrupoCru(sock, nome, [ownerJid], communityJid);
+        const j = await _criarGrupoCru(sock, nome, [ownerJid], null);
+        if (j) return j;
       }
-      if (!jid) {
-        const g = communityJid && typeof sock.communityCreateGroup === 'function'
-          ? await sock.communityCreateGroup(nome, [ownerJid], communityJid)
-          : await sock.groupCreate(nome, [ownerJid]);
-        jid = g?.id || g?.jid || null;
-      }
+      const g = await sock.groupCreate(nome, [ownerJid]);
+      return g?.id || g?.jid || null;
+    },
+    ligado: false,
+  });
+
+  for (const tent of tentativas) {
+    try {
+      const jid = await tent.run();
       if (!jid) throw new Error('o WhatsApp não devolveu o ID do grupo');
 
-      // Se não nasceu ligado (fallback), liga agora.
-      if (communityJid && opts.forcarLink && typeof sock.communityLinkGroup === 'function') {
+      let ligado = tent.ligado;
+
+      // Não nasceu dentro? Liga-o agora — é o "adicionar grupo à
+      // comunidade" que o utilizador pediu como passo 1.
+      if (communityJid && !ligado && typeof sock.communityLinkGroup === 'function') {
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          await sock.communityLinkGroup(jid, communityJid);
+          ligado = true;
+        } catch (e) {
+          lastErr = 'criei o grupo mas não consegui ligá-lo: ' + e.message;
+        }
+      } else if (communityJid && ligado && opts.forcarLink && typeof sock.communityLinkGroup === 'function') {
+        // reforço barato: se já estiver ligado o WhatsApp ignora
         try { await sock.communityLinkGroup(jid, communityJid); } catch {}
       }
 
-      return { ok: true, jid, nome };
+      via.push(tent.nome);
+      return { ok: true, jid, nome, ligado, via: tent.nome, avisoLink: ligado ? null : lastErr };
     } catch (e) {
       lastErr = e.message || String(e);
-      if (attempt < 2 && /rate-overlimit|429/i.test(lastErr)) {
-        await new Promise(r => setTimeout(r, 60000));
-      } else break;
+      via.push(tent.nome + ' ✗');
+
+      // rate-overlimit: esperar não adianta em cadeia — sai já.
+      if (/rate-overlimit|429/i.test(lastErr)) {
+        return { ok: false, error: lastErr, nome, limitado: true, via };
+      }
     }
   }
-  return { ok: false, error: lastErr, nome };
+
+  return { ok: false, error: lastErr, nome, via };
+}
+
+/**
+ * v6.67 — Liga um grupo que JÁ EXISTE à comunidade (pelo nome).
+ * É o "ir a adicionar grupo à comunidade" do utilizador.
+ */
+async function linkExistingGroup(sock, nomeOuJid, communityJid) {
+  if (typeof sock.communityLinkGroup !== 'function') {
+    return { ok: false, error: 'esta versão do WhatsApp não deixa ligar grupos' };
+  }
+
+  let jid = /@g\.us$/.test(String(nomeOuJid)) ? String(nomeOuJid) : null;
+  let nome = jid || nomeOuJid;
+
+  if (!jid) {
+    // procura pelo nome entre os grupos onde o bot está
+    try {
+      const todos = (await sock.groupFetchAllParticipating()) || {};
+      const alvo = Object.values(todos).find(g =>
+        !g?.isCommunity &&
+        String(g?.subject || '').toLowerCase() === String(nomeOuJid).toLowerCase());
+      if (alvo) { jid = alvo.id; nome = alvo.subject; }
+    } catch (e) {
+      return { ok: false, error: 'não consegui procurar o grupo: ' + e.message };
+    }
+  }
+
+  if (!jid) return { ok: false, error: 'não encontrei nenhum grupo chamado "' + nomeOuJid + '"' };
+
+  try {
+    await sock.communityLinkGroup(jid, communityJid);
+    return { ok: true, jid, nome };
+  } catch (e) {
+    return { ok: false, error: e.message, jid, nome };
+  }
 }
 
 async function createGroupInCommunity(sock, groupType, ownerJid, communityJid) {
@@ -914,6 +996,7 @@ module.exports = {
   ensureOwnerInCommunity,
   getCommunityInvite,
   createNamedGroup,
+  linkExistingGroup,
   createGroupInCommunity,
   createClanGroup,
   addAllUsersToMainGroup,

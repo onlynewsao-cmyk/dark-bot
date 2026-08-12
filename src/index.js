@@ -7,12 +7,17 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 
 const config = require('./config');
+const darkUtils = require('./bot/darkUtils');
 const { connectDB } = require('./database/connection');
 const User = require('./database/models/User');
 const Command = require('./database/models/Command');
 const { getBot } = require('./bot/whatsapp');
 const scheduler = require('./bot/scheduler');
 const botConfigCache = require('./bot/botConfigCache');
+
+// ── v6.67: Inicializa os consoles coloridos do DARK BOT ──────
+darkUtils.consoleOnline(`⚡ ${darkUtils.botName} v${darkUtils.botVersion} — ${darkUtils.timed}`);
+darkUtils.consoleInfo(`Data: ${darkUtils.data} | Hora: ${darkUtils.hora}`);
 
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
