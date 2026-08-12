@@ -107,7 +107,7 @@ for (let i = 0; i < lines.length; i++) {
     out.push('      }');
     out.push('    } catch {}');
     out.push('  }');
-    out.push(line.replace('cases carregados', 'cases carregados | " + FILE_SOURCES.size + " fontes extraídas'));
+    out.push(line.replace('cases carregados', 'cases carregados | ${FILE_SOURCES.size} fontes extraídas'));
     injected.loadCases = true;
     continue;
   }

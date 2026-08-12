@@ -52,9 +52,30 @@ async function hE({sock,msg,ctx,args,command}){
   return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🎮')+' *'+e+' '+command.toUpperCase()+'*\n'+lp+' '+ctx.pushName+' ganhou:\n'+lp+' 💰 *'+c+'* moedas\n'+lp+' ⭐ *'+x+'* XP\n> '+(t.vibe||'Dark Engine')},{quoted:msg});
 }
 
+// Verifica se quem envia é dono do bot ou admin do grupo.
+// Só é chamado pelos comandos que executam acções reais (não pelos stubs
+// de texto), portanto não acrescenta chamadas no caminho quente.
+async function senderIsAdmOrOwner(sock,ctx){
+  if(ctx.isOwner)return true;
+  if(!ctx.isGroup)return false;
+  try{
+    const meta=await sock.groupMetadata(ctx.remoteJid);
+    if(!meta?.participants)return false;
+    const snum=String(ctx.senderNumber||'').replace(/\D/g,'');
+    return meta.participants.some(p=>{
+      const pNum=String(p.id||'').split(':')[0].split('@')[0].replace(/\D/g,'');
+      return pNum===snum&&(p.admin==='admin'||p.admin==='superadmin');
+    });
+  }catch{return false;}
+}
+
 async function hA({sock,msg,ctx,args,command,reply}){
   const t=await TR.getThemeForContext(ctx.remoteJid);
   if(!ctx.isGroup)return reply('👥 Só em grupos.');
+  // Comandos que executam acções reais exigem admin/dono.
+  if(['open','close','linkgp'].includes(command)&&!await senderIsAdmOrOwner(sock,ctx)){
+    return reply('🚫 Só o *Dono* ou *Admins* do grupo podem usar este comando.');
+  }
   try{
     if(command==='open'){await sock.groupSettingUpdate(ctx.remoteJid,'not_announcement');return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🛡️')+' 🔓 Grupo aberto.'},{quoted:msg});}
     if(command==='close'){await sock.groupSettingUpdate(ctx.remoteJid,'announcement');return sock.sendMessage(ctx.remoteJid,{text:(t.icon||'🛡️')+' 🔒 Grupo fechado.'},{quoted:msg});}

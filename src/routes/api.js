@@ -1,5 +1,6 @@
 const express = require('express');
 const multer = require('multer');
+const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const cloudinary = require('cloudinary').v2;
 const { requireApiAuth, requireApiOwner } = require('../middleware/auth');
 const { getBot } = require('../bot/whatsapp');
@@ -63,6 +64,21 @@ async function fetchDecryptFileFromUrl(url) {
   if (buffer.length > 30 * 1024 * 1024) throw new Error('Arquivo muito grande (máx. 30MB)');
   return { buffer, fileName: fileNameFromUrl(finalUrl, 'config.ehi'), finalUrl };
 }
+
+// ── Rate limit do envio via WhatsApp ─────────────────────────
+// Protege o número do bot contra spam/ban: o endpoint envia mensagens
+// reais e qualquer conta registada lhe chega. Conta por utilizador
+// (não por IP) para não penalizar quem partilha a mesma rede.
+// Em memória: sem I/O, sem impacto no tempo de resposta.
+const sendWaLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora
+  limit: 10,                // 10 envios/hora por conta
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.session?.user?.id || ipKeyGenerator(req)),
+  skip: (req) => req.session?.user?.role === 'owner', // dono sem limite
+  message: { error: 'Limite de envios atingido. Tente novamente dentro de 1 hora.' },
+});
 
 module.exports = function (io) {
   const router = express.Router();
@@ -605,14 +621,18 @@ module.exports = function (io) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
-  router.post('/decrypt/send-wa', requireApiAuth, async (req, res) => {
+  router.post('/decrypt/send-wa', requireApiAuth, sendWaLimiter, async (req, res) => {
     try {
       const { number, data } = req.body;
       if (!number || !data) return res.status(400).json({ error: 'Número e dados obrigatórios' });
+      const cleanNumber = String(number).replace(/\D/g, '');
+      if (cleanNumber.length < 10 || cleanNumber.length > 15) {
+        return res.status(400).json({ error: 'Número inválido' });
+      }
       const bot = getBot(io);
       if (bot.getStatus().status !== 'connected') return res.status(400).json({ error: 'Bot não conectado' });
       const formatted = formatForWhatsApp(data, config);
-      await bot.sock.sendMessage(number + '@s.whatsapp.net', { text: formatted });
+      await bot.sock.sendMessage(cleanNumber + '@s.whatsapp.net', { text: formatted });
       res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
