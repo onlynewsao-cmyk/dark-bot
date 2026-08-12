@@ -65,7 +65,7 @@ function _falha(motivo, extra) {
 }
 
 async function ligar(sock, numero, opts = {}) {
-  const jid = normalizarJid(numero);
+  let jid = normalizarJid(numero);
   if (!jid) return _falha('numero_invalido');
   if (!suportado(sock)) {
     return _falha('socket_sem_suporte', {
@@ -82,6 +82,22 @@ async function ligar(sock, numero, opts = {}) {
   if (!meId) return _falha('nao_autenticado');
 
   const { encodeSignedDeviceIdentity, jidEncode } = _lib();
+
+  // v6.75 — O WhatsApp NÃO aceita um @lid como destino de <offer>: o libsignal
+  // tenta cifrar para "<lid>.0", não existe sessão nesse endereço e rebenta com
+  // "SessionError: No sessions". O destino tem de ser sempre o número (PN).
+  // Traduz @lid -> @s.whatsapp.net antes de tocar em getUSyncDevices.
+  if (/@lid$/.test(String(jid))) {
+    let pn = null;
+    try {
+      pn = await sock?.signalRepository?.lidMapping?.getPNForLID?.(jid);
+    } catch (e) {
+      return _falha('lid_sem_mapeamento', { jid, erro: e?.message || String(e) });
+    }
+    if (!pn) return _falha('lid_sem_mapeamento', { jid });
+    jid = String(pn).includes('@') ? String(pn) : String(pn) + '@s.whatsapp.net';
+  }
+
   const isVideo = !!opts.isVideo;
   const callId = randomBytes(16).toString('hex').toUpperCase().substring(0, 64);
 
