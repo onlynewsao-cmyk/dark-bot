@@ -16,6 +16,15 @@ async function connectDB() {
       maxPoolSize: 10,
       minPoolSize: 2,
       heartbeatFrequencyMS: 10000,
+
+      // v6.75: o default do Mongoose é 10s de buffer. Quando o Mongo pisca
+      // (acontece muito no free tier), CADA query do caminho quente ficava
+      // 10s pendurada antes de falhar — userManager, roleResolver, antiSpam,
+      // antiLink e messageListener não têm guarda de readyState, ao contrário
+      // do botConfigCache. Resultado: uma mensagem podia demorar dezenas de
+      // segundos. Com 2s, o fallback entra quase de imediato e o bot continua
+      // rápido. Não afecta o caminho normal: com o Mongo ligado, não há buffer.
+      bufferTimeoutMS: 2000,
     });
     isConnected = true;
     console.log('✅ MongoDB conectado');

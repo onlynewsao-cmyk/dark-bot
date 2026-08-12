@@ -415,16 +415,11 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   marcarActiva(from, call, ownerCall);
 
   const tipo = isVideo ? 'vídeo' : 'voz';
-  const saudacao = ownerCall
-    ? (isVideo
-      ? 'Oi meu Dark. Atendi a chamada de vídeo. Manda um áudio que eu ouço e respondo.'
-      : 'Oi meu Dark. Atendi. Fala no áudio que eu ouço e respondo já.')
-    : (isVideo
-      ? 'Atendi a chamada de vídeo. Manda um áudio que eu ouço e respondo.'
-      : 'Atendi. Manda um áudio que eu ouço e respondo.');
 
-  // Sem foto gerada: isso NÃO é atender ao vivo e só poluía o chat.
-  await falar(sock, from, saudacao);
+  // v6.75: atender é SÓ atender — nenhuma mensagem/áudio de saudação.
+  // A AURA fica à escuta e só fala quando houver conteúdo a que responder
+  // (ver continuarConversa). Antes era enviada uma saudação que poluía o
+  // chat e contrariava o comportamento "AURA only answers calls".
 
   return {
     ok: true,
