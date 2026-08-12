@@ -69,6 +69,38 @@ module.exports = function (io) {
 
   // ===== BOT =====
   router.get('/bot/status', requireApiAuth, (req, res) => res.json(getBot(io).getStatus()));
+  router.get('/callbot/status', requireApiAuth, (req, res) => res.json(getCallBot(io).getStatus()));
+
+  async function startCallBot(req, res) {
+    const mode = req.body.mode === 'pair' ? 'pair' : 'qr';
+    const phoneNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
+    const fresh = req.body.fresh === true || req.body.fresh === 'true' || mode === 'pair';
+    if (mode === 'pair' && phoneNumber.length < 10) {
+      return res.status(400).json({ error: 'Número inválido. Use DDI + número, sem + ou espaços.' });
+    }
+    try {
+      getCallBot(io).start({ mode, phoneNumber: phoneNumber || null, fresh })
+        .catch(err => console.error('CallBot start:', err.message));
+      res.status(202).json({ ok: true, mode, fresh, role: 'calls' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  }
+
+  router.post('/callbot/connect', requireApiOwner, startCallBot);
+  router.post('/callbot/start', requireApiOwner, startCallBot);
+
+  router.post('/callbot/logout', requireApiOwner, async (req, res) => {
+    await getCallBot(io).logout();
+    res.json({ ok: true });
+  });
+
+  router.post('/callbot/reset', requireApiOwner, async (req, res) => {
+    try {
+      await getCallBot(io).logout();
+      res.json({ ok: true, message: 'Sessão de chamadas limpa' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   async function startBot(req, res) {
     const mode = req.body.mode === 'pair' ? 'pair' : 'qr';
