@@ -142,6 +142,77 @@ async function falar(sock, jid, texto, quoted) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// AVATAR — a cara dela nas chamadas de vídeo (v6.69)
+// Não há stream de vídeo (o Baileys não tem WebRTC), mas quem liga
+// em vídeo quer ver alguém. Manda-se a foto de perfil do bot; se
+// não houver, gera-se um avatar com IA e guarda-se em cache.
+// ══════════════════════════════════════════════════════════════
+const path = require('path');
+const fs = require('fs');
+const AVATAR_FILE = path.join(__dirname, '..', '..', 'data', 'aura-avatar.jpg');
+
+async function obterAvatar(sock) {
+  // 1. Já gerado antes?
+  try {
+    if (fs.existsSync(AVATAR_FILE)) {
+      const b = fs.readFileSync(AVATAR_FILE);
+      if (b && b.length > 1000) return b;
+    }
+  } catch {}
+
+  // 2. Foto de perfil do próprio bot
+  try {
+    const meu = sock?.user?.id ? sock.user.id.split(':')[0] + '@s.whatsapp.net' : '';
+    if (meu) {
+      const url = await sock.profilePictureUrl(meu, 'image');
+      if (url) {
+        const https = require('https');
+        const buf = await new Promise((res, rej) => {
+          https.get(url, r => {
+            const c = [];
+            r.on('data', d => c.push(d));
+            r.on('end', () => res(Buffer.concat(c)));
+          }).on('error', rej);
+        });
+        if (buf && buf.length > 1000) {
+          try { fs.mkdirSync(path.dirname(AVATAR_FILE), { recursive: true }); fs.writeFileSync(AVATAR_FILE, buf); } catch {}
+          return buf;
+        }
+      }
+    }
+  } catch {}
+
+  // 3. Gera com IA (uma vez só — fica em cache)
+  try {
+    const ai = require('./ai');
+    const buf = await ai.generateImage(
+      'anime portrait of a 19 year old brazilian girl, long dark hair, ' +
+      'soft smile, looking at camera, warm lighting, high quality, vertical'
+    );
+    if (buf && buf.length > 1000) {
+      try { fs.mkdirSync(path.dirname(AVATAR_FILE), { recursive: true }); fs.writeFileSync(AVATAR_FILE, buf); } catch {}
+      return buf;
+    }
+  } catch {}
+
+  return null;
+}
+
+async function enviarAvatar(sock, jid, legenda) {
+  const img = await obterAvatar(sock);
+  if (!img) return { ok: false, error: 'sem avatar' };
+  try {
+    await sock.sendMessage(jid, {
+      image: img,
+      caption: legenda || '📹 Não consigo entrar no vídeo, mas sou eu. Fala comigo por voz.',
+    });
+    return { ok: true, bytes: img.length };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
 // OUVIR — transcreve o que a pessoa disse em voz
 // ══════════════════════════════════════════════════════════════
 async function ouvir(audioBuffer) {
@@ -218,6 +289,14 @@ async function atenderChamada(sock, call, opts = {}) {
   const saudacao = isOwner
     ? `Oi Dark. Não consigo entrar na chamada de ${tipo}, mas estou aqui a ouvir. Fala comigo por voz que eu respondo na hora.`
     : `Olá! Aqui é a Aura, do Dark. Não consigo entrar em chamadas de ${tipo}, mas posso falar contigo por voz agora mesmo. Manda uma nota de voz e eu respondo já.`;
+
+  // ── v6.69: CHAMADA DE VÍDEO → manda o avatar ────────────────
+  // Não há stream de vídeo (sem WebRTC), mas quem liga em vídeo quer
+  // ver alguém. Envia a cara dela antes de falar, para a chamada ter
+  // rosto em vez de ser só voz no escuro.
+  if (call.isVideo) {
+    await enviarAvatar(sock, jid).catch(() => {});
+  }
 
   const f = await falar(sock, jid, saudacao);
 
@@ -316,7 +395,7 @@ async function continuarConversa(sock, jid, audioBuffer, opts = {}) {
 
 module.exports = {
   onCall, atenderChamada, rejeitarChamada, continuarConversa,
-  falar, ouvir, entender, ehDespedida,
+  falar, ouvir, entender, ehDespedida, obterAvatar, enviarAvatar,
   setMode, getMode, loadModes, chamadaActiva, terminar,
   _activas, _modos,
 };
