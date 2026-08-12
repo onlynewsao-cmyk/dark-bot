@@ -161,9 +161,19 @@ async function tentarAceitarChamada(sock, call) {
   const from = call.from;
   const tentativas = [];
 
+  // v6.76: cada sock.query respeita defaultQueryTimeoutMs (60s). Como
+  // acceptCall/answerCall/IQ accept NÃO existem no @systemzero/baileys
+  // (só rejectCall), estas tentativas falham SEMPRE — e falhavam devagar:
+  // 2 querys × 60s = até 2 minutos até cair no fallback PTT. Nesse tempo
+  // o WhatsApp já desistiu da chamada e quem ligou não recebeu nada.
+  // Agora cada tentativa tem 1,5s. O caminho útil (PTT) arranca quase já.
+  const LIMITE_MS = 1500;
   const tentar = async (nome, fn) => {
     try {
-      await fn();
+      await Promise.race([
+        fn(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout ${LIMITE_MS}ms`)), LIMITE_MS)),
+      ]);
       tentativas.push({ metodo: nome, ok: true });
       return true;
     } catch (e) {
@@ -411,15 +421,33 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   }
 
   // ── ATENDER ──────────────────────────────────────────────
-  const aceite = await tentarAceitarChamada(sock, call);
+  // v6.76: marcar PRIMEIRO (para as notas de voz que cheguem já contarem
+  // como turnos da chamada) e falar LOGO A SEGUIR. As tentativas de aceitar
+  // o sinal ficam para o fim, em segundo plano: nenhuma delas funciona
+  // nesta biblioteca e não faz sentido a saudação esperar por elas.
   marcarActiva(from, call, ownerCall);
 
   const tipo = isVideo ? 'vídeo' : 'voz';
 
-  // v6.75: atender é SÓ atender — nenhuma mensagem/áudio de saudação.
-  // A AURA fica à escuta e só fala quando houver conteúdo a que responder
-  // (ver continuarConversa). Antes era enviada uma saudação que poluía o
-  // chat e contrariava o comportamento "AURA only answers calls".
+  // v6.76: REVERTE o silêncio total introduzido em 7a3a068.
+  // Como a biblioteca não consegue entrar no áudio da chamada (não há
+  // WebRTC/RTP no Baileys), o único sinal de que a AURA atendeu é esta
+  // mensagem. Sem ela, quem liga ouve tocar até cair e conclui, com
+  // razão, que o bot não atende. A conversa faz-se por notas de voz.
+  const saudacao = ownerCall
+    ? (isVideo
+      ? 'Oi meu Dark. Não consigo entrar no vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
+      : 'Oi meu Dark. Estou aqui. Manda um áudio que eu ouço e respondo já.')
+    : (isVideo
+      ? 'Olá! Não consigo entrar na chamada de vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
+      : 'Olá! Não consigo falar pela chamada, mas estou aqui: manda um áudio que eu ouço e respondo.');
+
+  await falar(sock, from, saudacao);
+
+  // Em segundo plano, por compatibilidade com forks que tenham WebRTC.
+  const aceite = await tentarAceitarChamada(sock, call).catch(() => ({
+    ok: false, metodo: 'erro', tentativas: [],
+  }));
 
   return {
     ok: true,
