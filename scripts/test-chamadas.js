@@ -93,7 +93,11 @@ function mkSock() {
   const r3 = await C.onCall(s3, { id: 'c3', from: OWNER, status: 'offer', isVideo: false },
     { ownerJid: OWNER, ownerNumber: '244945280380', isOwner: true });
   t('Assume a chamada', r3.modo === 'atender', r3.modo);
-  t('Não conversa (só atende)', s3.msgs.length === 0, s3.msgs.map(m => m.text || 'media').join(','));
+  // v6.76: a saudação é o ÚNICO sinal de que a AURA atendeu — a biblioteca
+  // não entra no áudio da chamada. Sem ela, quem liga não recebe nada e
+  // conclui que o bot não atende. Exige-se 1 mensagem (áudio PTT ou texto).
+  t('Avisa que atendeu', s3.msgs.length === 1, s3.msgs.map(m => m.text || 'media').join(','));
+  t('Não entra em conversa sozinha', (r3.turnos || 0) === 0, String(r3.turnos || 0));
   t('Chamada fica activa', !!C.chamadaActiva(OWNER), '');
   t('Não se notifica a si próprio', !s3.msgs.some(m => /Chamada atendida/.test(m.text || '')), '');
 
