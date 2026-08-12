@@ -29,7 +29,8 @@
     "test:auravoz": "node scripts/test-aura-voz-pv.js",
     "test:chamadas": "node scripts/test-chamadas.js",
     "test:auraviva": "node scripts/test-aura-viva.js",
-    "test:sessao": "node scripts/test-sessao-conflito.js"
+    "test:sessao": "node scripts/test-sessao-conflito.js",
+    "diag": "node scripts/test-diag-producao.js"
   },
   "engines": {
     "node": ">=18.0.0"
