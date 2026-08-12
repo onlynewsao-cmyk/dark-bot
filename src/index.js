@@ -279,7 +279,7 @@ async function bootstrap() {
   app.get('/test-pv', async (req, res) => {
     const out = { ok: false };
     try {
-      const ch = require('./bot/caseHandler');
+      const ch = require('./bot/commandHandler');
       ch.loadCases();
       const OUT = [];
       const sock = {
