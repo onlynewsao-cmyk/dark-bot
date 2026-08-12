@@ -107,6 +107,7 @@ function detectarPedidoImagem(texto) {
   // de "áudio por favor". Pedido de voz nunca é pedido de imagem.
   const semAcento = t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   if (/\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(semAcento)) return null;
+  if (/\b(link|convite|invite)\b/.test(semAcento)) return null;
 
   const querGerar = GERAR_RE.test(t) && COISA_RE.test(t);
   let querBuscar = PEDIDO_RE.test(t) && COISA_RE.test(t);
@@ -117,7 +118,7 @@ function detectarPedidoImagem(texto) {
     if (m) {
       const coisa = String(m[5] || '').trim();
       // exclui pedidos que claramente não são de imagem
-      const naoEhImagem = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao)\b/i;
+      const naoEhImagem = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call)\b/i;
       if (coisa.length >= 3 && !naoEhImagem.test(coisa)) {
         return { gerar: false, termo: coisa.slice(0, 80) };
       }

@@ -1623,7 +1623,19 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       try {
         const san = require('../aura/auraSanitizer');
         finalAnswer = san.limparResposta(finalAnswer);
-        if (san.eVazamento(answer)) finalAnswer = isOwner ? 'Tô aqui.' : 'Diz.';
+        if (san.eVazamento(answer) || san.eLinkInventado(finalAnswer)) {
+          if (ctx.isGroup && isOwner) {
+            try {
+              const code = await sock.groupInviteCode(ctx.remoteJid);
+              finalAnswer = 'Aqui está o convite deste grupo:\nhttps://chat.whatsapp.com/' + code;
+            } catch {
+              finalAnswer = 'Não consegui tirar o convite — preciso de ser admin.';
+            }
+          } else if (san.eVazamento(answer)) {
+            finalAnswer = isOwner ? 'Tô aqui.' : 'Diz.';
+          }
+        }
+        finalAnswer = String(finalAnswer || '').replace(/\(ÁUDIO\)|\(AUDIO\)/gi, '').trim();
       } catch {}
       try {
         const memA = require('../aura/auraMemory');
@@ -1755,7 +1767,9 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         });
       } catch {}
 
-      const pediuAudio = _pedidoExplicito || _formato === 'audio';
+      // Voz que entra (PTT do Dark) ou pedido explícito → responde EM ÁUDIO.
+      // Sem isto ela transcrevia e respondia em texto, ou escrevia "(ÁUDIO) ...".
+      const pediuAudio = _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv));
 
       if (pediuAudio && finalAnswer.length > 0 && finalAnswer.length < 900) {
         try {

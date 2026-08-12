@@ -31,9 +31,20 @@ function limparResposta(txt) {
   return t.length < 2 ? '' : t;
 }
 
-function eVazamento(txt) {
-  const s = String(txt || '').toLowerCase();
-  return /prefixo ponto|ignora a mensagem|system prompt|nao posso atender a esse pedido/.test(s);
+const LINK_FALSO = /chat\.whatsapp\.com\/(?:abc|exemplo|\.\.\.|xxx|teste|fake|abcdefghijkl)/i;
+
+function eLinkInventado(txt) {
+  const s = String(txt || '');
+  return LINK_FALSO.test(s) ||
+    /n[aã]o (posso|tenho) (compartilhar|aceder|acesso).{0,40}link real/i.test(s) ||
+    /exemplo falso/i.test(s) ||
+    /\(ÁUDIO\)|\(AUDIO\)/i.test(s);
 }
 
-module.exports = { limparResposta, eSoPontuacao, eVazamento };
+function eVazamento(txt) {
+  const s = String(txt || '').toLowerCase();
+  return /prefixo ponto|ignora a mensagem|system prompt|nao posso atender a esse pedido|exemplo falso|n[aã]o tenho acesso [àa] url real/.test(s) ||
+    LINK_FALSO.test(s);
+}
+
+module.exports = { limparResposta, eSoPontuacao, eVazamento, eLinkInventado, LINK_FALSO };

@@ -14,6 +14,12 @@ t('"vai dormir" do dono no grupo é sleep', I.detectAuraIntent('Vai dormir', { i
 t('auraActions ligar', A.detectarAcao('me liga')?.acao === 'ligar');
 t('auraActions chamada voz', A.detectarAcao('Faz uma chamada de voz comigo')?.acao === 'ligar');
 t('auraActions video', A.detectarAcao('faz uma videochamada')?.valor === 'video');
+t('"Mande o link dele" é linkGrupo', A.detectarAcao('Mande o link dele')?.acao === 'linkGrupo');
+t('"O link verdadeiro" é linkGrupo', A.detectarAcao('O link verdadeiro')?.acao === 'linkGrupo');
+t('"manda o link do grupo" é linkGrupo', A.detectarAcao('manda o link do grupo')?.acao === 'linkGrupo');
+const img = require(path.join(__dirname, '..', 'src', 'bot', 'imageSearch'));
+t('"Mande o link dele" NÃO é imagem', img.detectarPedidoImagem('Mande o link dele') == null);
+t('fake invite é inventado', S.eLinkInventado('https://chat.whatsapp.com/abcdefghijkl'));
 
 console.log('\n' + ok + ' OK / ' + fail + ' FALHOU');
 process.exit(fail ? 1 : 0);
