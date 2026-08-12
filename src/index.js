@@ -287,7 +287,9 @@ async function bootstrap() {
     try {
       // Usa a instancia carregada no arranque (evita problemas de cache no Render)
       const ch = _ch;
-      ch.loadCases();
+      // loadCases e' do caseHandler, nao do commandHandler
+      try { require('./bot/caseHandler').loadCases(); } catch {}
+
       const OUT = [];
       const sock = {
         user: { id: (process.env.BOT_NUMBER || '244949926074') + ':1@s.whatsapp.net' },
