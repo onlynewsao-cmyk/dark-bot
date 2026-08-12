@@ -91,7 +91,8 @@ module.exports = function registerChamadas(registerCase) {
   }, true);
 
   // ── VÍDEO — igual mas vídeo ───────────────────────────────
-  registerCase(['video', 'videocall'], async ({ sock, msg, ctx, args, isOwner }) => {
+  // v6.70: 'video' ja e usado pelo downloads.js (ytmp4). Usa-se 'videocall'.
+  registerCase(['videocall', 'chamada-video', 'vcall'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!isOwner) return sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono.' }, { quoted: msg });
 
     const call = require('../callHandler');
