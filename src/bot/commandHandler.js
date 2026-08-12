@@ -665,6 +665,28 @@ async function _handleInner(sock, msg) {
     // === AURA HUMANA (versão definitiva) ===
   const aura = require('../aura/auraHuman');
 
+  // ── v6.68: CHAMADA DE VOZ A DECORRER ──────────────────────────
+  // Se a AURA atendeu uma chamada desta pessoa, qualquer nota de voz
+  // que chegue é um turno da conversa: ela ouve (transcreve), entende
+  // e responde EM ÁUDIO. Isto corre antes de tudo o resto — durante
+  // uma chamada não se processam comandos nem menus.
+  try {
+    const callHandler = require('./callHandler');
+    const _ptt = msg.message?.audioMessage;
+    if (_ptt && !ctx.isGroup && callHandler.chamadaActiva(ctx.remoteJid)) {
+      const { downloadMediaMessage } = require('@systemzero/baileys');
+      const _buf = await downloadMediaMessage(msg, 'buffer', {}).catch(() => null);
+      if (_buf && _buf.length > 100) {
+        const r = await callHandler.continuarConversa(sock, ctx.remoteJid, _buf, {
+          pushName: ctx.pushName || '',
+        });
+        if (r?.ok) return true;
+      }
+    }
+  } catch (e) {
+    console.warn('[Call conversa]', e.message?.slice(0, 60));
+  }
+
   // Silêncio ativo → só o Dark pode cancelar
   if (aura.isSilenced(ctx.senderNumber)) {
     if (isOwner && /aura/i.test(text)) {
