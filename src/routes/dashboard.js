@@ -10,6 +10,7 @@ const Payment = require('../database/models/Payment');
 const Log = require('../database/models/Log');
 const DecryptLog = require('../database/models/DecryptLog');
 const { getBot } = require('../bot/whatsapp');
+const { getCallBot } = require('../bot/callSocket');
 const config = require('../config');
 const commandCatalog = require('../bot/commandCatalog');
 const CommandOverride = require('../database/models/CommandOverride');
@@ -30,7 +31,11 @@ router.get('/', async (req, res) => {
   res.render('dashboard/home', { title: 'Dashboard', stats });
 });
 
-router.get('/connect', requireOwner, (req, res) => res.render('dashboard/connect', { title: 'Conectar Bot', botState: getBot().getStatus() }));
+router.get('/connect', requireOwner, (req, res) => res.render('dashboard/connect', {
+  title: 'Conectar Bot',
+  botState: getBot().getStatus(),
+  callState: getCallBot().getStatus(),
+}));
 
 // Painel de Controle (owner)
 router.get('/control', requireOwner, async (req, res) => {

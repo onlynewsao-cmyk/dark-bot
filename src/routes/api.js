@@ -3,6 +3,7 @@ const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
 const { requireApiAuth, requireApiOwner } = require('../middleware/auth');
 const { getBot } = require('../bot/whatsapp');
+const { getCallBot } = require('../bot/callSocket');
 const User = require('../database/models/User');
 const Command = require('../database/models/Command');
 const Media = require('../database/models/Media');
@@ -100,7 +101,7 @@ module.exports = function (io) {
       // Limpa a sessão do MongoDB também
       try {
         const Session = require('../database/models/Session');
-        await Session.deleteMany({});
+        await Session.deleteMany({ fileName: { $not: /^call:/ } });
       } catch (e) {}
       res.json({ ok: true, message: 'Sessão limpa completamente' });
     } catch (err) {
