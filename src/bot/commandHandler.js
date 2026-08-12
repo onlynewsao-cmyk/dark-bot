@@ -298,6 +298,10 @@ async function _handleInner(sock, msg) {
   let text = extractText(msg).trim();
   const hasIncomingMedia = hasMediaPayload(msg.message);
   if (!text && !hasIncomingMedia) return false;
+  try {
+    const { eSoPontuacao } = require('../aura/auraSanitizer');
+    if (eSoPontuacao(text) && !hasIncomingMedia) return false;
+  } catch {}
 
   const ctx = getSenderInfo(msg);
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
@@ -1256,9 +1260,17 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // v6.69: no PV o Dono é sempre ouvido (não depende do modo do chat);
   // em grupo mantém-se a regra de só onde ela está acordada, senão o
   // bot respondia a tudo o que ele escreve em grupos alheios.
-  const isOwnerFreeText = isOwner && !prefixInfo && text.length > 0 && (isPv || _auraAwakeHere);
-  const pvDeTodos = isPv && !prefixInfo && text.length > 0 && !text.startsWith('!') && !text.startsWith('.') && !text.startsWith('/');
-  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos)) {
+  const isOwnerFreeText = isOwner && !prefixInfo && (text.length > 0 || hasIncomingMedia) && (isPv || _auraAwakeHere);
+  const pvDeTodos = isPv && !prefixInfo && (text.length > 0 || hasIncomingMedia) && !text.startsWith('!') && !text.startsWith('.') && !text.startsWith('/');
+  let grupoAFalar = false;
+  try {
+    const talk = require('../aura/auraTalk');
+    if (ctx.isGroup && _auraAwakeHere && talk.estaAFalar(ctx.remoteJid, ctx.senderNumber) && !prefixInfo) {
+      grupoAFalar = true;
+    }
+    if (isAuraTrigger || isReplyToBot || isBotMentioned) talk.marcarFala(ctx.remoteJid, ctx.senderNumber);
+  } catch {}
+  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar)) {
     try {
       const cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
 
@@ -1275,12 +1287,17 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             texto: text,
             isOwner,
             isGroup: ctx.isGroup,
-            mencionada: isBotMentioned,
+            mencionada: isBotMentioned || isAuraTrigger,
             respostaAoBot: isReplyToBot,
             temMedia: !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage),
             pessoasNoGrupo: nPessoas,
             msgsDesdeUltima: _msgsDesdeAura(ctx.remoteJid),
+            senderNumber: ctx.senderNumber,
+            remoteJid: ctx.remoteJid,
           });
+          if (d.responde) {
+            try { require('../aura/auraTalk').marcarFala(ctx.remoteJid, ctx.senderNumber); } catch {}
+          }
 
           if (!d.responde) {
             // Às vezes reage com emoji em vez de ficar totalmente muda —
@@ -1466,6 +1483,26 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // pedido concreto.
       if (isOwner) {
         try {
+          const bridge = require('./callBridge');
+          const pedidoCall = bridge.detectarPedidoChamada(cleanText);
+          if (pedidoCall) {
+            const alvo = pedidoCall.grupo && ctx.isGroup
+              ? ctx.remoteJid
+              : (ctx.isGroup ? (ctx.senderJid || ctx.senderNumber + '@s.whatsapp.net') : ctx.remoteJid);
+            if (pedidoCall.grupo && ctx.isGroup) await bridge.ligarGrupo(sock, ctx.remoteJid);
+            else await bridge.tentarLigar(sock, alvo, { tipo: pedidoCall.tipo, pushName: ctx.pushName || '' });
+            const tipo = pedidoCall.tipo === 'video' ? 'vídeo' : 'voz';
+            await sock.sendMessage(ctx.remoteJid, {
+              text: pedidoCall.grupo
+                ? 'Abri a chamada no grupo. Entram.'
+                : `Já te liguei em ${tipo}. Atende — se não abrir, manda áudio que eu estou na linha.`,
+            }, { quoted: msg });
+            return true;
+          }
+        } catch (e) {
+          console.warn('[Aura call]', e.message?.slice(0, 60));
+        }
+        try {
           const acts = require('../aura/auraActions');
           const ordem = acts.detectarAcao(cleanText);
           if (ordem) {
@@ -1531,7 +1568,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       
       // Se não há imagem ou vision falhou → usa chat normal
       if (!answer) {
-        if (auraAwake) {
+        if (auraAwake || isPv) {
           answer = await aura.auraRespond(prompt, {
             isOwner,
             isVip,
@@ -1583,6 +1620,15 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Responde como pessoa real — sem emojis de bot
       // ⚡ Parser de acções da Aura: [STICKER:xxx], [IMAGE:xxx], [CMD:xxx]
       let finalAnswer = answer;
+      try {
+        const san = require('../aura/auraSanitizer');
+        finalAnswer = san.limparResposta(finalAnswer);
+        if (san.eVazamento(answer)) finalAnswer = isOwner ? 'Tô aqui.' : 'Diz.';
+      } catch {}
+      try {
+        const memA = require('../aura/auraMemory');
+        memA.guardar(ctx.senderNumber, cleanText).catch(() => {});
+      } catch {}
       const actionSticker = finalAnswer.match(/\[STICKER:([^\]]+)\]/);
       const actionImage = finalAnswer.match(/\[IMAGE:([^\]]+)\]/);
       const actionCmd = finalAnswer.match(/\[CMD:([^\]]+)\]/);
