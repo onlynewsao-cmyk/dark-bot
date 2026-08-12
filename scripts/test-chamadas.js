@@ -65,7 +65,7 @@ function mkSock() {
   // ── B. Modos ────────────────────────────────────────────────
   console.log('\n▸ B. Modos de chamada');
   t('Padrão do Dono é atender', (await C.getMode(OWNER, true)) === 'atender', await C.getMode(OWNER, true));
-  t('Padrão de estranho é rejeitar', (await C.getMode(ZE, false)) === 'rejeitar', await C.getMode(ZE, false));
+  t('Padrão de qualquer um é atender', (await C.getMode(ZE, false)) === 'atender', await C.getMode(ZE, false));
   const sm = await C.setMode(ZE, 'atender');
   t('setMode grava', sm.ok && (await C.getMode(ZE, false)) === 'atender', '');
   t('Persiste no MongoDB', !!STORE['darkbot_call_modes_v1'], JSON.stringify(STORE['darkbot_call_modes_v1'] || {}).slice(0, 50));
@@ -93,8 +93,7 @@ function mkSock() {
   const r3 = await C.onCall(s3, { id: 'c3', from: OWNER, status: 'offer', isVideo: false },
     { ownerJid: OWNER, ownerNumber: '244945280380', isOwner: true });
   t('Assume a chamada', r3.modo === 'atender', r3.modo);
-  t('Fala logo (áudio PTT ou texto)', s3.msgs.some(m => m.j === OWNER && (m.ptt || m.text)), 
-    s3.msgs.map(m => m.ptt ? 'PTT ' + m.bytes + 'b' : 'texto').join(','));
+  t('Não conversa (só atende)', s3.msgs.length === 0, s3.msgs.map(m => m.text || 'media').join(','));
   t('Chamada fica activa', !!C.chamadaActiva(OWNER), '');
   t('Não se notifica a si próprio', !s3.msgs.some(m => /Chamada atendida/.test(m.text || '')), '');
 
