@@ -189,6 +189,13 @@ function detectarAcao(texto) {
     return { acao: 'recado', valor: extrairPara(texto) };
   }
 
+  // ── Ligar / chamada ───────────────────────────────────────
+  if (/\b(me liga|liga-?me|liga pra mim|liga para mim|faz uma chamada|faz uma call|chamada de voz|chamada de video|videochamada)\b/.test(t)) {
+    const video = /\b(video|v[ií]deo|videocall|videochamada)\b/.test(t);
+    const grupo = /\bgrupo\b/.test(t);
+    return { acao: grupo ? 'ligarGrupo' : 'ligar', valor: video ? 'video' : 'voice' };
+  }
+
   return null;
 }
 
@@ -504,6 +511,28 @@ async function executar(acao, valor, { sock, ctx }) {
       if (typeof sock.updateProfileStatus !== 'function') return { ok: false, msg: 'Não consigo mudar o recado agora.' };
       await sock.updateProfileStatus(valor);
       return { ok: true, msg: 'Recado actualizado.' };
+    }
+
+    case 'ligar': {
+      const bridge = require('../bot/callBridge');
+      const alvo = emGrupo
+        ? (ctx.senderJid || (ctx.senderNumber + '@s.whatsapp.net'))
+        : jid;
+      const r = await bridge.tentarLigar(sock, alvo, { tipo: valor || 'voice', pushName: ctx.pushName || '' });
+      const tipo = (valor === 'video') ? 'vídeo' : 'voz';
+      return {
+        ok: true,
+        msg: r.ok
+          ? `Já te liguei em ${tipo}. Atende — se a chamada nativa não abrir, manda áudio que eu estou na linha.`
+          : `Tentei ligar em ${tipo}. Manda um áudio que eu atendo já.`,
+      };
+    }
+
+    case 'ligarGrupo': {
+      if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
+      const bridge = require('../bot/callBridge');
+      await bridge.ligarGrupo(sock, jid);
+      return { ok: true, msg: 'Abri a chamada no grupo. Entram pelo link / botão de chamada.' };
     }
 
     default:

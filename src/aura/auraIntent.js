@@ -101,6 +101,9 @@ function detectAuraIntent(text, opts = {}) {
   const t = norm(text);
   if (!t || t.length > 160) return INTENT_NONE;  // frase longa = conversa, não ordem
 
+  // "vai dormir" / "dorme" curto do Dono — mesmo sem dizer "aura"
+  if (/^(vai\s+dormir|dorme|dormi|aura\s+dorme)$/.test(t)) return INTENT_SLEEP;
+
   // Tem de a estar a chamar: pelo nome OU a responder-lhe directamente
   const chamando = mentionsAura(t) || isReplyToBot;
   if (!chamando) return INTENT_NONE;

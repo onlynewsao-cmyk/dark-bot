@@ -74,6 +74,14 @@ function deveResponder(o = {}) {
   // PV é conversa a dois — responde sempre
   if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
 
+  // Grupo acordado: se a pessoa está na conversa com ela, continua
+  try {
+    const talk = require('./auraTalk');
+    if (o.senderNumber && talk.estaAFalar(o.remoteJid, o.senderNumber)) {
+      return { responde: true, motivo: 'ainda está a falar com ela', chance: 1 };
+    }
+  } catch {}
+
   // ── No grupo, do Dark ─────────────────────────────────────
   if (isOwner) {
     // pergunta ou ordem dirigida → responde
