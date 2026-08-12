@@ -20,6 +20,15 @@ aberto desde 2023 exactamente por isto.
 **Não te vou vender um stream de áudio que a biblioteca não tem.** O que
 implementei é a coisa mais próxima que funciona a sério — e funciona mesmo.
 
+## v6.72 — o que mudou agora
+
+- Mensagens reais do WhatsApp (ephemeral / viewOnce / edited) são **desembrulhadas** antes de a AURA as ver. Sem isto o PV chegava vazio.
+- Notas de voz, fotos e stickers **sem legenda** no privado já activam a AURA.
+- O prefixo `!` deixou de calar os comandos do bot para quem não é o Dono.
+- Chamadas: tenta `acceptCall`, `answerCall`, IQ `accept` e `sendNode`. Se o WhatsApp não der stream (não dá no Baileys), conversa por PTT: atende, fala, ouve, entende, responde.
+
+---
+
 ## O que ela faz agora
 
 ### Modo `atender` — conversa por voz

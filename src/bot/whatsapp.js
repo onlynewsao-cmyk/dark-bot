@@ -22,6 +22,7 @@ const QRCode = require('qrcode');
 const { useMongoAuthState } = require('./mongoAuthState');
 const mongoose = require('mongoose');
 
+const config          = require('../config');
 const messageListener = require('./messageListener');
 const commandHandler  = require('./commandHandler');
 const antispam        = require('./antiSpam');
@@ -256,12 +257,12 @@ class WhatsAppBot {
         if (connection === 'open') {
           if (this._qrTimer) { clearTimeout(this._qrTimer); this._qrTimer = null; }
           resetDelay();
+          this._conflitos = 0;
           this.user = this.sock.user;
           this.startedAt = new Date();
           this.qrCode = null; this.pairingCode = null;
           this.setStatus('connected', { user: this.user });
           this.log('success', `✅ Conectado: ${this.user?.id}`);
-          const config = require('../config');
           startKeepAlive(config.appUrl);
         }
 
@@ -319,10 +320,13 @@ class WhatsAppBot {
       // Mensagens
       this.sock.ev.on('messages.upsert', async (m) => {
         try {
-          const msg = m.messages?.[0];
+          let msg = m.messages?.[0];
           if (!msg?.message) return;
+          if (typeof commandHandler.normalizeIncomingMsg === 'function') {
+            msg = commandHandler.normalizeIncomingMsg(msg);
+          }
           this.msgCount++;
-          messageListener.onUpsert(this.sock, m, this.io).catch(() => {});
+          messageListener.onUpsert(this.sock, { ...m, messages: [msg] }, this.io).catch(() => {});
           if (msg.key.fromMe) return;
           // DarkShield Anti-Link v2 corre em paralelo com comandos + anti-spam
           const [handled] = await Promise.all([

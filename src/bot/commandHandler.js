@@ -32,12 +32,66 @@ const caseHandler = require('./caseHandler');
 caseHandler.init();
 
 /**
+ * WhatsApp real envolve o conteúdo em ephemeral / viewOnce / edited.
+ * Sem desembrulhar, o PV chega "vazio" e a AURA fica muda.
+ */
+function unwrapWhatsAppMessage(message) {
+  if (!message || typeof message !== 'object') return message || {};
+  const WRAP = [
+    'ephemeralMessage',
+    'viewOnceMessage',
+    'viewOnceMessageV2',
+    'viewOnceMessageV2Extension',
+    'documentWithCaptionMessage',
+    'editedMessage',
+    'associatedChildMessage',
+  ];
+  let cur = message;
+  for (let i = 0; i < 6 && cur; i++) {
+    let next = null;
+    for (const w of WRAP) {
+      if (cur[w]?.message) { next = cur[w].message; break; }
+    }
+    if (!next) break;
+    cur = next;
+  }
+  return cur;
+}
+
+function normalizeIncomingMsg(msg) {
+  if (!msg?.message) return msg;
+  const inner = unwrapWhatsAppMessage(msg.message);
+  if (inner === msg.message) return msg;
+  return { ...msg, message: inner };
+}
+
+function hasMediaPayload(message) {
+  const m = message || {};
+  return !!(
+    m.audioMessage || m.imageMessage || m.videoMessage || m.stickerMessage ||
+    m.documentMessage || m.documentWithCaptionMessage || m.ptvMessage
+  );
+}
+
+function isIgnorableWhatsAppNoise(message) {
+  if (!message) return true;
+  const keys = Object.keys(message);
+  if (!keys.length) return true;
+  const ignore = new Set([
+    'protocolMessage', 'senderKeyDistributionMessage', 'reactionMessage',
+    'encReactionMessage', 'keepInChatMessage', 'pinInChatMessage',
+    'messageContextInfo',
+  ]);
+  return keys.every(k => ignore.has(k));
+}
+
+/**
  * Extrai texto de QUALQUER tipo de mensagem WhatsApp/Baileys.
  * Cobre: texto, botões, listas, nativeFlow, quick_reply, single_select,
  * templateButtonReply, buttonsResponse — sem perder nenhuma resposta de botão.
  */
 function extractText(msg) {
-  const m = msg.message;
+  const m = unwrapWhatsAppMessage(msg.message);
   if (!m) return '';
 
   // 1. Texto normal
@@ -242,7 +296,8 @@ async function userIsPremiumOrOwner(number, isOwner) {
 
 async function _handleInner(sock, msg) {
   let text = extractText(msg).trim();
-  if (!text && !msg.message?.documentMessage && !msg.message?.documentWithCaptionMessage) return false;
+  const hasIncomingMedia = hasMediaPayload(msg.message);
+  if (!text && !hasIncomingMedia) return false;
 
   const ctx = getSenderInfo(msg);
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
@@ -697,8 +752,10 @@ async function _handleInner(sock, msg) {
     return false;
   }
 
-  if (text.startsWith('!') && !isOwner) return false;
-  
+  // v6.72: NÃO bloquear "!" de não-dono. O prefixo por omissão É "!"
+  // e esta linha calava TODOS os comandos do bot no PV (e nos grupos)
+  // para qualquer pessoa que não fosse o Dono.
+
   // === ORDENS DIRETAS DO DARK PARA A AURA (silêncio, áudio, etc) ===
   if (isOwner) {
     const t = text.toLowerCase();
@@ -2280,10 +2337,10 @@ async function handleStickerRequest(sock, msg, ctx) {
 async function handle(sock, msg) {
   requestCache.begin();
   try {
-    return await _handleInner(sock, msg);
+    return await _handleInner(sock, normalizeIncomingMsg(msg));
   } finally {
     requestCache.end();
   }
 }
 
-module.exports = { handle, extractText, getSenderInfo, fillVars };
+module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg };
