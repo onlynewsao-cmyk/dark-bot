@@ -285,10 +285,10 @@ async function bootstrap() {
   app.get('/test-pv', async (req, res) => {
     const out = { ok: false };
     try {
-      // Usa a instancia carregada no arranque (evita problemas de cache no Render)
-      const ch = _ch;
-      // loadCases e' do caseHandler, nao do commandHandler
-      try { require('./bot/caseHandler').loadCases(); } catch {}
+      // Faz require directo (funciona no Render)
+      const _cmdH = require('./bot/commandHandler');
+      const _cH = require('./bot/caseHandler');
+      try { _cH.loadCases(); } catch {}
 
       const OUT = [];
       const sock = {
@@ -299,7 +299,7 @@ async function bootstrap() {
         createCallLink: async (t) => 'TKN_' + t,
       };
       const msg = { key: { id: 'T1', remoteJid: '244945280380@s.whatsapp.net', fromMe: false }, message: { conversation: 'oi' } };
-      const r = await ch.handle(sock, msg);
+      const r = await _cmdH.handle(sock, msg);
       out.ok = true;
       out.handleRetornou = r;
       out.respostas = OUT;
