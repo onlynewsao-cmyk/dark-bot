@@ -269,12 +269,43 @@ class WhatsAppBot {
           const code   = lastDisconnect?.error?.output?.statusCode;
           const reason = lastDisconnect?.error?.message || '?';
           const isLoggedOut = code === DisconnectReason.loggedOut || code === 401;
+
+          // ── v6.70: CONFLITO DE SESSÃO (440) ────────────────────
+          // Duas instâncias com as MESMAS credenciais (ex.: Render +
+          // um `node src/index.js` local, ou dois deploys ao mesmo
+          // tempo) roubam a ligação uma à outra em ciclo: cada uma
+          // reconecta, derruba a outra, e o WhatsApp acaba por
+          // marcar o número. Sintoma para o utilizador: "o bot está
+          // online mas não responde a nada".
+          // Reconectar já não resolve — só alimenta o ciclo.
+          const isConflito = code === DisconnectReason.connectionReplaced ||
+                             code === 440 || /conflict|replaced/i.test(reason);
+
           this.log('warn', `Fechado (${code}): ${reason}`);
           this.setStatus('disconnected', { reason: code, message: reason });
+
+          if (isConflito) {
+            this._conflitos = (this._conflitos || 0) + 1;
+            this.log('error',
+              `⚠️ CONFLITO DE SESSÃO (${this._conflitos}x) — outra instância ligou-se ` +
+              `com as mesmas credenciais. Fecha as outras (local/segundo deploy).`);
+            if (this._conflitos >= 3) {
+              this.log('error', '⛔ 3 conflitos seguidos — parei de reconectar para não queimar o número. Reinicia o serviço quando só houver UMA instância.');
+              return;
+            }
+            // recua muito mais devagar do que o backoff normal
+            this._reconnectTimer = setTimeout(() => {
+              this.starting = false;
+              this.start({ mode: 'qr' }).catch(() => {});
+            }, 60000);
+            return;
+          }
+
           if (isLoggedOut) {
             await this.clearSession();
             this.log('warn', 'Sessão expirada — reconecte manualmente.');
           } else {
+            this._conflitos = 0;
             const d = nextDelay();
             this.log('info', `Reconectando em ${d / 1000}s...`);
             this._reconnectTimer = setTimeout(() => {
