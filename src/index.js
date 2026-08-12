@@ -267,6 +267,9 @@ async function bootstrap() {
         out.AVISO_SILENCIO = 'Ligado há mais de 5 min sem receber UMA mensagem — sinal de sessão roubada por outra instância.';
       }
 
+      // Última tentativa de chamada real (o que o servidor respondeu ao <offer>)
+      try { out.ultima_chamada = require('./bot/realCall').ultimoDiag() || null; } catch { out.ultima_chamada = null; }
+
       // As guardas que podem calar a AURA
       const bcc = require('./bot/botConfigCache');
       out.guardas = {

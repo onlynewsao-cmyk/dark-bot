@@ -16,6 +16,9 @@
 
 const { randomBytes } = require('crypto');
 
+let _ultimo = null;
+function ultimoDiag() { return _ultimo; }
+
 let _baileys = null;
 function _lib() {
   if (!_baileys) _baileys = require('@systemzero/baileys');
@@ -121,7 +124,7 @@ async function ligar(sock, numero, opts = {}) {
       ? sock.generateMessageTag()
       : randomBytes(8).toString('hex').toUpperCase();
 
-    await sock.query({
+    const ack = await sock.query({
       tag: 'call',
       attrs: { id: tag, to: jid },
       content: [
@@ -133,7 +136,19 @@ async function ligar(sock, numero, opts = {}) {
       ]
     });
 
-    return { ok: true, callId, to: jid, isVideo };
+    // Diagnóstico: guarda o que o servidor respondeu ao <offer>.
+    // ACK limpo != telemóvel tocou; isto permite ver o que voltou.
+    _ultimo = {
+      quando: new Date().toISOString(),
+      callId,
+      dispositivos: devices.length,
+      ackTag: ack?.tag || null,
+      ackAttrs: ack?.attrs ? { ...ack.attrs, from: undefined } : null,
+      ackFilhos: Array.isArray(ack?.content) ? ack.content.map(c => c?.tag).filter(Boolean) : null
+    };
+    try { console.log('[realCall] offer ack:', JSON.stringify(_ultimo)); } catch {}
+
+    return { ok: true, callId, to: jid, isVideo, ack: _ultimo };
   } catch (e) {
     return { ok: false, motivo: 'falha_offer', detalhe: e?.message || String(e) };
   }
@@ -166,4 +181,4 @@ async function terminar(sock, callId, callTo, reason = 'timeout', duration) {
   }
 }
 
-module.exports = { ligar, terminar, suportado, normalizarJid };
+module.exports = { ligar, terminar, suportado, normalizarJid, ultimoDiag };
