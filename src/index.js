@@ -300,10 +300,26 @@ async function bootstrap() {
       };
       const msg = { key: { id: 'T1', remoteJid: '244945280380@s.whatsapp.net', fromMe: false }, message: { conversation: 'oi' } };
       const r = await _cmdH.handle(sock, msg);
+      const respostasDono = OUT.slice();
+      OUT.length = 0;
+      const eph = {
+        key: { id: 'T2', remoteJid: '244900000111@s.whatsapp.net', fromMe: false },
+        message: { ephemeralMessage: { message: { conversation: 'oi aura' } } },
+      };
+      const rEph = await _cmdH.handle(sock, eph);
+      const respostasEph = OUT.slice();
+      OUT.length = 0;
+      const cmdPv = {
+        key: { id: 'T3', remoteJid: '244900000111@s.whatsapp.net', fromMe: false },
+        message: { conversation: '.ping' },
+      };
+      const rCmd = await _cmdH.handle(sock, cmdPv);
       out.ok = true;
       out.handleRetornou = r;
-      out.respostas = OUT;
-      out.totalRespostas = OUT.length;
+      out.respostas = respostasDono;
+      out.totalRespostas = respostasDono.length;
+      out.ephemeral = { handle: rEph, respostas: respostasEph.length, sample: respostasEph[0] || null };
+      out.comandoPv = { handle: rCmd, respostas: OUT.length, sample: OUT[0] || null };
     } catch (e) {
       out.erro = e.message.slice(0, 200);
       out.stack = (e.stack || '').split('\n').slice(0, 4).join('\n');
