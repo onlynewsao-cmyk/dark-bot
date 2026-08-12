@@ -285,7 +285,8 @@ async function bootstrap() {
   app.get('/test-pv', async (req, res) => {
     const out = { ok: false };
     try {
-      const ch = require('./bot/commandHandler');
+      // Usa a instancia carregada no arranque (evita problemas de cache no Render)
+      const ch = _ch;
       ch.loadCases();
       const OUT = [];
       const sock = {
