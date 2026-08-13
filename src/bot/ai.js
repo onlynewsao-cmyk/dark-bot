@@ -863,24 +863,36 @@ async function transcribeAssemblyAI(audioBuffer, language) {
  * @param {string} question — pergunta sobre a imagem (ex: "quem é esta pessoa?")
  * @returns {string} descrição/resposta da IA
  */
+function detectImageMime(imageBuffer) {
+  const header = imageBuffer?.slice?.(0, 12) || Buffer.alloc(0);
+  if (header[0] === 0x89 && header[1] === 0x50) return 'image/png';
+  if (header[0] === 0x47 && header[1] === 0x49) return 'image/gif';
+  if (header.slice(0, 4).toString() === 'RIFF' && header.slice(8, 12).toString() === 'WEBP') return 'image/webp';
+  if (header[0] === 0xFF && header[1] === 0xD8) return 'image/jpeg';
+  return 'image/jpeg';
+}
+
+function toImageBuffers(imageBuffer) {
+  const list = Array.isArray(imageBuffer) ? imageBuffer : [imageBuffer];
+  return list.filter(b => b && Buffer.isBuffer(b) && b.length >= 80);
+}
+
+function imagePartsFromBuffers(buffers) {
+  return buffers.map(buf => ({
+    inlineData: { mimeType: detectImageMime(buf), data: buf.toString('base64') },
+  }));
+}
+
 async function describeImage(imageBuffer, question = 'Descreve esta imagem em detalhe. Se houver pessoas, identifica-as se possível.') {
   if (!config.ai.geminiApiKey) throw new Error('sem chave Gemini');
-  if (!imageBuffer || imageBuffer.length < 100) throw new Error('imagem vazia');
-  
-  // Detecta mime type
-  const header = imageBuffer.slice(0, 12);
-  let mimeType = 'image/jpeg';
-  if (header[0] === 0x89 && header[1] === 0x50) mimeType = 'image/png';
-  else if (header[0] === 0x47 && header[1] === 0x49) mimeType = 'image/gif';
-  else if (header[0] === 0x52 && header[1] === 0x49) mimeType = 'image/webp';
-  
-  const base64 = imageBuffer.toString('base64');
-  
+  const buffers = toImageBuffers(imageBuffer);
+  if (!buffers.length) throw new Error('imagem vazia');
+
   const body = {
     contents: [{
       parts: [
         { text: question },
-        { inlineData: { mimeType, data: base64 } },
+        ...imagePartsFromBuffers(buffers),
       ],
     }],
     generationConfig: { temperature: 0.4, maxOutputTokens: 500 },
@@ -913,22 +925,15 @@ async function describeImage(imageBuffer, question = 'Descreve esta imagem em de
  */
 async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {}) {
   if (!config.ai.geminiApiKey) throw new Error('sem chave Gemini');
-  if (!imageBuffer || imageBuffer.length < 100) throw new Error('imagem vazia');
-  
-  const header = imageBuffer.slice(0, 12);
-  let mimeType = 'image/jpeg';
-  if (header[0] === 0x89 && header[1] === 0x50) mimeType = 'image/png';
-  else if (header[0] === 0x47 && header[1] === 0x49) mimeType = 'image/gif';
-  else if (header[0] === 0x52 && header[1] === 0x49) mimeType = 'image/webp';
-  
-  const base64 = imageBuffer.toString('base64');
-  
+  const buffers = toImageBuffers(imageBuffer);
+  if (!buffers.length) throw new Error('imagem vazia');
+
   const body = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: [{
       parts: [
         { text: prompt },
-        { inlineData: { mimeType, data: base64 } },
+        ...imagePartsFromBuffers(buffers),
       ],
     }],
     generationConfig: { temperature: 0.8, maxOutputTokens: 800 },
@@ -1009,6 +1014,8 @@ module.exports = {
   chatGemini,
   chatWithImage,
   describeImage,
+  detectImageMime,
+  toImageBuffers,
   transcribeAudio,
   generateImage,
   getWebContext,
