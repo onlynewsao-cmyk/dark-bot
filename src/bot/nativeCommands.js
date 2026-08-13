@@ -2219,29 +2219,31 @@ module.exports = {
     if (!enabled) { await portal18.ownerPv(sock, { text: '🛑 Portal OFF. Usa: adultmode on' }, ctx); return true; }
 
     const argv = [...args];
-    let qtd = 4;
+    let qtd = 12;
     if (argv.length > 1 && /^\d+$/.test(argv[argv.length - 1])) {
-      qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
+      qtd = Math.min(24, Math.max(1, parseInt(argv.pop(), 10)));
     }
     const nome = portal18.cleanQuery(argv.join(' ').trim());
     if (!nome) { await portal18.ownerPv(sock, { text: '🎭 Uso: *packbusca <nome> [qtd]*' }, ctx); return true; }
     if (portal18.isBlocked(nome)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 Pack de *${qtd}* figurinhas de *${nome}*...` }, ctx);
+    await portal18.ownerPv(sock, { text: `🎭 Pack amplo de *${qtd}* figurinhas de *${nome}* (estático + animado)...` }, ctx);
     let feitas = 0;
     try {
       const packId = stickerMaker.makePackId ? stickerMaker.makePackId(nome) : `packbusca-${Date.now()}`;
       const stickers = [];
-      const imgs = await portal18.searchByName(nome, qtd);
+      const imgs = await (portal18.searchByNameWide || portal18.searchByName)(nome, qtd);
       for (const img of imgs) {
         try {
           const buf = await mediaHandler.fetchBuffer(img.url);
           if (!buf || buf.length < 1000) continue;
+          const isAnim = !!(img.animated || img.isVideo || /\.(gif|webm|mp4)$/i.test(img.url || ''));
           const fig = await stickerMaker.create(buf, {
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName || 'Dark', groupName: 'PV',
             packName: nome, searchQuery: nome, packId,
             remoteJid: ctx.remoteJid, skipGroupWm: true,
+            isVideo: isAnim,
           });
           if (fig) stickers.push(fig);
         } catch { /* salta e continua */ }
@@ -2305,28 +2307,31 @@ module.exports = {
 
     // último argumento numérico = quantidade
     const argv = [...args];
-    let qtd = 4;
+    let qtd = 12;
     if (argv.length && /^\d+$/.test(argv[argv.length - 1])) {
-      qtd = Math.min(8, Math.max(1, parseInt(argv.pop(), 10)));
+      qtd = Math.min(24, Math.max(1, parseInt(argv.pop(), 10)));
     }
     const tags = portal18.cleanQuery(argv.join(' ') || 'nude');
     if (portal18.isBlocked(tags)) { await portal18.ownerPv(sock, { text: '🚫 Termo bloqueado por segurança.' }, ctx); return true; }
 
-    await portal18.ownerPv(sock, { text: `🎭 A criar pack de *${qtd}* figurinhas: *${tags}*...` }, ctx);
+    await portal18.ownerPv(sock, { text: `🎭 Pack amplo de *${qtd}* figurinhas: *${tags}* (estático + animado)...` }, ctx);
     let feitas = 0;
     try {
       const packId = stickerMaker.makePackId ? stickerMaker.makePackId(tags) : `pack18-${Date.now()}`;
       const stickers = [];
-      const imgs = await portal18.searchImages(tags, qtd);
+      const wide = portal18.searchByNameWide || portal18.searchByName;
+      const imgs = await wide(tags, qtd).catch(() => portal18.searchImages(tags, qtd));
       for (const img of imgs) {
         try {
           const buf = await mediaHandler.fetchBuffer(img.url);
           if (!buf || buf.length < 1000) continue;
+          const isAnim = !!(img.animated || img.isVideo || /\.(gif|webm|mp4)$/i.test(img.url || ''));
           const fig = await stickerMaker.create(buf, {
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName || 'Dark', groupName: 'PV',
             packName: tags, searchQuery: tags, packId,
             remoteJid: ctx.remoteJid, skipGroupWm: true,
+            isVideo: isAnim,
           });
           if (fig) stickers.push(fig);
         } catch { /* salta a que falhar e continua o pack */ }
