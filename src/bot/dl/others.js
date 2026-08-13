@@ -117,19 +117,11 @@ async function pinterest(url) {
 }
 
 async function pinterestSearch(query) {
-  // FALLBACK v6.5: múltiplas APIs
-  const apis = [
-    { url: 'https://api.siputzx.my.id/api/s/pinterest?query=', extract: r => r?.data },
-    { url: 'https://api.lolhuman.xyz/api/pinterest?query=', key: '&apikey=darkbot', extract: r => r?.result },
-    { url: 'https://api.zahwazein.xyz/searching/pinterest?query=', extract: r => r?.result },
-  ];
-  for (const api of apis) {
-    try {
-      const r = await mediaHandler.fetchJson(api.url + encodeURIComponent(query) + (api.key || ''), 15000);
-      const items = api.extract(r);
-      if (Array.isArray(items) && items.length > 0) return items;
-    } catch {}
-  }
+  try {
+    const pin = require('../pinterestSearch');
+    const items = await pin.searchPinterest(query, { type: 'any', limit: 10 });
+    if (items.length) return items;
+  } catch {}
   return [];
 }
 
