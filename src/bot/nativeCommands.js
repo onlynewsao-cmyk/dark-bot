@@ -776,19 +776,46 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
 }
 
 
-async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, packId, quoted } = {}) {
+async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, description, packId, quoted } = {}) {
   if (!sock || !jid || !stickers?.length) return false;
-  try {
-    await sock.sendMessage(jid, {
-      cover: stickers[0],
-      stickers: stickers.map((data) => ({ data })),
-      name: name || 'DARK PACK',
-      publisher: publisher || 'DARK NET 🕸️',
-      description: publisher || '',
-    }, { quoted });
-    return true;
-  } catch (e) {
-    console.warn('[pinpacks] stickerPack nativo:', String(e.message || e).slice(0, 120));
+  const list = stickers.filter((b) => b && b.length > 50 && b.length < 1024 * 1024).slice(0, 60);
+  if (!list.length) return false;
+  const packName = name || 'DARK PACK';
+  const packPublisher = publisher || 'DARK NET 🕸️';
+  const packDesc = description || packPublisher;
+  const payloadStickers = list.map((data) => ({ data, emojis: ['✨'] }));
+  const attempts = [
+    {
+      cover: list[0],
+      stickers: payloadStickers,
+      name: packName,
+      publisher: packPublisher,
+      description: packDesc,
+      packId,
+    },
+    {
+      cover: list[0],
+      stickers: payloadStickers,
+      name: packName,
+      publisher: packPublisher,
+    },
+    {
+      stickerPack: {
+        name: packName,
+        publisher: packPublisher,
+        description: packDesc,
+        cover: list[0],
+        stickers: payloadStickers.map((s) => ({ sticker: s.data, emojis: s.emojis })),
+      },
+    },
+  ];
+  for (const payload of attempts) {
+    try {
+      await sock.sendMessage(jid, payload, { quoted });
+      return true;
+    } catch (e) {
+      console.warn('[pinpacks] stickerPack nativo:', String(e.message || e).slice(0, 160));
+    }
   }
   return false;
 }
@@ -3044,24 +3071,35 @@ module.exports = {
 
     if (!query) return reply(sock, msg, ctx,
       RE.renderBlock(t, 'PINPACKS', [
-        'Busca no Pinterest e cria',
-        'um *Pack de Stickers* completo!',
+        'Busca no Pinterest e manda',
+        'o *pack completo de uma vez*.',
         '',
         `*${pfx}pinpacks* <nome>`,
-        `Ex: *${pfx}pinpacks* anime dark`,
+        `Ex: *${pfx}pinpacks* Neymar`,
+        '',
+        `Se o grupo tiver *${pfx}definestickwm*,`,
+        'a marca entra no pack pronto.',
       ], { botName: localConfig.bot.name })
     );
 
     await react(sock, msg, t.react || '⏳');
     // Título do PACOTE (como "Neymar" na imagem) — não o nome do canal
     const packName = String(query).replace(/\s+/g, ' ').trim().slice(0, 32) || 'DARK PACK';
-    let packAuthor = 'DARK NET 🕸️';
+    const wmMod = require('./stickerWm');
+    let packAuthor = wmMod.DEFAULT_BRAND || 'DARK NET 🕸️';
+    let packDescription = packAuthor;
+    let groupWm = null;
     try {
-      const local = await require('./stickerWm').getForJid(ctx.remoteJid);
-      if (local?.enabled && local.authorName) packAuthor = local.authorName;
+      groupWm = await wmMod.getForJid(ctx.remoteJid);
+      if (groupWm?.enabled) {
+        packAuthor = groupWm.authorName || packAuthor;
+        packDescription = groupWm.description || packAuthor;
+      }
     } catch {}
     // UM pack ID para TODOS os stickers → WhatsApp abre "Adicionar às suas figurinhas"
-    const packId = stickerMaker.makePackId(query);
+    const packId = typeof stickerMaker.makePackId === 'function'
+      ? stickerMaker.makePackId(query)
+      : `com.darkbot.pack.${Date.now().toString(16)}`;
 
     const progMsg = await sock.sendMessage(ctx.remoteJid, {
       text: RE.renderBlock(t, 'PINPACKS', [`Pack: *${query}*`, '⏳ A buscar imagens...'], { botName: localConfig.bot.name }),
@@ -3123,25 +3161,54 @@ module.exports = {
       }
       if (!stickers.length) throw new Error('Nenhuma imagem convertida.');
 
+      // Pack pronto → se o grupo tem .definestickwm, carimba a marca no pacote
+      try {
+        groupWm = await wmMod.getForJid(ctx.remoteJid);
+        if (groupWm?.enabled) {
+          packAuthor = groupWm.authorName || packAuthor;
+          packDescription = groupWm.description || packAuthor;
+          if (typeof stickerMaker.stampPack === 'function') {
+            const stamped = await stickerMaker.stampPack(stickers, {
+              pack: packName,
+              author: packAuthor,
+              packId,
+            });
+            if (stamped.length) stickers.splice(0, stickers.length, ...stamped);
+          }
+        }
+      } catch (wmErr) {
+        console.warn('[pinpacks] definestickwm no pack:', String(wmErr.message || wmErr).slice(0, 120));
+      }
+
+      const packPublisher = groupWm?.enabled
+        ? (groupWm.brand || wmMod.DEFAULT_BRAND || 'DARK NET 🕸️')
+        : packAuthor;
+
       // Cache para takepack
       _packCache.set(packId, { stickers, info: { name: packName, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
 
       const sentAsPack = await sendNativeStickerPack(sock, ctx.remoteJid, stickers, {
-        name: packName, publisher: packAuthor, packId, quoted: msg,
+        name: packName,
+        publisher: packPublisher,
+        description: packDescription,
+        packId,
+        quoted: msg,
       });
       if (!sentAsPack) {
-        for (let i = 0; i < stickers.length; i++) {
-          await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
-        }
+        await Promise.all(stickers.map((stk) => sock.sendMessage(ctx.remoteJid, { sticker: stk })));
       }
 
+      const doneLines = [
+        '✅ Pacote *' + packName + '* enviado de uma vez',
+        stickers.length + ' figurinha(s) dentro do pack',
+      ];
+      if (groupWm?.enabled) {
+        doneLines.push('', '💧 Marca do grupo no pack:', packDescription);
+      }
+      doneLines.push('', 'Toque no pack → *Adicionar às suas figurinhas*');
+
       await sock.sendMessage(ctx.remoteJid, {
-        text: RE.renderBlock(t, 'PINPACKS', [
-          '✅ Pacote *' + packName + '*',
-          stickers.length + ' figurinha(s) dentro do pack',
-          '',
-          'Toque numa figurinha → *Adicionar às suas figurinhas*',
-        ], { botName: localConfig.bot.name }),
+        text: RE.renderBlock(t, 'PINPACKS', doneLines, { botName: localConfig.bot.name }),
       }, { quoted: msg });
 
       await react(sock, msg, t.react || '✅');

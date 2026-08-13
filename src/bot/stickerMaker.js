@@ -16,9 +16,20 @@
 
 const { execSync, execFileSync } = require('child_process');
 const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+const crypto = require('crypto');
 const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
+
+/** ID estável para TODAS as figurinhas do mesmo pacote. */
+function makePackId(seed = '') {
+  const base = String(seed || 'dark').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const h = crypto.createHash('md5')
+    .update(`${base}|${Date.now()}|${Math.random()}`)
+    .digest('hex')
+    .slice(0, 16);
+  return `com.darkbot.pack.${h}`;
+}
 
 /* ─── ffmpeg disponível? ──────────────────────────────────────── */
 function getFfmpegBin() {
@@ -302,13 +313,32 @@ async function createFull(buffer, rawOpts = {}) {
     if (out && out.length > 200) return out;
   } catch (e) {}
 
-  return new Sticker(buffer, {
-    pack,
-    author,
-    type: StickerTypes.FULL,
-    quality: 90,
-  }).toBuffer();
+  return new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.FULL, 90)).toBuffer();
 }
 
-module.exports = { create, createFull, detectMime, FFMPEG_OK };
+/** Regrava pack/author/id no WebP já pronto (ex: pack + definestickwm). */
+async function stampPack(stickers, { pack, author, packId } = {}) {
+  const out = [];
+  for (const buf of stickers || []) {
+    if (!buf || !buf.length) continue;
+    try {
+      const next = await injectMeta(buf, pack, author, packId);
+      out.push(next && next.length > 50 ? next : buf);
+    } catch {
+      out.push(buf);
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  create,
+  createFull,
+  detectMime,
+  FFMPEG_OK,
+  makePackId,
+  injectMeta,
+  stampPack,
+  packStickerOpts,
+};
 
