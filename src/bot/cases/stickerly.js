@@ -72,60 +72,66 @@ module.exports = function registerStickerlyCases(registerCase) {
     }
   }, true);
 
-  registerCase(['pin', 'polo'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  async function runPin({ sock, msg, ctx, args, prefix, reply, forceVideo = false }) {
     const text = args.join(' ').trim();
     if (!text) return reply(
       '╔━᳀『 ᴘɪɴᴛʀᴇsᴛ 』═᳀\n' +
       '⌬ Use: *' + prefix + 'pin <termo>*\n' +
       '⌬ Ex: *' + prefix + 'pin gatos*\n' +
+      '⌬ Ex: *' + prefix + 'pin Messi|vídeo*\n' +
       '⌬ Ex: *' + prefix + 'pin gatos |6|vídeo*\n' +
       '⌬ Ex: *' + prefix + 'pin gatos |imagem*\n' +
-      '⌬ Manda até 10 mídias em álbum\n' +
+      '⌬ *' + prefix + 'pinmp4 Messi* — só vídeo\n' +
+      '⌬ Manda até 10 mídias\n' +
       '╚═━═━═━═━═━═━═━═᳀'
     );
     sock.sendMessage(ctx.remoteJid, { react: { text: '🔎', key: msg.key } });
     try {
-      const partes = text.split('|').map(p => p.trim()).filter(Boolean);
-      const query = partes.shift();
-      let limit = 6;
-      let tipo = 'image';
-      for (const p of partes) {
-        if (/^\d+$/.test(p)) limit = Math.max(1, Math.min(10, parseInt(p, 10)));
-        else if (/^v[ií]deos?$/i.test(p)) tipo = 'video';
-        else if (/^(imagens?|imagem|fotos?|image)$/i.test(p)) tipo = 'image';
-      }
-      if (!query) return reply('Uso: ' + prefix + 'pin <termo> |qtd|tipo');
+      const pin = require('../pinterestSearch');
+      const parsed = pin.parsePinArgs(text);
+      if (forceVideo) parsed.type = 'video';
+      if (!parsed.query) return reply('Uso: ' + prefix + 'pin <termo> |qtd|tipo');
 
-      let results = [];
-      const apis = [
-        { url: 'https://api.siputzx.my.id/api/s/pinterest?query=' + encodeURIComponent(query), ext: r => r?.data },
-        { url: 'https://api.lolhuman.xyz/api/pinterest?query=' + encodeURIComponent(query) + '&apikey=darkbot', ext: r => r?.result },
-      ];
-      for (const api of apis) {
-        try {
-          const r = await require('../mediaHandler').fetchJson(api.url, 15000);
-          results = (api.ext(r) || []).filter(x => x?.image_url || x?.media_url || x?.url);
-          if (results.length) break;
-        } catch {}
+      const results = await pin.searchPinterest(parsed.query, {
+        type: parsed.type,
+        limit: parsed.limit,
+      });
+      if (!results.length) {
+        throw new Error(parsed.type === 'video'
+          ? 'Nenhum vídeo encontrado. Tenta outro termo ou um link do pin.'
+          : 'Nenhum resultado. A API do Pinterest está instável — tenta de novo.');
       }
-      if (!results.length) throw new Error('Nenhum resultado encontrado.');
 
-      const items = results.slice(0, limit);
-      for (const item of items) {
+      let sent = 0;
+      for (const item of results) {
         const url = item.media_url || item.image_url || item.url;
         if (!url) continue;
-        const isVid = item.type === 'video' || tipo === 'video' || /\.mp4/i.test(url);
-        if (isVid) {
-          const buf = await require('../mediaHandler').fetchBuffer(url);
-          await sock.sendMessage(ctx.remoteJid, { video: buf, mimetype: 'video/mp4', caption: '📌 Pinterest — ' + query }, { quoted: msg });
-        } else {
-          await sock.sendMessage(ctx.remoteJid, { image: { url }, caption: '📌 Pinterest — ' + query }, { quoted: msg });
-        }
+        const isVid = item.type === 'video' || parsed.type === 'video' || /\.mp4/i.test(url);
+        try {
+          if (isVid) {
+            const buf = await require('../mediaHandler').fetchBuffer(url);
+            if (!buf || buf.length < 2000) continue;
+            await sock.sendMessage(ctx.remoteJid, {
+              video: buf, mimetype: 'video/mp4',
+              caption: '📌 Pinterest — ' + parsed.query,
+            }, { quoted: msg });
+          } else {
+            await sock.sendMessage(ctx.remoteJid, {
+              image: { url },
+              caption: '📌 Pinterest — ' + parsed.query,
+            }, { quoted: msg });
+          }
+          sent++;
+        } catch { /* item morto */ }
       }
+      if (!sent) throw new Error('Encontrei pins mas nenhum ficheiro abriu. Tenta outro termo.');
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return reply('❌ Pinterest: ' + e.message);
     }
-  }, true);
+  }
+
+  registerCase(['pin', 'polo'], async (c) => runPin(c), true);
+  registerCase(['pinmp4', 'pinvd', 'pinvideo'], async (c) => runPin({ ...c, forceVideo: true }), true);
 };

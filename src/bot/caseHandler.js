@@ -763,9 +763,11 @@ function registerManagementCases() {
       `e o código abaixo de --- ou responde a uma mensagem com o código`
     );
 
-    // Detecta o nome do comando dentro do código (se não foi dado como arg)
-    const detectedName = extractCommandName(code);
-    const finalName = (detectedName && !args[1]) ? detectedName : cmdName;
+    // O nome é SEMPRE o que o dono escreveu (!addcase pinmp4 → pinmp4).
+    // Antes, se o código era `case 'pin':` e só havia um argumento,
+    // gravava como `pin` e tapava o comando nativo. Foi isso que
+    // rebentou o @pin com o case colado.
+    const finalName = cmdName;
 
     // Extrai o código se vier em formato switch/case clássico
     let cleanCode = code;
