@@ -298,7 +298,7 @@ async function createFull(buffer, rawOpts = {}) {
 
   try {
     const webp = await imageToWebpFull(buffer, visibleWatermark ? watermarkText : '');
-    const out = await injectMeta(webp, pack, author);
+    const out = await injectMeta(webp, pack, author, packId);
     if (out && out.length > 200) return out;
   } catch (e) {}
 
