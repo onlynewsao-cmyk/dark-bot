@@ -775,6 +775,24 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
   });
 }
 
+
+async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, packId, quoted } = {}) {
+  if (!sock || !jid || !stickers?.length) return false;
+  try {
+    await sock.sendMessage(jid, {
+      cover: stickers[0],
+      stickers: stickers.map((data) => ({ data })),
+      name: name || 'DARK PACK',
+      publisher: publisher || 'DARK NET 🕸️',
+      description: publisher || '',
+    }, { quoted });
+    return true;
+  } catch (e) {
+    console.warn('[pinpacks] stickerPack nativo:', String(e.message || e).slice(0, 120));
+  }
+  return false;
+}
+
 module.exports = {
   // ============ INFO ============
   async start({ sock, msg, ctx, config: cfg }) {
@@ -3035,10 +3053,15 @@ module.exports = {
     );
 
     await react(sock, msg, t.react || '⏳');
-    const packName = `📌 ${query.slice(0, 20)}`;
-    const packAuthor = `${localConfig.bot.name} • ${ctx.pushName}`;
-    // UM pack ID para TODOS os stickers → WhatsApp agrupa como pack NATIVO
-    const packId = 'darkbot-pack-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+    // Título do PACOTE (como "Neymar" na imagem) — não o nome do canal
+    const packName = String(query).replace(/\s+/g, ' ').trim().slice(0, 32) || 'DARK PACK';
+    let packAuthor = 'DARK NET 🕸️';
+    try {
+      const local = await require('./stickerWm').getForJid(ctx.remoteJid);
+      if (local?.enabled && local.authorName) packAuthor = local.authorName;
+    } catch {}
+    // UM pack ID para TODOS os stickers → WhatsApp abre "Adicionar às suas figurinhas"
+    const packId = stickerMaker.makePackId(query);
 
     const progMsg = await sock.sendMessage(ctx.remoteJid, {
       text: RE.renderBlock(t, 'PINPACKS', [`Pack: *${query}*`, '⏳ A buscar imagens...'], { botName: localConfig.bot.name }),
@@ -3076,7 +3099,8 @@ module.exports = {
             packName, authorName: packAuthor,
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName, groupName: ctx.groupName || 'Pack', isVideo: false,
-            packId, // ← MESMO ID para todos → pack NATIVO
+            packId,
+            skipGroupWm: true,
           });
           if (stk && stk.length > 50) {
             stickers.push(stk);
@@ -3102,23 +3126,21 @@ module.exports = {
       // Cache para takepack
       _packCache.set(packId, { stickers, info: { name: packName, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
 
-      // Enviar TODOS os stickers (sem delay — WhatsApp agrupa pelo packId)
-      for (let i = 0; i < stickers.length; i++) {
-        await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
+      const sentAsPack = await sendNativeStickerPack(sock, ctx.remoteJid, stickers, {
+        name: packName, publisher: packAuthor, packId, quoted: msg,
+      });
+      if (!sentAsPack) {
+        for (let i = 0; i < stickers.length; i++) {
+          await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i] });
+        }
       }
 
-      // Mensagem final SIMPLES — o botão "Ver pacote de figurinhas"
-      // aparece NATIVAMENTE no WhatsApp quando o utilizador toca num sticker
       await sock.sendMessage(ctx.remoteJid, {
         text: RE.renderBlock(t, 'PINPACKS', [
-          '✅ Pack de "' + query + '"',
-          'enviado com ' + stickers.length + ' figurinha(s)!',
+          '✅ Pacote *' + packName + '*',
+          stickers.length + ' figurinha(s) dentro do pack',
           '',
-          '📦 Pack: *' + localConfig.bot.name + '*',
-          '👤 Autor: *' + ctx.pushName + '*',
-          '👥 Grupo: *' + (ctx.groupName || '') + '*',
-          '',
-          '> Toca num sticker para ver o pack completo!',
+          'Toque numa figurinha → *Adicionar às suas figurinhas*',
         ], { botName: localConfig.bot.name }),
       }, { quoted: msg });
 

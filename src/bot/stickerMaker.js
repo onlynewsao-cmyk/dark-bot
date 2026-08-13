@@ -138,17 +138,21 @@ async function imageToWebpSquare(buffer, watermarkText = '') {
 }
 
 /* ─── Injeta metadados via Sticker (pack/author) ─────────────── */
+function packStickerOpts(pack, author, packId, type = StickerTypes.FULL, quality = 100) {
+  return {
+    pack,
+    author,
+    type,
+    quality,
+    id: packId || `darkbot-${Date.now()}`,
+    categories: ['✨'],
+  };
+}
+
 async function injectMeta(webpBuf, pack, author, packId) {
   // Usa wa-sticker-formatter apenas para injetar metadados no WebP
   // type: FULL = não redimensiona (já está 512x512 e correcto)
-  const stk = new Sticker(webpBuf, {
-    pack,
-    author,
-    type: StickerTypes.FULL,
-    quality: 100,   // sem recompressão — já está optimizado
-    id: packId || `darkbot-${Date.now()}`,
-    categories: ['🤖'],
-  });
+  const stk = new Sticker(webpBuf, packStickerOpts(pack, author, packId, StickerTypes.FULL, 100));
   return stk.toBuffer();
 }
 
@@ -180,7 +184,7 @@ async function create(buffer, rawOpts = {}) {
   if (isGif) {
     try {
       const webpAnim = await gifToWebpSquare(buffer);
-      const out = await injectMeta(webpAnim, pack, author);
+      const out = await injectMeta(webpAnim, pack, author, packId);
       if (out && out.length > 200) return out;
     } catch (e) {
       // sharp falhou com este GIF → fallback
@@ -188,11 +192,7 @@ async function create(buffer, rawOpts = {}) {
 
     // Fallback: wa-sticker-formatter CROPPED (cover, não contain)
     try {
-      return await new Sticker(buffer, {
-        pack, author,
-        type: StickerTypes.CROPPED,  // ← CROPPED = cover 512x512 ← NUNCA FULL
-        quality: 80,
-      }).toBuffer();
+      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 80)).toBuffer();
     } catch (e2) {
       throw new Error('Sticker GIF falhou: ' + e2.message);
     }
@@ -203,7 +203,7 @@ async function create(buffer, rawOpts = {}) {
     if (FFMPEG_OK) {
       try {
         const webpAnim = videoToWebpSquare(buffer);
-        const out = await injectMeta(webpAnim, pack, author);
+        const out = await injectMeta(webpAnim, pack, author, packId);
         if (out && out.length > 200) return out;
       } catch (e) {
         // ffmpeg falhou → fallback
@@ -213,11 +213,7 @@ async function create(buffer, rawOpts = {}) {
     // Fallback: wa-sticker-formatter CROPPED
     // (o wa-sticker-formatter usa ffmpeg internamente para converter MP4→GIF→WebP)
     try {
-      return await new Sticker(buffer, {
-        pack, author,
-        type: StickerTypes.CROPPED,  // ← CROPPED = cover 512x512
-        quality: 80,
-      }).toBuffer();
+      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 80)).toBuffer();
     } catch (e2) {
       throw new Error('Sticker vídeo falhou: ' + e2.message);
     }
@@ -226,17 +222,13 @@ async function create(buffer, rawOpts = {}) {
   /* ── Imagem estática (JPEG, PNG, WebP) ── */
   try {
     const webp = await imageToWebpSquare(buffer, visibleWatermark ? watermarkText : '');
-    const out  = await injectMeta(webp, pack, author);
+    const out  = await injectMeta(webp, pack, author, packId);
     if (out && out.length > 200) return out;
     throw new Error('output vazio');
   } catch (e) {
     // Fallback CROPPED para imagens também
     try {
-      return await new Sticker(buffer, {
-        pack, author,
-        type: StickerTypes.CROPPED,  // ← CROPPED = cover 512x512
-        quality: 85,
-      }).toBuffer();
+      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 85)).toBuffer();
     } catch (e2) {
       throw new Error('Sticker imagem falhou: ' + e2.message);
     }
