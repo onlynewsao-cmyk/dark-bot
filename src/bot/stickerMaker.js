@@ -15,20 +15,69 @@
  */
 
 const { execSync, execFileSync } = require('child_process');
-const { Sticker, StickerTypes } = require('wa-sticker-formatter');
+let _Sticker, _StickerTypes;
+function waSticker() {
+  if (!_Sticker) {
+    const m = require('wa-sticker-formatter');
+    _Sticker = m.Sticker;
+    _StickerTypes = m.StickerTypes;
+  }
+  return { Sticker: _Sticker, StickerTypes: _StickerTypes };
+}
 const crypto = require('crypto');
 const fs   = require('fs');
 const os   = require('os');
 const path = require('path');
 
-/** ID estável para TODAS as figurinhas do mesmo pacote. */
+/** ID estável: o mesmo seed dá SEMPRE o mesmo pack (WhatsApp agrupa). */
 function makePackId(seed = '') {
-  const base = String(seed || 'dark').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const base = String(seed || 'dark-net-default').replace(/\s+/g, ' ').trim().slice(0, 120);
   const h = crypto.createHash('md5')
-    .update(`${base}|${Date.now()}|${Math.random()}`)
+    .update('darkbot-pack|' + base)
     .digest('hex')
     .slice(0, 16);
   return `com.darkbot.pack.${h}`;
+}
+
+/**
+ * EXIF completo do WhatsApp.
+ * android/ios-app-store-link = o que o "Ver pacote" abre
+ * se a pessoa ainda não tiver o pack guardado.
+ */
+function buildStickerExifJson({ packId, pack, author, url, emojis } = {}) {
+  const link = String(url || '').trim();
+  return {
+    'sticker-pack-id': packId || makePackId(pack || 'dark'),
+    'sticker-pack-name': String(pack || 'DARK NET 🕸️').slice(0, 128),
+    'sticker-pack-publisher': String(author || 'DARK NET 🕸️').slice(0, 280),
+    'android-app-store-link': link,
+    'ios-app-store-link': link,
+    'sticker-pack-publisher-website': link,
+    emojis: Array.isArray(emojis) && emojis.length ? emojis : ['✨'],
+  };
+}
+
+async function writeStickerExif(webpBuf, meta = {}) {
+  if (!webpBuf || !webpBuf.length) return webpBuf;
+  const json = JSON.stringify(buildStickerExifJson(meta));
+  const exif = Buffer.concat([
+    Buffer.from([
+      0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01, 0x00, 0x41, 0x57,
+      0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
+    ]),
+    Buffer.from(json, 'utf-8'),
+  ]);
+  exif.writeUIntLE(Buffer.byteLength(json), 14, 4);
+  try {
+    const { Image } = require('node-webpmux');
+    const img = new Image();
+    await img.load(webpBuf);
+    img.exif = exif;
+    const out = await img.save(null);
+    return out && out.length > 50 ? out : webpBuf;
+  } catch {
+    return webpBuf;
+  }
 }
 
 /* ─── ffmpeg disponível? ──────────────────────────────────────── */
@@ -149,7 +198,9 @@ async function imageToWebpSquare(buffer, watermarkText = '') {
 }
 
 /* ─── Injeta metadados via Sticker (pack/author) ─────────────── */
-function packStickerOpts(pack, author, packId, type = StickerTypes.FULL, quality = 100) {
+function packStickerOpts(pack, author, packId, type, quality = 100) {
+  const { StickerTypes } = waSticker();
+  type = type || StickerTypes.FULL;
   return {
     pack,
     author,
@@ -160,11 +211,16 @@ function packStickerOpts(pack, author, packId, type = StickerTypes.FULL, quality
   };
 }
 
-async function injectMeta(webpBuf, pack, author, packId) {
-  // Usa wa-sticker-formatter apenas para injetar metadados no WebP
-  // type: FULL = não redimensiona (já está 512x512 e correcto)
-  const stk = new Sticker(webpBuf, packStickerOpts(pack, author, packId, StickerTypes.FULL, 100));
-  return stk.toBuffer();
+async function injectMeta(webpBuf, pack, author, packId, packUrl = '') {
+  const id = packId || makePackId(pack || 'dark');
+  const written = await writeStickerExif(webpBuf, {
+    packId: id, pack, author, url: packUrl,
+  });
+  if (written && written !== webpBuf && written.length > 50) return written;
+  const stk = new Sticker(webpBuf, packStickerOpts(pack, author, id, StickerTypes.FULL, 100));
+  const fallback = await stk.toBuffer();
+  if (!packUrl) return fallback;
+  return writeStickerExif(fallback, { packId: id, pack, author, url: packUrl });
 }
 
 /* ─── API PÚBLICA ─────────────────────────────────────────────── */
@@ -182,9 +238,12 @@ async function injectMeta(webpBuf, pack, author, packId) {
 async function create(buffer, rawOpts = {}) {
   let opts = rawOpts;
   try { opts = await require('./stickerWm').apply(rawOpts); } catch {}
-  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId = null } = opts;
+  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId = null, packUrl = '' } = opts;
   const pack   = packName || `${botName} • ${ownerName}`;
   const author = authorName || `${userName} | ${groupName || 'PV'}`;
+  const idPack = packId || makePackId((packUrl || '') + '|' + pack);
+  const urlPack = packUrl || '';
+  const { Sticker, StickerTypes } = waSticker();
 
   const mime   = detectMime(buffer);
   const isGif  = mime === 'image/gif';
@@ -195,7 +254,7 @@ async function create(buffer, rawOpts = {}) {
   if (isGif) {
     try {
       const webpAnim = await gifToWebpSquare(buffer);
-      const out = await injectMeta(webpAnim, pack, author, packId);
+      const out = await injectMeta(webpAnim, pack, author, idPack, urlPack);
       if (out && out.length > 200) return out;
     } catch (e) {
       // sharp falhou com este GIF → fallback
@@ -203,7 +262,8 @@ async function create(buffer, rawOpts = {}) {
 
     // Fallback: wa-sticker-formatter CROPPED (cover, não contain)
     try {
-      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 80)).toBuffer();
+      const raw = await new Sticker(buffer, packStickerOpts(pack, author, idPack, StickerTypes.CROPPED, 80)).toBuffer();
+      return injectMeta(raw, pack, author, idPack, urlPack);
     } catch (e2) {
       throw new Error('Sticker GIF falhou: ' + e2.message);
     }
@@ -214,7 +274,7 @@ async function create(buffer, rawOpts = {}) {
     if (FFMPEG_OK) {
       try {
         const webpAnim = videoToWebpSquare(buffer);
-        const out = await injectMeta(webpAnim, pack, author, packId);
+        const out = await injectMeta(webpAnim, pack, author, idPack, urlPack);
         if (out && out.length > 200) return out;
       } catch (e) {
         // ffmpeg falhou → fallback
@@ -224,7 +284,8 @@ async function create(buffer, rawOpts = {}) {
     // Fallback: wa-sticker-formatter CROPPED
     // (o wa-sticker-formatter usa ffmpeg internamente para converter MP4→GIF→WebP)
     try {
-      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 80)).toBuffer();
+      const raw = await new Sticker(buffer, packStickerOpts(pack, author, idPack, StickerTypes.CROPPED, 80)).toBuffer();
+      return injectMeta(raw, pack, author, idPack, urlPack);
     } catch (e2) {
       throw new Error('Sticker vídeo falhou: ' + e2.message);
     }
@@ -233,13 +294,14 @@ async function create(buffer, rawOpts = {}) {
   /* ── Imagem estática (JPEG, PNG, WebP) ── */
   try {
     const webp = await imageToWebpSquare(buffer, visibleWatermark ? watermarkText : '');
-    const out  = await injectMeta(webp, pack, author, packId);
+    const out  = await injectMeta(webp, pack, author, idPack, urlPack);
     if (out && out.length > 200) return out;
     throw new Error('output vazio');
   } catch (e) {
     // Fallback CROPPED para imagens também
     try {
-      return await new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.CROPPED, 85)).toBuffer();
+      const raw = await new Sticker(buffer, packStickerOpts(pack, author, idPack, StickerTypes.CROPPED, 85)).toBuffer();
+      return injectMeta(raw, pack, author, idPack, urlPack);
     } catch (e2) {
       throw new Error('Sticker imagem falhou: ' + e2.message);
     }
@@ -292,9 +354,12 @@ function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX
 async function createFull(buffer, rawOpts = {}) {
   let opts = rawOpts;
   try { opts = await require('./stickerWm').apply(rawOpts); } catch {}
-  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId } = opts;
+  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId, packUrl = '' } = opts;
   const pack = packName || `${botName} • ${ownerName}`;
   const author = authorName || `${userName} | ${groupName || 'PV'} • SFULL`;
+  const idPack = packId || makePackId((packUrl || '') + '|' + pack);
+  const urlPack = packUrl || '';
+  const { Sticker, StickerTypes } = waSticker();
   const mime = detectMime(buffer);
   const isGif = mime === 'image/gif';
   const isVid = isVideo || mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
@@ -302,27 +367,30 @@ async function createFull(buffer, rawOpts = {}) {
   if ((isGif || isVid) && FFMPEG_OK) {
     try {
       const webp = videoToWebpFull(buffer);
-      const out = await injectMeta(webp, pack, author, packId);
+      const out = await injectMeta(webp, pack, author, idPack, urlPack);
       if (out && out.length > 200) return out;
     } catch (e) {}
   }
 
   try {
     const webp = await imageToWebpFull(buffer, visibleWatermark ? watermarkText : '');
-    const out = await injectMeta(webp, pack, author, packId);
+    const out = await injectMeta(webp, pack, author, idPack, urlPack);
     if (out && out.length > 200) return out;
   } catch (e) {}
 
-  return new Sticker(buffer, packStickerOpts(pack, author, packId, StickerTypes.FULL, 90)).toBuffer();
+  return injectMeta(
+    await new Sticker(buffer, packStickerOpts(pack, author, idPack, StickerTypes.FULL, 90)).toBuffer(),
+    pack, author, idPack, urlPack
+  );
 }
 
 /** Regrava pack/author/id no WebP já pronto (ex: pack + definestickwm). */
-async function stampPack(stickers, { pack, author, packId } = {}) {
+async function stampPack(stickers, { pack, author, packId, packUrl } = {}) {
   const out = [];
   for (const buf of stickers || []) {
     if (!buf || !buf.length) continue;
     try {
-      const next = await injectMeta(buf, pack, author, packId);
+      const next = await injectMeta(buf, pack, author, packId, packUrl);
       out.push(next && next.length > 50 ? next : buf);
     } catch {
       out.push(buf);
@@ -340,5 +408,7 @@ module.exports = {
   injectMeta,
   stampPack,
   packStickerOpts,
+  buildStickerExifJson,
+  writeStickerExif,
 };
 

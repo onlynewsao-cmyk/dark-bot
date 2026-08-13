@@ -146,7 +146,7 @@ module.exports = function registerStickerCases(registerCase) {
   });
 
   // ── !definestickwm — marca d'água/descrição dos stickers DESTE grupo
-  registerCase(['definestickwm', 'setstickwm', 'stickwmgrupo', 'definirmarca'], async ({ sock, ctx, args, prefix, reply, react, isOwner, isAdminFn }) => {
+  registerCase(['defpack', 'definestickpack', 'setpack', 'packlink', 'verpack', 'definestickwm', 'setstickwm', 'stickwmgrupo', 'definirmarca'], async ({ sock, ctx, args, prefix, reply, react, isOwner, isAdminFn }) => {
     const wm = require('../stickerWm');
     const jid = ctx.remoteJid;
     const p = prefix || '.';
@@ -172,12 +172,38 @@ module.exports = function registerStickerCases(registerCase) {
 
     if (!raw || ['status', 'ver', 'info'].includes(sub)) {
       const saved = await wm.getForJid(jid);
-      return reply(wm.statusText(saved, p));
+      const glob = await wm.getGlobalDefault().catch(() => null);
+      let txt = wm.statusText(saved, p);
+      if (glob?.channelUrl) {
+        txt += `\n\nDefault global («Ver pacote» se o chat não tiver o seu):\n${glob.channelUrl}`;
+      }
+      return reply(txt);
     }
 
     if (['off', 'reset', 'limpar', 'clear', 'remover'].includes(sub)) {
       await wm.clearForJid(jid);
-      return reply('✅ Marca deste chat *apagada*. Os stickers voltam à marca global.');
+      return reply('✅ Pack deste chat *apagado*. «Ver pacote» volta ao default global.');
+    }
+
+    if (['global', 'default', 'padrao', 'padrão'].includes(sub)) {
+      if (!isOwner) return reply('🚫 Só o *Dono* define o pack default de todos os chats.');
+      const rest = args.slice(1).join(' ').trim();
+      if (!rest || ['off', 'reset'].includes(rest.toLowerCase())) {
+        await wm.saveGlobalDefault({ link: wm.DEFAULT_PACK_URL });
+        return reply('✅ Default global resetado para o canal DARK NET.');
+      }
+      const detected = await wm.resolveAnyLink(rest, sock).catch(() => null);
+      if (!detected?.url) return reply(`Cola o link: *${p}defpack global* https://whatsapp.com/channel/...`);
+      const saved = await wm.saveGlobalDefault({
+        brand: wm.DEFAULT_BRAND,
+        slogan: wm.DEFAULT_SLOGAN,
+        link: detected.url,
+        cta: wm.DEFAULT_CTA,
+      });
+      return reply(
+        `✅ *Default global* do «Ver pacote»:\n${saved.channelUrl}\n\n` +
+        `Todas as figurinhas e packs usam este link se o chat não tiver o seu.`
+      );
     }
 
     const current = await wm.getForJid(jid);

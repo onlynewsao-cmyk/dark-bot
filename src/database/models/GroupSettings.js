@@ -107,6 +107,7 @@ const GroupSettingsSchema = new mongoose.Schema({
   stickerWmSlogan:     { type: String, default: 'O melhor canal do mundo' },
   stickerWmCta:        { type: String, default: 'Siga o canal' },
   stickerWmLinkType:   { type: String, default: '' },
+  stickerPackId:       { type: String, default: '' },
 
   // ── Limites free por grupo ────────────────────────────────
   freePvDailyLimit:  { type: Number, default: 20 },  // comandos PV para free por dia

@@ -5,13 +5,14 @@
  */
 'use strict';
 
-async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, description, packId, quoted } = {}) {
+async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, description, packId, packUrl, quoted } = {}) {
   if (!sock || !jid || !stickers?.length) return false;
   const list = stickers.filter((b) => b && b.length > 50 && b.length < 1024 * 1024).slice(0, 60);
   if (!list.length) return false;
   const packName = name || 'DARK PACK';
   const packPublisher = publisher || 'DARK NET 🕸️';
   const packDesc = description || packPublisher;
+  const link = packUrl || '';
   const payloadStickers = list.map((data) => ({ data, emojis: ['✨'] }));
   const attempts = [
     {
@@ -21,6 +22,9 @@ async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, des
       publisher: packPublisher,
       description: packDesc,
       packId,
+      stickerPackId: packId,
+      androidAppStoreLink: link,
+      iosAppStoreLink: link,
     },
     {
       cover: list[0],
@@ -33,6 +37,7 @@ async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, des
         name: packName,
         publisher: packPublisher,
         description: packDesc,
+        stickerPackId: packId,
         cover: list[0],
         stickers: payloadStickers.map((s) => ({ sticker: s.data, emojis: s.emojis })),
       },
@@ -81,6 +86,7 @@ async function sendFinishedPack(sock, jid, stickers, opts = {}) {
     publisher: finished.publisher,
     description: finished.description,
     packId: finished.packId,
+    packUrl: finished.packUrl,
     quoted: opts.quoted,
   });
   if (!sent) {

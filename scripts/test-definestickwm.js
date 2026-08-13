@@ -64,7 +64,7 @@ ok('pesquisa+marca: título continua a busca', packOn.packName === 'Neymar');
 ok('pesquisa+marca: não duplica o nome', packOn.description.split('\n').filter(l => l === 'Neymar').length === 1);
 
 const txt = wm.statusText(null, '.');
-ok('ajuda sem marca', txt.includes('definestickwm') && txt.includes('ainda não está activa'));
+ok('ajuda sem marca', txt.includes('defpack') && /ainda não/i.test(txt));
 
 const txt2 = wm.statusText({
   enabled: true,
