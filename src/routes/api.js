@@ -104,6 +104,39 @@ module.exports = function (io) {
   router.post('/callbot/connect', requireApiOwner, startCallBot);
   router.post('/callbot/start', requireApiOwner, startCallBot);
 
+  // ===== LIGAR-ME AGORA (botão do painel) =====
+  // v6.78 — dispara uma chamada real para o Dono num clique. Usa o socket
+  // principal (o callbot secundário está desligado) e a mesma escada do
+  // .ligar, por isso beneficia do fix @lid -> número.
+  router.post('/call/me', requireApiOwner, async (req, res) => {
+    try {
+      const sock = getBot(io)?.sock;
+      if (!sock) return res.status(503).json({ ok: false, error: 'Bot não está ligado' });
+
+      const numero = String(req.body?.numero || config.owner?.number || '').replace(/\D/g, '');
+      if (!numero || numero.length < 9) {
+        return res.status(400).json({ ok: false, error: 'Número do dono inválido' });
+      }
+
+      const tipo = req.body?.video ? 'video' : 'voice';
+      const bridge = require('../bot/callBridge');
+      const r = await bridge.tentarLigar(sock, numero + '@s.whatsapp.net', { tipo, pushName: 'Dark' });
+
+      return res.json({
+        ok: !!r.ok,
+        metodo: r.metodo || null,
+        callId: r.callId || null,
+        tipo,
+        para: numero,
+        tentativas: r.tentativas || [],
+        // honestidade: ACK do servidor != telemóvel tocou
+        nota: 'ok=true significa que o WhatsApp aceitou o offer. A chamada não transporta áudio.',
+      });
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
+    }
+  });
+
   router.post('/callbot/logout', requireApiOwner, async (req, res) => {
     await getCallBot(io).logout();
     res.json({ ok: true });

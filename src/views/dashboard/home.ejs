@@ -69,6 +69,14 @@
       <h2>🚀 Ações Rápidas</h2>
       <div class="quick-grid">
         <% if (user.role === 'owner') { %>
+          <a href="#" onclick="ligarMe(event,false)" class="quick-card" id="btnLigarMe">
+            <div class="quick-icon" style="color:#00e676">📞</div>
+            <div><strong>Ligar-me agora</strong><p id="ligarMeTxt">A AurΔ liga para ti</p></div>
+          </a>
+          <a href="#" onclick="ligarMe(event,true)" class="quick-card" id="btnVideoMe">
+            <div class="quick-icon" style="color:var(--neon-purple)">📹</div>
+            <div><strong>Videochamada</strong><p id="videoMeTxt">Chamada de vídeo</p></div>
+          </a>
           <a href="/dashboard/connect" class="quick-card">
             <div class="quick-icon" style="color:var(--neon-cyan)">🔌</div>
             <div><strong>Conectar Bot</strong><p>QR Code ou Pair Code</p></div>
@@ -162,6 +170,30 @@
 
   function clearConsole() {
     if (liveConsole) liveConsole.innerHTML = '<div class="console-line log-info"><span class="console-time">[--:--:--]</span> Console limpo.</div>';
+  }
+
+  // v6.78 — Ligar-me agora (um clique, sem escrever comando no WhatsApp)
+  async function ligarMe(ev, video) {
+    if (ev) ev.preventDefault();
+    var alvo = document.getElementById(video ? 'videoMeTxt' : 'ligarMeTxt');
+    var antes = alvo ? alvo.textContent : '';
+    if (alvo) alvo.textContent = 'A ligar...';
+    try {
+      const r = await fetch('/api/call/me', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video: !!video })
+      });
+      const d = await r.json();
+      if (alvo) {
+        alvo.textContent = d.ok
+          ? ('Offer aceite (' + (d.metodo || '?') + ') - atende!')
+          : ('Falhou: ' + (d.error || d.metodo || 'sem detalhe'));
+      }
+    } catch (e) {
+      if (alvo) alvo.textContent = 'Erro de rede';
+    }
+    setTimeout(function () { if (alvo) alvo.textContent = antes; }, 6000);
   }
 
   // Atualiza stats a cada 15s
