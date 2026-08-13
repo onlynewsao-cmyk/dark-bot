@@ -104,6 +104,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   stickerChannelUrl:   { type: String, default: '' },
   stickerChannelName:  { type: String, default: '' },
   stickerWmBrand:      { type: String, default: 'DARK NET 🕸️' },
+  stickerWmSlogan:     { type: String, default: 'O melhor canal do mundo' },
+  stickerWmCta:        { type: String, default: 'Siga o canal' },
+  stickerWmLinkType:   { type: String, default: '' },
 
   // ── Limites free por grupo ────────────────────────────────
   freePvDailyLimit:  { type: Number, default: 20 },  // comandos PV para free por dia

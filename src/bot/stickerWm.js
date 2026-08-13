@@ -4,15 +4,23 @@
  * .definestickwm  → define pack + author de TODAS as figurinhas
  *                   que o bot manda naquele chat.
  *
- * Aceita link de canal WhatsApp: o bot tira o nome do canal
- * e junta com a marca do utilizador (DARK NET 🕸️).
+ * Descrição dos stickers (NÃO leva o nome do canal):
+ *   DARK NET 🕸️
+ *   O melhor canal do mundo
+ *   <link do canal/grupo>
+ *   Siga o canal
+ *
+ * Activa por nome ou por link — o bot detecta canal ou grupo.
  */
 'use strict';
 
 const DEFAULT_BRAND = 'DARK NET 🕸️';
-const DEFAULT_PACK = 'DARK BOT';
+const DEFAULT_PACK = 'DARK NET 🕸️';
+const DEFAULT_SLOGAN = 'O melhor canal do mundo';
+const DEFAULT_CTA = 'Siga o canal';
 
 const CHANNEL_RE = /(?:https?:\/\/)?(?:www\.)?(?:whatsapp\.com|wa\.me)\/channel\/([A-Za-z0-9_-]{10,})(?:\/\S*)?/i;
+const GROUP_RE = /(?:https?:\/\/)?(?:www\.)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_-]{10,})/i;
 
 let _bound = null;
 
@@ -43,9 +51,28 @@ function parseChannelLink(text = '') {
   const code = m[1].replace(/[/?#].*$/, '');
   if (!code || code.length < 10) return null;
   return {
+    type: 'channel',
     code,
     url: `https://whatsapp.com/channel/${code}`,
   };
+}
+
+function parseGroupLink(text = '') {
+  const raw = String(text || '').trim();
+  if (CHANNEL_RE.test(raw)) return null;
+  const m = raw.match(GROUP_RE);
+  if (!m) return null;
+  const code = m[1].replace(/[/?#].*$/, '');
+  if (!code || code.length < 10) return null;
+  return {
+    type: 'group',
+    code,
+    url: `https://chat.whatsapp.com/${code}`,
+  };
+}
+
+function parseAnyLink(text = '') {
+  return parseChannelLink(text) || parseGroupLink(text);
 }
 
 function extractChannelNameFromHtml(html = '') {
@@ -86,11 +113,26 @@ function decodeHtml(s = '') {
     .trim();
 }
 
-function composeMeta({ packName = '', authorName = '', channelName = '', brand = DEFAULT_BRAND } = {}) {
-  const pack = String(packName || channelName || DEFAULT_PACK).trim().slice(0, 80) || DEFAULT_PACK;
+function composeMeta({
+  brand = DEFAULT_BRAND,
+  slogan = DEFAULT_SLOGAN,
+  link = '',
+  cta = DEFAULT_CTA,
+} = {}) {
   const brandClean = String(brand || DEFAULT_BRAND).trim().slice(0, 80) || DEFAULT_BRAND;
-  const author = String(authorName || brandClean).trim().slice(0, 80) || brandClean;
-  return { packName: pack, authorName: author, brand: brandClean };
+  const sloganClean = String(slogan || DEFAULT_SLOGAN).trim().slice(0, 80) || DEFAULT_SLOGAN;
+  const url = String(link || '').trim().slice(0, 200);
+  const ctaClean = String(cta || DEFAULT_CTA).trim().slice(0, 80) || DEFAULT_CTA;
+  const authorLines = [sloganClean, url, ctaClean].filter(Boolean);
+  return {
+    packName: brandClean,
+    authorName: authorLines.join('\n'),
+    brand: brandClean,
+    slogan: sloganClean,
+    channelUrl: url,
+    cta: ctaClean,
+    description: [brandClean, ...authorLines].join('\n'),
+  };
 }
 
 async function fetchChannelFromWeb(url) {
@@ -150,15 +192,52 @@ async function resolveChannel(url, sock = null) {
   const link = parseChannelLink(url);
   if (!link) return null;
   const fromSock = await fetchChannelFromSock(sock, url).catch(() => null);
-  if (fromSock?.name) return fromSock;
+  if (fromSock?.name) return { ...fromSock, type: 'channel' };
   const fromWeb = await fetchChannelFromWeb(url).catch(() => null);
-  if (fromWeb?.name) return fromWeb;
+  if (fromWeb) return { ...fromWeb, type: 'channel' };
   return {
+    type: 'channel',
     name: '',
     url: link.url,
     code: link.code,
     source: fromSock ? 'baileys' : 'unknown',
   };
+}
+
+async function resolveGroup(url, sock = null) {
+  const link = parseGroupLink(url);
+  if (!link) return null;
+  if (sock?.groupGetInviteInfo) {
+    try {
+      const info = await sock.groupGetInviteInfo(link.code);
+      const name = info?.subject || info?.name || '';
+      return {
+        type: 'group',
+        name: String(name || '').trim().slice(0, 80),
+        url: link.url,
+        code: link.code,
+        jid: info?.id || '',
+        source: 'baileys',
+      };
+    } catch {}
+  }
+  return { type: 'group', name: '', url: link.url, code: link.code, source: 'link' };
+}
+
+async function resolveAnyLink(text, sock = null) {
+  if (parseChannelLink(text)) return resolveChannel(text, sock);
+  if (parseGroupLink(text)) return resolveGroup(text, sock);
+  return null;
+}
+
+async function groupInviteUrl(sock, groupJid) {
+  if (!sock || !groupJid || !String(groupJid).endsWith('@g.us')) return '';
+  try {
+    const code = await sock.groupInviteCode(groupJid);
+    return code ? `https://chat.whatsapp.com/${code}` : '';
+  } catch {
+    return '';
+  }
 }
 
 async function getGroupDoc(jid) {
@@ -173,22 +252,20 @@ async function getGroupDoc(jid) {
 
 function fromDoc(gs) {
   if (!gs) return null;
-  const pack = String(gs.stickerPackName || gs.stickerChannelName || '').trim();
-  const author = String(gs.stickerAuthorName || '').trim();
   const url = String(gs.stickerChannelUrl || '').trim();
-  const enabled = gs.stickerWmEnabled === true || !!(pack || url);
+  const enabled = gs.stickerWmEnabled === true || !!url;
   if (!enabled) return null;
   const composed = composeMeta({
-    packName: pack,
-    authorName: author,
-    channelName: gs.stickerChannelName,
     brand: gs.stickerWmBrand || DEFAULT_BRAND,
+    slogan: gs.stickerWmSlogan || DEFAULT_SLOGAN,
+    link: url,
+    cta: gs.stickerWmCta || DEFAULT_CTA,
   });
   return {
     enabled: true,
     ...composed,
-    channelUrl: url,
     channelName: String(gs.stickerChannelName || '').trim(),
+    linkType: String(gs.stickerWmLinkType || '').trim(),
   };
 }
 
@@ -217,13 +294,22 @@ async function apply(opts = {}) {
 async function saveForJid(jid, data = {}) {
   if (!jid) throw new Error('sem jid');
   const GroupSettings = require('../database/models/GroupSettings');
+  const composed = composeMeta({
+    brand: data.brand,
+    slogan: data.slogan,
+    link: data.channelUrl || data.link,
+    cta: data.cta,
+  });
   const update = {
     stickerWmEnabled: data.enabled !== false,
-    stickerPackName: String(data.packName || '').slice(0, 80),
-    stickerAuthorName: String(data.authorName || DEFAULT_BRAND).slice(0, 80),
-    stickerChannelUrl: String(data.channelUrl || '').slice(0, 200),
+    stickerPackName: composed.packName,
+    stickerAuthorName: composed.authorName.slice(0, 280),
+    stickerChannelUrl: composed.channelUrl,
     stickerChannelName: String(data.channelName || '').slice(0, 80),
-    stickerWmBrand: String(data.brand || DEFAULT_BRAND).slice(0, 80),
+    stickerWmBrand: composed.brand,
+    stickerWmSlogan: composed.slogan,
+    stickerWmCta: composed.cta,
+    stickerWmLinkType: String(data.linkType || '').slice(0, 20),
   };
   const doc = await GroupSettings.findOneAndUpdate(
     { groupJid: jid },
@@ -251,6 +337,9 @@ async function clearForJid(jid) {
         stickerChannelUrl: '',
         stickerChannelName: '',
         stickerWmBrand: DEFAULT_BRAND,
+        stickerWmSlogan: DEFAULT_SLOGAN,
+        stickerWmCta: DEFAULT_CTA,
+        stickerWmLinkType: '',
       },
     },
     { upsert: true, new: true }
@@ -267,36 +356,43 @@ function statusText(saved, prefix = '.') {
   if (!saved?.enabled) {
     return (
       `💧 *MARCA DOS STICKERS*\n\n` +
-      `Neste chat ainda não há marca definida.\n` +
-      `Os stickers usam a marca global do bot.\n\n` +
-      `*${prefix}definestickwm* <link do canal>\n` +
-      `*${prefix}definestickwm* <nome do pack>\n` +
-      `*${prefix}definestickwm pack* Nome\n` +
-      `*${prefix}definestickwm author* DARK NET 🕸️\n` +
+      `Neste grupo ainda não está activa.\n` +
+      `Quando activares, TODOS os stickers do bot saem assim:\n\n` +
+      `*DARK NET 🕸️*\n` +
+      `O melhor canal do mundo\n` +
+      `<link do canal/grupo>\n` +
+      `Siga o canal\n\n` +
+      `*${prefix}definestickwm* <link do canal ou grupo>\n` +
+      `*${prefix}definestickwm* <nome> — activa e usa o link deste grupo\n` +
       `*${prefix}definestickwm off*`
     );
   }
   return (
-    `💧 *MARCA DOS STICKERS*\n\n` +
-    `📦 Pack: *${saved.packName}*\n` +
-    `👤 Author: *${saved.authorName}*\n` +
-    (saved.channelName ? `📢 Canal: *${saved.channelName}*\n` : '') +
-    (saved.channelUrl ? `🔗 ${saved.channelUrl}\n` : '') +
-    `\nTodos os stickers que o bot mandar *neste chat* saem com esta descrição.\n\n` +
-    `*${prefix}definestickwm off* — voltar à marca global`
+    `💧 *MARCA DOS STICKERS* — activa\n\n` +
+    `Descrição de todos os stickers deste grupo:\n\n` +
+    `\`\`\`\n${saved.description}\n\`\`\`\n\n` +
+    `*${prefix}definestickwm off* — desactivar`
   );
 }
 
 module.exports = {
   DEFAULT_BRAND,
   DEFAULT_PACK,
+  DEFAULT_SLOGAN,
+  DEFAULT_CTA,
   CHANNEL_RE,
+  GROUP_RE,
   bind,
   currentCtx,
   parseChannelLink,
+  parseGroupLink,
+  parseAnyLink,
   extractChannelNameFromHtml,
   composeMeta,
   resolveChannel,
+  resolveGroup,
+  resolveAnyLink,
+  groupInviteUrl,
   fetchChannelFromWeb,
   fetchChannelFromSock,
   getForJid,

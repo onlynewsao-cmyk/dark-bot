@@ -11,16 +11,19 @@ function ok(name, cond, extra = '') {
 console.log('test-definestickwm');
 
 const a = wm.parseChannelLink('https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D');
-ok('parse https channel', a && a.code === '0029VbC8voN4Y9lszc9VuT2D');
+ok('parse https channel', a && a.type === 'channel' && a.code === '0029VbC8voN4Y9lszc9VuT2D');
 
 const b = wm.parseChannelLink('https://www.whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D/123');
 ok('parse www + msg id', b && b.code === '0029VbC8voN4Y9lszc9VuT2D');
 
-const c = wm.parseChannelLink('whatsapp.com/channel/0029VaABCDEFGH');
-ok('parse sem protocolo', c && c.code === '0029VaABCDEFGH');
+const c = wm.parseAnyLink('cola isto whatsapp.com/channel/0029VaABCDEFGH pfv');
+ok('detecta canal no meio do texto', c && c.type === 'channel' && c.code === '0029VaABCDEFGH');
 
-ok('ignora grupo', !wm.parseChannelLink('https://chat.whatsapp.com/AbCdEfGhIjKl'));
-ok('ignora texto', !wm.parseChannelLink('DARK NET stickers'));
+const g = wm.parseGroupLink('https://chat.whatsapp.com/AbCdEfGhIjKl');
+ok('parse grupo', g && g.type === 'group' && g.code === 'AbCdEfGhIjKl');
+
+ok('canal não é grupo', !wm.parseGroupLink('https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D'));
+ok('texto sem link', !wm.parseAnyLink('DARK NET stickers'));
 
 const html = `
 <title>WhatsApp</title>
@@ -28,24 +31,34 @@ const html = `
 `;
 ok('og:title limpa WhatsApp', wm.extractChannelNameFromHtml(html) === 'Stickers DARK NET');
 
-const html2 = '<meta content="Canal Figurinhas Dark" property="og:title">';
-ok('og:title invertido', wm.extractChannelNameFromHtml(html2) === 'Canal Figurinhas Dark');
+const meta = wm.composeMeta({
+  link: 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D',
+});
+ok('pack = autor DARK NET', meta.packName === 'DARK NET 🕸️');
+ok('não mete o nome do canal', !meta.authorName.includes('Stickers') && !meta.description.includes('Stickers DARK'));
+ok('slogan', meta.authorName.includes('O melhor canal do mundo'));
+ok('link na descrição', meta.authorName.includes('https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D'));
+ok('cta', meta.authorName.includes('Siga o canal'));
+ok('4 linhas', meta.description === [
+  'DARK NET 🕸️',
+  'O melhor canal do mundo',
+  'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D',
+  'Siga o canal',
+].join('\n'));
 
-const meta = wm.composeMeta({ channelName: 'Stickers DARK NET' });
-ok('pack = nome do canal', meta.packName === 'Stickers DARK NET');
-ok('author = DARK NET 🕸️', meta.authorName === 'DARK NET 🕸️');
-
-const meta2 = wm.composeMeta({ packName: 'Meu Pack', authorName: 'DARK NET 🕸️' });
-ok('pack custom', meta2.packName === 'Meu Pack' && meta2.authorName === 'DARK NET 🕸️');
+const grupo = wm.composeMeta({ link: 'https://chat.whatsapp.com/AbCdEfGhIjKl' });
+ok('aceita link de grupo', grupo.channelUrl.includes('chat.whatsapp.com/AbCdEfGhIjKl'));
 
 const txt = wm.statusText(null, '.');
-ok('ajuda sem marca', txt.includes('definestickwm') && txt.includes('ainda não há marca'));
+ok('ajuda sem marca', txt.includes('definestickwm') && txt.includes('ainda não está activa'));
 
 const txt2 = wm.statusText({
-  enabled: true, packName: 'Stickers DARK NET', authorName: 'DARK NET 🕸️',
-  channelName: 'Stickers DARK NET', channelUrl: 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D',
+  enabled: true,
+  description: meta.description,
+  packName: meta.packName,
+  authorName: meta.authorName,
 }, '.');
-ok('status com canal', txt2.includes('Stickers DARK NET') && txt2.includes('DARK NET 🕸️'));
+ok('status mostra bloco', txt2.includes('DARK NET 🕸️') && txt2.includes('Siga o canal'));
 
 (async () => {
   const applied = await wm.apply({
