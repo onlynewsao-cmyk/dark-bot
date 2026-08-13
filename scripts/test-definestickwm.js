@@ -33,18 +33,13 @@ ok('og:title limpa WhatsApp', wm.extractChannelNameFromHtml(html) === 'Stickers 
 
 const meta = wm.composeMeta({
   link: 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D',
+  channelName: 'DARK NET Oficial',
 });
-ok('pack = autor DARK NET', meta.packName === 'DARK NET 🕸️');
-ok('não mete o nome do canal', !meta.authorName.includes('Stickers') && !meta.description.includes('Stickers DARK'));
-ok('slogan', meta.authorName.includes('O melhor canal do mundo'));
-ok('link na descrição', meta.authorName.includes('https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D'));
-ok('cta', meta.authorName.includes('Siga o canal'));
-ok('4 linhas', meta.description === [
-  'DARK NET 🕸️',
-  'O melhor canal do mundo',
-  'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D',
-  'Siga o canal',
-].join('\n'));
+ok('título = nome do canal', meta.packName === 'DARK NET Oficial');
+ok('publisher é o site (liberta Ver pacote)', meta.authorName === 'whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D');
+ok('packUrl completo', meta.packUrl === 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D');
+ok('sem nome usa a marca', wm.composeMeta({ link: meta.packUrl }).packName === 'DARK NET 🕸️');
+ok('descrição guarda o bloco', meta.description.includes('O melhor canal do mundo') && meta.description.includes('Siga o canal'));
 
 const grupo = wm.composeMeta({ link: 'https://chat.whatsapp.com/AbCdEfGhIjKl' });
 ok('aceita link de grupo', grupo.channelUrl.includes('chat.whatsapp.com/AbCdEfGhIjKl'));
@@ -56,12 +51,14 @@ ok('pesquisa sem marca: desc = busca', packOff.description === 'Neymar');
 const packOn = wm.composeSearchPack('Neymar', {
   enabled: true,
   brand: 'DARK NET 🕸️',
+  channelName: 'DARK NET Oficial',
+  channelUrl: 'https://whatsapp.com/channel/ABC',
+  packUrl: 'https://whatsapp.com/channel/ABC',
   description: ['DARK NET 🕸️', 'O melhor canal do mundo', 'https://whatsapp.com/channel/ABC', 'Siga o canal'].join('\n'),
 });
-ok('pesquisa+marca: nome na descrição', packOn.description.startsWith('Neymar\n'));
-ok('pesquisa+marca: bloco da marca', packOn.description.includes('DARK NET 🕸️') && packOn.description.includes('Siga o canal'));
-ok('pesquisa+marca: título continua a busca', packOn.packName === 'Neymar');
-ok('pesquisa+marca: não duplica o nome', packOn.description.split('\n').filter(l => l === 'Neymar').length === 1);
+ok('pesquisa+marca: título = nome do canal', packOn.packName === 'DARK NET Oficial');
+ok('pesquisa+marca: publisher = site', packOn.authorName === 'whatsapp.com/channel/ABC');
+ok('pesquisa+marca: busca na descrição', packOn.description.includes('Neymar'));
 
 const txt = wm.statusText(null, '.');
 ok('ajuda sem marca', txt.includes('defpack') && /ainda não/i.test(txt));
@@ -72,7 +69,7 @@ const txt2 = wm.statusText({
   packName: meta.packName,
   authorName: meta.authorName,
 }, '.');
-ok('status mostra bloco', txt2.includes('DARK NET 🕸️') && txt2.includes('Siga o canal'));
+ok('status mostra bloco', txt2.includes('DARK NET Oficial') && txt2.includes('Siga o canal'));
 
 (async () => {
   const applied = await wm.apply({

@@ -46,13 +46,16 @@ function makePackId(seed = '') {
  */
 function buildStickerExifJson({ packId, pack, author, url, emojis } = {}) {
   const link = String(url || '').trim();
+  const pub = String(author || 'DARK NET 🕸️').split('\n')[0].slice(0, 128);
   return {
-    'sticker-pack-id': packId || makePackId(pack || 'dark'),
+    'sticker-pack-id': packId || makePackId(pack || link || 'dark'),
     'sticker-pack-name': String(pack || 'DARK NET 🕸️').slice(0, 128),
-    'sticker-pack-publisher': String(author || 'DARK NET 🕸️').slice(0, 280),
+    'sticker-pack-publisher': pub,
     'android-app-store-link': link,
     'ios-app-store-link': link,
+    'android-play-store-link': link,
     'sticker-pack-publisher-website': link,
+    'publisher-website': link,
     emojis: Array.isArray(emojis) && emojis.length ? emojis : ['✨'],
   };
 }
@@ -212,14 +215,14 @@ function packStickerOpts(pack, author, packId, type, quality = 100) {
 }
 
 async function injectMeta(webpBuf, pack, author, packId, packUrl = '') {
-  const id = packId || makePackId(pack || 'dark');
+  const id = packId || makePackId(pack || packUrl || 'dark');
   const written = await writeStickerExif(webpBuf, {
     packId: id, pack, author, url: packUrl,
   });
   if (written && written !== webpBuf && written.length > 50) return written;
+  const { Sticker, StickerTypes } = waSticker();
   const stk = new Sticker(webpBuf, packStickerOpts(pack, author, id, StickerTypes.FULL, 100));
   const fallback = await stk.toBuffer();
-  if (!packUrl) return fallback;
   return writeStickerExif(fallback, { packId: id, pack, author, url: packUrl });
 }
 
