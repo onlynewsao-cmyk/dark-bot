@@ -173,12 +173,17 @@ const CAPACIDADES = [
   {
     id: 'xingar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
     desc: 'Xingar/insultar alguém com força',
-    gatilhos: [/\bxinga\b/, /\binsulta\b/, /\bhumilha\b/, /\bmanda(-| )lhe?\b.{0,10}\b(uns|umas)\b/, /\bda(-| )lhe?\b.{0,12}\bporrada verbal\b/],
+    gatilhos: [/\bxinga/, /\bxingar\b/, /\binsulta/, /\bhumilha/, /\bmanda(-| )lhe?\b.{0,10}\b(uns|umas)\b/, /\bda(-| )lhe?\b.{0,12}\bporrada verbal\b/],
   },
   {
     id: 'zoar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
     desc: 'Zoar/gozar com alguém, com humor',
-    gatilhos: [/\bzoa\b/, /\bgoza\b/, /\btroca\b.{0,8}\bdele\b/, /\bmete(-| )te?\b.{0,10}\bcom ele\b/, /\bprovoca\b/],
+    gatilhos: [/\bzoa/, /\bzoar\b/, /\bgoza/, /\btroca\b.{0,8}\bdele\b/, /\bmete(-| )te?\b.{0,10}\bcom ele\b/, /\bprovoca\b/, /\btira (sarro|onda)\b/],
+  },
+  {
+    id: 'respeitar', nivel: 'todos', arg: 'alvo', risco: 'seguro',
+    desc: 'Tratar essa pessoa com respeito',
+    gatilhos: [/\b(me |m |te )?respeita(r|me)?\b/],
   },
   {
     id: 'elogiar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
