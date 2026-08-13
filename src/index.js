@@ -270,6 +270,9 @@ async function bootstrap() {
       // Última tentativa de chamada real (o que o servidor respondeu ao <offer>)
       try { out.ultima_chamada = require('./bot/realCall').ultimoDiag() || null; } catch { out.ultima_chamada = null; }
 
+      // v6.79 — estado do ciclo automático de chamadas para o Dono
+      try { out.auto_call = require('./bot/autoCall').estado(); } catch { out.auto_call = null; }
+
       // O socket vivo tem mesmo os internos precisos para originar chamada?
       try {
         const _s = _b?.sock;

@@ -1,0 +1,135 @@
+/**
+ * autoCall.js — Liga para o Dono ao arrancar e depois de X em X minutos.
+ *
+ * v6.79. Pedido explícito do Dono: "quando o bot inicia, o meu número toca
+ * no mesmo instante, e a cada 5 min faz isso".
+ *
+ * TRAVÃO DE SEGURANÇA (importante):
+ * Chamadas repetidas para o mesmo número são um sinal forte de spam para a
+ * Meta e podem custar o banimento do número do bot. Por isso este módulo
+ * desliga-se sozinho ao fim de N falhas seguidas (MAX_FALHAS), em vez de
+ * ficar a martelar o servidor de 5 em 5 minutos para sempre.
+ *
+ * Controlo:
+ *   AUTO_CALL=on|off         (env, por omissão ON)
+ *   AUTO_CALL_MIN=5          (env, minutos entre chamadas)
+ *   autoCall.parar()/arrancar()  em código
+ */
+'use strict';
+
+const config = require('../config');
+
+const MIN_PADRAO = Number(process.env.AUTO_CALL_MIN || 5);
+const MAX_FALHAS = 3;          // falhas seguidas antes de desistir
+const ATRASO_ARRANQUE_MS = 8000; // deixa a sessão assentar antes da 1ª chamada
+
+let _timer = null;
+let _falhasSeguidas = 0;
+let _ligado = false;
+let _historico = [];           // últimas 20 tentativas
+
+function _registar(ev) {
+  _historico.unshift({ quando: new Date().toISOString(), ...ev });
+  if (_historico.length > 20) _historico.pop();
+}
+
+function estado() {
+  return {
+    ligado: _ligado,
+    intervaloMin: MIN_PADRAO,
+    falhasSeguidas: _falhasSeguidas,
+    maxFalhas: MAX_FALHAS,
+    proxima: _timer ? 'agendada' : 'nenhuma',
+    historico: _historico.slice(0, 5),
+  };
+}
+
+async function _ligarAgora(getSock, motivo) {
+  const sock = typeof getSock === 'function' ? getSock() : getSock;
+  if (!sock) {
+    _falhasSeguidas += 1;
+    _registar({ motivo, ok: false, erro: 'sem_socket' });
+    return { ok: false, erro: 'sem_socket' };
+  }
+
+  const numero = String(config.owner?.number || '').replace(/\D/g, '');
+  if (!numero || numero.length < 9) {
+    _falhasSeguidas += 1;
+    _registar({ motivo, ok: false, erro: 'owner_invalido' });
+    return { ok: false, erro: 'owner_invalido' };
+  }
+
+  try {
+    const bridge = require('./callBridge');
+    const r = await bridge.tentarLigar(sock, numero + '@s.whatsapp.net', {
+      tipo: 'voice',
+      pushName: 'Dark',
+    });
+
+    if (r?.ok) {
+      _falhasSeguidas = 0;
+      _registar({ motivo, ok: true, metodo: r.metodo, callId: r.callId });
+      console.log(`[autoCall] chamada enviada (${r.metodo}) para ${numero}`);
+      return { ok: true, metodo: r.metodo, callId: r.callId };
+    }
+
+    _falhasSeguidas += 1;
+    _registar({ motivo, ok: false, erro: r?.erro || 'falhou', metodo: r?.metodo });
+    console.warn(`[autoCall] falhou (${_falhasSeguidas}/${MAX_FALHAS})`);
+    return { ok: false, erro: r?.erro || 'falhou' };
+  } catch (e) {
+    _falhasSeguidas += 1;
+    _registar({ motivo, ok: false, erro: String(e?.message || e).slice(0, 120) });
+    console.warn('[autoCall] erro:', String(e?.message || e).slice(0, 100));
+    return { ok: false, erro: String(e?.message || e).slice(0, 120) };
+  }
+}
+
+function parar(porque = 'manual') {
+  if (_timer) { clearInterval(_timer); _timer = null; }
+  _ligado = false;
+  _registar({ motivo: 'parado:' + porque, ok: true });
+  console.log('[autoCall] parado (' + porque + ')');
+}
+
+/**
+ * Arranca o ciclo: 1ª chamada quase já, depois de X em X minutos.
+ * @param {function|object} getSock função que devolve o socket vivo
+ */
+function arrancar(getSock) {
+  if (String(process.env.AUTO_CALL || 'on').toLowerCase() === 'off') {
+    console.log('[autoCall] desligado por AUTO_CALL=off');
+    return { ok: false, motivo: 'desligado_por_env' };
+  }
+  if (_ligado) return { ok: true, jaLigado: true };
+
+  _ligado = true;
+  _falhasSeguidas = 0;
+
+  // 1ª chamada logo que o bot arranca
+  setTimeout(() => {
+    if (!_ligado) return;
+    _ligarAgora(getSock, 'arranque');
+  }, ATRASO_ARRANQUE_MS);
+
+  // e depois de X em X minutos
+  _timer = setInterval(async () => {
+    if (!_ligado) return;
+    if (_falhasSeguidas >= MAX_FALHAS) {
+      parar('demasiadas_falhas');
+      console.warn(
+        '[autoCall] PARADO: ' + MAX_FALHAS + ' falhas seguidas. ' +
+        'Insistir de 5 em 5 min com chamadas rejeitadas arrisca o banimento ' +
+        'do número. Corrige a causa e volta a activar.'
+      );
+      return;
+    }
+    await _ligarAgora(getSock, 'intervalo');
+  }, MIN_PADRAO * 60 * 1000);
+
+  if (_timer.unref) _timer.unref();
+  console.log(`[autoCall] activo: 1ª chamada em ${ATRASO_ARRANQUE_MS / 1000}s, depois cada ${MIN_PADRAO} min`);
+  return { ok: true, intervaloMin: MIN_PADRAO };
+}
+
+module.exports = { arrancar, parar, estado, _ligarAgora };

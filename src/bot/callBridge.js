@@ -35,7 +35,7 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
       } catch {}
       const r = await live.ligarAoVivo(num, { audioPath });
       tentativas.push({ metodo: 'rtp_vivo', ok: !!r.ok, detalhe: r.motivo || r.metodo });
-      if (r.ok) return { ok: true, metodo: 'rtp_vivo', tipo: 'voice', tentativas };
+      if (r.ok) return { ok: true, tocou: true, metodo: 'rtp_vivo', tipo: 'voice', tentativas };
     } catch (e) {
       tentativas.push({ metodo: 'rtp_vivo', ok: false, erro: String(e.message || e).slice(0, 70) });
     }
@@ -63,13 +63,13 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
     });
     if (r) {
       try { callHandler.marcarActiva?.(alvoJid, { callId: r.callId, origem: 'realCall' }); } catch {}
-      return { ok: true, metodo: 'realCall', callId: r.callId, tipo, tentativas };
+      return { ok: true, tocou: true, metodo: 'realCall', callId: r.callId, tipo, tentativas };
     }
   }
 
   if (typeof sock.offerCall === 'function') {
     const r = await tryFn('offerCall', () => sock.offerCall(alvoJid, { isVideo }));
-    if (r) return { ok: true, metodo: 'offerCall', tipo, tentativas };
+    if (r) return { ok: true, tocou: true, metodo: 'offerCall', tipo, tentativas };
   }
 
   if (typeof sock.createCallLink === 'function') {
@@ -81,11 +81,11 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
       await sock.sendMessage(alvoJid, { text: `📞 Entra na chamada:\n${url}` });
       return { url };
     });
-    if (r) return { ok: true, metodo: 'createCallLink', tipo, tentativas, url: r.url };
+    if (r) return { ok: true, tocou: false, metodo: 'createCallLink', tipo, tentativas, url: r.url };
   }
 
   const viaHandler = await tryFn('callHandler.ligar', () => callHandler.ligar(sock, alvoJid, { tipo, pushName }));
-  if (viaHandler && viaHandler.ok) return { ...viaHandler, tentativas };
+  if (viaHandler && viaHandler.ok) return { tocou: false, ...viaHandler, tentativas };
 
   const num = String(alvoJid).split('@')[0].replace(/\D/g, '');
   const url = `https://wa.me/${num}`;
@@ -96,7 +96,7 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
     id: 'out-' + Date.now(), from: alvoJid, isVideo, inicio: Date.now(),
     ultimo: Date.now(), turnos: 0, isOwner: true,
   });
-  return { ok: true, metodo: 'wa.me+ptt', tipo, tentativas, url };
+  return { ok: true, tocou: false, metodo: 'wa.me+ptt', tipo, tentativas, url };
 }
 
 async function ligarGrupo(sock, groupJid) {

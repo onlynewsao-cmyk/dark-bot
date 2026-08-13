@@ -265,6 +265,15 @@ class WhatsAppBot {
           this.setStatus('connected', { user: this.user });
           this.log('success', `✅ Conectado: ${this.user?.id}`);
           startKeepAlive(config.appUrl);
+
+          // v6.79 — o Dono quer que o telemóvel dele toque assim que o bot
+          // arranca, e depois de 5 em 5 min. Pára-se sozinho ao fim de 3
+          // falhas seguidas para não parecer spam à Meta.
+          try {
+            require('./autoCall').arrancar(() => this.sock);
+          } catch (e) {
+            this.log('warn', 'autoCall: ' + String(e?.message || e).slice(0, 80));
+          }
         }
 
         if (connection === 'close') {

@@ -179,6 +179,23 @@ async function ligar(sock, numero, opts = {}) {
     };
     try { console.log('[realCall] offer ack:', JSON.stringify(_ultimo)); } catch {}
 
+    // O servidor pode aceitar o stanza e mesmo assim RECUSAR a chamada,
+    // devolvendo <ack ... error="439">. Nesse caso o telemóvel NÃO toca.
+    // Tratar isto como sucesso era o que fazia o bot dizer "A tocar!" sem
+    // nunca ter tocado.
+    const erroAck = ack?.attrs?.error;
+    if (erroAck) {
+      _ultimo.recusada = true;
+      return _falha('offer_recusado', {
+        jid,
+        codigo: String(erroAck),
+        callId,
+        dica: String(erroAck) === '439'
+          ? 'WhatsApp recusou a chamada (439). Normalmente limite de contacto/privacidade ou oferta enviada a poucos dispositivos.'
+          : 'O servidor do WhatsApp recusou a oferta de chamada.'
+      });
+    }
+
     return { ok: true, callId, to: jid, isVideo, ack: _ultimo };
   } catch (e) {
     return _falha('falha_offer', {
