@@ -181,73 +181,74 @@ module.exports = function registerStickerCases(registerCase) {
     }
 
     const current = await wm.getForJid(jid);
-    if (sub === 'pack') {
-      const val = args.slice(1).join(' ').trim();
-      if (!val) return reply(`Usa: *${p}definestickwm pack* Nome do canal`);
-      const saved = await wm.saveForJid(jid, {
-        packName: val,
-        authorName: current?.authorName || wm.DEFAULT_BRAND,
-        brand: current?.brand || wm.DEFAULT_BRAND,
-        channelUrl: current?.channelUrl || '',
-        channelName: current?.channelName || '',
-      });
-      return reply(wm.statusText(saved, p));
-    }
-
     if (['author', 'autor', 'marca'].includes(sub)) {
       const val = args.slice(1).join(' ').trim();
       if (!val) return reply(`Usa: *${p}definestickwm author* DARK NET 🕸️`);
       const saved = await wm.saveForJid(jid, {
-        packName: current?.packName || current?.channelName || wm.DEFAULT_PACK,
-        authorName: val,
         brand: val,
+        slogan: current?.slogan,
         channelUrl: current?.channelUrl || '',
+        cta: current?.cta,
         channelName: current?.channelName || '',
+        linkType: current?.linkType || '',
+      });
+      return reply(wm.statusText(saved, p));
+    }
+
+    if (['slogan', 'frase'].includes(sub)) {
+      const val = args.slice(1).join(' ').trim();
+      if (!val) return reply(`Usa: *${p}definestickwm slogan* O melhor canal do mundo`);
+      const saved = await wm.saveForJid(jid, {
+        brand: current?.brand,
+        slogan: val,
+        channelUrl: current?.channelUrl || '',
+        cta: current?.cta,
+        channelName: current?.channelName || '',
+        linkType: current?.linkType || '',
       });
       return reply(wm.statusText(saved, p));
     }
 
     react('⏳');
-    const link = wm.parseChannelLink(raw);
-    if (link) {
-      try {
-        const ch = await wm.resolveChannel(raw, sock);
-        const name = (ch && ch.name) || '';
-        if (!name) {
-          react('❌');
-          return reply(
-            `❌ Não consegui ler o nome desse canal.\n` +
-            `O link está certo, mas o WhatsApp não devolveu o título.\n\n` +
-            `Cola o nome à mão:\n*${p}definestickwm pack* Nome do Canal`
-          );
-        }
-        const saved = await wm.saveForJid(jid, {
-          packName: name,
-          authorName: wm.DEFAULT_BRAND,
-          brand: wm.DEFAULT_BRAND,
-          channelUrl: ch.url || link.url,
-          channelName: name,
-        });
-        react('✅');
-        return reply(
-          `✅ Canal detectado: *${name}*\n\n` +
-          wm.statusText(saved, p)
-        );
-      } catch (e) {
-        react('❌');
-        return reply('❌ Falha a ler o canal: ' + (e.message || e));
-      }
+    const detected = await wm.resolveAnyLink(raw, sock).catch(() => null);
+    if (detected?.url) {
+      const kind = detected.type === 'group' ? 'grupo' : 'canal';
+      const saved = await wm.saveForJid(jid, {
+        brand: current?.brand || wm.DEFAULT_BRAND,
+        slogan: current?.slogan || wm.DEFAULT_SLOGAN,
+        channelUrl: detected.url,
+        cta: current?.cta || wm.DEFAULT_CTA,
+        channelName: detected.name || '',
+        linkType: detected.type || '',
+      });
+      react('✅');
+      return reply(
+        `✅ Link de *${kind}* detectado.\n` +
+        `O nome do canal *não* entra na descrição.\n\n` +
+        wm.statusText(saved, p)
+      );
     }
 
+    // Nome (sem link): activa e tenta o convite DESTE grupo
+    let groupUrl = current?.channelUrl || '';
+    if (ctx.isGroup) {
+      const fresh = await wm.groupInviteUrl(sock, jid);
+      if (fresh) groupUrl = fresh;
+    }
     const saved = await wm.saveForJid(jid, {
-      packName: raw.slice(0, 80),
-      authorName: current?.authorName || wm.DEFAULT_BRAND,
       brand: current?.brand || wm.DEFAULT_BRAND,
-      channelUrl: current?.channelUrl || '',
-      channelName: current?.channelName || '',
+      slogan: current?.slogan || wm.DEFAULT_SLOGAN,
+      channelUrl: groupUrl,
+      cta: current?.cta || wm.DEFAULT_CTA,
+      channelName: '',
+      linkType: groupUrl.includes('chat.whatsapp.com') ? 'group' : (current?.linkType || ''),
     });
     react('✅');
-    return reply(wm.statusText(saved, p));
+    return reply(
+      `✅ Marca *activada* neste grupo.\n` +
+      (groupUrl ? `Link usado: o convite deste grupo.\n\n` : `Cola um link de canal/grupo se quiseres esse URL na descrição.\n\n`) +
+      wm.statusText(saved, p)
+    );
   });
 
   // ── !ttp — Texto em sticker (fundo dark) ─────────────────────────

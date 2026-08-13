@@ -63,7 +63,7 @@ const CATALOG = [
   { name: 'sticker', category: 'stickers', emoji: '🎨', description: 'Converte foto/vídeo em sticker cortado/cover', native: true },
   { name: 'sfull', category: 'stickers', emoji: '🖼️', description: 'Sticker mostrando a imagem inteira sem cortar', native: true },
   { name: 'stickerwm', category: 'stickers', emoji: '💧', description: 'Configura marca d\'água/metadados dos stickers', native: true, ownerOnly: true },
-  { name: 'definestickwm', category: 'stickers', emoji: '💧', description: 'Define a descrição/marca dos stickers deste grupo (aceita link do canal)', ownerOrAdmin: true },
+  { name: 'definestickwm', category: 'stickers', emoji: '💧', description: 'Activa a marca dos stickers deste grupo (nome ou link de canal/grupo)', ownerOrAdmin: true },
   { name: 'figubug2', category: 'stickers', emoji: '🖼️', description: 'Gera imagem em sticker', native: true },
   { name: 'figubug', category: 'stickers', emoji: '👾', description: 'Sticker lendário por mídia', native: true },
   { name: 'toimg', category: 'stickers', emoji: '🖼️', description: 'Sticker em imagem', native: true },
