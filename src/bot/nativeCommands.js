@@ -776,49 +776,8 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
 }
 
 
-async function sendNativeStickerPack(sock, jid, stickers, { name, publisher, description, packId, quoted } = {}) {
-  if (!sock || !jid || !stickers?.length) return false;
-  const list = stickers.filter((b) => b && b.length > 50 && b.length < 1024 * 1024).slice(0, 60);
-  if (!list.length) return false;
-  const packName = name || 'DARK PACK';
-  const packPublisher = publisher || 'DARK NET 🕸️';
-  const packDesc = description || packPublisher;
-  const payloadStickers = list.map((data) => ({ data, emojis: ['✨'] }));
-  const attempts = [
-    {
-      cover: list[0],
-      stickers: payloadStickers,
-      name: packName,
-      publisher: packPublisher,
-      description: packDesc,
-      packId,
-    },
-    {
-      cover: list[0],
-      stickers: payloadStickers,
-      name: packName,
-      publisher: packPublisher,
-    },
-    {
-      stickerPack: {
-        name: packName,
-        publisher: packPublisher,
-        description: packDesc,
-        cover: list[0],
-        stickers: payloadStickers.map((s) => ({ sticker: s.data, emojis: s.emojis })),
-      },
-    },
-  ];
-  for (const payload of attempts) {
-    try {
-      await sock.sendMessage(jid, payload, { quoted });
-      return true;
-    } catch (e) {
-      console.warn('[pinpacks] stickerPack nativo:', String(e.message || e).slice(0, 160));
-    }
-  }
-  return false;
-}
+const stickerPack = require('./stickerPack');
+const sendNativeStickerPack = stickerPack.sendNativeStickerPack;
 
 module.exports = {
   // ============ INFO ============
@@ -2271,6 +2230,8 @@ module.exports = {
     await portal18.ownerPv(sock, { text: `🎭 Pack de *${qtd}* figurinhas de *${nome}*...` }, ctx);
     let feitas = 0;
     try {
+      const packId = stickerMaker.makePackId ? stickerMaker.makePackId(nome) : `packbusca-${Date.now()}`;
+      const stickers = [];
       const imgs = await portal18.searchByName(nome, qtd);
       for (const img of imgs) {
         try {
@@ -2279,13 +2240,20 @@ module.exports = {
           const fig = await stickerMaker.create(buf, {
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName || 'Dark', groupName: 'PV',
-            packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
+            packName: nome, searchQuery: nome, packId,
+            remoteJid: ctx.remoteJid, skipGroupWm: true,
           });
-          if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); feitas++; }
-          await new Promise(r => setTimeout(r, 800));
+          if (fig) stickers.push(fig);
         } catch { /* salta e continua */ }
       }
-      await portal18.ownerPv(sock, { text: feitas ? `✅ *${feitas}/${qtd}* figurinhas de *${nome}*.` : '😕 Não consegui criar nenhuma.' }, ctx);
+      if (!stickers.length) {
+        await portal18.ownerPv(sock, { text: '😕 Não consegui criar nenhuma.' }, ctx);
+      } else {
+        const target = ctx.senderJid || (String(ctx.senderNumber || '').replace(/\D/g, '') + '@s.whatsapp.net');
+        const finished = await stickerPack.sendFinishedPack(sock, target, stickers, { query: nome, packId });
+        feitas = finished.stickers.length;
+        await portal18.ownerPv(sock, { text: `✅ *${feitas}/${qtd}* figurinhas de *${nome}*.\n\n${finished.description}` }, ctx);
+      }
     } catch (e) {
       await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
@@ -2347,6 +2315,8 @@ module.exports = {
     await portal18.ownerPv(sock, { text: `🎭 A criar pack de *${qtd}* figurinhas: *${tags}*...` }, ctx);
     let feitas = 0;
     try {
+      const packId = stickerMaker.makePackId ? stickerMaker.makePackId(tags) : `pack18-${Date.now()}`;
+      const stickers = [];
       const imgs = await portal18.searchImages(tags, qtd);
       for (const img of imgs) {
         try {
@@ -2355,15 +2325,22 @@ module.exports = {
           const fig = await stickerMaker.create(buf, {
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName || 'Dark', groupName: 'PV',
-            packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
+            packName: tags, searchQuery: tags, packId,
+            remoteJid: ctx.remoteJid, skipGroupWm: true,
           });
-          if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); feitas++; }
-          await new Promise(r => setTimeout(r, 800));
+          if (fig) stickers.push(fig);
         } catch { /* salta a que falhar e continua o pack */ }
       }
-      await portal18.ownerPv(sock, {
-        text: feitas ? `✅ Pack pronto — *${feitas}/${qtd}* figurinhas.` : '😕 Não consegui criar nenhuma.',
-      }, ctx);
+      if (!stickers.length) {
+        await portal18.ownerPv(sock, { text: '😕 Não consegui criar nenhuma.' }, ctx);
+      } else {
+        const target = ctx.senderJid || (String(ctx.senderNumber || '').replace(/\D/g, '') + '@s.whatsapp.net');
+        const finished = await stickerPack.sendFinishedPack(sock, target, stickers, { query: tags, packId });
+        feitas = finished.stickers.length;
+        await portal18.ownerPv(sock, {
+          text: `✅ Pack pronto — *${feitas}/${qtd}* figurinhas.\n\n${finished.description}`,
+        }, ctx);
+      }
     } catch (e) {
       await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
@@ -3138,6 +3115,8 @@ module.exports = {
             botName: localConfig.bot.name, ownerName: localConfig.owner.name,
             userName: ctx.pushName, groupName: ctx.groupName || 'Pack', isVideo: false,
             packId,
+            searchQuery: packName,
+            remoteJid: ctx.remoteJid,
             skipGroupWm: true,
           });
           if (stk && stk.length > 50) {
@@ -3161,37 +3140,23 @@ module.exports = {
       }
       if (!stickers.length) throw new Error('Nenhuma imagem convertida.');
 
-      // Pack pronto → se o grupo tem .definestickwm, carimba a marca no pacote
-      try {
-        groupWm = await wmMod.getForJid(ctx.remoteJid);
-        if (groupWm?.enabled) {
-          packAuthor = groupWm.authorName || packAuthor;
-          packDescription = groupWm.description || packAuthor;
-          if (typeof stickerMaker.stampPack === 'function') {
-            const stamped = await stickerMaker.stampPack(stickers, {
-              pack: packName,
-              author: packAuthor,
-              packId,
-            });
-            if (stamped.length) stickers.splice(0, stickers.length, ...stamped);
-          }
-        }
-      } catch (wmErr) {
-        console.warn('[pinpacks] definestickwm no pack:', String(wmErr.message || wmErr).slice(0, 120));
-      }
-
-      const packPublisher = groupWm?.enabled
-        ? (groupWm.brand || wmMod.DEFAULT_BRAND || 'DARK NET 🕸️')
-        : packAuthor;
+      // Pack pronto: nome da pesquisa na descrição + .definestickwm se o grupo tiver
+      const finished = await stickerPack.finishSearchPack(stickers, {
+        query: packName, jid: ctx.remoteJid, packId,
+      });
+      stickers.splice(0, stickers.length, ...finished.stickers);
+      packAuthor = finished.authorName;
+      packDescription = finished.description;
+      groupWm = finished.wm;
 
       // Cache para takepack
-      _packCache.set(packId, { stickers, info: { name: packName, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
+      _packCache.set(finished.packId, { stickers, info: { name: finished.name, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
 
       const sentAsPack = await sendNativeStickerPack(sock, ctx.remoteJid, stickers, {
-        name: packName,
-        publisher: packPublisher,
-        description: packDescription,
-        packId,
+        name: finished.name,
+        publisher: finished.publisher,
+        description: finished.description,
+        packId: finished.packId,
         quoted: msg,
       });
       if (!sentAsPack) {
@@ -3199,12 +3164,12 @@ module.exports = {
       }
 
       const doneLines = [
-        '✅ Pacote *' + packName + '* enviado de uma vez',
+        '✅ Pacote *' + finished.name + '* enviado de uma vez',
         stickers.length + ' figurinha(s) dentro do pack',
+        '',
+        'Descrição:',
+        finished.description,
       ];
-      if (groupWm?.enabled) {
-        doneLines.push('', '💧 Marca do grupo no pack:', packDescription);
-      }
       doneLines.push('', 'Toque no pack → *Adicionar às suas figurinhas*');
 
       await sock.sendMessage(ctx.remoteJid, {

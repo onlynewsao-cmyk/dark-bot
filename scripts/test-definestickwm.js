@@ -49,6 +49,20 @@ ok('4 linhas', meta.description === [
 const grupo = wm.composeMeta({ link: 'https://chat.whatsapp.com/AbCdEfGhIjKl' });
 ok('aceita link de grupo', grupo.channelUrl.includes('chat.whatsapp.com/AbCdEfGhIjKl'));
 
+const packOff = wm.composeSearchPack('Neymar', null);
+ok('pesquisa sem marca: título = busca', packOff.packName === 'Neymar');
+ok('pesquisa sem marca: desc = busca', packOff.description === 'Neymar');
+
+const packOn = wm.composeSearchPack('Neymar', {
+  enabled: true,
+  brand: 'DARK NET 🕸️',
+  description: ['DARK NET 🕸️', 'O melhor canal do mundo', 'https://whatsapp.com/channel/ABC', 'Siga o canal'].join('\n'),
+});
+ok('pesquisa+marca: nome na descrição', packOn.description.startsWith('Neymar\n'));
+ok('pesquisa+marca: bloco da marca', packOn.description.includes('DARK NET 🕸️') && packOn.description.includes('Siga o canal'));
+ok('pesquisa+marca: título continua a busca', packOn.packName === 'Neymar');
+ok('pesquisa+marca: não duplica o nome', packOn.description.split('\n').filter(l => l === 'Neymar').length === 1);
+
 const txt = wm.statusText(null, '.');
 ok('ajuda sem marca', txt.includes('definestickwm') && txt.includes('ainda não está activa'));
 

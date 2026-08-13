@@ -135,6 +135,42 @@ function composeMeta({
   };
 }
 
+function cleanSearchName(name = '') {
+  return String(name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+
+/**
+ * Pack de pesquisa (.pinpacks, .stickerly, .packbusca, …)
+ * Se o grupo tem .definestickwm, o NOME DA PESQUISA vai na descrição.
+ */
+function composeSearchPack(searchName, saved) {
+  const query = cleanSearchName(searchName) || 'DARK PACK';
+  if (!saved?.enabled) {
+    return {
+      packName: query,
+      authorName: DEFAULT_BRAND,
+      publisher: DEFAULT_BRAND,
+      description: query,
+      searchName: query,
+    };
+  }
+  const wmBlock = String(saved.description || '').trim();
+  const lines = [query];
+  for (const line of wmBlock.split('\n')) {
+    const t = String(line || '').trim();
+    if (t && t.toLowerCase() !== query.toLowerCase()) lines.push(t);
+  }
+  const description = lines.join('\n');
+  return {
+    packName: query,
+    authorName: description,
+    publisher: saved.brand || DEFAULT_BRAND,
+    description,
+    searchName: query,
+    brand: saved.brand || DEFAULT_BRAND,
+  };
+}
+
 async function fetchChannelFromWeb(url) {
   const link = parseChannelLink(url);
   if (!link) return null;
@@ -281,8 +317,17 @@ async function getForJid(jid) {
 async function apply(opts = {}) {
   if (opts.skipGroupWm) return opts;
   const jid = opts.remoteJid || opts.jid || opts.ctx?.remoteJid || currentCtx()?.remoteJid;
-  if (!jid) return opts;
-  const saved = await getForJid(jid);
+  const search = opts.searchQuery || opts.packSearch || '';
+  if (!jid && !search) return opts;
+  const saved = jid ? await getForJid(jid) : null;
+  if (search) {
+    const meta = composeSearchPack(search, saved);
+    return {
+      ...opts,
+      packName: meta.packName,
+      authorName: meta.authorName,
+    };
+  }
   if (!saved?.enabled) return opts;
   return {
     ...opts,
@@ -389,6 +434,8 @@ module.exports = {
   parseAnyLink,
   extractChannelNameFromHtml,
   composeMeta,
+  composeSearchPack,
+  cleanSearchName,
   resolveChannel,
   resolveGroup,
   resolveAnyLink,

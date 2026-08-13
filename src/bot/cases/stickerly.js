@@ -22,10 +22,12 @@ module.exports = function registerStickerlyCases(registerCase) {
       if (!packs.length) throw new Error('Sem packs encontrados');
       const pack = await sly.getPack(packs[0].id);
       if (!pack.stickers.length) throw new Error('Pack sem stickers');
-      const packId = 'sly-' + Date.now().toString(36);
-      const packName = '📦 ' + (packs[0].title || query).slice(0, 20);
-      const packAuthor = (packs[0].author || 'sticker.ly') + ' via DARK BOT';
-      let count = 0;
+      const stickerPack = require('../stickerPack');
+      const packId = stickerMaker.makePackId
+        ? stickerMaker.makePackId(query)
+        : 'sly-' + Date.now().toString(36);
+      const searchName = String(packs[0].title || query).replace(/\s+/g, ' ').trim().slice(0, 40);
+      const stickers = [];
       for (const s of pack.stickers.slice(0, 30)) {
         try {
           const buf = await require('../mediaHandler').fetchBuffer(s.url);
@@ -33,14 +35,22 @@ module.exports = function registerStickerlyCases(registerCase) {
           const stk = await stickerMaker.create(buf, {
             botName: config.bot.name, ownerName: config.owner.name,
             userName: ctx.pushName, groupName: ctx.groupName || 'PV',
-            isVideo: s.isAnimated, packName, authorName: packAuthor, packId,
+            isVideo: s.isAnimated,
+            packName: searchName,
+            searchQuery: searchName,
+            remoteJid: ctx.remoteJid,
+            packId,
+            skipGroupWm: true,
           });
-          await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-          count++;
+          if (stk && stk.length > 50) stickers.push(stk);
         } catch {}
       }
+      if (!stickers.length) throw new Error('Nenhuma figurinha convertida');
+      const finished = await stickerPack.sendFinishedPack(sock, ctx.remoteJid, stickers, {
+        query: searchName, packId, quoted: msg,
+      });
       await sock.sendMessage(ctx.remoteJid, {
-        text: '✅ Pack *' + (packs[0].title || query) + '*\n📦 ' + count + ' stickers de sticker.ly\n👤 by ' + (packs[0].author || '?'),
+        text: '✅ Pack *' + searchName + '*\n📦 ' + finished.stickers.length + ' stickers de sticker.ly\n\n' + finished.description,
       }, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
