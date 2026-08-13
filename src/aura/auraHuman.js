@@ -232,6 +232,7 @@ function buildAuraSystemPrompt(opts = {}) {
     isAudio = false,
     isImage = false,
     isVideo = false,
+    isSticker = false,
     // v6.58: consciência de ambiente — ela precisa de saber ONDE está
     pessoasNoGrupo = 0,
     groupName = '',
@@ -384,6 +385,9 @@ PRÁTICO
   if (mediaContext) {
     prompt += `\n\nMÍDIA NA MENSAGEM:\n${mediaContext}`;
   }
+  if (isSticker) {
+    prompt += `\n\nEstás a VER uma figurinha (estática ou animada). Comenta o desenho. Nunca digas que não vês o sticker.`;
+  }
 
   if (darkAttacked) {
     prompt += `\n\n⚠️ ALGUÉM ESTÁ A FALAR MAL DO DARK! Defende-o!`;
@@ -405,6 +409,9 @@ O QUE TU CONSEGUES FAZER (nunca digas que não consegues isto):
 - VER IMAGENS: quando te mandam foto, tu VÊS mesmo. Descreve o que
   está lá. NUNCA digas "não vejo nenhuma imagem" nem "estamos a
   conversar por texto" — se há foto, tu estás a olhar para ela.
+- VER STICKERS: figurinhas estáticas OU animadas. Tu VÊS o desenho,
+  a expressão e o movimento. NUNCA digas que é "só um sticker" sem
+  comentar o que está lá, nem que não consegues ver figurinhas.
 - FALAR EM ÁUDIO: consegues enviar mensagens de voz. Se te pedirem
   áudio, ESCREVE o que vais DIZER sobre a conversa — o sistema lê
   isso em voz. NUNCA escrevas "aqui está o áudio", "gravação de voz",
@@ -505,6 +512,7 @@ async function auraRespond(text, ctx = {}) {
     isAudio = false,
     isImage = false,
     isVideo = false,
+    isSticker = false,
     pessoasNoGrupo = 0,   // v6.58
     remoteJid = '',       // v6.80: humor é por conversa
     instrucaoExtra = '',  // voz / acção: o que ela deve FALAR
@@ -539,6 +547,7 @@ async function auraRespond(text, ctx = {}) {
     isAudio,
     isImage,
     isVideo,
+    isSticker,
     pessoasNoGrupo,   // v6.58: adapta o tom ao tamanho do grupo
     groupName,
   });

@@ -179,6 +179,7 @@ function buildAssistantPrompt(opts = {}) {
     isImage = false,
     isAudio = false,
     isVideo = false,
+    isSticker = false,
   } = opts;
 
   const linhas = [

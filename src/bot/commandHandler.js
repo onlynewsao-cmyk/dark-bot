@@ -201,10 +201,20 @@ function getSenderInfo(msg) {
 }
 
 
+function getMessageContextInfo(msg) {
+  const m = unwrapWhatsAppMessage(msg?.message || {});
+  return m.extendedTextMessage?.contextInfo ||
+    m.imageMessage?.contextInfo ||
+    m.videoMessage?.contextInfo ||
+    m.stickerMessage?.contextInfo ||
+    m.audioMessage?.contextInfo ||
+    m.buttonsResponseMessage?.contextInfo ||
+    m.interactiveResponseMessage?.contextInfo ||
+    {};
+}
+
 function getQuotedMessage(msg) {
-  return msg.message?.extendedTextMessage?.contextInfo?.quotedMessage ||
-    msg.message?.buttonsResponseMessage?.contextInfo?.quotedMessage ||
-    msg.message?.interactiveResponseMessage?.contextInfo?.quotedMessage || null;
+  return getMessageContextInfo(msg).quotedMessage || null;
 }
 
 function getDocumentFromMessageObject(messageObj) {
@@ -212,9 +222,7 @@ function getDocumentFromMessageObject(messageObj) {
 }
 
 function buildQuotedDownloadMessage(msg) {
-  const ctxInfo = msg.message?.extendedTextMessage?.contextInfo ||
-    msg.message?.buttonsResponseMessage?.contextInfo ||
-    msg.message?.interactiveResponseMessage?.contextInfo || {};
+  const ctxInfo = getMessageContextInfo(msg);
   const quotedMessage = ctxInfo.quotedMessage;
   if (!quotedMessage) return null;
   return {
@@ -875,6 +883,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     msg.message?.extendedTextMessage?.contextInfo?.participant ||
     msg.message?.imageMessage?.contextInfo?.participant ||
     msg.message?.videoMessage?.contextInfo?.participant ||
+    msg.message?.stickerMessage?.contextInfo?.participant ||
     msg.message?.audioMessage?.contextInfo?.participant ||
     msg.message?.buttonsResponseMessage?.contextInfo?.participant ||
     msg.message?.interactiveResponseMessage?.contextInfo?.participant || '';
@@ -1205,7 +1214,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
   const replyHasText = isReplyToBot && text.length > 0;
   const replyHasMedia = isReplyToBot && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
-  const mentionedWithMedia = isBotMentioned && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage);
+  const mentionedWithMedia = isBotMentioned && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
 
   const aiAutoOn = aiAutoOnValue;  // v6.45: já lido no Promise.all acima
   const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
@@ -1355,7 +1364,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             isGroup: ctx.isGroup,
             mencionada: isBotMentioned || isAuraTrigger,
             respostaAoBot: isReplyToBot,
-            temMedia: !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage),
+            temMedia: !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage || getQuotedMessage(msg)?.stickerMessage),
             pessoasNoGrupo: nPessoas,
             msgsDesdeUltima: _msgsDesdeAura(ctx.remoteJid),
             senderNumber: ctx.senderNumber,
@@ -1399,7 +1408,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         sock.sendMessage(ctx.remoteJid, { react: { text: randomEmoji, key: msg.key } }).catch(() => {});
       }
 
-      const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
+      const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage || getQuotedMessage(msg)?.stickerMessage);
       if (!isReplyToBot && !auraTriggerActive && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
 
       let prompt = cleanText;
@@ -1455,10 +1464,12 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         await mem.save().catch(() => {});
       } catch {}
 
-      // Contexto de mídia — a Aura vê/ouve tudo
+      // Contexto de mídia — a Aura vê/ouve tudo (foto, vídeo, áudio, sticker)
       let mediaContext = '';
-      let isAudio = false, isImage = false, isVideo = false;
+      let isAudio = false, isImage = false, isVideo = false, isSticker = false;
+      let stickerVision = null;
       const msgObj = msg.message;
+      const quotedObj = getQuotedMessage(msg);
       if (msgObj?.imageMessage) {
         isImage = true;
         const caption = msgObj.imageMessage.caption || '';
@@ -1501,8 +1512,47 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             ? `🎧 Alguém enviou um ÁUDIO DE VOZ. Não consegui transcrever mas reage como se tivesses ouvido.`
             : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
         }
-      } else if (msgObj?.stickerMessage) {
-        mediaContext = `🎨 Alguém enviou um STICKER. Reage naturalmente — podes achar engraçado, estranho, lindo, etc.`;
+      } else if (msgObj?.stickerMessage || quotedObj?.stickerMessage) {
+        isSticker = true;
+        const stkMeta = msgObj?.stickerMessage || quotedObj?.stickerMessage || {};
+        const citado = !msgObj?.stickerMessage && !!quotedObj?.stickerMessage;
+        try {
+          const stickerVisionMod = require('./stickerVision');
+          let stkBuf = null;
+          const alvo = citado ? buildQuotedDownloadMessage(msg) : msg;
+          try {
+            const { downloadMediaMessage } = require('@systemzero/baileys');
+            if (alvo) stkBuf = await downloadMediaMessage(alvo, 'buffer', {});
+          } catch (e1) {
+            console.warn('[Aura Sticker] downloadMediaMessage:', e1.message?.slice(0, 40));
+          }
+          if ((!stkBuf || stkBuf.length < 40) && alvo) {
+            try { stkBuf = await mediaHandler.downloadFromMessage(alvo); } catch (e2) {
+              console.warn('[Aura Sticker] mediaHandler:', e2.message?.slice(0, 40));
+            }
+          }
+          if (stkBuf && stkBuf.length > 40) {
+            stickerVision = await stickerVisionMod.stickerToVision(stkBuf, stkMeta);
+            stickerVision.quoted = citado;
+          }
+        } catch (e) {
+          console.warn('[Aura Sticker] visão:', e.message?.slice(0, 60));
+        }
+        const anim = !!(stickerVision?.animated || stkMeta.isAnimated);
+        if (stickerVision?.ok) {
+          mediaContext = anim
+            ? `🎨 Alguém enviou um STICKER ANIMADO${citado ? ' (citado)' : ''}. Tu ESTÁS A VER ${stickerVision.frames.length} fotogramas da animação. Comenta o que acontece no desenho.`
+            : `🎨 Alguém enviou um STICKER${citado ? ' (citado)' : ''}. Tu ESTÁS A VER a figurinha. Comenta o que está desenhado.`;
+        } else if (stickerVision?.reason === 'lottie') {
+          mediaContext = `🎨 Alguém enviou um sticker animado tipo emoji (Lottie). Não dá para abrir o desenho — reage à ideia de figurinha animada, sem inventar detalhes visuais.`;
+        } else {
+          mediaContext = `🎨 Alguém enviou um STICKER${anim ? ' ANIMADO' : ''}${citado ? ' (citado)' : ''}. Não consegui abrir o ficheiro — pede para reenviar se precisares de ver.`;
+        }
+        if ((!prompt || prompt.startsWith('[')) && !cleanText) {
+          prompt = anim
+            ? '[Mandaram-te uma figurinha ANIMADA. Comenta o que VÊS no movimento.]'
+            : '[Mandaram-te uma figurinha. Comenta o que VÊS nela.]';
+        }
       } else if (msgObj?.documentMessage) {
         const fname = msgObj.documentMessage.fileName || 'arquivo';
         mediaContext = `📄 Alguém enviou um DOCUMENTO: ${fname}. Comenta se relevante.`;
@@ -1539,7 +1589,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           // v6.80: humor DESTE chat — antes era global e um estranho
           // contaminava o tom dela com toda a gente.
           darkAttacked, darkMentioned, mood: auraModule.getMood(ctx.remoteJid).mood,
-          userCountry, mediaContext, isAudio, isImage, isVideo,
+          userCountry, mediaContext, isAudio, isImage, isVideo, isSticker,
           // v6.58: ela precisa de saber ONDE está para se adaptar
           pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,
           groupName: ctx.groupName || '',
@@ -1549,7 +1599,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         systemPrompt = auraModes.buildAssistantPrompt({
           botName: config.bot.name, userName: ctx.pushName,
           isGroup: ctx.isGroup, groupName: ctx.groupName,
-          groupContext, prefix, mediaContext, isImage, isAudio, isVideo,
+          groupContext, prefix, mediaContext, isImage, isAudio, isVideo, isSticker,
         });
       }
       
@@ -1662,7 +1712,21 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       }
 
       let answer;
-      if (isImage) {
+      if (isSticker && stickerVision?.ok && stickerVision.frames?.length) {
+        try {
+          const aiMod = require('./ai');
+          const vis = require('./stickerVision');
+          const visionPrompt = prompt + '\n\n' + vis.visionPromptForSticker({
+            animated: !!stickerVision.animated,
+            frames: stickerVision.frames.length,
+            quoted: !!stickerVision.quoted,
+          });
+          answer = await aiMod.chatWithImage(visionPrompt, systemPrompt, stickerVision.frames);
+          console.log('[Aura Vision] OK, resposta com sticker', stickerVision.animated ? 'animado' : 'estático', stickerVision.frames.length, 'frames');
+        } catch (e) {
+          console.warn('[Aura Vision] sticker:', e.message?.slice(0, 80));
+        }
+      } else if (isImage) {
         try {
           let imgBuf = null;
           // Tentativa 1: downloadMediaMessage
@@ -1726,6 +1790,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             isAudio,
             isImage,
             isVideo,
+            isSticker,
             pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,  // v6.58
             remoteJid: ctx.remoteJid,
             instrucaoExtra: _instrucaoVoz || '',
@@ -1736,7 +1801,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             botName: config.bot.name, userName: ctx.pushName,
             isGroup: ctx.isGroup, groupName: ctx.groupName,
             groupContext, historyArray, prefix,
-            isOwner, isVip, mediaContext, isAudio, isImage, isVideo,
+            isOwner, isVip, mediaContext, isAudio, isImage, isVideo, isSticker,
           });
         }
       }
