@@ -1544,12 +1544,17 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             // devolvem `gerar` — o texto sai da IA, no estilo
             // dela, em vez de uma frase enlatada.
             if (r?.gerar) {
-              const aiG = require('./ai');
-              const gerado = await aiG.chat(cleanText, r.instrucao, { userRole: 'owner' }, true)
-                .catch(() => null);
+              const interpret = require('../aura/auraInterpret');
+              const gerado = await interpret.entregar(require('./ai'), {
+                texto: cleanText,
+                tipo: achado.id,
+                alvo: interpret.nomeDoAlvo(cleanText, msg),
+                isOwner,
+                instrucao: r.instrucao,
+              }).catch(() => null);
               if (gerado) {
                 await sock.sendMessage(ctx.remoteJid, {
-                  text: gerado.trim(),
+                  text: String(gerado).trim(),
                   ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
                 }, { quoted: msg });
                 return true;
@@ -1721,7 +1726,9 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       let finalAnswer = answer;
       try {
         const san = require('../aura/auraSanitizer');
+        const interpret = require('../aura/auraInterpret');
         finalAnswer = san.limparResposta(finalAnswer);
+        finalAnswer = interpret.consertarSeRecusou(finalAnswer, cleanText, msg);
         if (san.eVazamento(answer) || san.eLinkInventado(finalAnswer)) {
           if (ctx.isGroup && isOwner) {
             try {

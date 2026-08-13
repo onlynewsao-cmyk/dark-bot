@@ -130,6 +130,14 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       };
     }
 
+    case 'respeitar': {
+      const alvo = alvoDaMensagem(msg, ctx);
+      return {
+        ok: true, gerar: true, mencionar: alvo ? [alvo] : [],
+        instrucao: 'Pediu-te RESPEITO. Trata essa pessoa com respeito, 1-2 frases, sem sermão e sem falar de regras ou de zoar os outros.',
+      };
+    }
+
     case 'elogiar': {
       const alvo = alvoDaMensagem(msg, ctx);
       return {
