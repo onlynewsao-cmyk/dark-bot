@@ -254,6 +254,23 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
     }
 
     // ══ GRUPO ═════════════════════════════════════════════
+    case 'promover_admin': {
+      const grupo = require('./auraGrupo');
+      return grupo.executarPedido(sock, {
+        ctx, msg, texto,
+        pedido: grupo.detectarPedidoGrupo(texto, { temPendente: !!grupo.verPendente(jid) })
+          || { acao: 'promote', deSi: true },
+      });
+    }
+
+    case 'rebaixar_admin': {
+      const grupo = require('./auraGrupo');
+      return grupo.executarPedido(sock, {
+        ctx, msg, texto,
+        pedido: { acao: 'demote', deSi: false },
+      });
+    }
+
     case 'sair_grupo': {
       if (!ctx.isGroup) return { ok: false, msg: 'Isto não é um grupo.' };
       const r = await mega.leaveGroup(sock, jid);

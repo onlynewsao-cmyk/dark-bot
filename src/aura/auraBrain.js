@@ -80,7 +80,7 @@ const VERBO_ORDEM = new RegExp(
   'abre|abrir|fecha|fechar|tranca|destranca|' +
   'apaga|apagar|remove|remover|elimina|tira|tirar|limpa|limpar|' +
   'bane|banir|expulsa|expulsar|kicka|chuta|' +
-  'promove|promover|rebaixa|rebaixar|' +
+  'promove|promover|rebaixa|rebaixar|adiciona|adicionar|' +
   'marca|marcar|menciona|mencionar|' +
   'reage|reagir|reaja|responde|responder|' +
   'ignora|ignorar|bloqueia|bloquear|silencia|silenciar|cala|' +
@@ -272,6 +272,25 @@ const CAPACIDADES = [
     id: 'listar_membros', nivel: 'admin', arg: 'nenhum', risco: 'seguro',
     desc: 'Listar os membros do grupo',
     gatilhos: [/\b(lista|mostra|quem sao|quais)\b.{0,16}\b(membros|participantes|pessoal)\b/],
+  },
+  {
+    id: 'promover_admin', nivel: 'admin', arg: 'alvo', risco: 'seguro',
+    desc: 'Promover alguém (ou o próprio) a admin do grupo — acção real no WhatsApp',
+    gatilhos: [
+      /\bme\s+(adiciona|poe|poem|mete|faz|da|promove)\b.{0,28}\b(adm|admin)/,
+      /\b(adiciona|poe|faz|promove)[- ]?me\b.{0,20}\b(adm|admin)/,
+      /\badiciona.{0,24}\bcom\s+(adm|admin)/,
+      /\b(quero|queria)\s+ser\s+(adm|admin)/,
+      /\b(da|da-?me|me\s+da)\s+(o\s+)?(adm|admin)/,
+      /\bpromove(r)?\b/,
+      /\b(da|torna)\s+admin\b/,
+      /\bagora\s+(adiciona|promove)\b/,
+    ],
+  },
+  {
+    id: 'rebaixar_admin', nivel: 'admin', arg: 'alvo', risco: 'seguro',
+    desc: 'Tirar admin a alguém',
+    gatilhos: [/\b(despromove|rebaixa|tira (o |de )?admin|remove (o )?admin)\b/],
   },
   {
     id: 'listar_admins', nivel: 'todos', arg: 'nenhum', risco: 'seguro',

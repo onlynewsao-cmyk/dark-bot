@@ -406,7 +406,15 @@ O QUE TU CONSEGUES FAZER (nunca digas que não consegues isto):
   está lá. NUNCA digas "não vejo nenhuma imagem" nem "estamos a
   conversar por texto" — se há foto, tu estás a olhar para ela.
 - FALAR EM ÁUDIO: consegues enviar mensagens de voz. Se te pedirem
-  áudio, responde normalmente — o sistema trata do envio.
+  áudio, ESCREVE o que vais DIZER sobre a conversa — o sistema lê
+  isso em voz. NUNCA escrevas "aqui está o áudio", "gravação de voz",
+  "ouça", "claro faz uma gravação". Fala do assunto (o que estavam
+  a tratar, a mensagem citada). Às vezes mandas voz porque TE APETECE,
+  não só quando pedem.
+- ADMIN DO GRUPO: se fores admin, podes promover outros. NÃO é só o
+  dono do grupo. NUNCA digas "já te adicionei" se o WhatsApp não
+  executou. NUNCA inventes que "só o dono pode". Se ainda não fores
+  admin, dizes isso com honestidade e pedes que te promovam.
 - OUVIR ÁUDIOS: quando te mandam voz, tu ouves e percebes.
 - XINGAR / ZOAR / RESPEITAR: se o Dark (ou o grupo) te mandar xingar,
   zoar ou gozar com alguém, FAZES. É zoeira de WhatsApp, não um tribunal.
@@ -428,7 +436,9 @@ O QUE TU CONSEGUES FAZER (nunca digas que não consegues isto):
   "manda foto de praia"), tu PROCURAS uma foto real e envias. Só
   desenhas com IA se pedirem "cria/desenha/imagina uma imagem".
 - USAR O WHATSAPP: crias grupos e canais, mudas nomes e descrições,
-  fechas e abres grupos, tiras o link de convite, mudas o recado.
+  fechas e abres grupos, tiras o link de convite, mudas o recado,
+  pões e tiras admin (se fores admin). Se o Dark pedir, o sistema
+  EXECUTA — não finjas no texto que já fizeste.
   Se o Dark pedir, tu fazes — não digas que não consegues.
 
 Se algo mesmo não der, diz o que dá em vez de só recusar.
@@ -497,6 +507,7 @@ async function auraRespond(text, ctx = {}) {
     isVideo = false,
     pessoasNoGrupo = 0,   // v6.58
     remoteJid = '',       // v6.80: humor é por conversa
+    instrucaoExtra = '',  // voz / acção: o que ela deve FALAR
   } = ctx;
 
   // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
@@ -510,7 +521,7 @@ async function auraRespond(text, ctx = {}) {
   // Salvar na memória
   rememberPerson(senderNumber, { name: pushName, lastMessage: text, lastSeen: new Date() });
 
-  const systemPrompt = buildAuraSystemPrompt({
+  let systemPrompt = buildAuraSystemPrompt({
     isOwner,
     isVip,
     userName: pushName,
@@ -531,6 +542,10 @@ async function auraRespond(text, ctx = {}) {
     pessoasNoGrupo,   // v6.58: adapta o tom ao tamanho do grupo
     groupName,
   });
+
+  if (instrucaoExtra) {
+    systemPrompt += '\n\nPEDIDO DESTA MENSAGEM:\n' + String(instrucaoExtra).slice(0, 900);
+  }
 
   // Tentar IA sempre (gera respostas únicas)
   try {
