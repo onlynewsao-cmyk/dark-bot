@@ -103,6 +103,8 @@ module.exports = function registerStickerCases(registerCase) {
       const stk = await stickerMaker.create(buf, {
         botName: pack.slice(0, 25), ownerName: author.slice(0, 25) || ctx.pushName,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
+        packName: pack.slice(0, 80), authorName: (author || ctx.pushName).slice(0, 80),
+        skipGroupWm: true,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
       react('✅');
@@ -141,6 +143,111 @@ module.exports = function registerStickerCases(registerCase) {
         reply('❌ Falha a criar sticker de texto: ' + e.message);
       }
     }
+  });
+
+  // ── !definestickwm — marca d'água/descrição dos stickers DESTE grupo
+  registerCase(['definestickwm', 'setstickwm', 'stickwmgrupo', 'definirmarca'], async ({ sock, ctx, args, prefix, reply, react, isOwner, isAdminFn }) => {
+    const wm = require('../stickerWm');
+    const jid = ctx.remoteJid;
+    const p = prefix || '.';
+
+    if (ctx.isGroup && !isOwner) {
+      let ok = false;
+      try { ok = typeof isAdminFn === 'function' ? await isAdminFn() : false; } catch {}
+      if (!ok) {
+        try {
+          const meta = ctx.groupMeta || await sock.groupMetadata(jid);
+          const snum = String(ctx.senderNumber || '').replace(/\D/g, '');
+          ok = !!(meta?.participants || []).some(part => {
+            const n = String(part.id || '').split(':')[0].split('@')[0].replace(/\D/g, '');
+            return n === snum && (part.admin === 'admin' || part.admin === 'superadmin');
+          });
+        } catch {}
+      }
+      if (!ok) return reply('🚫 Só o *Dono* ou *Admins* do grupo podem definir a marca dos stickers.');
+    }
+
+    const raw = args.join(' ').trim();
+    const sub = (args[0] || '').toLowerCase();
+
+    if (!raw || ['status', 'ver', 'info'].includes(sub)) {
+      const saved = await wm.getForJid(jid);
+      return reply(wm.statusText(saved, p));
+    }
+
+    if (['off', 'reset', 'limpar', 'clear', 'remover'].includes(sub)) {
+      await wm.clearForJid(jid);
+      return reply('✅ Marca deste chat *apagada*. Os stickers voltam à marca global.');
+    }
+
+    const current = await wm.getForJid(jid);
+    if (sub === 'pack') {
+      const val = args.slice(1).join(' ').trim();
+      if (!val) return reply(`Usa: *${p}definestickwm pack* Nome do canal`);
+      const saved = await wm.saveForJid(jid, {
+        packName: val,
+        authorName: current?.authorName || wm.DEFAULT_BRAND,
+        brand: current?.brand || wm.DEFAULT_BRAND,
+        channelUrl: current?.channelUrl || '',
+        channelName: current?.channelName || '',
+      });
+      return reply(wm.statusText(saved, p));
+    }
+
+    if (['author', 'autor', 'marca'].includes(sub)) {
+      const val = args.slice(1).join(' ').trim();
+      if (!val) return reply(`Usa: *${p}definestickwm author* DARK NET 🕸️`);
+      const saved = await wm.saveForJid(jid, {
+        packName: current?.packName || current?.channelName || wm.DEFAULT_PACK,
+        authorName: val,
+        brand: val,
+        channelUrl: current?.channelUrl || '',
+        channelName: current?.channelName || '',
+      });
+      return reply(wm.statusText(saved, p));
+    }
+
+    react('⏳');
+    const link = wm.parseChannelLink(raw);
+    if (link) {
+      try {
+        const ch = await wm.resolveChannel(raw, sock);
+        const name = (ch && ch.name) || '';
+        if (!name) {
+          react('❌');
+          return reply(
+            `❌ Não consegui ler o nome desse canal.\n` +
+            `O link está certo, mas o WhatsApp não devolveu o título.\n\n` +
+            `Cola o nome à mão:\n*${p}definestickwm pack* Nome do Canal`
+          );
+        }
+        const saved = await wm.saveForJid(jid, {
+          packName: name,
+          authorName: wm.DEFAULT_BRAND,
+          brand: wm.DEFAULT_BRAND,
+          channelUrl: ch.url || link.url,
+          channelName: name,
+        });
+        react('✅');
+        return reply(
+          `✅ Canal detectado: *${name}*\n\n` +
+          wm.statusText(saved, p)
+        );
+      } catch (e) {
+        react('❌');
+        return reply('❌ Falha a ler o canal: ' + (e.message || e));
+      }
+    }
+
+    const saved = await wm.saveForJid(jid, {
+      packName: raw.slice(0, 80),
+      authorName: current?.authorName || wm.DEFAULT_BRAND,
+      brand: current?.brand || wm.DEFAULT_BRAND,
+      channelUrl: current?.channelUrl || '',
+      channelName: current?.channelName || '',
+    });
+    react('✅');
+    return reply(wm.statusText(saved, p));
   });
 
   // ── !ttp — Texto em sticker (fundo dark) ─────────────────────────

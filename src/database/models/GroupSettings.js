@@ -97,9 +97,13 @@ const GroupSettingsSchema = new mongoose.Schema({
   welcomeWithPhoto: { type: Boolean, default: true },
   welcomeWithMedia: { type: String, default: '' },  // URL de imagem de boas-vindas
 
-  // ── Sticker pack por grupo ────────────────────────────────
-  stickerPackName:   { type: String, default: '' },
-  stickerAuthorName: { type: String, default: '' },
+  // ── Sticker pack / marca d'água por grupo ─────────────────
+  stickerPackName:     { type: String, default: '' },
+  stickerAuthorName:   { type: String, default: '' },
+  stickerWmEnabled:    { type: Boolean, default: false },
+  stickerChannelUrl:   { type: String, default: '' },
+  stickerChannelName:  { type: String, default: '' },
+  stickerWmBrand:      { type: String, default: 'DARK NET 🕸️' },
 
   // ── Limites free por grupo ────────────────────────────────
   freePvDailyLimit:  { type: Number, default: 20 },  // comandos PV para free por dia

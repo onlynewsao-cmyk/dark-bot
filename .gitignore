@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+uploads/
 
 # Sessões e auth
 /data/auth/

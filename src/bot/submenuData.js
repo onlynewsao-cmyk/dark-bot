@@ -191,6 +191,7 @@ function categorize(cmd) {
     npc:'economia', usar:'economia', hospedar:'economia', cassar:'economia', cripto:'economia', cambio:'economia',
     gif:'stickers', gifreact:'interacoes', figbusca:'owner', figgif:'owner', ximg:'stickers', pin:'stickers', pack18:'owner',
     packbusca:'owner', packname:'stickers', takepack:'stickers', slypack:'stickers', sly:'stickers',
+    definestickwm:'stickers', setstickwm:'stickers', stickwmgrupo:'stickers', definirmarca:'stickers',
     neymar:'logos', placaneymar:'logos',
     audiofx:'audio', audiomeme:'audio',
     auditcmds:'owner', audit:'owner', vercode:'owner', cmdcheck:'owner', newcase:'owner',
@@ -476,7 +477,7 @@ function categorizeExtra(c) {
   // Downloads extras
   if (/^(baixaraudio|baixarvideo|dlmp3|dlmp4|dlmp3s|dlmp4s|ytaudio|ytmp3|ytmp4|ytmp3s|ytmp4s|ytplay4|yt4k|yt4|fhd|vid|vid2|down|downloads|facebook|fbvideo|fbfoto|fbpost|fbstory|fbstatus|tw|tt|tiktok2|instagram2|pinterest2|pinmp4|pinvd|spotify2|scdl|soundcloud2|letra|kwai|igstory|gdrive|mediafire|mcplugin|tomp3|shazam|myinstants|pintemp3|pintemp4|instamp3|instamp4|playid|playhq|yt3v2|yt4v2|sc$)/.test(c)) return 'downloads';
   // Stickers extras
-  if (/^(fig|figurinha|textosticker|textsticker|txtsticker|pinpacks|pinpack|pinsticker|stickerwm|watermark|sfull2|figubug3|aisticker|jeff|faber|norian|totext|ptvmsg|gerarlink|rvisu|brat2|legenda|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada)/.test(c)) return 'stickers';
+  if (/^(fig|figurinha|textosticker|textsticker|txtsticker|pinpacks|pinpack|pinsticker|stickerwm|definestickwm|setstickwm|stickwmgrupo|definirmarca|watermark|sfull2|figubug3|aisticker|jeff|faber|norian|totext|ptvmsg|gerarlink|rvisu|brat2|legenda|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada)/.test(c)) return 'stickers';
   // IA extras
   if (/^(copilot|copiloto|chat|ask|chatgpt2|gpt3|gpt4|gpt5|checkia|clearmemory|addai|addmetaai)/.test(c)) return 'ia';
   // Admin extras

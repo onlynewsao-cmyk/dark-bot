@@ -164,7 +164,10 @@ async function injectMeta(webpBuf, pack, author, packId) {
  * @param {string} opts.groupName
  * @param {boolean} opts.isVideo  - true se for vídeo/GIF
  */
-async function create(buffer, { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId = null }) {
+async function create(buffer, rawOpts = {}) {
+  let opts = rawOpts;
+  try { opts = await require('./stickerWm').apply(rawOpts); } catch {}
+  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId = null } = opts;
   const pack   = packName || `${botName} • ${ownerName}`;
   const author = authorName || `${userName} | ${groupName || 'PV'}`;
 
@@ -283,7 +286,10 @@ function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX
   }
 }
 
-async function createFull(buffer, { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false }) {
+async function createFull(buffer, rawOpts = {}) {
+  let opts = rawOpts;
+  try { opts = await require('./stickerWm').apply(rawOpts); } catch {}
+  const { botName, ownerName, userName, groupName, isVideo, packName = '', authorName = '', watermarkText = '', visibleWatermark = false, packId } = opts;
   const pack = packName || `${botName} • ${ownerName}`;
   const author = authorName || `${userName} | ${groupName || 'PV'} • SFULL`;
   const mime = detectMime(buffer);
