@@ -18,6 +18,17 @@ const DEFAULT_BRAND = 'DARK NET 🕸️';
 const DEFAULT_PACK = 'DARK NET 🕸️';
 const DEFAULT_SLOGAN = 'O melhor canal do mundo';
 const DEFAULT_CTA = 'Siga o canal';
+const DEFAULT_PACK_URL = 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
+
+function stablePackId(seed = '') {
+  try {
+    return require('./stickerMaker').makePackId(seed || DEFAULT_PACK_URL);
+  } catch {
+    const crypto = require('crypto');
+    const h = crypto.createHash('md5').update('darkbot-pack|' + String(seed || DEFAULT_PACK_URL)).digest('hex').slice(0, 16);
+    return `com.darkbot.pack.${h}`;
+  }
+}
 
 const CHANNEL_RE = /(?:https?:\/\/)?(?:www\.)?(?:whatsapp\.com|wa\.me)\/channel\/([A-Za-z0-9_-]{10,})(?:\/\S*)?/i;
 const GROUP_RE = /(?:https?:\/\/)?(?:www\.)?chat\.whatsapp\.com\/(?:invite\/)?([A-Za-z0-9_-]{10,})/i;
@@ -130,6 +141,8 @@ function composeMeta({
     brand: brandClean,
     slogan: sloganClean,
     channelUrl: url,
+    packUrl: url,
+    packId: stablePackId(url || brandClean),
     cta: ctaClean,
     description: [brandClean, ...authorLines].join('\n'),
   };
@@ -152,6 +165,8 @@ function composeSearchPack(searchName, saved) {
       publisher: DEFAULT_BRAND,
       description: query,
       searchName: query,
+      packUrl: DEFAULT_PACK_URL,
+      packId: stablePackId(query),
     };
   }
   const wmBlock = String(saved.description || '').trim();
@@ -168,6 +183,8 @@ function composeSearchPack(searchName, saved) {
     description,
     searchName: query,
     brand: saved.brand || DEFAULT_BRAND,
+    packUrl: saved.channelUrl || saved.packUrl || DEFAULT_PACK_URL,
+    packId: saved.packId || stablePackId(query),
   };
 }
 
@@ -300,8 +317,58 @@ function fromDoc(gs) {
   return {
     enabled: true,
     ...composed,
+    packId: String(gs.stickerPackId || '').trim() || composed.packId,
     channelName: String(gs.stickerChannelName || '').trim(),
     linkType: String(gs.stickerWmLinkType || '').trim(),
+  };
+}
+
+async function getGlobalDefault() {
+  try {
+    const botConfigCache = require('./botConfigCache');
+    const url = String(await botConfigCache.get('sticker_pack_url', DEFAULT_PACK_URL) || DEFAULT_PACK_URL).trim();
+    const brand = String(await botConfigCache.get('sticker_pack_brand', DEFAULT_BRAND) || DEFAULT_BRAND).trim();
+    const slogan = String(await botConfigCache.get('sticker_wm_slogan', DEFAULT_SLOGAN) || DEFAULT_SLOGAN).trim();
+    const cta = String(await botConfigCache.get('sticker_wm_cta', DEFAULT_CTA) || DEFAULT_CTA).trim();
+    return composeMeta({ brand, slogan, link: url || DEFAULT_PACK_URL, cta });
+  } catch {
+    return composeMeta({ link: DEFAULT_PACK_URL });
+  }
+}
+
+async function saveGlobalDefault(data = {}) {
+  const composed = composeMeta({
+    brand: data.brand,
+    slogan: data.slogan,
+    link: data.channelUrl || data.link || data.packUrl,
+    cta: data.cta,
+  });
+  const BotConfig = require('../database/models/BotConfig');
+  await BotConfig.set('sticker_pack_url', composed.channelUrl);
+  await BotConfig.set('sticker_pack_brand', composed.brand);
+  await BotConfig.set('sticker_wm_slogan', composed.slogan);
+  await BotConfig.set('sticker_wm_cta', composed.cta);
+  await BotConfig.set('sticker_pack_id', composed.packId);
+  try { require('./botConfigCache').clear(); } catch {}
+  return composed;
+}
+
+/** Pack que o "Ver pacote" usa: grupo > global > canal default. Sempre tem URL. */
+async function resolvePack(jid) {
+  const local = jid ? await getForJid(jid).catch(() => null) : null;
+  if (local?.enabled && (local.channelUrl || local.packUrl)) {
+    return {
+      ...local,
+      packUrl: local.channelUrl || local.packUrl,
+      packId: local.packId || stablePackId(local.channelUrl || local.brand),
+    };
+  }
+  const glob = await getGlobalDefault();
+  return {
+    ...glob,
+    enabled: false,
+    packUrl: glob.channelUrl || DEFAULT_PACK_URL,
+    packId: glob.packId || stablePackId(glob.channelUrl || DEFAULT_PACK_URL),
   };
 }
 
@@ -315,24 +382,43 @@ async function getForJid(jid) {
 }
 
 async function apply(opts = {}) {
-  if (opts.skipGroupWm) return opts;
+  if (opts.skipGroupWm) {
+    const jid = opts.remoteJid || opts.jid || opts.ctx?.remoteJid || currentCtx()?.remoteJid;
+    const pack = await resolvePack(jid).catch(() => composeMeta({ link: DEFAULT_PACK_URL }));
+    return {
+      ...opts,
+      packId: opts.packId || pack.packId,
+      packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
+    };
+  }
   const jid = opts.remoteJid || opts.jid || opts.ctx?.remoteJid || currentCtx()?.remoteJid;
   const search = opts.searchQuery || opts.packSearch || '';
   if (!jid && !search) return opts;
   const saved = jid ? await getForJid(jid) : null;
+  const pack = await resolvePack(jid).catch(() => composeMeta({ link: DEFAULT_PACK_URL }));
   if (search) {
     const meta = composeSearchPack(search, saved);
     return {
       ...opts,
       packName: meta.packName,
       authorName: meta.authorName,
+      packId: opts.packId || meta.packId || pack.packId,
+      packUrl: pack.packUrl || DEFAULT_PACK_URL,
     };
   }
-  if (!saved?.enabled) return opts;
+  if (!saved?.enabled) {
+    return {
+      ...opts,
+      packId: opts.packId || pack.packId,
+      packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
+    };
+  }
   return {
     ...opts,
     packName: saved.packName,
     authorName: saved.authorName,
+    packId: opts.packId || saved.packId || pack.packId,
+    packUrl: saved.channelUrl || pack.packUrl || DEFAULT_PACK_URL,
   };
 }
 
@@ -355,6 +441,7 @@ async function saveForJid(jid, data = {}) {
     stickerWmSlogan: composed.slogan,
     stickerWmCta: composed.cta,
     stickerWmLinkType: String(data.linkType || '').slice(0, 20),
+    stickerPackId: composed.packId,
   };
   const doc = await GroupSettings.findOneAndUpdate(
     { groupJid: jid },
@@ -385,6 +472,7 @@ async function clearForJid(jid) {
         stickerWmSlogan: DEFAULT_SLOGAN,
         stickerWmCta: DEFAULT_CTA,
         stickerWmLinkType: '',
+        stickerPackId: '',
       },
     },
     { upsert: true, new: true }
@@ -400,23 +488,20 @@ async function clearForJid(jid) {
 function statusText(saved, prefix = '.') {
   if (!saved?.enabled) {
     return (
-      `💧 *MARCA DOS STICKERS*\n\n` +
-      `Neste grupo ainda não está activa.\n` +
-      `Quando activares, TODOS os stickers do bot saem assim:\n\n` +
-      `*DARK NET 🕸️*\n` +
-      `O melhor canal do mundo\n` +
-      `<link do canal/grupo>\n` +
-      `Siga o canal\n\n` +
-      `*${prefix}definestickwm* <link do canal ou grupo>\n` +
-      `*${prefix}definestickwm* <nome> — activa e usa o link deste grupo\n` +
-      `*${prefix}definestickwm off*`
+      `📦 *PACOTE DE FIGURINHAS*\n\n` +
+      `Ainda não definiste o link deste chat.\n` +
+      `«Ver pacote» abre o pack se já estiver guardado; se não, abre o link.\n\n` +
+      `*${prefix}defpack* <link do canal ou grupo>\n` +
+      `*${prefix}defpack global* <link> — default de TODOS os chats (dono)\n` +
+      `*${prefix}defpack off*`
     );
   }
   return (
-    `💧 *MARCA DOS STICKERS* — activa\n\n` +
-    `Descrição de todos os stickers deste grupo:\n\n` +
-    `\`\`\`\n${saved.description}\n\`\`\`\n\n` +
-    `*${prefix}definestickwm off* — desactivar`
+    `📦 *PACOTE DE FIGURINHAS* — activo\n\n` +
+    `«Ver pacote»: pack guardado OU o link\n` +
+    `Link: ${saved.channelUrl || saved.packUrl || '—'}\n\n` +
+    `Descrição:\n\`\`\`\n${saved.description}\n\`\`\`\n\n` +
+    `*${prefix}defpack off* — desactivar`
   );
 }
 
@@ -425,6 +510,11 @@ module.exports = {
   DEFAULT_PACK,
   DEFAULT_SLOGAN,
   DEFAULT_CTA,
+  DEFAULT_PACK_URL,
+  stablePackId,
+  getGlobalDefault,
+  saveGlobalDefault,
+  resolvePack,
   CHANNEL_RE,
   GROUP_RE,
   bind,

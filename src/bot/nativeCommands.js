@@ -500,6 +500,8 @@ async function getStickerWatermarkConfig(config, ctx) {
         authorName: local.authorName,
         watermarkText: local.packName,
         visibleWatermark: false,
+        packId: local.packId,
+        packUrl: local.channelUrl || local.packUrl,
       };
     }
   } catch {}

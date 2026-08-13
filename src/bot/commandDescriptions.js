@@ -73,7 +73,7 @@ const PADROES = [
   [/^(attp|ttp)\d*$/,            'Transforma texto em figurinha'],
   [/^(brat|bratvideo)\d*$/,      'Cria figurinha estilo brat'],
   [/^(qc|quote)\d*$/,            'Cria figurinha de citação'],
-  [/^(definestickwm|setstickwm|stickwmgrupo|definirmarca)$/, 'Define a marca/descrição dos stickers deste grupo'],
+  [/^(definestickwm|setstickwm|stickwmgrupo|definirmarca|defpack|definestickpack|setpack|packlink|verpack)$/, 'Define o pack e o link do «Ver pacote de figurinhas»'],
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],

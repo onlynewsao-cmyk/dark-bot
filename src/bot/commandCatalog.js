@@ -64,6 +64,8 @@ const CATALOG = [
   { name: 'sfull', category: 'stickers', emoji: '🖼️', description: 'Sticker mostrando a imagem inteira sem cortar', native: true },
   { name: 'stickerwm', category: 'stickers', emoji: '💧', description: 'Configura marca d\'água/metadados dos stickers', native: true, ownerOnly: true },
   { name: 'definestickwm', category: 'stickers', emoji: '💧', description: 'Activa a marca dos stickers deste grupo (nome ou link de canal/grupo)', ownerOrAdmin: true },
+  { name: 'defpack', category: 'stickers', emoji: '📦', description: 'Define o link do «Ver pacote de figurinhas» (canal/grupo). Se já tiver o pack, abre o pack; senão, o link', ownerOrAdmin: true },
+  { name: 'definestickpack', category: 'stickers', emoji: '📦', description: 'Alias de defpack — link do Ver pacote', ownerOrAdmin: true },
   { name: 'figubug2', category: 'stickers', emoji: '🖼️', description: 'Gera imagem em sticker', native: true },
   { name: 'figubug', category: 'stickers', emoji: '👾', description: 'Sticker lendário por mídia', native: true },
   { name: 'toimg', category: 'stickers', emoji: '🖼️', description: 'Sticker em imagem', native: true },
