@@ -60,17 +60,37 @@ async function _ligarAgora(getSock, motivo) {
   }
 
   try {
-    const bridge = require('./callBridge');
-    const r = await bridge.tentarLigar(sock, numero + '@s.whatsapp.net', {
-      tipo: 'voice',
-      pushName: 'Dark',
-    });
+    // Usamos realCall directamente, e NÃO o callBridge: a escada do bridge
+    // cai em fallbacks que enviam mensagens (link de chamada, wa.me) em vez
+    // de tocar. Num ciclo automático de 5 em 5 min isso seria spam contra o
+    // próprio Dono. Aqui: ou toca, ou falha e regista porquê.
+    const realCall = require('./realCall');
+    const res = await realCall.ligar(sock, numero + '@s.whatsapp.net', { isVideo: false });
+    const r = res?.ok
+      ? { ok: true, tocou: true, metodo: 'realCall', callId: res.callId }
+      : { ok: false, tocou: false, metodo: 'realCall',
+          erro: res?.motivo + (res?.codigo ? ' (' + res.codigo + ')' : '') };
 
-    if (r?.ok) {
+    // ATENÇÃO: r.ok=true não chega. A escada do callBridge cai em métodos de
+    // recurso (createCallLink, wa.me+ptt) que só ENVIAM UMA MENSAGEM e nunca
+    // fazem o telemóvel tocar. Se contássemos isso como sucesso, o bot ficava
+    // a enviar-te uma mensagem de link de 5 em 5 minutos para sempre.
+    // Só o telemóvel a tocar (r.tocou) conta como sucesso.
+    if (r?.ok && r?.tocou) {
       _falhasSeguidas = 0;
-      _registar({ motivo, ok: true, metodo: r.metodo, callId: r.callId });
-      console.log(`[autoCall] chamada enviada (${r.metodo}) para ${numero}`);
+      _registar({ motivo, ok: true, tocou: true, metodo: r.metodo, callId: r.callId });
+      console.log(`[autoCall] chamada a tocar (${r.metodo}) para ${numero}`);
       return { ok: true, metodo: r.metodo, callId: r.callId };
+    }
+
+    if (r?.ok && !r?.tocou) {
+      _falhasSeguidas += 1;
+      _registar({ motivo, ok: false, tocou: false, metodo: r.metodo, erro: 'nao_tocou' });
+      console.warn(
+        `[autoCall] "${r.metodo}" não faz tocar, só manda mensagem ` +
+        `(${_falhasSeguidas}/${MAX_FALHAS})`
+      );
+      return { ok: false, erro: 'nao_tocou', metodo: r.metodo };
     }
 
     _falhasSeguidas += 1;
