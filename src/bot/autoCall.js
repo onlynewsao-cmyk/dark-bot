@@ -78,8 +78,22 @@ async function _ligarAgora(getSock, motivo) {
     // Só o telemóvel a tocar (r.tocou) conta como sucesso.
     if (r?.ok && r?.tocou) {
       _falhasSeguidas = 0;
+
+      // Abre a janela de conversa da AURA para esta chamada. Sem isto, as
+      // notas de voz que o Dono mande a seguir são tratadas como mensagens
+      // normais (comandos/menu) em vez de turnos de conversa da chamada.
+      try {
+        require('./callHandler').marcarActiva(
+          numero + '@s.whatsapp.net',
+          { id: r.callId, isVideo: false },
+          true
+        );
+      } catch (e) {
+        console.warn('[autoCall] nao abriu janela da Aura:', String(e?.message || e).slice(0, 60));
+      }
+
       _registar({ motivo, ok: true, tocou: true, metodo: r.metodo, callId: r.callId });
-      console.log(`[autoCall] chamada a tocar (${r.metodo}) para ${numero}`);
+      console.log(`[autoCall] chamada a tocar (${r.metodo}) para ${numero} — Aura à escuta`);
       return { ok: true, metodo: r.metodo, callId: r.callId };
     }
 
