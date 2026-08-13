@@ -104,7 +104,46 @@ const semFn = usadas.filter(f => typeof mega[f] !== 'function');
 check(`${usadas.length} funções de megaActions existem`, semFn.length === 0,
   semFn.length ? 'EM FALTA: ' + semFn.join(', ') : 'todas presentes');
 
-console.log('\n══════════════════════════════════════════════════');
-console.log(`  ${ok} OK / ${mau} FALHOU`);
-console.log('══════════════════════════════════════════════════\n');
-process.exit(mau > 0 ? 1 : 0);
+console.log('\n▸ Canais, convites e partilha (v6.82)');
+const canais = require('../src/aura/auraCanais');
+check('Lê link de grupo', canais.extrairConvite('https://chat.whatsapp.com/ABCDEFGHIJKLMNOPQRSTUV')?.tipo === 'grupo');
+check('Lê link de canal', canais.extrairConvite('https://whatsapp.com/channel/0029Va9xYzAbCdEfGhIjKl')?.tipo === 'canal');
+check('Texto sem link não engana', canais.extrairConvite('oi tudo bem') === null);
+
+const novas = [
+  ['entra nesse grupo https://chat.whatsapp.com/ABCDEFGHIJKLMNOPQRSTUV', 'entrar_link'],
+  ['https://whatsapp.com/channel/0029Va9xYzAbCdEfGhIjKl', 'entrar_link'],
+  ['reencaminha esta mensagem nos teus grupos', 'reencaminhar'],
+  ['partilha isso nos meus grupos', 'reencaminhar'],
+  ['reage no canal com 🔥', 'canal_reagir'],
+  ['nao reajas com emojis', 'modo_nao_reagir'],
+  ['reage com 🕸️', 'reagir_msg'],
+];
+const nMau = novas.filter(([f, e]) => (brain.detectarCapacidade(f) || {}).id !== e);
+check(`${novas.length} ordens novas detectadas`, nMau.length === 0,
+  nMau.length ? nMau.map(x => x[0]).join(' | ') : `${novas.length}/${novas.length}`);
+
+// reencaminhar tem de gerar ID novo por destino, senão o WhatsApp
+// trata as cópias como duplicados e só a primeira aparece
+(async () => {
+  const env = [];
+  const sockF = { relayMessage: async (jid, cont, opt) => { env.push(opt.messageId); } };
+  const r = await canais.reencaminhar(sockF, { message: { conversation: 'x' } }, ['a@g.us', 'b@g.us']);
+  check('Reencaminha para vários grupos', r.ok && r.enviados === 2, r.msg);
+  check('ID novo por destino (não duplica)', env.every(i => i === undefined));
+
+  const posts = [{ server_id: 1 }, { server_id: 2 }];
+  const feitas = [];
+  const sockN = {
+    newsletterFetchMessages: async () => posts,
+    newsletterReactMessage: async (j, sid, e) => { feitas.push(sid + e); },
+  };
+  const rc = await canais.reagirTudoCanal(sockN, '9@newsletter', '🕸️', 10);
+  check('Reage às publicações do canal', rc.ok && rc.feitas === 2, rc.msg);
+  check('Usa server_id do canal', feitas[0] === '1🕸️');
+
+  console.log('\n' + '═'.repeat(50));
+  console.log(`  ${ok} OK / ${mau} FALHOU`);
+  console.log('═'.repeat(50) + '\n');
+  process.exit(mau > 0 ? 1 : 0);
+})();

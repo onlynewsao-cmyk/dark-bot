@@ -188,14 +188,62 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       };
     }
 
-    case 'canal_reagir':
-      // Reagir a mensagens antigas de um canal exige o histórico,
-      // que o Baileys não dá de forma fiável. Digo a verdade em
-      // vez de fingir que fiz.
-      return {
-        ok: false,
-        msg: 'Nos canais só consigo reagir às mensagens que chegam enquanto estou ligada — o WhatsApp não me deixa varrer as antigas. Queres que passe a reagir a tudo o que vier a partir de agora?',
-      };
+    case 'canal_reagir': {
+      // v6.82: passou a dar. O fork tem newsletterFetchMessages +
+      // newsletterReactMessage — varre as publicações e reage a cada uma.
+      const canais = require('./auraCanais');
+      const emoji = emojiDaFrase(texto) || '🕸️';
+
+      // o canal pode vir por link na frase, ou ser o próprio chat
+      const alvo = /whatsapp\.com\/channel\//i.test(texto || '')
+        ? texto
+        : (/@newsletter$/.test(jid) ? jid : (arg || texto));
+
+      await sock.sendMessage(ctx.remoteJid, { text: `A reagir com ${emoji}... dá-me uns segundos.` })
+        .catch(() => {});
+
+      const r = await canais.reagirTudoCanal(sock, alvo, emoji, 30);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    // ══ ENTRAR POR LINK / PARTILHAR (v6.82) ═══════════════
+    case 'entrar_link': {
+      const canais = require('./auraCanais');
+      const r = await canais.entrarPorLink(sock, texto);
+      if (!r.ok) return { ok: false, msg: r.msg };
+
+      // se ele disse "entra e reage", faz as duas coisas
+      if (r.tipo === 'canal' && /\brea(ge|gir|ja)\b/i.test(texto || '')) {
+        const emoji = emojiDaFrase(texto) || '🕸️';
+        const rr = await canais.reagirTudoCanal(sock, r.jid, emoji, 30);
+        return { ok: true, msg: `${r.msg}\n${rr.msg}` };
+      }
+      return { ok: true, msg: r.msg };
+    }
+
+    case 'reencaminhar': {
+      const canais = require('./auraCanais');
+
+      // a mensagem a partilhar é a que ele respondeu
+      const citada = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+      if (!citada) {
+        return { ok: false, msg: 'Responde à mensagem que queres que eu partilhe e diz outra vez.' };
+      }
+
+      const grupos = await canais.meusGrupos(sock, false);
+      if (!grupos.length) return { ok: false, msg: 'Não estou em nenhum grupo.' };
+
+      // não devolve ao grupo de onde veio
+      const destinos = grupos.map(g => g.id).filter(id => id !== ctx.remoteJid);
+      if (!destinos.length) return { ok: false, msg: 'Só estou neste grupo — não há para onde mandar.' };
+
+      await sock.sendMessage(ctx.remoteJid, {
+        text: `A reencaminhar para ${destinos.length} grupo${destinos.length === 1 ? '' : 's'}...`,
+      }).catch(() => {});
+
+      const r = await canais.reencaminhar(sock, { message: citada }, destinos);
+      return { ok: r.ok, msg: r.msg };
+    }
 
     // ══ GRUPO ═════════════════════════════════════════════
     case 'sair_grupo': {
