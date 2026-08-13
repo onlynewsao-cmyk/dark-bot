@@ -17,6 +17,8 @@ module.exports = {
   detectCountry: auraHuman.detectCountry,
   getMood: auraHuman.getMood,
   setMood: auraHuman.setMood,
+  clearMood: auraHuman.clearMood,
+  limparMoods: auraHuman.limparMoods,
   detectDarkAttack: auraHuman.detectDarkAttack,
   detectDarkMention: auraHuman.detectDarkMention,
   getDarkDefense: auraHuman.getDarkDefense,

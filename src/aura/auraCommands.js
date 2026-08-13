@@ -25,28 +25,39 @@
 
 // ── 1. NUNCA por conversa, nem para o Dono ──────────────────
 // Critério: destrutivo, irreversível, ou afecta terceiros em massa.
+// v6.80 — O DONO PEDE, ELA FAZ.
+//
+// A lista era enorme: moderação, grupos, configuração, adulto, links,
+// tudo proibido por conversa. O resultado é que o Dark pedia "fecha o
+// grupo" e ela respondia com conversa em vez de fechar. Ele não quer
+// uma assistente que explica porque não pode — quer uma que faz.
+//
+// Ficam de fora APENAS os que são irreversíveis se ela interpretar
+// mal uma frase. O critério deixou de ser "é perigoso?" e passou a
+// ser "se ela se enganar, dá para desfazer?".
+//   - fechar um grupo por engano → abre-se outra vez. LIBERTADO.
+//   - banir alguém por engano    → volta a adicionar-se. LIBERTADO.
+//   - modo adulto por engano     → desliga-se. LIBERTADO.
+//   - `eval` de código por engano→ não há volta. BLOQUEADO.
+//   - broadcast a todos os grupos→ já foi, viram todos. BLOQUEADO.
+//   - reiniciar a meio de algo   → perde estado/sessão. BLOQUEADO.
+//   - dar poder de dono a alguém → essa pessoa pode tirar-te o bot. BLOQUEADO.
+//
+// Isto continua a ser desfazível PELO DARK com o comando escrito à
+// mão (`.eval`, `.broadcast`, ...). Não é uma proibição — é só a
+// exigência de que ESTES sejam escritos, não interpretados.
 const BLOQUEADOS = new Set([
   // execução de código — um erro de interpretação é catastrófico
+  // e não tem como desfazer-se
   'eval', 'exec', 'shell', 'term', 'terminal', 'bash', 'sh',
-  // afectam TODOS os grupos/utilizadores de uma vez
-  'broadcast', 'bc', 'send', 'sendgroup', 'transmitir',
-  // ciclo de vida do processo
+  // afectam TODOS os grupos/utilizadores de uma vez — sem recolha
+  'broadcast', 'bc', 'sendgroup', 'transmitir',
+  // ciclo de vida do processo — derruba a sessão do WhatsApp
   'restart', 'reiniciar', 'shutdown', 'desligar', 'stop', 'kill',
-  // alteram permissões e acessos
-  'adddono', 'removedono', 'setpremium', 'blacklist', 'unblacklist',
-  'desativarusuario', 'ativarusuario', 'desativargrupo', 'ativargrupo',
-  'block', 'unblock', 'bloquear', 'desbloquear',
-  // mexem no próprio código
-  'addcase', 'delcase', 'removicase', 'reloadcases', 'runcase', 'execcase',
-  // configuração global
-  'setprefix', 'prefixos', 'themeglobal', 'panel', 'backup',
-  // conteúdo adulto — exige intenção explícita
-  'adultmode', 'adultapi', 'menu18', 'hentai', 'ximg', 'xvideo',
-  'adultsearch', 'hotchat', 'fig18', 'pack18', 'gif18', 'shorts18',
-  'yande', 'kona', 'e621', 'nekos', 'erome', 'eromevid', 'buscar18',
-  // sabotagem/troça pesada
-  'bomb', 'trava1', 'trava2', 'trava3', 'fakeban', 'forjar', 'simular',
-  'espiao', 'antidelete', 'apagadas', 'ver',
+  // dar/tirar poder de dono — quem recebe pode virar o bot contra ele
+  'adddono', 'removedono',
+  // mexem no próprio código em execução
+  'addcase', 'delcase', 'removicase', 'runcase', 'execcase',
 ]);
 
 /** True se este comando NUNCA pode ser executado por conversa. */
@@ -55,17 +66,12 @@ function estaBloqueado(cmd) {
   if (!c) return true;
   if (BLOQUEADOS.has(c)) return true;
 
-  // rede de segurança: ownerOnly do catálogo que eu não tenha listado
-  try {
-    const cat = require('../bot/commandCatalog');
-    const item = (cat.CATALOG || []).find(x => x.name === c);
-    if (item?.ownerOnly) {
-      // alguns ownerOnly são inofensivos e úteis por voz
-      const permitidos = new Set(['stats', 'donos', 'grupos', 'menudono', 'maiscmds']);
-      if (!permitidos.has(c)) return true;
-    }
-  } catch {}
-
+  // v6.80: a "rede de segurança" que bloqueava TODO o ownerOnly do
+  // catálogo foi removida. Era ela que fazia a AURA recusar ao Dark
+  // coisas perfeitamente reversíveis só porque estavam marcadas como
+  // comando de dono. Quem manda agora é a lista BLOQUEADOS acima,
+  // que é curta e explícita. O cargo continua a ser verificado em
+  // podeExecutar() — um Free não passa a fazer comandos de dono.
   return false;
 }
 
@@ -108,6 +114,50 @@ const MAPA = [
   [/\b(traduz|traduzir)\b/i, 'traduzir', 'depois'],
   [/\b(clima|tempo|previs[ãa]o)\b.*\b(em|de|no|na)\b/i, 'clima', 'depois'],
   [/\b(letra|l[íi]rica|lyrics)\b.*\b(de|da|do)\b/i, 'letra', 'depois'],
+
+  // ── v6.80: MODERAÇÃO E GRUPO ────────────────────────────────
+  // Faltava tudo isto. O Dark dizia "aura fecha o grupo" e ela
+  // respondia com conversa, porque a frase nem chegava a ser
+  // reconhecida como ordem. O cargo é validado em podeExecutar().
+  [/\b(bane|banir|ban|expulsa|expulsar|remove|remover|tira|kick|chuta)\b/i, 'ban', 'nenhum'],
+  [/\b(promove|promover|p[õo]e como admin|torna admin|d[aá] admin)\b/i, 'promote', 'nenhum'],
+  [/\b(despromove|despromover|tira (o |de )?admin|remove (o )?admin)\b/i, 'demote', 'nenhum'],
+  [/\b(fecha|fechar|tranca|trancar|silencia)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'fechar', 'nenhum'],
+  [/\b(abre|abrir|destranca|destrancar|liberta)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'abrir', 'nenhum'],
+  [/\b(marca|marcar|chama|menciona|mencionar)\b[^.?!]{0,15}\b(todos|toda a gente|geral|pessoal)\b/i, 'tagall', 'nenhum'],
+  [/\b(tagall|todos|marcatodos)\b/i, 'tagall', 'nenhum'],
+  [/\b(link|convite)\b[^.?!]{0,15}\b(do grupo|grupo|daqui|deste grupo)\b/i, 'link', 'nenhum'],
+  [/\b(manda|mostra|d[aá]|envia|qual)\b[^.?!]{0,15}\b(o link|link)\b/i, 'link', 'nenhum'],
+  [/\b(avisa|avisar|adverte|warn)\b/i, 'warn', 'nenhum'],
+  [/\b(muta|mutar|cala|calar|silencia)\b/i, 'mute', 'nenhum'],
+  [/\b(desmuta|desmutar|descala|unmute)\b/i, 'unmute', 'nenhum'],
+
+  // protecções do grupo — ligar/desligar por conversa
+  [/\b(liga|ligar|ativa|activa|ativar|activar|p[õo]e)\b[^.?!]{0,20}\b(antilink|anti-link|anti link)\b/i, 'antilink', 'nenhum'],
+  [/\b(desliga|desligar|desativa|desactiva|tira|remove)\b[^.?!]{0,20}\b(antilink|anti-link|anti link)\b/i, 'antilink', 'nenhum'],
+  [/\b(liga|ligar|ativa|activa|ativar|activar|p[õo]e)\b[^.?!]{0,20}\b(antispam|anti-spam|anti spam)\b/i, 'antispam', 'nenhum'],
+  [/\b(liga|ligar|ativa|activa|ativar|activar|p[õo]e)\b[^.?!]{0,20}\b(bem.?vindo|boas.?vindas|welcome)\b/i, 'welcome', 'nenhum'],
+
+  // ── v6.80: GESTÃO DO GRUPO ──────────────────────────────────
+  // Nomes verificados contra os cases reais (registerCase) — não
+  // inventados. `criargrupo` não existe no bot, por isso não está
+  // aqui: mapear para um comando inexistente só produzia um erro.
+  [/\b(muda|mudar|troca|trocar|altera|p[õo]e|renomeia)\b[^.?!]{0,20}\b(nome do grupo|nome daqui|nome deste grupo)\b/i, 'setnomegrupo', 'depois'],
+  [/\b(muda|mudar|troca|trocar|altera|p[õo]e)\b[^.?!]{0,20}\b(descri[çc][ãa]o|desc)\b/i, 'setdesc', 'depois'],
+  [/\b(revoga|revogar|reseta|resetar|novo)\b[^.?!]{0,15}\b(link|convite)\b/i, 'revoke', 'nenhum'],
+  [/\b(apaga|apagar|elimina|deleta)\b[^.?!]{0,15}\b(essa|esta|a)?\s*(mensagem|msg)\b/i, 'del', 'nenhum'],
+  [/\b(adiciona|adicionar|p[õo]e)\b[^.?!]{0,15}\b(no grupo|ao grupo|aqui)\b/i, 'add', 'depois'],
+
+  // ── v6.80: MÉDIA E IA ───────────────────────────────────────
+  [/\b(cria|criar|desenha|desenhar|gera|gerar|imagina)\b[^.?!]{0,20}\b(uma |um )?(imagem|foto|desenho|arte)\b/i, 'imagem', 'depois'],
+  [/\b(pesquisa|procura|busca|search)\b[^.?!]{0,15}\b(na net|na internet|no google|sobre)\b/i, 'pesquisar', 'depois'],
+  [/\b(resume|resumir|resumo)\b/i, 'resumir', 'depois'],
+
+  // ── v6.80: ADULTO — reversível; o Dark é adulto e sabe o que pede ──
+  // `adultmode` precisa de on/off, por isso o argumento é forçado
+  // conforme o verbo da frase (ver detectarComando).
+  [/\b(liga|ligar|ativa|activa|ativar|activar|p[õo]e|abre)\b[^.?!]{0,20}\b(modo adulto|conte[úu]do adulto|portal 18|18\+|nsfw)\b/i, 'adultmode', 'on'],
+  [/\b(desliga|desligar|desativa|desactiva|tira|fecha)\b[^.?!]{0,20}\b(modo adulto|conte[úu]do adulto|portal 18|18\+|nsfw)\b/i, 'adultmode', 'off'],
 ];
 
 /** Tira o que vem depois do verbo — o argumento do comando. */
@@ -122,6 +172,8 @@ function extrairDepois(texto, regex) {
   // 'esse vídeo do youtube' → sem argumento útil → não executa).
   resto = resto
     .replace(/^(a|o|um|uma|de|do|da|para|pra|me|essa|esse|isso|isto|aí|ai|por favor|pf|pfv)\s+/gi, '')
+    // v6.80: "cria um grupo chamado Teste" → "Teste"
+    .replace(/^(chamad[oa]|com o nome|de nome|com nome|nome)\s+/gi, '')
     .replace(/^(m[úu]sica|som|audio|áudio|v[íi]deo|filme|canção|cancao|track|faixa)\s+/gi, '')
     .replace(/\s*(no|do|da|no youtube|do youtube|da net|na net)\s*$/gi, '')
     .replace(/^(no |do |da )?youtube\s*$/gi, '')
@@ -155,7 +207,12 @@ function detectarComando(texto) {
     if (!re.test(semNome)) continue;
     if (estaBloqueado(cmd)) return null;
 
-    const args = modo === 'depois' ? extrairDepois(semNome, re) : '';
+    // v6.80: 'on'/'off' são argumentos fixos — comandos que ligam ou
+    // desligam algo (adultmode) precisam do valor explícito, e é o
+    // verbo da frase que o determina.
+    const args = modo === 'depois' ? extrairDepois(semNome, re)
+      : (modo === 'on' || modo === 'off') ? modo
+      : '';
 
     // comandos que precisam de argumento e não o têm → não força
     const precisaArg = ['play', 'video', 'traduzir', 'clima', 'letra'];
@@ -200,6 +257,14 @@ const SO_ADMIN = new Set([
   'ban', 'kick', 'promote', 'demote', 'mute', 'unmute',
   'fechar', 'abrir', 'warn', 'antilink', 'antispam', 'welcome',
   'todos', 'marcar', 'tagall', 'link', 'linkgrupo',
+  // v6.80
+  'setnomegrupo', 'setdesc', 'revoke', 'del', 'add', 'hidetag',
+]);
+
+// v6.80: só o Dono, por conversa. Reversíveis, mas não são para
+// qualquer admin de grupo alugado andar a disparar.
+const SO_DONO = new Set([
+  'adultmode',
 ]);
 
 /**
@@ -214,6 +279,7 @@ function podeExecutar(cmd, quem = {}) {
 
   const { isOwner = false, isVip = false, isAdmin = false } = quem;
   if (isOwner) return { pode: true };                       // dono faz tudo (menos bloqueados)
+  if (SO_DONO.has(c)) return { pode: false, precisa: 'ser o Dono' };
   if (LIVRES.has(c)) return { pode: true };
   if (SO_ADMIN.has(c)) return isAdmin || isVip
     ? { pode: true }
@@ -226,4 +292,4 @@ function podeExecutar(cmd, quem = {}) {
   return { pode: false, precisa: 'permissão' };
 }
 
-module.exports = { detectarComando, estaBloqueado, podeExecutar, porqueNaoFaco, BLOQUEADOS, MAPA, LIVRES, SO_VIP, SO_ADMIN };
+module.exports = { detectarComando, estaBloqueado, podeExecutar, porqueNaoFaco, BLOQUEADOS, MAPA, LIVRES, SO_VIP, SO_ADMIN, SO_DONO };
