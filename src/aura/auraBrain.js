@@ -140,7 +140,8 @@ const CAPACIDADES = [
   {
     id: 'modo_nao_reagir', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
     desc: 'Parar de reagir com emojis',
-    gatilhos: [/\bnao rea(ge|gir|ja)\b/, /\b(para|deixa|chega)\b.{0,14}\breagir\b/, /\bsem emoji/],
+    // v6.82: faltava "reajas"/"reages" — "nao reajas com emojis" caía no vazio.
+    gatilhos: [/\bnao rea(ge|ges|gir|ja|jas)\b/, /\b(para|deixa|chega)\b.{0,14}\breagir\b/, /\bsem emoji/],
   },
   {
     id: 'modo_reagir_tudo', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
@@ -189,7 +190,12 @@ const CAPACIDADES = [
   {
     id: 'reagir_msg', nivel: 'todos', arg: 'emoji', risco: 'seguro',
     desc: 'Reagir a esta mensagem com um emoji',
-    gatilhos: [/\breage\b.{0,20}\bcom\b/, /\bpoe\b.{0,10}\b(um|uma)?\s*(emoji|reacao)\b/],
+    // v6.82: o "(?!.*canal)" evita roubar as frases de canal, que são
+    // tratadas por canal_reagir/entrar_link mais abaixo no catálogo.
+    gatilhos: [
+      /^(?!.*\bcanal\b)(?=.*\breage\b.{0,20}\bcom\b)/,
+      /^(?!.*\bcanal\b)(?=.*\bpoe\b.{0,10}\b(um|uma)?\s*(emoji|reacao)\b)/,
+    ],
   },
 
   // ══ STATUS / STORIES ══════════════════════════════════════
@@ -206,8 +212,11 @@ const CAPACIDADES = [
     gatilhos: [/\b(vai|va)\b.{0,16}\bcanal\b.{0,24}\b(posta|publica|manda|poe)\b/, /\b(posta|publica|manda)\b.{0,16}\bno canal\b/],
   },
   {
-    id: 'canal_reagir', nivel: 'dono', arg: 'emoji', risco: 'seguro',
-    desc: 'Reagir às mensagens de um canal com um emoji',
+    // v6.82: passou a funcionar mesmo. O fork tem newsletterFetchMessages
+    // + newsletterReactMessage, por isso dá para varrer as publicações
+    // antigas do canal e reagir a cada uma. Antes devolvia "não dá".
+    id: 'canal_reagir', nivel: 'dono', arg: 'emoji', risco: 'moderado',
+    desc: 'Reagir às publicações de um canal com um emoji',
     gatilhos: [/\bcanal\b.{0,30}\brea(ge|gir|ja)\b/, /\brea(ge|gir|ja)\b.{0,30}\bcanal\b/],
   },
   {
@@ -216,6 +225,28 @@ const CAPACIDADES = [
     gatilhos: [/\b(segue|seguir|entra n)\b.{0,14}\b(canal|newsletter)\b/],
   },
 
+  // ══ ENTRAR / PARTILHAR (v6.82) ════════════════════════════
+  {
+    // Um link de convite basta — não é preciso dizer "entra".
+    // O gatilho do link vem primeiro para "entra nesse grupo <link>"
+    // não ser confundido com outra coisa.
+    id: 'entrar_link', nivel: 'dono', arg: 'depois', risco: 'seguro',
+    desc: 'Entrar num grupo ou seguir um canal por link',
+    gatilhos: [
+      /chat\.whatsapp\.com\/(?:invite\/)?[0-9A-Za-z]{20,26}/i,
+      /whatsapp\.com\/channel\/[0-9A-Za-z_-]{15,40}/i,
+      /\b(entra|entrar|junta-te|adere)\b.{0,20}\b(nesse|neste|no)\b.{0,10}\b(grupo|canal)\b/,
+    ],
+  },
+  {
+    id: 'reencaminhar', nivel: 'dono', arg: 'depois', risco: 'moderado',
+    desc: 'Reencaminhar/partilhar esta mensagem para os grupos',
+    gatilhos: [
+      /\b(reencaminha|reenvia|encaminha|partilha|compartilha|espalha|divulga)\b.{0,30}\b(grupos|meus grupos|teus grupos|todos)\b/,
+      /\b(manda|posta|publica)\b.{0,16}\b(isto|isso|esta mensagem|este post|essa mensagem)\b.{0,20}\b(nos|em todos os|nos teus|nos meus)\b.{0,10}\bgrupos\b/,
+      /\b(reencaminha|partilha|compartilha)\b.{0,16}\b(esta|essa|este|esse)\b.{0,12}\b(mensagem|post|publicacao|publicação)\b/,
+    ],
+  },
   // ══ GRUPO — gestão ════════════════════════════════════════
   {
     id: 'sair_grupo', nivel: 'dono', arg: 'nenhum', risco: 'destrutivo',
