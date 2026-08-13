@@ -62,7 +62,11 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
       return res;
     });
     if (r) {
-      try { callHandler.marcarActiva?.(alvoJid, { callId: r.callId, origem: 'realCall' }); } catch {}
+      // Abre a janela de conversa da Aura para esta chamada de SAÍDA.
+      // (marcarActiva espera o objecto da chamada com 'id', não 'callId'.)
+      try {
+        callHandler.marcarActiva?.(alvoJid, { id: r.callId, isVideo }, true);
+      } catch {}
       return { ok: true, tocou: true, metodo: 'realCall', callId: r.callId, tipo, tentativas };
     }
   }

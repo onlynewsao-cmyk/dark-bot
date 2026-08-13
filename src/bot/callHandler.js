@@ -518,6 +518,7 @@ module.exports = {
   getMode,
   setMode,
   chamadaActiva,
+  marcarActiva,
   continuarConversa,
   ehDespedida,
   falar,
