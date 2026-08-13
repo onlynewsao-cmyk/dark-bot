@@ -492,6 +492,17 @@ async function getMenuImage(target = 'menu') {
 }
 
 async function getStickerWatermarkConfig(config, ctx) {
+  try {
+    const local = await require('./stickerWm').getForJid(ctx?.remoteJid);
+    if (local?.enabled) {
+      return {
+        packName: local.packName,
+        authorName: local.authorName,
+        watermarkText: local.packName,
+        visibleWatermark: false,
+      };
+    }
+  } catch {}
   const enabled = await botConfigCache.get('sticker_watermark_enabled', true).catch(() => true);
   const packName = await botConfigCache.get('sticker_pack_name', '').catch(() => '');
   const authorName = await botConfigCache.get('sticker_author_name', '').catch(() => '');
@@ -2853,6 +2864,9 @@ module.exports = {
         userName: ctx.pushName,
         groupName: ctx.groupName || 'PV',
         isVideo: false,
+        packName: pack.slice(0, 80),
+        authorName: (author || ctx.pushName).slice(0, 80),
+        skipGroupWm: true,
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk });
       await react(sock, msg, '✅');

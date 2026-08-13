@@ -93,6 +93,14 @@ function put(key, value) {
   if (_current) _current.set(key, { value });
 }
 
+/** Lê um valor já guardado neste âmbito (sem loader). */
+function get(key) {
+  if (!_current) return undefined;
+  const hit = _current.get(key);
+  if (hit && 'value' in hit) return hit.value;
+  return undefined;
+}
+
 function stats() {
   return { ..._stats, active: _current ? _current.size : 0 };
 }
@@ -110,4 +118,4 @@ const K = {
   aura:  (jid) => `aura:${jid}`,
 };
 
-module.exports = { begin, end, remember, forget, put, stats, resetStats, K };
+module.exports = { begin, end, remember, forget, put, get, stats, resetStats, K };

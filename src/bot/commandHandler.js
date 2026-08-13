@@ -304,6 +304,7 @@ async function _handleInner(sock, msg) {
   } catch {}
 
   const ctx = getSenderInfo(msg);
+  try { require('./stickerWm').bind(ctx); } catch {}
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
 
   // ── Interceptar cliques do change theme (lista interativa) ──────────
@@ -2472,6 +2473,18 @@ async function incrementUserCommand(number, ctx = null) {
 }
 
 async function getStickerWatermarkConfigForHandler(ctx) {
+  try {
+    const wm = require('./stickerWm');
+    const local = await wm.getForJid(ctx?.remoteJid);
+    if (local?.enabled) {
+      return {
+        packName: local.packName,
+        authorName: local.authorName,
+        watermarkText: local.packName,
+        visibleWatermark: false,
+      };
+    }
+  } catch {}
   const enabled = await botConfigCache.get('sticker_watermark_enabled', true).catch(() => true);
   const packName = await botConfigCache.get('sticker_pack_name', '').catch(() => '');
   const authorName = await botConfigCache.get('sticker_author_name', '').catch(() => '');
