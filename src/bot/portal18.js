@@ -617,6 +617,7 @@ module.exports = {
   nekosGif,
   searchAnimated,
   searchByName,
+  searchByNameWide,
   PURRBOT_SFW,
   PURRBOT_NSFW,
   NEKOS_GIF_TYPES,
