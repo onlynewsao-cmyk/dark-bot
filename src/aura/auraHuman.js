@@ -92,16 +92,73 @@ function detectCountry(number) {
 }
 
 // ── SISTEMA DE HUMOR ────────────────────────────────────
-function getMood() {
-  return { ..._mood };
+// v6.80: o humor era UMA variável global para o bot inteiro. Um
+// estranho que ofendesse o Dark num grupo qualquer deixava a AURA
+// "com_raiva" com TODA a gente — incluindo com o próprio Dark, no
+// privado — e para sempre, porque nada devolvia o humor a normal
+// (`since` era gravado e nunca lido).
+//
+// Uma pessoa não fica com raiva do mundo porque alguém a chateou.
+// Fica com raiva DAQUELA pessoa, DALI a pouco passa-lhe.
+// Agora o humor é por conversa e desvanece sozinho.
+const _moods = new Map();          // jid → { mood, intensity, reason, since }
+const MOOD_TTL = 15 * 60 * 1000;   // ao fim de 15 min volta ao normal
+const MOOD_NEUTRO = { mood: 'normal', intensity: 5, reason: '' };
+
+function _moodKey(jid) {
+  return String(jid || 'global');
 }
 
-function setMood(mood, reason = '') {
+/**
+ * Humor NESTA conversa. Sem jid devolve o humor global (retrocompat).
+ * @param {string} [jid] - chat a consultar
+ */
+function getMood(jid) {
+  const k = _moodKey(jid);
+  const m = _moods.get(k);
+  if (!m) return { ..._mood };
+  // desvaneceu → esquece e volta ao normal
+  if (Date.now() - m.ts > MOOD_TTL) {
+    _moods.delete(k);
+    return { ...MOOD_NEUTRO };
+  }
+  return { mood: m.mood, intensity: m.intensity, reason: m.reason, since: m.since };
+}
+
+/**
+ * Define o humor. Com jid afecta SÓ essa conversa; sem jid é global
+ * (usado por comandos do Dono do género "fica feliz").
+ */
+function setMood(mood, reason = '', jid = null) {
   const validMoods = ['normal', 'feliz', 'triste', 'com_raiva', 'animada', 'sonolenta', 'provocante', 'cansada'];
-  _mood.mood = validMoods.includes(mood) ? mood : 'normal';
-  _mood.intensity = mood === 'com_raiva' ? 8 : mood === 'feliz' ? 7 : 5;
+  const m = validMoods.includes(mood) ? mood : 'normal';
+  const intensity = m === 'com_raiva' ? 8 : m === 'feliz' ? 7 : 5;
+  const since = new Date();
+
+  if (jid) {
+    if (m === 'normal') _moods.delete(_moodKey(jid));
+    else _moods.set(_moodKey(jid), { mood: m, intensity, reason, since, ts: Date.now() });
+    return;
+  }
+
+  _mood.mood = m;
+  _mood.intensity = intensity;
   _mood.reason = reason;
-  _mood.since = new Date();
+  _mood.since = since;
+}
+
+/** Faz passar o mau humor — de um chat, ou de todos. */
+function clearMood(jid = null) {
+  if (jid) _moods.delete(_moodKey(jid));
+  else { _moods.clear(); _mood = { ...MOOD_NEUTRO }; }
+}
+
+/** Poda humores expirados (evita o Map crescer sem fim). */
+function limparMoods() {
+  const agora = Date.now();
+  for (const [k, m] of _moods) {
+    if (agora - m.ts > MOOD_TTL) _moods.delete(k);
+  }
 }
 
 // ── DETECÇÃO DE ATAQUES AO DARK ────────────────────────
@@ -433,13 +490,15 @@ async function auraRespond(text, ctx = {}) {
     isImage = false,
     isVideo = false,
     pessoasNoGrupo = 0,   // v6.58
+    remoteJid = '',       // v6.80: humor é por conversa
   } = ctx;
 
   // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
   // continua a lembrar-se das pessoas depois de o Render reiniciar.
   const personMem = await loadPerson(senderNumber).catch(() => recallPerson(senderNumber));
   const userCountry = detectCountry(senderNumber);
-  const mood = getMood().mood;
+  // v6.80: o humor DESTE chat — não o do bot inteiro.
+  const mood = getMood(remoteJid).mood;
   const userRole = isOwner ? 'owner' : isVip ? 'premium' : 'free';
 
   // Salvar na memória
@@ -837,6 +896,8 @@ module.exports = {
   detectCountry,
   getMood,
   setMood,
+  clearMood,
+  limparMoods,
   detectDarkAttack,
   detectDarkMention,
   getDarkDefense,

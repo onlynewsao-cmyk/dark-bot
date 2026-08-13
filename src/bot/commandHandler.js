@@ -892,7 +892,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // Se alguém fala mal do Dark e NÃO é o próprio Dark → Aura defende IMEDIATAMENTE
   if (darkAttacked && !isOwner && !startsWithAnyPrefix(text, prefixes)) {
     const defense = aura.getDarkDefense(ctx.pushName || 'tu');
-    aura.setMood('com_raiva', `${ctx.pushName} falou mal do Dark`);
+    // v6.80: a raiva fica NESTE chat e passa-lhe ao fim de 15 min.
+    // Antes ficava com raiva do mundo inteiro, para sempre.
+    aura.setMood('com_raiva', `${ctx.pushName} falou mal do Dark`, ctx.remoteJid);
     await sock.sendMessage(ctx.remoteJid, { text: defense }, { quoted: msg });
     return true;
   }
@@ -1462,7 +1464,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           userRole: isOwner ? 'owner' : isVip ? 'premium' : 'free',
           groupContext, conversationHistory: '', personMemory: personMem,
           isPrivateChat: !ctx.isGroup, isReplyToAura: isReplyToBot,
-          darkAttacked, darkMentioned, mood: auraModule.getMood().mood,
+          // v6.80: humor DESTE chat — antes era global e um estranho
+          // contaminava o tom dela com toda a gente.
+          darkAttacked, darkMentioned, mood: auraModule.getMood(ctx.remoteJid).mood,
           userCountry, mediaContext, isAudio, isImage, isVideo,
           // v6.58: ela precisa de saber ONDE está para se adaptar
           pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,

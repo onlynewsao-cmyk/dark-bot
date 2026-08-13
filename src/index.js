@@ -403,6 +403,12 @@ async function bootstrap() {
     botConfigCache.refresh().catch(() => {});
     // Refresh automático a cada 5 minutos
     setInterval(() => botConfigCache.refresh().catch(() => {}), 5 * 60 * 1000);
+
+    // v6.80 — varre humores da Aura já expirados. Só toca num Map em
+    // memória, fora do caminho das mensagens: custo nulo na resposta.
+    setInterval(() => {
+      try { require('./aura/auraHuman').limparMoods(); } catch (_) {}
+    }, 10 * 60 * 1000).unref?.();
   }
 
   server.listen(config.port, () => {

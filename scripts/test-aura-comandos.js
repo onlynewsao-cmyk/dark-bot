@@ -48,17 +48,36 @@ const check = (nome, cond, extra = '') => {
     falharam.length ? falharam.map(f => f[0]).join(' | ') : `${devem.length}/${devem.length}`);
 
   // ══ 2. O QUE NUNCA PODE EXECUTAR ══════════════════════════
-  console.log('\n▸ Comandos perigosos BLOQUEADOS (o que mais importa)');
-  const perigosos = [
-    'eval', 'exec', 'shell', 'broadcast', 'bc', 'send', 'sendgroup',
-    'restart', 'shutdown', 'adddono', 'removedono', 'setpremium',
-    'blacklist', 'unblacklist', 'block', 'addcase', 'delcase',
+  // v6.80 — a política passou a ter camadas. O Dono manda por
+  // conversa; o que é IRREVERSÍVEL continua a exigir o comando
+  // escrito à mão, e ninguém sem permissão passa seja no que for.
+  console.log('\n▸ Irreversíveis bloqueados até para o Dono (exigem comando escrito)');
+  const irreversiveis = [
+    'eval', 'exec', 'shell', 'broadcast', 'bc', 'sendgroup',
+    'restart', 'shutdown', 'adddono', 'removedono', 'addcase', 'delcase',
+  ];
+  const passaram = irreversiveis.filter(c => !C.estaBloqueado(c));
+  check(`${irreversiveis.length} irreversíveis bloqueados`, passaram.length === 0,
+    passaram.length ? '⚠️ PASSARAM: ' + passaram.join(', ') : 'todos bloqueados');
+
+  console.log('\n▸ Comandos sensíveis negados a quem não tem permissão');
+  const sensiveis = [
+    'send', 'setpremium', 'blacklist', 'unblacklist', 'block',
     'setprefix', 'backup', 'panel', 'bomb', 'fakeban', 'espiao',
     'adultmode', 'hentai', 'ximg', 'xvideo', 'fig18',
+    'change', 'menustyle', 'buttonmode', 'themeglobal', 'stickerwm',
   ];
-  const passaram = perigosos.filter(c => !C.estaBloqueado(c));
-  check(`${perigosos.length} comandos perigosos bloqueados`, passaram.length === 0,
-    passaram.length ? '⚠️ PASSARAM: ' + passaram.join(', ') : 'todos bloqueados');
+  const estranho = { isOwner: false, isVip: false, isAdmin: false };
+  const vazaram = sensiveis.filter(c => C.podeExecutar(c, estranho).pode);
+  check(`${sensiveis.length} sensíveis negados a estranhos`, vazaram.length === 0,
+    vazaram.length ? '⚠️ VAZARAM: ' + vazaram.join(', ') : 'todos negados');
+
+  console.log('\n▸ Sensíveis também negados a admin de grupo');
+  const adminGrupo = { isOwner: false, isVip: false, isAdmin: true };
+  const vazAdmin = ['adultmode', 'setpremium', 'blacklist', 'backup', 'panel']
+    .filter(c => C.podeExecutar(c, adminGrupo).pode);
+  check('Admin de grupo não toca no que é do Dono', vazAdmin.length === 0,
+    vazAdmin.length ? '⚠️ VAZARAM: ' + vazAdmin.join(', ') : 'todos negados');
 
   // ══ 3. Frases que mencionam comandos perigosos ════════════
   console.log('\n▸ Frases perigosas não viram comando');
@@ -84,18 +103,20 @@ const check = (nome, cond, extra = '') => {
 
   // ══ 5. Rede de segurança do catálogo ══════════════════════
   console.log('\n▸ Rede de segurança automática');
-  // qualquer ownerOnly do catálogo que não esteja na lista manual
+  // v6.80 — todo o ownerOnly do catálogo tem de ser negado a um
+  // estranho, quer por bloqueio total quer por falta de permissão.
   let cobertos = 0, expostos = [];
   try {
     const cat = require(path.join(__dirname, '..', 'src', 'bot', 'commandCatalog'));
     const ownerOnly = (cat.CATALOG || []).filter(x => x.ownerOnly).map(x => x.name);
     const permitidos = new Set(['stats', 'donos', 'grupos', 'menudono', 'maiscmds']);
+    const zé = { isOwner: false, isVip: false, isAdmin: false };
     for (const c of ownerOnly) {
       if (permitidos.has(c)) continue;
-      C.estaBloqueado(c) ? cobertos++ : expostos.push(c);
+      (C.estaBloqueado(c) || !C.podeExecutar(c, zé).pode) ? cobertos++ : expostos.push(c);
     }
   } catch {}
-  check('ownerOnly do catálogo cobertos', expostos.length === 0,
+  check('ownerOnly do catálogo negado a estranhos', expostos.length === 0,
     expostos.length ? '⚠️ ' + expostos.join(', ') : `${cobertos} cobertos`);
 
   // ══ 6. Só o Dono (verificado no handler) ══════════════════
