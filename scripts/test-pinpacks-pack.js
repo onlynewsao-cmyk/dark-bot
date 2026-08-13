@@ -19,10 +19,11 @@ ok('stampPack existe', /async function stampPack\(/.test(src) && /module\.export
 ok('createFull fallback leva packId', /packStickerOpts\(pack, author, packId/.test(src));
 
 const native = require('fs').readFileSync(path.join(__dirname, '../src/bot/nativeCommands.js'), 'utf8');
-ok('pinpacks carimba WM depois do pack', native.includes('definestickwm no pack') && native.includes('stampPack'));
-ok('pinpacks manda pack nativo com description', native.includes('description: packDescription'));
-ok('sendNative tenta cover+stickers', native.includes('cover: list[0]') && native.includes('payloadStickers'));
-ok('fallback em paralelo, não um a um com delay', native.includes('Promise.all(stickers.map'));
+ok('pinpacks usa finishSearchPack', native.includes('finishSearchPack') && native.includes('stickerPack'));
+ok('stickerly manda pack de uma vez', require('fs').readFileSync(require('path').join(__dirname, '../src/bot/cases/stickerly.js'), 'utf8').includes('sendFinishedPack'));
+ok('packbusca usa searchQuery', native.includes('searchQuery: nome'));
+ok('pack18 usa searchQuery', native.includes('searchQuery: tags'));
+ok('helper stickerPack existe', require('fs').existsSync(require('path').join(__dirname, '../src/bot/stickerPack.js')));
 
 const meta = wm.composeMeta({ link: 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D' });
 ok('WM pack name não é o nome do canal', meta.packName === 'DARK NET 🕸️');
