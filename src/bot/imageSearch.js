@@ -85,22 +85,32 @@ async function buscarImagens(termo, quantidade = 1) {
   throw new Error(`Não encontrei imagens de "${q}"` + (ultimoErro ? '' : ''));
 }
 
+function semAura(texto) {
+  return String(texto || '')
+    .replace(/^(a\s+)?aura\s*[,:]?\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ── Detectar pedido de imagem em linguagem natural ──────────
 // "manda uma foto de um cavalo" → { querImagem: true, termo: 'cavalo' }
-const PEDIDO_RE = /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|mostra|mostre|quero|arranj[ae]|procur[ae]|busc[ae]|acha|traz|traga|d[áa]-?me|me\s+d[êe]|me\s+d[áa]|d[êe]-?me)\b/i;
+// "Aura monstra o Cristiano" (typo) também conta.
+const PEDIDO_RE = /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|mostr[ae]|monstra|mosta|quero|arranj[ae]|procur[ae]|busc[ae]|acha|traz|traga|d[áa]-?me|me\s+d[êe]|me\s+d[áa]|d[êe]-?me)\b/i;
 const COISA_RE = /\b(foto|fotos|imagem|imagens|figura|figuras|retrato|pic|wallpaper|papel de parede)\b/i;
 
 // v6.54: "me de um cavalo" — sem a palavra "foto". No diálogo real o
 // utilizador escreveu isto e a AURA respondeu com uma piada em vez de
 // mandar a imagem. Se há verbo de pedir + substantivo concreto, é
 // pedido de imagem: ninguém diz "me dá um cavalo" à espera de texto.
-const PEDIR_COISA_RE = /^\s*(me\s+)?(d[êea]|manda|mande|envia|envie|traz|traga|mostra|mostre|arranja|quero)\s+(me\s+)?(um|uma|uns|umas|o|a)?\s*([a-zà-ú][\w\sà-ú-]{2,40})\s*$/i;
+const PEDIR_COISA_RE = /^\s*(me\s+)?(d[êea]|manda|mande|envia|envie|traz|traga|mostra|mostre|monstra|mosta|arranja|quero)\s+(me\s+)?(um|uma|uns|umas|o|a)?\s*([a-zà-ú0-9][\w\sà-ú-]{1,40})\s*$/i;
+
+const NAO_IMAGEM = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call|menu|comandos|membros|admins|saldo)\b/i;
 
 // pedidos explícitos de GERAR (aí sim, IA)
 const GERAR_RE = /\b(cria|criar|gera|gerar|desenha|desenhar|imagina|imaginar|inventa|faz\s+um\s+desenho|arte\s+de)\b/i;
 
 function detectarPedidoImagem(texto) {
-  const t = String(texto || '').trim();
+  const t = semAura(texto);
   if (!t || t.length > 200) return null;
 
   // v6.54: "Mande um áudio por favor" era lido como pedido de imagem
@@ -144,7 +154,38 @@ function detectarPedidoImagem(texto) {
     .trim();
 
   if (!termo || termo.length < 2) return null;
+  if (NAO_IMAGEM.test(termo)) return null;
   return { gerar: querGerar && !querBuscar, termo: termo.slice(0, 80) };
 }
 
-module.exports = { buscarImagens, detectarPedidoImagem, viaPinterest, viaWikimedia, viaOpenverse };
+/**
+ * Quando o modelo FINGE que enviou ("_envia uma foto do Messi_"),
+ * extrai a acção real para o bot executar.
+ */
+function extrairAcaoFalsa(texto) {
+  const t = String(texto || '');
+  const foto = t.match(/_?\s*(?:envia|manda|mostra|envio|mando)\s+(?:uma?\s+)?(?:foto|imagem|figura)\s+(?:d[oea]|do|da|de)\s+([^_.*\n]{2,80})\s*_?/i)
+    || t.match(/\[IMAGE:([^\]]+)\]/i);
+  if (foto) {
+    const termo = String(foto[1] || '').replace(/[._*]+$/g, '').trim();
+    if (termo.length >= 2) return { tipo: 'imagem', termo: termo.slice(0, 80) };
+  }
+  const audio = t.match(/_?\s*(?:envia|manda|grava|envio)\s+(?:um\s+)?(?:áudio|audio|voz|ptt)\b([^_\n]{0,200})/i)
+    || t.match(/\(ÁUDIO\)\s*([\s\S]{2,300})/i)
+    || t.match(/\(AUDIO\)\s*([\s\S]{2,300})/i);
+  if (audio) {
+    const fala = String(audio[1] || '').replace(/[_*]+/g, ' ').trim();
+    return { tipo: 'audio', termo: fala.slice(0, 400) };
+  }
+  return null;
+}
+
+module.exports = {
+  buscarImagens,
+  detectarPedidoImagem,
+  extrairAcaoFalsa,
+  semAura,
+  viaPinterest,
+  viaWikimedia,
+  viaOpenverse,
+};

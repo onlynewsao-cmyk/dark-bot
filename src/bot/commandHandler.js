@@ -66,10 +66,11 @@ function normalizeIncomingMsg(msg) {
 }
 
 function hasMediaPayload(message) {
-  const m = message || {};
+  const m = unwrapWhatsAppMessage(message || {});
   return !!(
     m.audioMessage || m.imageMessage || m.videoMessage || m.stickerMessage ||
-    m.documentMessage || m.documentWithCaptionMessage || m.ptvMessage
+    m.documentMessage || m.documentWithCaptionMessage || m.ptvMessage ||
+    m.albumMessage || m.stickerPackMessage
   );
 }
 
@@ -1742,6 +1743,32 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           }
         }
         finalAnswer = String(finalAnswer || '').replace(/\(ÁUDIO\)|\(AUDIO\)/gi, '').trim();
+        try {
+          const imgSearch = require('./imageSearch');
+          const falsa = imgSearch.extrairAcaoFalsa(answer || finalAnswer);
+          if (falsa?.tipo === 'imagem' && falsa.termo) {
+            const imgs = await imgSearch.buscarImagens(falsa.termo, 1).catch(() => null);
+            if (imgs?.length) {
+              await sock.sendMessage(ctx.remoteJid, {
+                image: { url: imgs[0].url },
+                caption: falsa.termo,
+              }, { quoted: msg });
+              return true;
+            }
+          }
+          if (falsa?.tipo === 'audio') {
+            const fala = (falsa.termo || finalAnswer || 'Tô aqui.').replace(/[_*]+/g, ' ').trim();
+            const voz = await require('./ai').speakWithFallback(fala.slice(0, 500));
+            if (voz && voz.length > 500) {
+              await sock.sendMessage(ctx.remoteJid, {
+                audio: voz, mimetype: 'audio/mpeg', ptt: true,
+              }, { quoted: msg });
+              return true;
+            }
+          }
+        } catch (e) {
+          console.warn('[Aura acção falsa]', e.message?.slice(0, 60));
+        }
       } catch {}
       try {
         const memA = require('../aura/auraMemory');
@@ -1818,6 +1845,25 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         } catch (e) {
           console.warn('[Aura comando]', e.message?.slice(0, 60));
         }
+      }
+
+      // Pedido de foto ANTES da IA — "Aura mostra o Messi" não pode
+      // virar "_envia uma foto do Messi_".
+      try {
+        const imgSearch = require('./imageSearch');
+        const pedidoCedo = imgSearch.detectarPedidoImagem(cleanText || text);
+        if (pedidoCedo && !pedidoCedo.gerar) {
+          const imgs = await imgSearch.buscarImagens(pedidoCedo.termo, 1).catch(() => null);
+          if (imgs?.length) {
+            await sock.sendMessage(ctx.remoteJid, {
+              image: { url: imgs[0].url },
+              caption: pedidoCedo.termo,
+            }, { quoted: msg });
+            return true;
+          }
+        }
+      } catch (e) {
+        console.warn('[Aura imagem cedo]', e.message?.slice(0, 60));
       }
 
       // v6.54: PEDIDO DE IMAGEM — PROCURAR, não gerar.
