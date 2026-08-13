@@ -177,6 +177,12 @@ function extrairAcaoFalsa(texto) {
     const fala = String(audio[1] || '').replace(/[_*]+/g, ' ').trim();
     return { tipo: 'audio', termo: fala.slice(0, 400) };
   }
+  const fig = t.match(/[*_]?\s*(?:envia|manda|envio)\s+(?:um\s+)?sticker\s+(?:de|d[oea]|com)?\s*([^_*\n]{2,80})/i)
+    || t.match(/\[STICKER:([^\]]+)\]/i);
+  if (fig) {
+    const termo = String(fig[1] || '').replace(/[_*"“”]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (termo.length >= 2) return { tipo: 'sticker', termo: termo.slice(0, 80) };
+  }
   return null;
 }
 

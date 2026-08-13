@@ -124,27 +124,40 @@ function decodeHtml(s = '') {
     .trim();
 }
 
+/** PhotoAppWorld.com / Sticker.ly: o WhatsApp só mostra «Ver pacote» se o publisher for um site. */
+function urlToPublisherSite(url = '') {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  return raw.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '').slice(0, 120);
+}
+
 function composeMeta({
   brand = DEFAULT_BRAND,
   slogan = DEFAULT_SLOGAN,
   link = '',
   cta = DEFAULT_CTA,
+  channelName = '',
 } = {}) {
   const brandClean = String(brand || DEFAULT_BRAND).trim().slice(0, 80) || DEFAULT_BRAND;
   const sloganClean = String(slogan || DEFAULT_SLOGAN).trim().slice(0, 80) || DEFAULT_SLOGAN;
   const url = String(link || '').trim().slice(0, 200);
   const ctaClean = String(cta || DEFAULT_CTA).trim().slice(0, 80) || DEFAULT_CTA;
+  const nameClean = String(channelName || '').trim().slice(0, 80);
+  const site = urlToPublisherSite(url);
+  const title = nameClean || brandClean;
   const authorLines = [sloganClean, url, ctaClean].filter(Boolean);
   return {
-    packName: brandClean,
-    authorName: authorLines.join('\n'),
+    packName: title,
+    authorName: site || brandClean,
     brand: brandClean,
     slogan: sloganClean,
     channelUrl: url,
     packUrl: url,
     packId: stablePackId(url || brandClean),
     cta: ctaClean,
-    description: [brandClean, ...authorLines].join('\n'),
+    channelName: nameClean,
+    publisherSite: site,
+    description: [title, ...authorLines].join('\n'),
   };
 }
 
@@ -158,33 +171,30 @@ function cleanSearchName(name = '') {
  */
 function composeSearchPack(searchName, saved) {
   const query = cleanSearchName(searchName) || 'DARK PACK';
+  const url = (saved && (saved.channelUrl || saved.packUrl)) || DEFAULT_PACK_URL;
+  const site = urlToPublisherSite(url);
+  const title = (saved && (saved.channelName || saved.packName)) || DEFAULT_BRAND;
   if (!saved?.enabled) {
     return {
       packName: query,
-      authorName: DEFAULT_BRAND,
-      publisher: DEFAULT_BRAND,
+      authorName: site || DEFAULT_BRAND,
+      publisher: site || DEFAULT_BRAND,
       description: query,
       searchName: query,
       packUrl: DEFAULT_PACK_URL,
       packId: stablePackId(query),
     };
   }
-  const wmBlock = String(saved.description || '').trim();
-  const lines = [query];
-  for (const line of wmBlock.split('\n')) {
-    const t = String(line || '').trim();
-    if (t && t.toLowerCase() !== query.toLowerCase()) lines.push(t);
-  }
-  const description = lines.join('\n');
   return {
-    packName: query,
-    authorName: description,
-    publisher: saved.brand || DEFAULT_BRAND,
-    description,
+    packName: title,
+    authorName: site || saved.brand || DEFAULT_BRAND,
+    publisher: site || saved.brand || DEFAULT_BRAND,
+    description: [title, query, url].filter(Boolean).join('\n'),
     searchName: query,
     brand: saved.brand || DEFAULT_BRAND,
-    packUrl: saved.channelUrl || saved.packUrl || DEFAULT_PACK_URL,
-    packId: saved.packId || stablePackId(query),
+    packUrl: url,
+    packId: saved.packId || stablePackId(url),
+    channelName: saved.channelName || '',
   };
 }
 
@@ -313,6 +323,7 @@ function fromDoc(gs) {
     slogan: gs.stickerWmSlogan || DEFAULT_SLOGAN,
     link: url,
     cta: gs.stickerWmCta || DEFAULT_CTA,
+    channelName: gs.stickerChannelName || '',
   });
   return {
     enabled: true,
@@ -330,7 +341,8 @@ async function getGlobalDefault() {
     const brand = String(await botConfigCache.get('sticker_pack_brand', DEFAULT_BRAND) || DEFAULT_BRAND).trim();
     const slogan = String(await botConfigCache.get('sticker_wm_slogan', DEFAULT_SLOGAN) || DEFAULT_SLOGAN).trim();
     const cta = String(await botConfigCache.get('sticker_wm_cta', DEFAULT_CTA) || DEFAULT_CTA).trim();
-    return composeMeta({ brand, slogan, link: url || DEFAULT_PACK_URL, cta });
+    const channelName = String(await botConfigCache.get('sticker_pack_channel_name', '') || '').trim();
+    return composeMeta({ brand, slogan, link: url || DEFAULT_PACK_URL, cta, channelName });
   } catch {
     return composeMeta({ link: DEFAULT_PACK_URL });
   }
@@ -342,6 +354,7 @@ async function saveGlobalDefault(data = {}) {
     slogan: data.slogan,
     link: data.channelUrl || data.link || data.packUrl,
     cta: data.cta,
+    channelName: data.channelName,
   });
   const BotConfig = require('../database/models/BotConfig');
   await BotConfig.set('sticker_pack_url', composed.channelUrl);
@@ -349,6 +362,7 @@ async function saveGlobalDefault(data = {}) {
   await BotConfig.set('sticker_wm_slogan', composed.slogan);
   await BotConfig.set('sticker_wm_cta', composed.cta);
   await BotConfig.set('sticker_pack_id', composed.packId);
+  await BotConfig.set('sticker_pack_channel_name', composed.channelName || '');
   try { require('./botConfigCache').clear(); } catch {}
   return composed;
 }
@@ -387,6 +401,8 @@ async function apply(opts = {}) {
     const pack = await resolvePack(jid).catch(() => composeMeta({ link: DEFAULT_PACK_URL }));
     return {
       ...opts,
+      packName: opts.packName || pack.packName,
+      authorName: opts.authorName || pack.authorName,
       packId: opts.packId || pack.packId,
       packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
     };
@@ -409,6 +425,8 @@ async function apply(opts = {}) {
   if (!saved?.enabled) {
     return {
       ...opts,
+      packName: opts.packName || pack.packName,
+      authorName: opts.authorName || pack.authorName,
       packId: opts.packId || pack.packId,
       packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
     };
@@ -499,6 +517,8 @@ function statusText(saved, prefix = '.') {
   return (
     `📦 *PACOTE DE FIGURINHAS* — activo\n\n` +
     `«Ver pacote»: pack guardado OU o link\n` +
+    `Título (nome do canal): *${saved.packName || saved.channelName || '—'}*\n` +
+    `Publisher (liberta Ver pacote): ${saved.authorName || '—'}\n` +
     `Link: ${saved.channelUrl || saved.packUrl || '—'}\n\n` +
     `Descrição:\n\`\`\`\n${saved.description}\n\`\`\`\n\n` +
     `*${prefix}defpack off* — desactivar`
@@ -525,6 +545,7 @@ module.exports = {
   extractChannelNameFromHtml,
   composeMeta,
   composeSearchPack,
+  urlToPublisherSite,
   cleanSearchName,
   resolveChannel,
   resolveGroup,

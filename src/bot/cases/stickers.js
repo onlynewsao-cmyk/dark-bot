@@ -199,10 +199,13 @@ module.exports = function registerStickerCases(registerCase) {
         slogan: wm.DEFAULT_SLOGAN,
         link: detected.url,
         cta: wm.DEFAULT_CTA,
+        channelName: detected.name || '',
       });
       return reply(
-        `✅ *Default global* do «Ver pacote»:\n${saved.channelUrl}\n\n` +
-        `Todas as figurinhas e packs usam este link se o chat não tiver o seu.`
+        `✅ *Default global* do «Ver pacote»:\n` +
+        `Nome: *${saved.packName}*\n` +
+        `Link: ${saved.channelUrl}\n` +
+        (detected.name ? '' : `\nSe o nome não veio, usa *${p}defpack nome* Nome do Canal`)
       );
     }
 
@@ -219,6 +222,23 @@ module.exports = function registerStickerCases(registerCase) {
         linkType: current?.linkType || '',
       });
       return reply(wm.statusText(saved, p));
+    }
+
+    if (['nome', 'name', 'canal', 'titulo', 'título'].includes(sub)) {
+      const val = args.slice(1).join(' ').trim();
+      if (!val) return reply(`Usa: *${p}defpack nome* Nome do Canal`);
+      const saved = await wm.saveForJid(jid, {
+        brand: current?.brand,
+        slogan: current?.slogan,
+        channelUrl: current?.channelUrl || '',
+        cta: current?.cta,
+        channelName: val,
+        linkType: current?.linkType || '',
+      });
+      return reply(
+        `✅ Nome do canal no «Ver pacote»: *${val}*\n\n` +
+        wm.statusText(saved, p)
+      );
     }
 
     if (['slogan', 'frase'].includes(sub)) {
@@ -250,7 +270,9 @@ module.exports = function registerStickerCases(registerCase) {
       react('✅');
       return reply(
         `✅ Link de *${kind}* detectado.\n` +
-        `O nome do canal *não* entra na descrição.\n\n` +
+        `Título: *${saved.packName}*\n` +
+        `Publisher: ${saved.authorName}\n` +
+        (detected.name ? '' : `Não apanhei o nome. Usa *${p}defpack nome* Nome do Canal\n\n`) +
         wm.statusText(saved, p)
       );
     }

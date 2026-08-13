@@ -31,6 +31,9 @@ ok('falsa foto Messi', falsaM && falsaM.tipo === 'imagem' && /messi/i.test(falsa
 const falsaA = img.extrairAcaoFalsa('_envia um áudio dizendo oi Dark_');
 ok('falsa áudio', falsaA && falsaA.tipo === 'audio', JSON.stringify(falsaA));
 
+const falsaS = img.extrairAcaoFalsa('*envia um sticker de uma pessoa com uma expressão de surpresa*');
+ok('falsa sticker', falsaS && falsaS.tipo === 'sticker' && /pessoa|surpresa/i.test(falsaS.termo), JSON.stringify(falsaS));
+
 if (failed) {
   console.log('\nFALHOU:', failed);
   process.exit(1);

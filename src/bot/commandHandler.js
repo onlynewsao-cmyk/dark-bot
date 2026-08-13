@@ -1808,6 +1808,23 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               return true;
             }
           }
+          if (falsa?.tipo === 'sticker' && falsa.termo) {
+            const imgs = await imgSearch.buscarImagens(falsa.termo, 1).catch(() => null);
+            if (imgs?.length) {
+              const buf = await mediaHandler.fetchBuffer(imgs[0].url).catch(() => null);
+              if (buf && buf.length > 500) {
+                const stk = await stickerMaker.create(buf, {
+                  botName: config.bot.name, ownerName: config.owner.name,
+                  userName: ctx.pushName, groupName: ctx.groupName || 'PV',
+                  isVideo: false, remoteJid: ctx.remoteJid,
+                });
+                if (stk && stk.length > 50) {
+                  await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+                  return true;
+                }
+              }
+            }
+          }
         } catch (e) {
           console.warn('[Aura acção falsa]', e.message?.slice(0, 60));
         }
@@ -2577,6 +2594,8 @@ async function getStickerWatermarkConfigForHandler(ctx) {
         authorName: local.authorName,
         watermarkText: local.packName,
         visibleWatermark: false,
+        packId: local.packId,
+        packUrl: local.channelUrl || local.packUrl,
       };
     }
   } catch {}
