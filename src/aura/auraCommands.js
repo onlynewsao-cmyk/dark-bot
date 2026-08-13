@@ -120,7 +120,7 @@ const MAPA = [
   // respondia com conversa, porque a frase nem chegava a ser
   // reconhecida como ordem. O cargo é validado em podeExecutar().
   [/\b(bane|banir|ban|expulsa|expulsar|remove|remover|tira|kick|chuta)\b/i, 'ban', 'nenhum'],
-  [/\b(promove|promover|p[õo]e como admin|torna admin|d[aá] admin)\b/i, 'promote', 'nenhum'],
+  [/\b(promove|promover|p[õo]e como admin|torna admin|d[aá] admin|adiciona.{0,20}(adm|admin)|quero ser (adm|admin)|me (faz|p[õo]e|mete|d[aá]) .{0,10}(adm|admin)|com (adm|admin))\b/i, 'promote', 'nenhum'],
   [/\b(despromove|despromover|tira (o |de )?admin|remove (o )?admin)\b/i, 'demote', 'nenhum'],
   [/\b(fecha|fechar|tranca|trancar|silencia)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'fechar', 'nenhum'],
   [/\b(abre|abrir|destranca|destrancar|liberta)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'abrir', 'nenhum'],

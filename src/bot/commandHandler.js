@@ -906,8 +906,34 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // Quando o DONO ou ADM diz "aura fecha o grupo", "aura bane @x", etc.
   // ════════════════════════════════════════════════════════════════════════
   if (ctx.isGroup && (isOwner || await isGroupAdminForHandler(sock, ctx))) {
+    ctx.isAdmin = true;
     const auraCmdText = text.toLowerCase().trim();
     const auraClean = auraCmdText.replace(/^(aura|a aura|da aura|pra aura|com a aura)\s*/i, '').trim();
+
+    // Promote/demote REAL — antes das regex estreitas. "me adiciona
+    // com ADM" / "quero ser ADM" / "agora adiciona" não pode virar conversa.
+    if (auraClean.length > 2) {
+      try {
+        const grupo = require('../aura/auraGrupo');
+        const pedidoG = grupo.detectarPedidoGrupo(auraClean, {
+          temPendente: !!grupo.verPendente(ctx.remoteJid),
+        });
+        if (pedidoG) {
+          const rG = await grupo.executarPedido(sock, {
+            ctx, msg, texto: auraClean, pedido: pedidoG,
+          });
+          if (rG?.msg) {
+            await sock.sendMessage(ctx.remoteJid, {
+              text: rG.msg,
+              ...(rG.mencionar?.length ? { mentions: rG.mencionar } : {}),
+            }, { quoted: msg });
+            return true;
+          }
+        }
+      } catch (e) {
+        console.warn('[Aura grupo]', e.message?.slice(0, 80));
+      }
+    }
     
     if (auraClean.length > 2) {
       let auraAction = null;
@@ -1018,7 +1044,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                /(puxa|chama|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
         auraAction = async () => {
           const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
-          const pvMsg = isOwner 
+          const pvMsg = isOwner
             ? `Oi meu Dark 🌹 _aparece no teu PV_ ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
             : `Oi ${ctx.pushName}! 🌹 A Aura chamou-te no PV.`;
           await sock.sendMessage(pvJid, { text: pvMsg });
@@ -1493,6 +1519,16 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       const personMem = ctx.senderNumber ? auraModule.recallPerson(ctx.senderNumber) : null;
       const userCountry = ctx.senderNumber ? auraModule.detectCountry(ctx.senderNumber) : null;
 
+      // Áudio: o texto da IA vai ser FALADO. Instruir ANTES de gerar.
+      let _instrucaoVoz = '';
+      try {
+        const vozMod = require('../aura/auraVoz');
+        if (vozMod.pediuAudio(cleanText || text)) {
+          const cita = vozMod.extrairCitado(msg, groupContext);
+          _instrucaoVoz = vozMod.instrucaoVoz({ citado: cita, groupContext });
+        }
+      } catch {}
+
       let systemPrompt;
       if (auraAwake) {
         systemPrompt = auraModule.buildAuraSystemPrompt({
@@ -1691,6 +1727,8 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             isImage,
             isVideo,
             pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,  // v6.58
+            remoteJid: ctx.remoteJid,
+            instrucaoExtra: _instrucaoVoz || '',
           });
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
@@ -1757,7 +1795,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             }
           }
           if (falsa?.tipo === 'audio') {
-            const fala = (falsa.termo || finalAnswer || 'Tô aqui.').replace(/[_*]+/g, ' ').trim();
+            const vozMod = require('../aura/auraVoz');
+            const cita = vozMod.extrairCitado(msg, groupContext);
+            const fala = vozMod.textoParaFalar(falsa.termo || finalAnswer, {
+              texto: cleanText, citado: cita, groupContext,
+            });
             const voz = await require('./ai').speakWithFallback(fala.slice(0, 500));
             if (voz && voz.length > 500) {
               await sock.sendMessage(ctx.remoteJid, {
@@ -1950,11 +1992,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         try {
           const aiVoz = require('./ai');
           // tira emojis e marcações — o TTS lê-os em voz alta
-          const paraFalar = finalAnswer
-            .replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, '')
-            .replace(/[*_~`]/g, '')
-            .replace(/\s{2,}/g, ' ')
-            .trim();
+          const vozMod = require('../aura/auraVoz');
+          const cita = vozMod.extrairCitado(msg, groupContext);
+          const paraFalar = vozMod.textoParaFalar(finalAnswer, {
+            texto: cleanText, citado: cita, groupContext,
+          });
 
           const voz = await aiVoz.speakWithFallback(paraFalar.slice(0, 500));
           if (voz && voz.length > 500) {

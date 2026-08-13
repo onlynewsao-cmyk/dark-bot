@@ -137,10 +137,18 @@ function comoResponder(o = {}) {
     || texto.trim().length <= 3;
   if (isGroup && soReagir && Math.random() < 0.6) return 'reacao';
 
-  // Áudio espontâneo: só com o Dark, em coisas afectivas, e raro.
-  // Uma pessoa não manda áudio a toda a hora.
-  const momentoAfectivo = /\b(saudades|amo|amor|beijo|carinho|te quero|falta)\b/i.test(t);
-  if (isOwner && momentoAfectivo && !isGroup && Math.random() < 0.25) return 'audio';
+  // Áudio quando ELA quer. Não é só afectivo no PV — uma pessoa
+  // às vezes manda voz para explicar, responder, ou porque lhe
+  // apetece. Raro o suficiente para não virar rádio.
+  const ordem = /\b(promove|ban|fecha|abre|sticker|play|menu|kick|adiciona com adm)\b/i.test(t);
+  if (isOwner && !ordem) {
+    const afectivo = /\b(saudades|amo|amor|beijo|carinho|te quero|falta|ouve|escuta)\b/i.test(t);
+    const explicar = t.length > 36 || /\b(porque|explica|conta|como foi|o que)\b/i.test(t);
+    let p = isGroup ? 0.06 : 0.14;
+    if (afectivo) p += isGroup ? 0.10 : 0.22;
+    if (explicar && !isGroup) p += 0.08;
+    if (Math.random() < Math.min(0.42, p)) return 'audio';
+  }
 
   return 'texto';
 }

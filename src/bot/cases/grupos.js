@@ -189,10 +189,20 @@ module.exports = function registerGroupCases(registerCase) {
   // ══════════════════════════════════════════════════════════════════
   // !promote — Promove a admin
   // ══════════════════════════════════════════════════════════════════
-  registerCase(['promote', 'admin', 'promover'], async ({ m, sock, ctx, isOwner, reply }) => {
+  registerCase(['promote', 'admin', 'promover'], async ({ m, sock, ctx, isOwner, reply, msg }) => {
     if (!await requireSenderAdmin(sock, ctx, reply)) return;
-    const mentioned = getMentions(m.msg || {});
-    if (!mentioned.length) return reply('❌ Marca o utilizador com @.');
+    let mentioned = getMentions(m.msg || msg || {});
+    if (!mentioned.length) {
+      // "me adiciona com ADM" / sem @ → o próprio remetente
+      try {
+        const grupo = require('../../aura/auraGrupo');
+        const meta = await getGroupMeta(sock, ctx);
+        mentioned = grupo.resolverAlvos(sock, meta, ctx, msg || m.msg || {}, { acao: 'promote', deSi: true });
+      } catch {
+        mentioned = ctx.senderJid ? [ctx.senderJid] : [];
+      }
+    }
+    if (!mentioned.length) return reply('❌ Marca o utilizador com @, ou diz "me põe admin".');
     const tags = mentioned.map(mentionTag).join(' ');
     await tryAdminAction(sock, ctx, async () => {
       await sock.groupParticipantsUpdate(ctx.remoteJid, mentioned, 'promote');
