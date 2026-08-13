@@ -1285,6 +1285,37 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // Antes respondia a 100% das mensagens do Dark, mesmo às que
       // não eram para ela. Uma pessoa num grupo lê muita coisa e só
       // fala quando faz sentido — era isso que a denunciava como bot.
+      // ── v6.81: MODOS DO CHAT ─────────────────────────────────
+      // Ler um Map em memória: ~0 ms. Fica antes do `deveResponder`
+      // porque uma ordem do Dark ("fica calada", "só respondes a
+      // mim") tem de valer mais do que a decisão dela.
+      if (_auraAwakeHere) {
+        try {
+          const brainM = require('../aura/auraBrain');
+          const M = brainM.modos(ctx.remoteJid);
+
+          // muda: não fala com ninguém, nem com o Dark — só sai
+          // deste modo por ordem, que é apanhada mais acima.
+          if (M.mudo && !isOwner) return false;
+
+          // só o Dark
+          if (M.soDono && !isOwner) return false;
+
+          // pessoa concreta na lista negra
+          if (!isOwner && brainM.estaIgnorado(ctx.remoteJid, ctx.senderNumber)) return false;
+
+          // reagir a tudo
+          if (M.reagirTudo && !M.semReagir) {
+            const dec = require('../aura/auraDecide');
+            sock.sendMessage(ctx.remoteJid, {
+              react: { text: dec.escolherReacao(text), key: msg.key },
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.warn('[Aura modos]', e.message?.slice(0, 50));
+        }
+      }
+
       if (_auraAwakeHere) {
         try {
           const decide = require('../aura/auraDecide');
@@ -1309,7 +1340,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           if (!d.responde) {
             // Às vezes reage com emoji em vez de ficar totalmente muda —
             // mostra que leu, sem interromper a conversa.
-            if (isOwner && Math.random() < 0.2) {
+            // v6.81: respeita a ordem "não reajas com emojis".
+            let _semReagir = false;
+            try { _semReagir = !!require('../aura/auraBrain').modos(ctx.remoteJid).semReagir; } catch {}
+            if (isOwner && !_semReagir && Math.random() < 0.2) {
               sock.sendMessage(ctx.remoteJid, {
                 react: { text: decide.escolherReacao(text), key: msg.key },
               }).catch(() => {});
@@ -1482,6 +1516,60 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       }
       
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
+      // ── v6.81: CÉREBRO DA AURA ────────────────────────
+      // Catálogo de ~130 capacidades + router IA. Corre antes
+      // do auraActions porque cobre muito mais casos; se não
+      // reconhecer nada, cai para o caminho antigo intacto.
+      try {
+        const brain = require('../aura/auraBrain');
+        let achado = brain.detectarCapacidade(cleanText);
+
+        // A IA só entra se o catálogo falhou E a frase tem
+        // mesmo cara de ordem — é isto que protege a
+        // velocidade: conversa normal nunca chega aqui.
+        if (!achado && brain.pareceOrdem(cleanText)) {
+          achado = await brain.rotearComIA(cleanText, require('./ai'));
+        }
+
+        if (achado) {
+          const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
+          if (perm.pode) {
+            const exec = require('../aura/auraExec');
+            const r = await exec.executar(achado.id, achado.arg, {
+              sock, msg, ctx, texto: cleanText, isOwner, isAdmin: ctx.isAdmin,
+            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 80)}` }));
+
+            // Acções de atitude (xingar/zoar/elogiar) e posts
+            // devolvem `gerar` — o texto sai da IA, no estilo
+            // dela, em vez de uma frase enlatada.
+            if (r?.gerar) {
+              const aiG = require('./ai');
+              const gerado = await aiG.chat(cleanText, r.instrucao, { userRole: 'owner' }, true)
+                .catch(() => null);
+              if (gerado) {
+                await sock.sendMessage(ctx.remoteJid, {
+                  text: gerado.trim(),
+                  ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
+                }, { quoted: msg });
+                return true;
+              }
+            }
+
+            if (r?.silencioso) return true;
+            if (r?.msg) {
+              await sock.sendMessage(ctx.remoteJid, {
+                text: r.msg,
+                ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
+              }, { quoted: msg });
+              return true;
+            }
+            if (r?.ok) return true;
+          }
+        }
+      } catch (e) {
+        console.warn('[Aura brain]', e.message?.slice(0, 60));
+      }
+
       // ── v6.67: ACÇÕES DO WHATSAPP — ANTES DA IA ──────────────
       // Estava DEPOIS da chamada ao modelo. Resultado real: o Dono
       // pedia "cria um grupo na comunidade DARK RPG chamado Arena",
@@ -1511,6 +1599,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         } catch (e) {
           console.warn('[Aura call]', e.message?.slice(0, 60));
         }
+
         try {
           const acts = require('../aura/auraActions');
           const ordem = acts.detectarAcao(cleanText);
@@ -1778,7 +1867,30 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
 
       // Voz que entra (PTT do Dark) ou pedido explícito → responde EM ÁUDIO.
       // Sem isto ela transcrevia e respondia em texto, ou escrevia "(ÁUDIO) ...".
-      const pediuAudio = _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv));
+      // v6.81: o modo "só áudio" do chat manda em tudo o resto.
+      let _modoSoAudio = false;
+      try { _modoSoAudio = !!require('../aura/auraBrain').modos(ctx.remoteJid).soAudio; } catch {}
+
+      const pediuAudio = _modoSoAudio || _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv));
+
+      // v6.81 (bug #2 da auditoria): o formato 'reacao' era calculado e deitado
+      // fora — ela acabava por escrever texto na mesma. Agora reage mesmo:
+      // mensagens que não pedem resposta (kkk, top, isso) levam só um emoji.
+      // Respeita o modo "não reajas" do chat e nunca engole respostas longas.
+      if (_formato === 'reacao' && !pediuAudio && finalAnswer.length < 120) {
+        let _semReagir = false;
+        try { _semReagir = !!require('../aura/auraBrain').modos(ctx.remoteJid).semReagir; } catch {}
+        if (!_semReagir) {
+          try {
+            const emoji = require('../aura/auraDecide').escolherReacao(cleanText);
+            await sock.sendMessage(ctx.remoteJid, { react: { text: emoji, key: msg.key } });
+            return true;   // reagiu — não duplica com texto
+          } catch (e) {
+            console.warn('[Aura reacao]', e.message?.slice(0, 60));
+            // se a reacção falhar, segue para o texto normal
+          }
+        }
+      }
 
       if (pediuAudio && finalAnswer.length > 0 && finalAnswer.length < 900) {
         try {

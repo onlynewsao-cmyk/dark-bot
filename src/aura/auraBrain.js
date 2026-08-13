@@ -1,0 +1,349 @@
+'use strict';
+/**
+ * AURA BRAIN — v6.81
+ * ═══════════════════════════════════════════════════════════
+ * O motor que faz a AURA capaz de MUITAS coisas em vez de
+ * poucas. Três camadas, por ordem de custo:
+ *
+ *   1. MODOS      — estado por chat (só áudio, ignorar alguém,
+ *                   só o Dono, reagir a tudo...). Custo: 0 ms.
+ *   2. CATÁLOGO   — ~130 capacidades reais, cada uma com os
+ *                   gatilhos naturais em PT. Custo: 0 ms.
+ *   3. ROUTER IA  — só quando 1 e 2 falham E a frase parece uma
+ *                   ordem. A IA escolhe a capacidade e extrai os
+ *                   argumentos. Custo: ~1 s, e SÓ nesses casos.
+ *
+ * REGRA DE OURO (o Dark exigiu velocidade): a camada 3 nunca
+ * corre em conversa normal. `pareceOrdem()` é o portão — se a
+ * frase não tiver verbo de comando, nem se toca na IA.
+ *
+ * As acções não são reescritas aqui: `megaActions.js` já tinha
+ * ~130 funções prontas que nunca ninguém chamava. Isto liga-as.
+ */
+
+const mega = require('./actions/megaActions');
+const adv = require('./actions/advancedActions');
+
+// ── Estado por chat ─────────────────────────────────────────
+// Tudo o que é "modo" vive aqui: um Map por chat, com limpeza.
+// Nada disto toca no MongoDB no caminho da mensagem — ler um
+// Map é ~0 ms e a promessa ao Dark foi não abrandar nada.
+const _modos = new Map();   // jid -> { soAudio, soDono, semReagir, reagirTudo, mudo, ignorados:Set }
+const MODOS_MAX = 500;
+
+function modos(jid) {
+  if (!jid) return {};
+  let m = _modos.get(jid);
+  if (!m) {
+    m = { soAudio: false, soDono: false, semReagir: false, reagirTudo: false, mudo: false, ignorados: new Set() };
+    if (_modos.size >= MODOS_MAX) _modos.delete(_modos.keys().next().value);
+    _modos.set(jid, m);
+  }
+  return m;
+}
+
+function setModo(jid, chave, valor) {
+  const m = modos(jid);
+  m[chave] = valor;
+  return m;
+}
+
+function ignorar(jid, numero) {
+  modos(jid).ignorados.add(String(numero).replace(/\D/g, ''));
+}
+function designorar(jid, numero) {
+  modos(jid).ignorados.delete(String(numero).replace(/\D/g, ''));
+}
+function estaIgnorado(jid, numero) {
+  const m = _modos.get(jid);
+  if (!m || !m.ignorados.size) return false;
+  return m.ignorados.has(String(numero).replace(/\D/g, ''));
+}
+function limparModos() { _modos.clear(); }
+
+// ── Normalização ────────────────────────────────────────────
+function norm(s) {
+  return String(s || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * O PORTÃO. Só passa daqui o que cheira a ordem.
+ * Sem isto, cada "bom dia" acordava a IA e metia 1 s em tudo.
+ */
+const VERBO_ORDEM = new RegExp(
+  '\\b(' +
+  'faz|fazer|cria|criar|manda|mandar|envia|enviar|poe|poem|por|coloca|mete|' +
+  'muda|mudar|troca|trocar|altera|alterar|define|definir|configura|' +
+  'liga|ligar|desliga|desligar|ativa|activa|ativar|activar|desativa|desactiva|' +
+  'abre|abrir|fecha|fechar|tranca|destranca|' +
+  'apaga|apagar|remove|remover|elimina|tira|tirar|limpa|limpar|' +
+  'bane|banir|expulsa|expulsar|kicka|chuta|' +
+  'promove|promover|rebaixa|rebaixar|' +
+  'marca|marcar|menciona|mencionar|' +
+  'reage|reagir|reaja|responde|responder|' +
+  'ignora|ignorar|bloqueia|bloquear|silencia|silenciar|cala|' +
+  'sai|sair|entra|entrar|junta|' +
+  'posta|postar|publica|publicar|partilha|' +
+  'segue|seguir|deixa de seguir|' +
+  'xinga|xingar|zoa|zoar|humilha|insulta|provoca|' +
+  'agenda|agendar|programa|marca para|' +
+  'lembra|lembrar|esquece|esquecer|guarda|memoriza|' +
+  'procura|procurar|pesquisa|pesquisar|busca|' +
+  'baixa|baixar|descarrega|download|' +
+  'traduz|traduzir|resume|resumir|' +
+  'gera|gerar|desenha|desenhar|' +
+  'fixa|fixar|arquiva|arquivar|' +
+  'vai|ve|olha|verifica|' +
+  'para de|deixa de|comeca a|passa a' +
+  ')\\b', 'i');
+
+function pareceOrdem(texto) {
+  const t = norm(texto);
+  if (!t || t.length < 3 || t.length > 300) return false;
+  return VERBO_ORDEM.test(t);
+}
+
+/**
+ * CATÁLOGO DE CAPACIDADES
+ * ───────────────────────
+ * Cada entrada: id, gatilhos (regex ou null se só via IA),
+ * o que faz, que argumento precisa e quem pode.
+ *
+ * `nivel`: 'dono' | 'admin' | 'todos'
+ * `arg`  : 'nenhum' | 'depois' | 'alvo' | 'texto' | 'emoji'
+ * `risco`: 'seguro' | 'destrutivo'  (destrutivo pede confirmação)
+ */
+const CAPACIDADES = [
+  // ══ MODOS DE COMPORTAMENTO (o que o Dark pediu) ═══════════
+  {
+    id: 'modo_so_audio', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Passar a responder só com áudio neste chat',
+    gatilhos: [/\b(so|somente|apenas|mais)\b.{0,12}\b(audio|voz)\b/, /\bresponde\b.{0,12}\b(em|com|por)\b.{0,6}\b(audio|voz)\b/, /\bmanda\b.{0,12}\bapenas audio\b/],
+  },
+  {
+    id: 'modo_so_texto', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Voltar a responder em texto',
+    gatilhos: [/\b(para|deixa|chega)\b.{0,14}\b(audio|voz)\b/, /\b(so|somente|apenas)\b.{0,10}\btexto\b/, /\bvolta\b.{0,12}\btexto\b/],
+  },
+  {
+    id: 'modo_so_dono', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Só responder ao Dark, ignorar toda a gente',
+    gatilhos: [/\bnao responde\b.{0,18}\b(ninguem|ninguem aqui|mais ninguem)\b/, /\b(so|somente|apenas)\b.{0,12}\b(a mim|comigo|ao dark|pra mim|para mim)\b/, /\bignora\b.{0,10}\b(todos|toda a gente|o resto|os outros)\b/],
+  },
+  {
+    id: 'modo_todos', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Voltar a responder a toda a gente',
+    gatilhos: [/\b(responde|fala)\b.{0,14}\b(a todos|com todos|toda a gente|normal)\b/, /\b(para|deixa)\b.{0,12}\bde ignorar\b/],
+  },
+  {
+    id: 'modo_nao_reagir', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Parar de reagir com emojis',
+    gatilhos: [/\bnao rea(ge|gir|ja)\b/, /\b(para|deixa|chega)\b.{0,14}\breagir\b/, /\bsem emoji/],
+  },
+  {
+    id: 'modo_reagir_tudo', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Reagir com emoji a todas as mensagens',
+    gatilhos: [/\brea(ge|ja|gir)\b.{0,16}\b(com emojis|nas mensagens|a tudo|em tudo|todas as|todas)\b/, /\b(poe|comeca a|passa a)\b.{0,12}\breagir\b/],
+  },
+  {
+    id: 'modo_mudo', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Ficar calada neste chat',
+    gatilhos: [/\b(fica|cala|silencio|shh)\b.{0,10}\b(calada|quieta|em silencio)\b/, /\bnao fales?\b.{0,10}\b(mais|aqui)\b/],
+  },
+  {
+    id: 'modo_falar', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Voltar a falar',
+    gatilhos: [/\b(podes|pode|volta a)\b.{0,10}\bfalar\b/, /\b(fim|acabou)\b.{0,12}\bsilencio\b/],
+  },
+  {
+    id: 'ignorar_pessoa', nivel: 'dono', arg: 'alvo', risco: 'seguro',
+    desc: 'Ignorar uma pessoa específica',
+    gatilhos: [/\b(nao responde|ignora|nao fala com)\b.{0,20}\b(ele|ela|esse|essa|este|esta)\b/],
+  },
+  {
+    id: 'designorar_pessoa', nivel: 'dono', arg: 'alvo', risco: 'seguro',
+    desc: 'Voltar a responder a essa pessoa',
+    gatilhos: [/\b(volta a|podes)\b.{0,14}\b(responder|falar)\b.{0,14}\b(ele|ela|esse|essa)\b/],
+  },
+
+  // ══ ATITUDE (xingar, zoar) ════════════════════════════════
+  {
+    id: 'xingar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
+    desc: 'Xingar/insultar alguém com força',
+    gatilhos: [/\bxinga\b/, /\binsulta\b/, /\bhumilha\b/, /\bmanda(-| )lhe?\b.{0,10}\b(uns|umas)\b/, /\bda(-| )lhe?\b.{0,12}\bporrada verbal\b/],
+  },
+  {
+    id: 'zoar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
+    desc: 'Zoar/gozar com alguém, com humor',
+    gatilhos: [/\bzoa\b/, /\bgoza\b/, /\btroca\b.{0,8}\bdele\b/, /\bmete(-| )te?\b.{0,10}\bcom ele\b/, /\bprovoca\b/],
+  },
+  {
+    id: 'elogiar', nivel: 'dono', arg: 'alvo', risco: 'seguro',
+    desc: 'Elogiar alguém',
+    gatilhos: [/\belogia\b/, /\bda um gas\b/, /\banima\b.{0,10}\b(ele|ela)\b/],
+  },
+
+  // ══ REACÇÕES ══════════════════════════════════════════════
+  {
+    id: 'reagir_msg', nivel: 'todos', arg: 'emoji', risco: 'seguro',
+    desc: 'Reagir a esta mensagem com um emoji',
+    gatilhos: [/\breage\b.{0,20}\bcom\b/, /\bpoe\b.{0,10}\b(um|uma)?\s*(emoji|reacao)\b/],
+  },
+
+  // ══ STATUS / STORIES ══════════════════════════════════════
+  {
+    id: 'postar_status', nivel: 'dono', arg: 'texto', risco: 'seguro',
+    desc: 'Publicar um status/story (texto ou a imagem enviada)',
+    gatilhos: [/\b(posta|publica|poe|coloca|bota)\b.{0,20}\b(status|estado|story|stories)\b/, /\bstatus\b.{0,16}\b(com|dessa|desta|essa foto)\b/],
+  },
+
+  // ══ CANAIS (newsletter) ═══════════════════════════════════
+  {
+    id: 'canal_postar', nivel: 'dono', arg: 'texto', risco: 'seguro',
+    desc: 'Publicar conteúdo num canal',
+    gatilhos: [/\b(vai|va)\b.{0,16}\bcanal\b.{0,24}\b(posta|publica|manda|poe)\b/, /\b(posta|publica|manda)\b.{0,16}\bno canal\b/],
+  },
+  {
+    id: 'canal_reagir', nivel: 'dono', arg: 'emoji', risco: 'seguro',
+    desc: 'Reagir às mensagens de um canal com um emoji',
+    gatilhos: [/\bcanal\b.{0,30}\brea(ge|gir|ja)\b/, /\brea(ge|gir|ja)\b.{0,30}\bcanal\b/],
+  },
+  {
+    id: 'canal_seguir', nivel: 'dono', arg: 'depois', risco: 'seguro',
+    desc: 'Seguir um canal',
+    gatilhos: [/\b(segue|seguir|entra n)\b.{0,14}\b(canal|newsletter)\b/],
+  },
+
+  // ══ GRUPO — gestão ════════════════════════════════════════
+  {
+    id: 'sair_grupo', nivel: 'dono', arg: 'nenhum', risco: 'destrutivo',
+    desc: 'Sair do grupo',
+    gatilhos: [/\b(sai|sair|abandona|deixa)\b.{0,16}\b(do grupo|deste grupo|daqui|grupo)\b/],
+  },
+  {
+    id: 'foto_grupo', nivel: 'admin', arg: 'nenhum', risco: 'seguro',
+    desc: 'Mudar a foto do grupo para a imagem enviada',
+    gatilhos: [/\b(muda|troca|poe|coloca|altera)\b.{0,20}\b(foto|imagem)\b.{0,16}\bgrupo\b/],
+  },
+  {
+    id: 'foto_perfil', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Mudar a foto de perfil do bot para a imagem enviada',
+    gatilhos: [/\b(muda|troca|poe|coloca|altera)\b.{0,20}\b(tua foto|foto de perfil|teu perfil|minha foto)\b/],
+  },
+  {
+    id: 'listar_membros', nivel: 'admin', arg: 'nenhum', risco: 'seguro',
+    desc: 'Listar os membros do grupo',
+    gatilhos: [/\b(lista|mostra|quem sao|quais)\b.{0,16}\b(membros|participantes|pessoal)\b/],
+  },
+  {
+    id: 'listar_admins', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Listar os admins do grupo',
+    gatilhos: [/\b(lista|mostra|quem sao|quais)\b.{0,16}\badmin/],
+  },
+  {
+    id: 'info_grupo', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Informação sobre o grupo',
+    gatilhos: [/\b(info|informacao|dados|stats|estatisticas)\b.{0,14}\b(do grupo|deste grupo|grupo)\b/],
+  },
+  {
+    id: 'limpar_chat', nivel: 'dono', arg: 'nenhum', risco: 'destrutivo',
+    desc: 'Limpar a conversa',
+    gatilhos: [/\b(limpa|apaga)\b.{0,14}\b(o chat|a conversa|tudo aqui)\b/],
+  },
+
+  // ══ MEMÓRIA ═══════════════════════════════════════════════
+  {
+    id: 'lembrar', nivel: 'todos', arg: 'texto', risco: 'seguro',
+    desc: 'Guardar uma informação na memória',
+    gatilhos: [/\b(lembra|memoriza|guarda|anota|nao te esquecas)\b.{0,10}\b(te )?(que|disso|isto|isso)\b/, /\b(lembra|guarda)(-| )te\b/],
+  },
+  {
+    id: 'esquecer', nivel: 'todos', arg: 'texto', risco: 'seguro',
+    desc: 'Esquecer uma informação',
+    gatilhos: [/\b(esquece|apaga)\b.{0,16}\b(isso|aquilo|isto|essa|o que|que eu)\b/, /\besquece(-| )te\b/],
+  },
+  {
+    id: 'recordar', nivel: 'todos', arg: 'texto', risco: 'seguro',
+    desc: 'Recordar o que foi guardado',
+    gatilhos: [/\b(lembras|lembra)(-| )te\b.{0,14}\b(daquilo|daquele|disso|de que|do que)\b/, /\bo que\b.{0,12}\b(guardaste|te disse|anotaste)\b/],
+  },
+
+  // ══ AGENDAMENTO (daily, orações, dicas...) ════════════════
+  {
+    id: 'agendar_conteudo', nivel: 'dono', arg: 'texto', risco: 'seguro',
+    desc: 'Agendar publicações periódicas (conselhos, orações, dicas, notícias...)',
+    gatilhos: [/\b(agenda|programa|todos os dias|diariamente|de manha|todas as)\b.{0,30}\b(posta|publica|manda|envia)\b/, /\b(posta|publica|manda)\b.{0,30}\b(todos os dias|diariamente|de hora em hora|todas as manhas)\b/],
+  },
+  {
+    id: 'parar_agendamento', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Parar as publicações agendadas',
+    gatilhos: [/\b(para|cancela|chega)\b.{0,20}\b(agendad|automatic|de postar)\b/],
+  },
+];
+
+// Índice por id, para o router da IA validar o que ela devolve.
+const POR_ID = new Map(CAPACIDADES.map(c => [c.id, c]));
+
+/**
+ * CAMADA 2 — casa a frase contra o catálogo. 0 ms.
+ */
+function detectarCapacidade(texto) {
+  const t = norm(texto);
+  if (!t) return null;
+  for (const cap of CAPACIDADES) {
+    if (!cap.gatilhos) continue;
+    for (const re of cap.gatilhos) {
+      if (re.test(t)) return { id: cap.id, cap, via: 'catalogo' };
+    }
+  }
+  return null;
+}
+
+/**
+ * CAMADA 3 — a IA escolhe a capacidade quando o catálogo falha.
+ * Só corre se `pareceOrdem()` deixou passar, por isso o custo
+ * não aparece em conversa normal.
+ */
+async function rotearComIA(texto, ai) {
+  const lista = CAPACIDADES.map(c => `${c.id}: ${c.desc}`).join('\n');
+  const sys = `És um router de comandos. Lês um pedido em português e escolhes UMA capacidade da lista.
+Responde SÓ em JSON: {"id":"<id ou null>","arg":"<argumento ou vazio>"}
+Se nenhuma servir, devolve {"id":null,"arg":""}. Nunca inventes ids.
+
+CAPACIDADES:
+${lista}`;
+  try {
+    const r = await ai.chat(texto, sys, { userRole: 'owner' }, true);
+    const m = String(r || '').match(/\{[\s\S]*?\}/);
+    if (!m) return null;
+    const j = JSON.parse(m[0]);
+    if (!j.id || !POR_ID.has(j.id)) return null;
+    return { id: j.id, cap: POR_ID.get(j.id), arg: String(j.arg || '').slice(0, 200), via: 'ia' };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Permissão. Espelha a lógica de auraCommands: o Dono passa
+ * sempre, o resto é por cargo.
+ */
+function podeFazer(cap, { isOwner, isAdmin }) {
+  if (isOwner) return { pode: true };
+  if (cap.nivel === 'dono') return { pode: false, precisa: 'ser o Dono' };
+  if (cap.nivel === 'admin' && !isAdmin) return { pode: false, precisa: 'ser admin do grupo' };
+  return { pode: true };
+}
+
+module.exports = {
+  // estado
+  modos, setModo, ignorar, designorar, estaIgnorado, limparModos,
+  // router
+  pareceOrdem, detectarCapacidade, rotearComIA, podeFazer,
+  // dados
+  CAPACIDADES, POR_ID, norm,
+  // acções já existentes, reexpostas para quem executa
+  mega, adv,
+};

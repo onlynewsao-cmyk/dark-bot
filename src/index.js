@@ -409,6 +409,13 @@ async function bootstrap() {
     setInterval(() => {
       try { require('./aura/auraHuman').limparMoods(); } catch (_) {}
     }, 10 * 60 * 1000).unref?.();
+
+    // v6.81 — agenda da AURA (conselhos, orações, dicas, daily...).
+    // Um só timer de 60 s para todas as agendas; quando não há nada
+    // vencido devolve logo, e nem toca no MongoDB fora do TTL.
+    try {
+      require('./aura/auraAgenda').arrancar(() => bot.getSock?.() || bot.sock || null);
+    } catch (e) { console.warn('[Agenda]', e.message); }
   }
 
   server.listen(config.port, () => {

@@ -201,7 +201,10 @@ const check = (nome, cond, extra = '') => {
 
   const chTxt2 = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
   check('Visão analisa pessoas/texto/local', /PESSOAS:.*quantas|LOCAL:/s.test(chTxt2));
-  check('Acções só para o Dono', /if \(isOwner\) \{[\s\S]{0,200}auraActions/.test(chTxt2));
+  // v6.81: o cérebro novo entra antes deste bloco, por isso a distância
+  // entre o `if (isOwner)` e o `auraActions` cresceu. O que importa é que
+  // o require continue DENTRO do bloco do Dono — margem alargada.
+  check('Acções só para o Dono', /if \(isOwner\) \{[\s\S]{0,4000}auraActions/.test(chTxt2));
 
   // ── 14. Ela DECIDE se responde (v6.56) ─────────────────────
   // "Tá parecendo um bot, responde SEMPRE, mesmo o que não é pra ela"
