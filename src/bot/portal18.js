@@ -338,18 +338,60 @@ async function searchAnimated(nome = '', count = 3) {
 async function searchByName(nome = '', count = 3) {
   const limpo = String(nome || '').replace(/loli|shota|child|minor/gi, '').trim();
   if (!limpo) throw new Error('Diz um nome para procurar');
-  const termo = limpo.replace(/\s+/g, '_');
+  return searchByNameWide(limpo, count);
+}
 
-  const fontes = [
-    () => yandeImages(termo, count),
-    () => konachanImages(termo, count),
-    () => e621Images(`${termo} order:random`, count),
-    () => safebooruImages(termo, count),
+/** Pesquisa ampla: todas as fontes em paralelo + animados (gif/webm). */
+async function searchByNameWide(nome = '', count = 8) {
+  const limpo = String(nome || '').replace(/loli|shota|child|minor/gi, '').trim();
+  if (!limpo) throw new Error('Diz um nome para procurar');
+  const termo = limpo.replace(/\s+/g, '_');
+  const want = Math.max(4, Math.min(24, Number(count) || 8));
+
+  const jobs = [
+    () => yandeImages(termo, want),
+    () => konachanImages(termo, want),
+    () => e621Images(`${termo} order:random`, want),
+    () => safebooruImages(termo, want),
+    () => searchAnimated(limpo, Math.max(3, Math.ceil(want / 2))),
+    async () => {
+      try {
+        const sexcom = require('./sexcom');
+        return (await sexcom.searchImages(limpo, want)) || [];
+      } catch { return []; }
+    },
+    async () => {
+      try {
+        const sexcom = require('./sexcom');
+        const r = await sexcom.searchGifs(limpo, Math.ceil(want / 2));
+        return (r || []).map(g => ({ ...g, animated: true, source: g.source || 'sex.com' }));
+      } catch { return []; }
+    },
   ];
-  for (const fn of fontes) {
-    try { const r = await fn(); if (r?.length) return r; } catch {}
+
+  const settled = await Promise.allSettled(jobs.map((fn) => fn()));
+  const seen = new Set();
+  const all = [];
+  for (const s of settled) {
+    if (s.status !== 'fulfilled' || !s.value?.length) continue;
+    for (const item of s.value) {
+      const url = item?.url;
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const anim = !!(item.animated || item.isVideo || /\.(gif|webm|mp4)$/i.test(url));
+      all.push({ ...item, animated: anim });
+    }
   }
-  throw new Error(`Não encontrei nada para: ${limpo}`);
+  if (!all.length) throw new Error(`Não encontrei nada para: ${limpo}`);
+
+  const anim = all.filter((x) => x.animated);
+  const still = all.filter((x) => !x.animated);
+  const mixed = [];
+  while (mixed.length < want && (still.length || anim.length)) {
+    if (still.length) mixed.push(still.shift());
+    if (mixed.length < want && anim.length) mixed.push(anim.shift());
+  }
+  return mixed.slice(0, want);
 }
 
 // ─────────────────────────────────────────────
