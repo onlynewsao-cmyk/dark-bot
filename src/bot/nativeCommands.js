@@ -1820,7 +1820,7 @@ module.exports = {
   },
 
   async vipcmds({ sock, msg, ctx, args, isOwner }) {
-    const defaults = ['decrypt','play3','video2','statusvideo','figubug2','pinmp4','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
+    const defaults = ['decrypt','play3','video2','statusvideo','figubug2','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
     if (isOwner && args.length) {
       const list = args.join(' ').split(/[\s,]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
       await BotConfig.set('vip_commands', list);

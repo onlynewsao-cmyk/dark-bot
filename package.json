@@ -20,7 +20,7 @@
     "test:submenus": "node scripts/test-submenus.js",
     "test:menu18": "node scripts/test-menu18.js",
     "test:auracmds": "node scripts/test-aura-comandos.js",
-    "test:casehandler": "node scripts/test-casehandler-v7.js",
+    "test:casehandler": "node scripts/test-casehandler-v7.js && node scripts/test-addcase-pin.js",
     "test:rpgcom": "node scripts/test-rpg-comunidades.js",
     "test:comunidades": "node scripts/test-comunidades-real.js",
     "test:ratelimit": "node scripts/test-comunidades-ratelimit.js",

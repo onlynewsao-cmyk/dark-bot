@@ -325,7 +325,7 @@ function adaptCaseCode(code) {
   // ═══ Adiciona axios se usado mas não importado ═══
   // Usa 'var' para permitir redeclaração caso o wrapper já o declare
   if (c.includes('axios') && !c.includes("require('axios')") && !c.includes('require("axios")') && !c.includes("require(`axios`)")) {
-    c = "var axios = require('axios');\n" + c;
+    c = "var axios = require('./caseAxios').createCaseAxios();\n" + c;
   }
 
   // ═══ Adiciona cheerio se usado mas não importado ═══
@@ -340,19 +340,27 @@ function adaptCaseCode(code) {
 // COMPILAR CÓDIGO → FUNÇÃO ASYNC
 // ─────────────────────────────────────────────────────
 function compileCase(code, cmdName) {
-  const format = detectFormat(code);
+  let src = stripCodeFences(decodeHtmlEntities(String(code || '')));
+  let format = detectFormat(src);
+  // case 'x': { ... } break  NÃO é JS válido fora de switch.
+  // Extrai o corpo antes de eval — senão rebenta mesmo com o case certo.
+  if (format === FORMAT.SWITCH_CASE) {
+    src = extractCaseCode(src);
+    format = FORMAT.RAW_CODE;
+  }
+  const codeForAdapt = src;
 
   switch (format) {
     case FORMAT.STRING: {
       // String simples → reply direto
-      const text = code.trim().replace(/^['"`]|['"`]$/g, '');
+      const text = src.trim().replace(/^['"`]|['"`]$/g, '');
       return async ({ m }) => m.reply(text);
     }
 
     case FORMAT.MODULE_EXPORTS: {
       // module.exports = { execute(sock, from, msg, args, command, config) }
       // → adapta para o wrapper do DARK BOT
-      const adapted = adaptCaseCode(code);
+      const adapted = adaptCaseCode(codeForAdapt);
       const wrapped = `
         (function() {
           ${adapted}
@@ -379,10 +387,10 @@ function compileCase(code, cmdName) {
 
     case FORMAT.SWITCH_CASE: {
       // case 'nome': { ... } break
-      const adapted = adaptCaseCode(code);
+      const adapted = adaptCaseCode(codeForAdapt);
       const wrapped = `
         (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted }) {
-          var axios = require('axios');
+          var axios = require('./caseAxios').createCaseAxios();
           var systemZR = sock;
           var conn = sock;
           var lofi = sock;
@@ -395,7 +403,7 @@ function compileCase(code, cmdName) {
 
     case FORMAT.FUNCTION: {
       // async function nome(sock, msg, text) { ... }
-      const adapted = adaptCaseCode(code);
+      const adapted = adaptCaseCode(codeForAdapt);
       const wrapped = `
         (function() {
           ${adapted}
@@ -412,10 +420,10 @@ function compileCase(code, cmdName) {
     case FORMAT.RAW_CODE:
     default: {
       // Código solto → envolve no wrapper
-      const adapted = adaptCaseCode(code);
+      const adapted = adaptCaseCode(codeForAdapt);
       const wrapped = `
         (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted }) {
-          var axios = require('axios');
+          var axios = require('./caseAxios').createCaseAxios();
           var systemZR = sock;
           var conn = sock;
           var lofi = sock;
@@ -536,7 +544,7 @@ async function loadDynamicCases() {
     const stored = await BotConfig.get('dynamic_cases_v2', {}).catch(() => ({}));
     if (!stored || typeof stored !== 'object') return;
     for (const [cmd, entry] of Object.entries(stored)) {
-      if (CASES.has(cmd)) continue;
+      // Cases do dono ganham aos nativos — é o ponto do addcase.
       const source = typeof entry === 'string' ? entry : entry.code || entry;
       const format = entry?.format || detectFormat(source);
       try {
@@ -588,6 +596,10 @@ async function delDynamicCase(command) {
   CASES.delete(command);
   CASES_SOURCE.delete(command);
   CASES_META.delete(command);
+  // Se o case tapava um nativo (ex: pin), o nativo volta.
+  try { loadCases(); } catch {}
+  _dynamicLoaded = false;
+  await loadDynamicCases();
 }
 
 async function listDynamicCases() {
@@ -661,7 +673,8 @@ async function runCase(command, rawCtx) {
   const handler = CASES.get(cmd);
   if (!handler) return false;
 
-  const { sock, msg, ctx, args, text, prefix, isOwner, config } = rawCtx;
+  const { msg, ctx, args, text, prefix, isOwner, config } = rawCtx;
+  const sock = wrapSockForCases(rawCtx.sock, msg);
   const { m, quoted } = buildM(sock, msg, ctx);
 
   // isAdmin lazy
@@ -702,22 +715,114 @@ async function runCase(command, rawCtx) {
 // ─────────────────────────────────────────────────────
 // EXTRAIR CÓDIGO DO CASE
 // ─────────────────────────────────────────────────────
+function decodeHtmlEntities(s) {
+  return String(s || '')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#x2F;/gi, '/')
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+}
+
+function stripCodeFences(s) {
+  let c = String(s || '').trim();
+  if (/^```/.test(c)) {
+    c = c.replace(/^```[a-zA-Z0-9_-]*\s*\n?/, '').replace(/\n?```\s*$/, '');
+  }
+  return c.trim();
+}
+
+/**
+ * Corpo entre { } com strings, template `${}` e comentários.
+ * O extractor antigo fazia replace no PRIMEIRO `}` isolado —
+ * comia o fecho do if e o case rebentava com Unexpected token '}'.
+ */
+function extractBalancedBlock(src) {
+  if (!src || src[0] !== '{') return null;
+  let mode = 'code';
+  const braces = [];
+  let i = 0;
+  while (i < src.length) {
+    const ch = src[i];
+    const nx = src[i + 1];
+    if (mode === 'line') { if (ch === '\n') mode = 'code'; i++; continue; }
+    if (mode === 'block') {
+      if (ch === '*' && nx === '/') { mode = 'code'; i += 2; continue; }
+      i++; continue;
+    }
+    if (mode === 's') {
+      if (ch === '\\') { i += 2; continue; }
+      if (ch === "'") mode = 'code';
+      i++; continue;
+    }
+    if (mode === 'd') {
+      if (ch === '\\') { i += 2; continue; }
+      if (ch === '"') mode = 'code';
+      i++; continue;
+    }
+    if (mode === 't') {
+      if (ch === '\\') { i += 2; continue; }
+      if (ch === '`') { mode = 'code'; i++; continue; }
+      if (ch === '$' && nx === '{') { braces.push('interp'); mode = 'code'; i += 2; continue; }
+      i++; continue;
+    }
+    if (ch === '/' && nx === '/') { mode = 'line'; i += 2; continue; }
+    if (ch === '/' && nx === '*') { mode = 'block'; i += 2; continue; }
+    if (ch === "'") { mode = 's'; i++; continue; }
+    if (ch === '"') { mode = 'd'; i++; continue; }
+    if (ch === '`') { mode = 't'; i++; continue; }
+    if (ch === '{') { braces.push('block'); i++; continue; }
+    if (ch === '}') {
+      const kind = braces.pop();
+      if (kind === 'interp') mode = 't';
+      if (braces.length === 0) return src.slice(1, i);
+      i++; continue;
+    }
+    i++;
+  }
+  return null;
+}
+
 function extractCaseCode(rawText) {
-  let code = rawText.trim();
+  let code = stripCodeFences(decodeHtmlEntities(String(rawText || '').trim()));
+  code = code.replace(/^---\s*/m, '').trim();
 
-  // Remove: case 'xxx': {   e   case "xxx": {
-  code = code.replace(/^case\s+['"`][^'"`]+['"`]\s*:\s*\{?\s*/i, '');
+  const head = code.match(/^case\s+['"`][^'"`]+['"`]\s*:/i);
+  if (head) {
+    let rest = code.slice(head[0].length).replace(/^\s*/, '');
+    if (rest.startsWith('{')) {
+      const body = extractBalancedBlock(rest);
+      if (body != null) {
+        return body.replace(/\bbreak\s*;?\s*$/i, '').trim();
+      }
+    }
+    return rest.replace(/\bbreak\s*;?\s*$/i, '').trim();
+  }
 
-  // Remove: break; e break  no fim
-  code = code.replace(/\bbreak\s*;?\s*$/i, '');
+  return code.replace(/\bbreak\s*;?\s*$/i, '').trim();
+}
 
-  // Remove: }  isolado no fim (fechamento do case)
-  code = code.replace(/^\}\s*$/m, '');
-
-  // Remove delimitador ---
-  code = code.replace(/^---\s*/m, '');
-
-  return code.trim();
+function wrapSockForCases(sock, msg) {
+  if (!sock || typeof sock.sendMessage !== 'function') return sock;
+  const orig = sock.sendMessage.bind(sock);
+  return new Proxy(sock, {
+    get(target, prop) {
+      if (prop === 'sendMessage') {
+        return (jid, content, opts = {}) => {
+          let o = opts || {};
+          if (o.quoted && o.quoted.key && !o.quoted.message && msg) {
+            o = { ...o, quoted: msg };
+          }
+          return orig(jid, content, o);
+        };
+      }
+      const val = target[prop];
+      return typeof val === 'function' ? val.bind(target) : val;
+    },
+  });
 }
 
 // ─────────────────────────────────────────────────────
@@ -752,9 +857,22 @@ function registerManagementCases() {
       code = parts.slice(-1)[0]?.trim() || code;
     }
 
-    // Se não há código na mensagem mas há citação, usa o texto citado
-    if (!code && m.quoted?.text) {
-      code = m.quoted.text.trim();
+    // Citação: texto, bloco ```, ou documento .js/.txt
+    if (!code && m.quoted) {
+      code = (m.quoted.text || '').trim();
+      if (!code && m.quoted.isDoc) {
+        try {
+          const { downloadMediaMessage } = require('@systemzero/baileys');
+          const buf = await downloadMediaMessage(m.quoted.msg, 'buffer', {});
+          if (buf && buf.length) code = buf.toString('utf8').trim();
+        } catch (e) {
+          console.warn('[addcase] quoted doc:', e.message?.slice(0, 80));
+        }
+      }
+    }
+
+    if (code) {
+      code = stripCodeFences(decodeHtmlEntities(code));
     }
 
     if (!code) return m.reply(
@@ -769,11 +887,8 @@ function registerManagementCases() {
     // rebentou o @pin com o case colado.
     const finalName = cmdName;
 
-    // Extrai o código se vier em formato switch/case clássico
-    let cleanCode = code;
-    if (detectFormat(code) === FORMAT.SWITCH_CASE) {
-      cleanCode = extractCaseCode(code);
-    }
+    // Sempre passa pelo extractor: tira case/break, entidades HTML, fences.
+    const cleanCode = extractCaseCode(code);
 
     // Mostra progresso
     await m.react('⏳');
@@ -1099,6 +1214,11 @@ module.exports = {
   CASES_SOURCE,
   CASES_META,
   extractCaseCode,
+  extractBalancedBlock,
+  decodeHtmlEntities,
+  stripCodeFences,
+  compileCase,
+  adaptCaseCode,
   FILE_SOURCES,
   COMMAND_REGISTRY,
   extractSourceFromFile,
