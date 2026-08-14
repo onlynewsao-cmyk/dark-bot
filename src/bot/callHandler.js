@@ -17,11 +17,13 @@ const ai = require('./ai');
 const MODOS = new Set(['atender', 'rejeitar', 'ignorar']);
 const KEY_MODOS = 'darkbot_call_modes_v1';
 const JANELA_MS = 5 * 60 * 1000;
+const CALLBACK_COOLDOWN_MS = 60 * 1000; // anti-spam: 1 callback por número/minuto
 
 /** jid → { id, isVideo, inicio, ultimo, turnos, isOwner, from } */
 const _activas = new Map();
 const _modosMem = new Map();
 const _seen = new Set();
+const _callbackCooldown = new Map();
 let _modosCarregados = false;
 
 function jidNum(jid) {
@@ -84,6 +86,13 @@ async function setMode(jid, modo) {
   _modosMem.set(String(jid), m);
   await _persistirModos();
   return { ok: true, modo: m };
+}
+
+/** O Dono escolheu EXPLICITAMENTE um modo para este chat? (vs. default) */
+function modoExplicito(jid) {
+  const k = String(jid || '');
+  if (_modosMem.has(k)) return true;
+  return [..._modosMem.entries()].some(([id]) => jidNum(id) === jidNum(k));
 }
 
 function chamadaActiva(jid) {
@@ -396,6 +405,91 @@ async function ligar(sock, jid, { tipo = 'voice', pushName = '' } = {}) {
   }
 }
 
+function _saudacao(ownerCall, isVideo) {
+  return ownerCall
+    ? (isVideo
+      ? 'Oi meu Dark. Não consigo entrar no vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
+      : 'Oi meu Dark. Estou aqui. Manda um áudio que eu ouço e respondo já.')
+    : (isVideo
+      ? 'Olá! Não consigo entrar na chamada de vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
+      : 'Olá! Não consigo falar pela chamada, mas estou aqui: manda um áudio que eu ouço e respondo.');
+}
+
+function _saudacaoCallback(ownerCall) {
+  return ownerCall
+    ? 'Oi meu Dark, sou eu, a Aura. Estou na linha. Fala comigo.'
+    : 'Olá, sou a Aura. Estou na linha. Fala comigo.';
+}
+
+/**
+ * v7.2 — CALLBACK com VOZ REAL.
+ * Quando entra uma chamada de VOZ e há sessão VoIP (3.º aparelho), a Aura
+ * REJEITA a entrada e LIGA DE VOLTA com áudio RTP real — fala e ouve de
+ * verdade. O que ela ouve é transcrito e respondido pela mesma conversa.
+ *
+ * Regras de segurança:
+ *   • só voz (vídeo cai no fluxo PTT de sempre)
+ *   • só para o Dono — ou para quem o Dono pôs o modo explicitamente em
+ *     'atender' (evita ligar de volta a estranhos à toa)
+ *   • cooldown de 60 s por número (evita spam/ban)
+ */
+async function tentarCallbackVozReal(sock, call, { ownerCall, isVideo, saudacao }) {
+  if (isVideo) return { ok: false, motivo: 'video_nao_suportado' };
+
+  const from = call.from;
+  const numero = jidNum(from);
+  if (numero.length < 9) return { ok: false, motivo: 'numero_invalido' };
+
+  if (!ownerCall && !modoExplicito(from)) {
+    return { ok: false, motivo: 'modo_nao_explicito' };
+  }
+
+  const agora = Date.now();
+  const ultimo = _callbackCooldown.get(numero) || 0;
+  if (agora - ultimo < CALLBACK_COOLDOWN_MS) {
+    return { ok: false, motivo: 'cooldown' };
+  }
+
+  let live;
+  try {
+    live = require('./liveVoip');
+    if (!(await live.disponivel())) return { ok: false, motivo: 'nao_instalado' };
+    if (!live.temSessao()) return { ok: false, motivo: 'sem_sessao_voip' };
+  } catch (e) {
+    return { ok: false, motivo: 'livevoip_erro', detalhe: String(e?.message || e).slice(0, 80) };
+  }
+
+  // rejeita a chamada de entrada antes de ligar de volta
+  try { if (call.id) await sock.rejectCall(call.id, from); } catch {}
+
+  _callbackCooldown.set(numero, agora);
+
+  const alvo = numero + '@s.whatsapp.net';
+  let r = null;
+  try {
+    r = await Promise.race([
+      live.ligarAoVivo(numero, {
+        saudacao,
+        onEscuta: async (wavBuf) => {
+          try {
+            marcarActiva(alvo, { id: 'vozrtp-cb-' + Date.now(), isVideo: false }, ownerCall);
+            await continuarConversa(sock, alvo, wavBuf, { pushName: '' });
+          } catch {}
+        },
+      }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout voip 30s')), 30000)),
+    ]);
+  } catch (e) {
+    return { ok: false, motivo: 'falhou', detalhe: String(e?.message || e).slice(0, 80) };
+  }
+
+  if (r?.ok) {
+    try { marcarActiva(alvo, { id: r.callId, isVideo: false }, ownerCall); } catch {}
+    return { ok: true, metodo: 'rtp_vivo_callback', callId: r.callId };
+  }
+  return { ok: false, motivo: r?.motivo || 'falhou', detalhe: r?.detalhe || '' };
+}
+
 async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   if (sock) _ultimoSock = sock;
   if (!call) return { ok: true, ignorado: true, motivo: 'sem_call' };
@@ -467,13 +561,23 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   // WebRTC/RTP no Baileys), o único sinal de que a AURA atendeu é esta
   // mensagem. Sem ela, quem liga ouve tocar até cair e conclui, com
   // razão, que o bot não atende. A conversa faz-se por notas de voz.
-  const saudacao = ownerCall
-    ? (isVideo
-      ? 'Oi meu Dark. Não consigo entrar no vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
-      : 'Oi meu Dark. Estou aqui. Manda um áudio que eu ouço e respondo já.')
-    : (isVideo
-      ? 'Olá! Não consigo entrar na chamada de vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
-      : 'Olá! Não consigo falar pela chamada, mas estou aqui: manda um áudio que eu ouço e respondo.');
+  const saudacao = _saudacao(ownerCall, isVideo);
+
+  // v7.2 — CALLBACK com VOZ REAL: se houver sessão VoIP (3.º aparelho),
+  // rejeita a entrada e LIGA DE VOLTA com áudio RTP real (fala e ouve).
+  const callback = await tentarCallbackVozReal(sock, call, {
+    ownerCall, isVideo, saudacao: _saudacaoCallback(ownerCall),
+  }).catch(() => ({ ok: false, motivo: 'erro' }));
+  if (callback.ok) {
+    return {
+      ok: true,
+      modo: 'atender',
+      tipo,
+      callback: true,
+      metodo: callback.metodo,
+      callId: callback.callId,
+    };
+  }
 
   // v6.77 — ATENDER PRIMEIRO, falar depois. O handshake tem uma janela
   // curta (o WhatsApp desiste em poucos segundos); se esperarmos pelo TTS
@@ -517,6 +621,7 @@ module.exports = {
   getActiveCalls,
   getMode,
   setMode,
+  modoExplicito,
   chamadaActiva,
   marcarActiva,
   continuarConversa,
@@ -525,6 +630,9 @@ module.exports = {
   ligar,
   terminar,
   tentarAceitarChamada,
+  tentarCallbackVozReal,
   limparParaFala,
   _activas,
+  _callbackCooldown,
+  CALLBACK_COOLDOWN_MS,
 };

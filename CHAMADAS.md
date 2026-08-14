@@ -61,7 +61,21 @@ Se o call-bot estiver ligado, o principal deixa as chamadas para ele.
 
 ## O que ela faz agora
 
-### Modo `atender` — conversa por voz
+### Modo `atender` — conversa por voz (v7.2: callback com voz REAL)
+
+Quando ligam para a Aura:
+
+1. **VOZ REAL (novo):** se a sessão VoIP (3.º aparelho) existir, a Aura
+   **rejeita a entrada e LIGA DE VOLTA** com áudio RTP real — ela *fala*
+   (saudação por TTS) e *ouve* (RTP → transcrição → resposta).
+2. **Fallback:** sem sessão VoIP, mantém o comportamento anterior — atende
+   o sinal e conversa por notas de voz (PTT).
+
+**Regras de segurança do callback:**
+- só voz (vídeo mantém o fluxo PTT);
+- só para o **Dono** — ou para quem o Dono pôs o modo explicitamente em
+  `atender` (`.chamadas atender`) — para não ligar de volta a estranhos;
+- cooldown de 60 s por número (anti-spam/ban).
 
 1. **ATENDER** → detecta a chamada e assume-a (não fica a tocar)
 2. **FALAR** → manda logo um áudio PTT a atender a pessoa
