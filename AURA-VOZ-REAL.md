@@ -26,19 +26,29 @@ Isto **não é falta de tentar** — foi auditado e confirmado hoje (14-08-2026)
 
 ## Como activar a VOZ REAL de saída
 
+**A partir da v7.0.1 já é dependência normal do projecto** — instala-se sozinha em
+cada deploy (o Render descarrega o binário nativo pré-compilado `@roamhq/wrtc-linux-x64`,
+sem compilar nada, por isso **não rebenta o build Free**).
+
 ```bash
-npm run setup:voip     # instala baileys-caller (sem gravar no package.json)
-npm start              # na 1.ª vez, o QR do VoIP aparece nos logs
+# Só para instalação manual/local (VPS sem deploy automático):
+npm run setup:voip
 ```
 
-Escaneia o QR em **WhatsApp → Aparelhos conectados → Ligar um aparelho** (é o **3.º aparelho** — não toca nas credenciais do bot principal; partilhar creds daria 440).
+Passos no Render:
+
+1. Faz **deploy** do `main` (Manual Deploy → Clear build cache & deploy) — instala tudo sozinho.
+2. Abre **Conectar → Voz Real (VoIP)** → **Gerar QR Voz Real**.
+3. Escaneia em **WhatsApp → Aparelhos conectados → Ligar um aparelho** (é o **3.º aparelho** — não toca nas credenciais do bot principal; partilhar creds daria 440).
 
 Depois:
 - **`.ligar <numero>`** → a Aura liga, **fala** e **ouve** de verdade. O que ela ouve é transcrito (Groq Whisper → AssemblyAI) e respondido.
 - **autoCall** (liga ao Dono ao arrancar e de X em X minutos) passa a usar voz real quando a sessão VoIP existe; sem ela, cai no método anterior (realCall + PTT) como sempre.
 
-### Porque não está nas dependencies obrigatórias
-O `baileys-caller` arrasta `@roamhq/wrtc` (módulo **nativo**) + `@whiskeysockets/baileys` (peer). Isso rebenta o build do Render Free. Por isso fica **opcional e isolado** (`data/auth-voip`): se não existir, o módulo devolve `{ ok:false, motivo:'nao_instalado' }` e o resto do bot segue igual.
+### ⚠️ Sessão VoIP no Render Free (importante)
+A sessão do VoIP fica em `data/auth-voip/creds.json` (disco **local**). No Render
+Free o disco é **efémero**: num redeploy a sessão some e é preciso voltar a ler o QR.
+(O bot principal e o call-bot sobrevivem porque guardam as creds no MongoDB.)
 
 ## Módulos tocados (v7.0)
 
