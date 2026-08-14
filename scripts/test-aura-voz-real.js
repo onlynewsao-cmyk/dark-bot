@@ -89,6 +89,24 @@ const t = (n, c, e) => { e = e || ''; c ? ok++ : fail++; console.log('  ' + (c ?
   }
 
   // ══════════════════════════════════════════════════════════
+  console.log('\n╔═══ 3b. Pair code + persistência Mongo (sem sessão real) ═══╗');
+  // ══════════════════════════════════════════════════════════
+  {
+    const par = await live.emparelhar('1');
+    t('Pair code: número inválido recusado', par.ok === false && par.motivo === 'numero_invalido', par.motivo);
+
+    // Sem MongoDB ligado na sandbox → mirror devolve false sem rebentar
+    const salvou = await live._salvarNoMongo();
+    t('_salvarNoMongo sem Mongo → false', salvou === false, String(salvou));
+    const restaurou = await live._restaurarDoMongo();
+    t('_restaurarDoMongo sem Mongo → false', restaurou === false, String(restaurou));
+
+    // apagarSessao sem Mongo não rebenta e põe estado off
+    await live.apagarSessao();
+    t('apagarSessao limpa e fica off', live.getStatus().estado === 'off', live.getStatus().estado);
+  }
+
+  // ══════════════════════════════════════════════════════════
   console.log('\n╔═══ 4. TTS temp ═══╗');
   // ══════════════════════════════════════════════════════════
   {

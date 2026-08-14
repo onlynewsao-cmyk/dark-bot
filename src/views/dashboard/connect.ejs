@@ -152,8 +152,8 @@
       <h2>🎙️ Voz Real (VoIP · 3.º aparelho)</h2>
       <p class="muted" style="margin-bottom:.75rem">
         Áudio RTP de verdade — a Aura <strong>fala e ouve</strong> quando liga
-        (<code>.ligar</code> / autoCall). Requer <code>npm run setup:voip</code> no servidor.
-        Sessão isolada em <code>data/auth-voip</code>, não toca nas credenciais do bot.
+        (<code>.ligar</code> / autoCall). Sessão isolada, guardada no MongoDB
+        (sobrevive a deploys). Liga por QR <em>ou</em> Pair Code.
       </p>
       <div class="bot-status" style="margin-bottom:.75rem">
         <span class="status-dot status-<%= (voipState && voipState.estado) ? voipState.estado : 'off' %>" id="voipStatusDot"></span>
@@ -190,11 +190,28 @@
             <% } %>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;justify-content:center;gap:.5rem">
-          <p class="muted small">✅ Voz 1:1 de saída — a Aura liga, fala e ouve</p>
-          <p class="muted small">❌ Atender entrada com áudio — não existe em Baileys</p>
-          <p class="muted small">❌ Vídeo · grupos</p>
+        <div>
+          <div class="form-group">
+            <label>Número (DDI) para pair code da Voz Real</label>
+            <input type="tel" id="voipPairNumber" placeholder="Ex: 244949926074" value="<%= owner.number %>" />
+          </div>
+          <div class="pair-area" id="voipPairArea">
+            <% if (voipState && voipState.pairingCode) { %>
+              <div style="text-align:center">
+                <div class="muted small">PAIR CODE VOZ REAL:</div>
+                <div class="pair-code"><%= voipState.pairingCode %></div>
+              </div>
+            <% } else { %>
+              <div class="qr-placeholder"><div class="qr-icon">🔐</div><p>Pair code da Voz Real</p></div>
+            <% } %>
+          </div>
+          <button class="btn btn-success" id="btnVoipPair" onclick="startVoipPair()">🔐 Pair Code Voz Real</button>
         </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem">
+        <p class="muted small">✅ Voz 1:1 de saída — a Aura liga, fala e ouve</p>
+        <p class="muted small">❌ Atender entrada com áudio — não existe em Baileys</p>
+        <p class="muted small">❌ Vídeo · grupos</p>
       </div>
     </div>
 
@@ -506,6 +523,7 @@
 
   // ══════════════ Voz Real (VoIP) ══════════════
   let lastVoipQr = '';
+  let lastVoipPair = '';
   function renderVoipStatus(data = {}, silent = false) {
     if (!data) return;
     const s = data.estado || 'off';
@@ -514,20 +532,29 @@
     if (dot) dot.className = 'status-dot status-' + s;
     if (txt) txt.textContent = s;
     const area = document.getElementById('voipQrArea');
-    if (!area) return;
-    if (data.qr) {
+    const pairArea = document.getElementById('voipPairArea');
+    if (data.qr && area) {
       if (data.qr !== lastVoipQr) {
         lastVoipQr = data.qr;
         area.innerHTML = `<img src="${data.qr}" alt="QR Voz Real" style="max-width:240px;border-radius:12px;background:white;padding:10px" />`;
         addLog('success', '🎙️ QR da Voz Real gerado — escaneie como 3.º aparelho!');
         if (!silent) toast('🎙️ QR da Voz Real pronto!', 'success');
       }
+    } else if (data.pairingCode && pairArea) {
+      if (data.pairingCode !== lastVoipPair) {
+        lastVoipPair = data.pairingCode;
+        pairArea.innerHTML = `<div style="text-align:center"><div class="muted small">PAIR CODE VOZ REAL:</div><div class="pair-code">${data.pairingCode}</div><div class="muted small" style="margin-top:.5rem">WhatsApp → Aparelhos conectados → Vincular com número → digita este código.</div></div>`;
+        addLog('success', `🔐 Pair code Voz Real: ${data.pairingCode}`);
+        if (!silent) toast(`🔐 Pair code Voz Real: ${data.pairingCode}`, 'success', 8000);
+      }
+      if (area) area.innerHTML = `<div class="qr-placeholder"><div class="spinner"></div><p>Aguarda emparelhar…</p></div>`;
     } else if (s === 'ligado') {
-      area.innerHTML = `<div class="qr-placeholder success"><div class="qr-icon">🎙️</div><p><strong>Voz Real online</strong></p><p class="muted small">Aura pronta para ligar e falar</p></div>`;
+      if (area) area.innerHTML = `<div class="qr-placeholder success"><div class="qr-icon">🎙️</div><p><strong>Voz Real online</strong></p><p class="muted small">Aura pronta para ligar e falar</p></div>`;
+      if (pairArea) pairArea.innerHTML = `<div class="qr-placeholder success"><div class="qr-icon">✅</div><p><strong>Emparelhado</strong></p></div>`;
     } else if (data.disponivel === false) {
-      area.innerHTML = `<div class="qr-placeholder"><div class="qr-icon">⚠️</div><p>baileys-caller não instalado</p><p class="muted small">Corre "npm run setup:voip" no servidor</p></div>`;
-    } else if (s === 'a_ligar' || s === 'a_tocar' || s === 'em_chamada') {
-      area.innerHTML = `<div class="qr-placeholder"><div class="spinner"></div><p>A ligar o VoIP...</p></div>`;
+      if (area) area.innerHTML = `<div class="qr-placeholder"><div class="qr-icon">⚠️</div><p>baileys-caller não instalado</p><p class="muted small">Corre "npm run setup:voip" no servidor</p></div>`;
+    } else if (s === 'a_ligar' || s === 'a_emparelhar' || s === 'a_tocar' || s === 'em_chamada' || s === 'codigo') {
+      if (area && !area.querySelector('img')) area.innerHTML = `<div class="qr-placeholder"><div class="spinner"></div><p>A ligar o VoIP...</p></div>`;
     }
   }
   async function refreshVoipStatus(silent = true) {
@@ -550,11 +577,28 @@
     }
     if (btn) { btn.disabled = false; btn.textContent = '🎙️ Gerar QR Voz Real'; }
   }
+  async function startVoipPair() {
+    const num = (document.getElementById('voipPairNumber')?.value || '').replace(/\D/g, '');
+    if (!num || num.length < 9) { toast('❌ Número inválido (mín. 9 dígitos com DDI)', 'error'); return; }
+    const btn = document.getElementById('btnVoipPair');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Aguarde...'; }
+    addLog('info', `🔐 Pair code da Voz Real para ${num}...`);
+    try {
+      await postJSON('/api/voip/pair', { phoneNumber: num });
+      addLog('info', '✅ Pedido enviado. Aguardando pair code...');
+      fastPollStatus('/api/voip/status', renderVoipStatus, 180);
+    } catch (e) {
+      addLog('error', '❌ ' + e.message);
+      toast(e.message, 'error');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '🔐 Pair Code Voz Real'; }
+  }
   async function disconnectVoip() {
-    if (!confirm('Desligar a Voz Real e apagar a sessão VoIP?')) return;
+    if (!confirm('Desligar a Voz Real e apagar a sessão VoIP (disco + MongoDB)?')) return;
     try {
       await postJSON('/api/voip/logout');
       toast('🎙️ Voz Real desligada.', 'warn');
+      lastVoipPair = ''; lastVoipQr = '';
       refreshVoipStatus(false);
     } catch (e) { toast(e.message, 'error'); }
   }
