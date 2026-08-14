@@ -402,6 +402,72 @@ module.exports = {
     return reply(sock, msg, ctx, `🔴 *DESAFIO:*\n\n_${pick(DESAFIOS)}_`);
   },
 
+  // ============ SHIP Ó (variante do ship) ============
+  async shipo({ sock, msg, ctx, args }) {
+    const pct = randInt(0, 100);
+    const bar = '❤️'.repeat(Math.round(pct / 10)) + '🖤'.repeat(10 - Math.round(pct / 10));
+    const alvo = args.join(' ').trim() || `${ctx.pushName} + ???`;
+    return reply(sock, msg, ctx, `💕 *SHIP Ó*\n\n${bar}\n💕 *${pct}%* de compatibilidade\n\n> ${alvo}`);
+  },
+
+  // ============ GÊNIO (charadas de lógica) ============
+  async genio({ sock, msg, ctx, args }) {
+    const GENIOS = [
+      { q: 'Um fazendeiro tem 17 ovelhas. Todas menos 9 morrem. Quantas ficam?', a: '9' },
+      { q: 'A mãe de Maria tem 4 filhas: Ana, Bela, Carla e...?', a: 'maria' },
+      { q: 'Quantos meses têm 28 dias?', a: '12' },
+      { q: 'Se tens 3 maçãs e levas 2 contigo, com quantas ficas?', a: '2' },
+      { q: 'O pai de João tem 5 filhos: Nana, Nene, Nini, Nono e...?', a: 'joao' },
+      { q: 'O que pesa mais: 1 kg de ferro ou 1 kg de algodão?', a: 'igual' },
+      { q: 'Quantos segundos tem uma hora?', a: '3600' },
+      { q: 'Divide 30 por meio e soma 10. Quanto dá?', a: '70' },
+      { q: 'O que está sempre à tua frente mas nunca consegues ver?', a: 'futuro' },
+      { q: 'Qual é o mês com 28 ou 29 dias?', a: 'fevereiro' },
+    ];
+
+    const key = `genio_${ctx.senderNumber}`;
+    const expected = mathAnswers.get(key);
+
+    if (expected && args.length > 0) {
+      const ans = args.join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ');
+      const exp = String(expected).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+      mathAnswers.delete(key);
+      const eco = await Economy.getOrCreate(ctx.senderNumber, ctx.pushName);
+      if (ans === exp || ans.includes(exp) || exp.includes(ans)) {
+        eco.coins += 300; eco.wins++; eco.addXp(30); await eco.save();
+        return reply(sock, msg, ctx, `🧠 Correto! Era *${expected}*\n💰 +300 🪙 +30 XP`);
+      }
+      eco.coins = Math.max(0, eco.coins - 50); eco.losses++; await eco.save();
+      return reply(sock, msg, ctx, `❌ Errado! Era *${expected}*\n💀 -50 🪙`);
+    }
+
+    const e = pick(GENIOS);
+    mathAnswers.set(key, e.a);
+    return reply(sock, msg, ctx,
+      `🧠 *GÊNIO!*\n\n${e.q}\n\nResponda: !genio <resposta>\n💰 Vale 300 🪙 +30 XP`);
+  },
+
+  // ============ DESAFIO SEMANAL / MENSAL (rotativo por data) ============
+  async desafiomensal({ sock, msg, ctx }) {
+    const now = new Date();
+    const mes = now.getMonth() + 1;
+    const ano = now.getFullYear();
+    const d = pick(DESAFIOS);
+    const ultimoDia = new Date(ano, mes, 0).getDate();
+    const diasRestantes = Math.max(0, ultimoDia - now.getDate());
+    return reply(sock, msg, ctx,
+      `📅 *DESAFIO DO MÊS* (${String(mes).padStart(2, '0')}/${ano})\n\n_${d}_\n\n⏳ Faltam *${diasRestantes}* dias para acabar\n💰 Quem concluir e provar, marca o Dono!`);
+  },
+
+  async desafiosemanal({ sock, msg, ctx }) {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const semana = Math.floor(((now - start) / 86400000 + start.getDay() + 1) / 7) + 1;
+    const d = pick(DESAFIOS);
+    return reply(sock, msg, ctx,
+      `📅 *DESAFIO DA SEMANA* (semana ${semana}/${now.getFullYear()})\n\n_${d}_\n\n⏳ Roda de novo no domingo\n💰 Quem concluir e provar, marca o Dono!`);
+  },
+
   // ============ AKINATOR FAKE ============
   async akinator({ sock, msg, ctx }) {
     const respostas = [
