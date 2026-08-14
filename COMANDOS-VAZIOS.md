@@ -49,6 +49,13 @@
   - aura* (acordaaura, auraon/off, auramodo, aurasai, auragrupos…) → auraInvoke.js
   - iawhatsapp/metaai → nativeCommands.js · microsoft-ai → online.js · philosophy → random.js
   - adicionei `test:ia-audit` (80/80) para o futuro
+- [x] **JOGOS & DIVERSÃO (v7.5)** — auditado **68/68 com handler real**. Os 4 vazios:
+  - `genio` → charadas de lógica com recompensa (vale coins + XP)
+  - `shipo` → variante do `ship` (compatibilidade %)
+  - `desafiosemanal` / `desafiomensal` → desafio rotativo por data (semana/mês)
+  - bónus: `dice` tinha descrição errada no submenu ("Cria uma imagem estilizada")
+    porque a regex de efeitos de logo casava "ice" dentro de "d**ice**" — corrigido com \b
+  - adicionei `test:jogos-audit` (68/68)
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 

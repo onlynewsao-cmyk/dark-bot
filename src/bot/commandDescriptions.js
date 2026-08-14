@@ -81,7 +81,7 @@ const PADROES = [
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],
-  [/(neon|glitch|fire|gold|silver|3d|graffiti|naruto|rainbow|thunder|water|ice|blood|sand|smoke|steel|wood|glass|matrix)/,
+  [/\b(neon|glitch|fire|gold|silver|3d|graffiti|naruto|rainbow|thunder|water|ice|blood|sand|smoke|steel|wood|glass|matrix)\b/,
                                  'Cria uma imagem estilizada com o teu texto'],
 
   // IA
@@ -138,7 +138,10 @@ const PADROES = [
   [/^(gay|lesbica|corno|otaku|nerd|burro|feio|bonito|gostoso|safado|pilantra|macho|nojento)\d*$/,
                                  'Medidor de brincadeira — resultado aleatório'],
   [/(metro|medidor|nivel)$/,     'Medidor de brincadeira'],
-  [/^(shipar|ship|casal)\d*$/,   'Faz o par entre duas pessoas'],
+  [/^(shipar|ship|shipo|casal)\d*$/,   'Faz o par entre duas pessoas'],
+  [/^genio\d*$/,                 'Charadas de lógica (vale coins)'],
+  [/^desafiosemanal\d*$/,        'Desafio da semana (rotativo)'],
+  [/^desafiomensal\d*$/,         'Desafio do mês (rotativo)'],
   [/^(rank|ranking|top)/,        'Mostra o ranking do grupo'],
 
   // Pesquisa
