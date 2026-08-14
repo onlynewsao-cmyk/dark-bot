@@ -38,26 +38,45 @@ npm run setup:voip
 Passos no Render:
 
 1. Faz **deploy** do `main` (Manual Deploy → Clear build cache & deploy) — instala tudo sozinho.
-2. Abre **Conectar → Voz Real (VoIP)** → **Gerar QR Voz Real**.
-3. Escaneia em **WhatsApp → Aparelhos conectados → Ligar um aparelho** (é o **3.º aparelho** — não toca nas credenciais do bot principal; partilhar creds daria 440).
+2. Abre **Conectar → Voz Real (VoIP)** e escolhe:
+   - **QR** → `🎙️ Gerar QR Voz Real` → escaneia em **WhatsApp → Aparelhos conectados → Ligar um aparelho**;
+   - **ou Pair Code** → escreve o número (DDI) → `🔐 Pair Code Voz Real` → no WhatsApp:
+     **Aparelhos conectados → Vincular com número → digita o código**.
+   É o **3.º aparelho** — não toca nas credenciais do bot principal (partilhar creds daria 440).
 
 Depois:
 - **`.ligar <numero>`** → a Aura liga, **fala** e **ouve** de verdade. O que ela ouve é transcrito (Groq Whisper → AssemblyAI) e respondido.
 - **autoCall** (liga ao Dono ao arrancar e de X em X minutos) passa a usar voz real quando a sessão VoIP existe; sem ela, cai no método anterior (realCall + PTT) como sempre.
 
-### ⚠️ Sessão VoIP no Render Free (importante)
-A sessão do VoIP fica em `data/auth-voip/creds.json` (disco **local**). No Render
-Free o disco é **efémero**: num redeploy a sessão some e é preciso voltar a ler o QR.
-(O bot principal e o call-bot sobrevivem porque guardam as creds no MongoDB.)
+### 🔐 Pair Code (como funciona por dentro)
+O `baileys-caller` só faz QR. Por isso o emparelhamento por código usa
+`@whiskeysockets/baileys` v7 (dependência) directamente: pede o código com
+`requestPairingCode()`, guarda as creds em `data/auth-voip` e entrega-as ao
+`baileys-caller` — mesma identidade de aparelho, sem re-emparelhar.
+
+### 💾 Sessão persistente no MongoDB
+A pasta `data/auth-voip` (creds + chaves) é espelhada no MongoDB
+(colecção `whatsapp_sessions`, prefixo `voip:fs:`). Ao arrancar, a sessão é
+restaurada a partir do Mongo — por isso **sobrevive a deploys do Render Free**
+(disco efémero) como já acontece com o bot principal e o call-bot.
+O disco é vigiado (`fs.watch`) e re-gravado sempre que as chaves rodam.
+
+### ⚠️ Render Free: ffmpeg
+O `baileys-caller` alimenta o áudio com `ffmpeg` do PATH. O `liveVoip` acrescenta
+automaticamente o binário do `ffmpeg-static` (dependência) ao PATH, por isso não
+precisas de instalar ffmpeg no servidor.
 
 ## Módulos tocados (v7.0)
 
-- `src/bot/liveVoip.js` — reescrito: `conectar()`, `ligarAoVivo(numero, { saudacao, onEscuta })`, escuta PCM→WAV com detecção de silêncio (`pcmParaWav`, `_criarEscuta`), estado e degradação graciosa.
+- `src/bot/liveVoip.js` — reescrito: `conectar()` (QR), `emparelhar(numero)` (pair code), `ligarAoVivo(numero, { saudacao, onEscuta })`, escuta PCM→WAV com detecção de silêncio (`pcmParaWav`, `_criarEscuta`), mirror da sessão no MongoDB (`_salvarNoMongo`/`_restaurarDoMongo` + `fs.watch`), ffmpeg no PATH e degradação graciosa.
+- `src/routes/api.js` — endpoints `/api/voip/status`, `/api/voip/start` (QR), `/api/voip/pair` (pair code), `/api/voip/logout`.
+- `src/routes/dashboard.js` — `/dashboard/connect` resolve `voipState` (incl. `pairingCode`).
+- `src/views/dashboard/connect.ejs` — secção Voz Real com QR **e** Pair Code; corrigidos os botões mortos do call-bot.
 - `src/bot/callBridge.js` — `.ligar` com voz real + escuta → transcrição → resposta.
 - `src/bot/autoCall.js` — tenta voz real primeiro, cai no realCall se não houver sessão/lib.
 - `src/bot/atenderChamada.js` — corrigido bug de precedência no `stanzaId` (handshake de atendimento).
 - `scripts/setup-voip.js` — instala o stack opcional (`npm run setup:voip`).
-- `scripts/test-aura-voz-real.js` — testes da lógica de voz (`npm run test:auravozreal`).
+- `scripts/test-aura-voz-real.js` — testes da lógica de voz + pair + persistência (`npm run test:auravozreal`).
 - `scripts/test-aura-viva.js` — corrigidos 2 bugs pré-existentes (referência órfã `_ger` que fazia o `npm test` rebentar, e asserção desactualizada que exigia silêncio ao atender).
 
 ## Testes

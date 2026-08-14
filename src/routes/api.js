@@ -125,9 +125,30 @@ module.exports = function (io) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+  router.post('/voip/pair', requireApiOwner, async (req, res) => {
+    const phoneNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
+    if (phoneNumber.length < 9) {
+      return res.status(400).json({ error: 'Número inválido. Use DDI + número, sem + ou espaços.' });
+    }
+    try {
+      const live = require('../bot/liveVoip');
+      const d = await live.disponivel();
+      if (!d) {
+        return res.status(400).json({
+          error: 'VOZ REAL não instalada. Corre "npm run setup:voip" no servidor.',
+        });
+      }
+      // fire-and-forget: o pair code fica em getStatus().pairingCode e o dashboard faz polling
+      live.emparelhar(phoneNumber).then((r) => {
+        console.log('[VoIP pair]', JSON.stringify(r));
+      }).catch((err) => console.error('[VoIP pair]', err?.message || err));
+      res.status(202).json({ ok: true, role: 'voip', mode: 'pair' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
   router.post('/voip/logout', requireApiOwner, async (req, res) => {
     try {
-      require('../bot/liveVoip').apagarSessao();
+      await require('../bot/liveVoip').apagarSessao();
       res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });

@@ -7,13 +7,10 @@
  * ║                                                               ║
  * ║   ✅ A AURA FALA de verdade (TTS → Opus → RTP)                ║
  * ║   ✅ A AURA OUVE de verdade (RTP → PCM 16 kHz → transcrição)  ║
+ * ║   ✅ Emparelha por QR **ou PAIR CODE** (3.º aparelho)         ║
+ * ║   ✅ Sessão persistida no MongoDB (sobrevive a deploys)       ║
  * ║   ❌ Atender ENTRADA não existe em nenhuma lib Baileys        ║
- * ║      (o próprio baileys-caller declara "Inbound calls ❌")    ║
  * ║   ❌ Vídeo  ❌ Grupo                                          ║
- * ║                                                               ║
- * ║   OPCIONAL e isolado: se o pacote não estiver instalado,     ║
- * ║   devolve { ok:false, motivo:'nao_instalado' } e o resto do   ║
- * ║   bot segue igual. Instala com: npm run setup:voip            ║
  * ║                                                               ║
  * ║   Sessão PRÓPRIA em data/auth-voip — nunca toca nas creds    ║
  * ║   do bot principal (senão o WhatsApp dá 440 e os dois caem).  ║
@@ -26,14 +23,19 @@ const path = require('path');
 
 const AUTH_DIR = path.join(__dirname, '..', '..', 'data', 'auth-voip');
 const TMP_DIR = path.join(__dirname, '..', '..', 'data', 'voip-tmp');
+const MONGO_PREFIX = 'voip:fs:';
 
 let _client = null;
 let _VoipClient = null;
 let _estado = 'off';
 let _ultimoErro = '';
 let _chamada = null;
-let _conexao = null; // Promise da ligação em curso (evita 2 connects em paralelo)
-let _qr = null;      // último QR capturado (para o dashboard)
+let _conexao = null;   // Promise da ligação em curso (evita 2 connects em paralelo)
+let _qr = null;        // último QR capturado (para o dashboard)
+let _pairCode = null;  // último pair code gerado (para o dashboard)
+let _pairSocket = null;
+let _watcher = null;
+let _saveTimer = null;
 
 /* ══════════════════════════ Estado ══════════════════════════ */
 
@@ -48,15 +50,17 @@ function getStatus() {
     motor: 'baileys-caller',
     disponivel: _voipDisponivel,
     estado: _estado,
-    sessao: temSessao(),
+    sessao: temSessao() || _sessaoNoMongo,
     chamadaActiva: !!_chamada,
     qr: _qr,
+    pairingCode: _pairCode,
     ultimoErro: _ultimoErro,
     limites: { inbound: false, video: false, grupo: false, outboundVoz: true },
   };
 }
 
 let _voipDisponivel = null;
+let _sessaoNoMongo = false;
 async function disponivel() {
   if (_voipDisponivel !== null) return _voipDisponivel;
   try {
@@ -67,6 +71,30 @@ async function disponivel() {
     _ultimoErro = 'baileys-caller não instalado (npm run setup:voip)';
   }
   return _voipDisponivel;
+}
+
+/* ══════════════════════════ ffmpeg + logger ══════════════════════════ */
+
+function _ffmpegNoPath() {
+  try {
+    const ff = require('ffmpeg-static');
+    if (ff && fs.existsSync(ff)) {
+      const dir = path.dirname(ff);
+      const sep = process.platform === 'win32' ? ';' : ':';
+      if (!String(process.env.PATH || '').split(sep).includes(dir)) {
+        process.env.PATH = dir + sep + (process.env.PATH || '');
+      }
+    }
+  } catch {}
+}
+
+function _silentLogger() {
+  return {
+    level: 'silent',
+    child: () => _silentLogger(),
+    trace: () => {}, debug: () => {}, info: () => {},
+    warn: () => {}, error: () => {}, fatal: () => {},
+  };
 }
 
 /* ══════════════════════════ Cliente ══════════════════════════ */
@@ -103,6 +131,96 @@ function _capturarQr(onQr) {
   } catch {}
 }
 
+/* ══════════════════════════ MongoDB (sessão persistente) ══════════════════════════ */
+
+function _mongoConectado() {
+  try {
+    const m = require('mongoose');
+    return !!(m.connection && m.connection.readyState === 1);
+  } catch { return false; }
+}
+
+function _listarArquivos(dir) {
+  const out = [];
+  (function walk(d, rel) {
+    let entries;
+    try { entries = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const abs = path.join(d, e.name);
+      const r = rel ? rel + '/' + e.name : e.name;
+      if (e.isDirectory()) walk(abs, r);
+      else out.push(r);
+    }
+  })(dir, '');
+  return out;
+}
+
+/** Espelha data/auth-voip → MongoDB (colecção whatsapp_sessions, prefixo voip:fs:). */
+async function _salvarNoMongo() {
+  if (!_mongoConectado()) return false;
+  try {
+    const Session = require('../database/models/Session');
+    const files = _listarArquivos(AUTH_DIR);
+    for (const rel of files) {
+      const data = await fs.promises.readFile(path.join(AUTH_DIR, rel));
+      await Session.findOneAndUpdate(
+        { fileName: MONGO_PREFIX + rel },
+        { content: data.toString('base64') },
+        { upsert: true }
+      );
+    }
+    _sessaoNoMongo = files.length > 0;
+    return true;
+  } catch (e) {
+    console.warn('[VoIP] guardar sessão no Mongo falhou:', String(e.message || e).slice(0, 120));
+    return false;
+  }
+}
+
+/** Restaura data/auth-voip ← MongoDB (antes de conectar). */
+async function _restaurarDoMongo() {
+  if (!_mongoConectado()) return false;
+  try {
+    const Session = require('../database/models/Session');
+    const docs = await Session.find({ fileName: new RegExp('^' + MONGO_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) }).catch(() => []);
+    if (!docs.length) return false;
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+    for (const d of docs) {
+      const rel = String(d.fileName).slice(MONGO_PREFIX.length);
+      if (!rel || rel.includes('..') || path.isAbsolute(rel)) continue;
+      const abs = path.join(AUTH_DIR, rel);
+      try {
+        fs.mkdirSync(path.dirname(abs), { recursive: true });
+        fs.writeFileSync(abs, Buffer.from(d.content, 'base64'));
+      } catch {}
+    }
+    _sessaoNoMongo = true;
+    return true;
+  } catch (e) {
+    console.warn('[VoIP] restaurar sessão do Mongo falhou:', String(e.message || e).slice(0, 120));
+    return false;
+  }
+}
+
+/** Re-guarda no Mongo sempre que os ficheiros de auth mudarem (rotação de chaves). */
+function _vigiarDisco() {
+  try {
+    if (_watcher) return;
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+    _watcher = fs.watch(AUTH_DIR, { recursive: true }, () => {
+      if (_saveTimer) clearTimeout(_saveTimer);
+      _saveTimer = setTimeout(() => { _salvarNoMongo().catch(() => {}); }, 1500);
+    });
+  } catch {}
+}
+
+function _pararVigia() {
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
+  if (_watcher) { try { _watcher.close(); } catch {} _watcher = null; }
+}
+
+/* ══════════════════════════ Conexão (QR) ══════════════════════════ */
+
 async function conectar({ onEstado, onQr } = {}) {
   const notificar = (s, extra = {}) => {
     _estado = s;
@@ -118,16 +236,27 @@ async function conectar({ onEstado, onQr } = {}) {
   _conexao = (async () => {
     const VoipClient = await _carregarCliente();
     fs.mkdirSync(AUTH_DIR, { recursive: true });
+    _ffmpegNoPath();
+
+    // Render Free tem disco efémero: repõe a sessão a partir do MongoDB
+    await _restaurarDoMongo();
+
     _qr = null;
+    _pairCode = null;
     _capturarQr(onQr);
 
     // 1ª vez: o QR aparece no terminal/logs E no dashboard (data-qr).
+    // Se já houver sessão, liga directo sem QR.
     notificar('a_ligar');
     const client = new VoipClient({ authDir: AUTH_DIR });
     await client.connect();
     _client = client;
     _qr = null;
     notificar('ligado');
+
+    // persiste a sessão e fica a vigiar o disco
+    await _salvarNoMongo();
+    _vigiarDisco();
     return client;
   })().catch((e) => {
     _ultimoErro = String(e?.message || e).slice(0, 160);
@@ -137,6 +266,93 @@ async function conectar({ onEstado, onQr } = {}) {
   });
 
   return _conexao;
+}
+
+/* ══════════════════════════ Emparelhar por PAIR CODE ══════════════════════════ */
+
+/**
+ * Emparelha o 3.º aparelho por PAIR CODE (em vez de QR).
+ * Usa @whiskeysockets/baileys v7 directamente para pedir o código,
+ * guarda as creds em data/auth-voip e, ao emparelhar, entrega ao
+ * baileys-caller (mesma identidade de aparelho, sem re-emparelhar).
+ */
+async function emparelhar(numero, { onEstado } = {}) {
+  const digits = String(numero || '').replace(/\D/g, '');
+  if (digits.length < 9) return { ok: false, motivo: 'numero_invalido' };
+
+  const notificar = (s, extra = {}) => {
+    _estado = s;
+    try { if (typeof onEstado === 'function') onEstado(s, extra); } catch {}
+  };
+
+  if (_pairSocket) return { ok: false, motivo: 'ja_em_curso' };
+  if (_client) return { ok: false, motivo: 'ja_ligado', detalhe: 'A Voz Real já está ligada. Desliga primeiro.' };
+
+  try {
+    const b = await import('@whiskeysockets/baileys');
+    fs.mkdirSync(AUTH_DIR, { recursive: true });
+
+    // Render Free: repõe sessão do Mongo para detectar se já está registado
+    await _restaurarDoMongo();
+
+    const { state, saveCreds } = await b.useMultiFileAuthState(AUTH_DIR);
+    if (state.creds.registered) {
+      return {
+        ok: false, motivo: 'ja_registado',
+        detalhe: 'Já existe uma sessão VoIP. Usa "Desligar Voz Real" e tenta de novo.',
+      };
+    }
+
+    _qr = null;
+    _pairCode = null;
+    notificar('a_emparelhar');
+
+    const sock = b.makeWASocket({
+      auth: state,
+      emitOwnEvents: true,
+      logger: _silentLogger(),
+    });
+    _pairSocket = sock;
+    sock.ev.on('creds.update', saveCreds);
+
+    await new Promise(r => setTimeout(r, 2500));
+
+    const code = await sock.requestPairingCode(digits);
+    _pairCode = code;
+    notificar('codigo', { pairingCode: code });
+
+    await new Promise((resolve) => {
+      let done = false;
+      const fim = (s, extra) => { if (done) return; done = true; notificar(s, extra); resolve(); };
+      sock.ev.on('connection.update', (u) => {
+        if (u.connection === 'open') {
+          try { saveCreds(); } catch {}
+          fim('emparelhado');
+        } else if (u.connection === 'close') {
+          const sc = u.lastDisconnect?.error?.output?.statusCode;
+          _ultimoErro = 'fechou (' + (sc || '?') + ')';
+          fim('erro', { erro: _ultimoErro });
+        }
+      });
+    });
+
+    try { sock.ev.removeAllListeners(); } catch {}
+    try { sock.end(); } catch {}
+    _pairSocket = null;
+
+    if (_estado === 'emparelhado') {
+      await new Promise(r => setTimeout(r, 800));
+      await conectar({ onEstado });
+      return { ok: true, motivo: 'emparelhado', pairingCode: _pairCode };
+    }
+    return { ok: false, motivo: 'falhou', detalhe: _ultimoErro };
+  } catch (e) {
+    _ultimoErro = String(e?.message || e).slice(0, 160);
+    try { _pairSocket?.end(); } catch {}
+    _pairSocket = null;
+    notificar('erro');
+    return { ok: false, motivo: 'falhou', detalhe: _ultimoErro };
+  }
 }
 
 /* ══════════════════════════ Chamada ══════════════════════════ */
@@ -150,7 +366,6 @@ async function conectar({ onEstado, onQr } = {}) {
  *   durationMs — desligar sozinha ao fim de N ms
  *   onEstado   — callback(estado, extra)
  *   onEscuta   — callback(wavBuffer, { duracaoMs }) com o que a AURA ouviu
- * @returns {{ok:boolean, metodo?:string, callId?:string, motivo?:string, detalhe?:string, call?:object}}
  */
 async function ligarAoVivo(numero, opts = {}) {
   const digits = String(numero || '').replace(/\D/g, '');
@@ -160,7 +375,7 @@ async function ligarAoVivo(numero, opts = {}) {
     return {
       ok: false,
       motivo: 'sem_sessao_voip',
-      detalhe: 'Liga o QR do VoIP (3.º aparelho) — corre npm run setup:voip e vê o QR nos logs',
+      detalhe: 'Emparelha o 3.º aparelho (QR ou Pair Code) em Conectar → Voz Real',
     };
   }
 
@@ -228,11 +443,6 @@ async function ligarAoVivo(numero, opts = {}) {
 
 /* ══════════════════════════ Escuta (PCM → WAV) ══════════════════════════ */
 
-/**
- * Acumula os chunks PCM (Float32Array 16 kHz mono) vindos do evento 'audio'
- * e, ao detectar silêncio ou janela cheia, devolve um WAV pronto a transcrever.
- * Lógica pura → testável sem sessão real.
- */
 function _criarEscuta(onWav, opts = {}) {
   const SAMPLE_RATE = 16000;
   const limiarRms = Number(opts.limiarRms) || 0.006;
@@ -242,7 +452,7 @@ function _criarEscuta(onWav, opts = {}) {
 
   let chunks = [];
   let totalMs = 0;
-  let falaMs = 0;     // só o tempo com VEZ (acima do limiar) — mede o mínimo
+  let falaMs = 0;
   let silencio = 0;
   let falando = false;
 
@@ -257,10 +467,7 @@ function _criarEscuta(onWav, opts = {}) {
   }
 
   function emitir() {
-    if (!chunks.length || falaMs < minMs) {
-      limpar();
-      return;
-    }
+    if (!chunks.length || falaMs < minMs) { limpar(); return; }
     const total = chunks.reduce((n, c) => n + c.length, 0);
     const all = new Float32Array(total);
     let o = 0;
@@ -294,10 +501,6 @@ function _criarEscuta(onWav, opts = {}) {
   };
 }
 
-/**
- * Float32Array 16 kHz mono → Buffer WAV (PCM 16-bit).
- * Exportado para testes.
- */
 function pcmParaWav(samples, sampleRate = 16000) {
   const n = samples.length;
   const buf = Buffer.alloc(44 + n * 2);
@@ -305,13 +508,13 @@ function pcmParaWav(samples, sampleRate = 16000) {
   buf.writeUInt32LE(36 + n * 2, 4);
   buf.write('WAVE', 8);
   buf.write('fmt ', 12);
-  buf.writeUInt32LE(16, 16);        // tamanho do chunk fmt
-  buf.writeUInt16LE(1, 20);         // PCM
-  buf.writeUInt16LE(1, 22);         // mono
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
   buf.writeUInt32LE(sampleRate, 24);
-  buf.writeUInt32LE(sampleRate * 2, 28); // byte rate
-  buf.writeUInt16LE(2, 32);         // block align
-  buf.writeUInt16LE(16, 34);        // bits por amostra
+  buf.writeUInt32LE(sampleRate * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
   buf.write('data', 36);
   buf.writeUInt32LE(n * 2, 40);
   for (let i = 0; i < n; i++) {
@@ -331,20 +534,37 @@ async function gravarTtsTemp(buffer) {
   return p;
 }
 
-function desligar() {
+function _encerrar() {
+  try { _pairSocket?.end(); } catch {}
+  _pairSocket = null;
   try { _chamada?.end(); } catch {}
   _chamada = null;
   try { _client?.disconnect(); } catch {}
   _client = null;
   _conexao = null;
   _qr = null;
+  _pairCode = null;
+  _pararVigia();
   _estado = 'off';
 }
 
-/** Desliga E apaga a sessão local (equivale a "reset" do VoIP). */
-function apagarSessao() {
-  desligar();
+/** Desliga (mantém a sessão — disco + Mongo ficam intactos). */
+function desligar() {
+  _encerrar();
+  _salvarNoMongo().catch(() => {});
+}
+
+/** Desliga E apaga a sessão (disco + Mongo) — equivale a "reset" do VoIP. */
+async function apagarSessao() {
+  _encerrar();
   try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
+  _sessaoNoMongo = false;
+  if (_mongoConectado()) {
+    try {
+      const Session = require('../database/models/Session');
+      await Session.deleteMany({ fileName: new RegExp('^' + MONGO_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
+    } catch {}
+  }
 }
 
 module.exports = {
@@ -352,11 +572,14 @@ module.exports = {
   disponivel,
   temSessao,
   conectar,
+  emparelhar,
   ligarAoVivo,
   gravarTtsTemp,
   desligar,
   apagarSessao,
   pcmParaWav,
   _criarEscuta,
+  _salvarNoMongo,
+  _restaurarDoMongo,
   AUTH_DIR,
 };
