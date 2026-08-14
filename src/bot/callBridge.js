@@ -22,20 +22,33 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
   const tentativas = [];
   const isVideo = tipo === 'video';
 
-  // 1. RTP ao vivo (só voz 1:1, só SAÍDA, só se houver sessão voip isolada)
+  // 1. RTP ao vivo (só voz 1:1, só SAÍDA, só se houver sessão voip isolada).
+  // v7.0 — a AURA agora FALA de verdade (saudação por TTS) e OUVE de verdade
+  // (evento 'audio' → WAV → transcrição → resposta). O que ela ouve é
+  // transcrito e respondido pela mesma conversa do callHandler (PTT).
   if (!isVideo) {
     try {
       const live = require('./liveVoip');
       const num = String(alvoJid).split('@')[0].replace(/\D/g, '');
-      let audioPath = null;
-      try {
-        const ai = require('./ai');
-        const buf = await ai.speakWithFallback('Oi, sou a Aura. Estou na linha.');
-        audioPath = await live.gravarTtsTemp(buf);
-      } catch {}
-      const r = await live.ligarAoVivo(num, { audioPath });
+      const alvo = alvoJid;
+      const r = await Promise.race([
+        live.ligarAoVivo(num, {
+          saudacao: 'Oi, sou a Aura. Estou na linha.',
+          onEscuta: async (wavBuf) => {
+            try {
+              const ch = require('./callHandler');
+              ch.marcarActiva(alvo, { id: 'vozrtp-' + Date.now(), isVideo: false }, true);
+              await ch.continuarConversa(sock, alvo, wavBuf, { pushName });
+            } catch {}
+          },
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout voip 30s')), 30000)),
+      ]);
       tentativas.push({ metodo: 'rtp_vivo', ok: !!r.ok, detalhe: r.motivo || r.metodo });
-      if (r.ok) return { ok: true, tocou: true, metodo: 'rtp_vivo', tipo: 'voice', tentativas };
+      if (r.ok) {
+        try { require('./callHandler').marcarActiva(alvo, { id: r.callId, isVideo: false }, true); } catch {}
+        return { ok: true, tocou: true, metodo: 'rtp_vivo', tipo: 'voice', tentativas };
+      }
     } catch (e) {
       tentativas.push({ metodo: 'rtp_vivo', ok: false, erro: String(e.message || e).slice(0, 70) });
     }

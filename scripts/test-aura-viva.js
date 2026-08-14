@@ -180,9 +180,11 @@ const txt1 = r => (r.respostas && r.respostas[0] && (r.respostas[0].text || (r.r
   const rv = await call.onCall(sock, { id: 'c2', from: '244945280380@s.whatsapp.net', status: 'offer', isVideo: true },
     { ownerJid: '244945280380@s.whatsapp.net', ownerNumber: '244945280380', isOwner: true });
   t('Atende chamada de VÍDEO', rv.modo === 'atender', rv.modo);
-  t('Atender não manda conversa', !OUT.some(o => o.audio || o.image || o.text),
-    OUT.map(o => o.image ? 'IMG' : (o.audio ? 'AUDIO' : 'txt')).join(','));
-  ai.generateImage = _ger;
+  // v7.0 — o comportamento correcto (v6.76/v6.77) é a AURA FALAR ao atender:
+  // a saudação de voz é o sinal de que ela atendeu. A asserção antiga exigia
+  // silêncio total (comportamento revertido em 7a3a068).
+  t('Atender fala a saudação (áudio)', OUT.some(o => o.audio || o.ptt),
+    OUT.map(o => o.image ? 'IMG' : (o.audio || o.ptt ? 'AUDIO' : 'txt')).join(','));
   call.terminar('244945280380@s.whatsapp.net');
   ai.speakWithFallback = _sp;
 

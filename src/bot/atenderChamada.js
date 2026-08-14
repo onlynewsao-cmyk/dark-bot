@@ -25,7 +25,9 @@ function campos(call) {
   const isVideo = !!(call.isVideo || call.video || call.media === 'video');
   const isGroup = !!(call.isGroup || call.group || String(from).endsWith('@g.us'));
   const grupoJid = call.groupJid || call.chatId || (isGroup ? from : '');
-  const stanzaId = call.stanzaId || call.offline === true ? null : (call.nodeId || null);
+  // v7.0 — a expressão antiga tinha precedência errada (punha null mesmo
+  // quando havia stanzaId). id do ack é opcional; se existir, usa.
+  const stanzaId = call.stanzaId || call.nodeId || null;
   return { from, callId, creator, isVideo, isGroup, grupoJid, stanzaId };
 }
 
