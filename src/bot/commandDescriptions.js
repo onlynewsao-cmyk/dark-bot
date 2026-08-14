@@ -152,7 +152,8 @@ const PADROES = [
   [/^(calc|calcular|math)\d*$/,  'Faz um cálculo matemático'],
   [/^(frase|citacao|conselho|motivacao)\d*$/, 'Envia uma frase inspiradora'],
   [/^(piada|humor|zoeira)\d*$/,  'Conta uma piada'],
-  [/^(binario|base64|hex|md5|sha)/, 'Codifica ou descodifica texto'],
+  [/^(binario|base64|hex|md5|sha1|sha256|sha512)\d*$/, 'Codifica ou descodifica texto'],
+  [/^(shazam|identificar|qualmusica)$/, 'Identifica a música pela letra'],
 
   // Info e sistema
   [/^(ping|speed|lat)\d*$/,      'Mostra a velocidade de resposta do bot'],

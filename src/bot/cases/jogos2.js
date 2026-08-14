@@ -298,18 +298,19 @@ module.exports = function registerJogos2(registerCase) {
     ]);
   }, true);
 
-  // ═══ FORCA ═══
-  registerCase(['forca'], async ({ sock, msg, ctx }) => {
+  // ═══ FORCA (alias: letra — "adivinha a letra") ═══
+  registerCase(['forca', 'letra'], async ({ sock, msg, ctx, command }) => {
     const words = ['WHATSAPP', 'JAVASCRIPT', 'DARKBOT', 'STICKER', 'PROGRAMAR'];
     const word = P(words);
     const hidden = word.split('').map(() => '_').join(' ');
     _games.set('forca_' + ctx.senderNumber, { word, guessed: [], errors: 0, ts: Date.now() });
+    const p = command === 'letra' ? 'letra' : 'forca';
     return tReply(sock, msg, ctx, '🔤 FORCA', [
       `📝 \`${hidden}\``,
       `❌ Erros: 0/6`,
       `🔤 Letras: nenhuma`,
       '',
-      `> Usa !forca <letra> ou !forca <palavra>`,
+      `> Usa !${p} <letra> ou !${p} <palavra>`,
     ]);
   }, true);
 
@@ -341,6 +342,16 @@ module.exports = function registerJogos2(registerCase) {
   registerCase(['desafio'], async ({ sock, msg, ctx }) => {
     const challenges = ['Fala apenas em inglês durante 5 minutos', 'Manda um vídeo a dançar', 'Troca a foto de perfil por um meme', 'Fala como um pirata durante 3 mensagens', 'Manda um áudio a imitar um animal'];
     return tReply(sock, msg, ctx, '🔥 DESAFIO', [`🔥 *${P(challenges)}*`]);
+  }, true);
+
+  // ═══ VERDADE OU DESAFIO (vd) ═══
+  registerCase(['vd', 'verdadeoudesafio', 'verdadedesafio'], async ({ sock, msg, ctx }) => {
+    if (Math.random() < 0.5) {
+      const truths = ['Qual foi o teu maior erro?', 'Qual é o teu segredo mais profundo?', 'Qual foi a última coisa que pesquisaste no Google?', 'Qual é a tua maior insegurança?', 'Já mentiste a um amigo próximo?'];
+      return tReply(sock, msg, ctx, '🎲 VERDADE OU DESAFIO', [`❓ *${P(truths)}*`]);
+    }
+    const challenges = ['Fala apenas em inglês durante 5 minutos', 'Manda um vídeo a dançar', 'Troca a foto de perfil por um meme', 'Fala como um pirata durante 3 mensagens', 'Manda um áudio a imitar um animal'];
+    return tReply(sock, msg, ctx, '🎲 VERDADE OU DESAFIO', [`🔥 *${P(challenges)}*`]);
   }, true);
 
   // ═══ SHIP ═══
