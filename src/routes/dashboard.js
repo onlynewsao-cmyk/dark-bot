@@ -31,11 +31,20 @@ router.get('/', async (req, res) => {
   res.render('dashboard/home', { title: 'Dashboard', stats });
 });
 
-router.get('/connect', requireOwner, (req, res) => res.render('dashboard/connect', {
-  title: 'Conectar Bot',
-  botState: getBot().getStatus(),
-  callState: getCallBot().getStatus(),
-}));
+router.get('/connect', requireOwner, async (req, res) => {
+  let voipState = null;
+  try {
+    const live = require('../bot/liveVoip');
+    await live.disponivel(); // resolve se baileys-caller está instalado
+    voipState = live.getStatus();
+  } catch { voipState = null; }
+  res.render('dashboard/connect', {
+    title: 'Conectar Bot',
+    botState: getBot().getStatus(),
+    callState: getCallBot().getStatus(),
+    voipState,
+  });
+});
 
 // Painel de Controle (owner)
 router.get('/control', requireOwner, async (req, res) => {
