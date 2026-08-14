@@ -636,7 +636,7 @@ function buildConfigurableMenu(ctx, config, { uptime = '0d 0h 0m', style = 'clas
   const sections = [
     ['🧠 IA / WEB',      [cmds('ia','gpt','claude','copilot'), cmds('noticias','pesquisar','resumir'), cmds('imagem','figura','figubug2')]],
     ['📥 DOWNLOADS',     [cmds('play','play2','play3'), cmds('video','video2','statusvideo'), cmds('tiktok','instagram','fb','twitter'), cmds('spotify','soundcloud','pinterest','pinpacks')]],
-    ['🎨 STICKERS',      [cmds('sticker','sfull','figubug2'), cmds('toimg','attp','ttp'), cmds('stickerrename','pinpacks')]],
+    ['🎨 STICKERS',      [cmds('sticker','sfull','figubug2'), cmds('toimg','attp','ttp'), cmds('pack','stickerrename','pinpacks')]],
     ['💕 INTERAÇÕES',    [cmds('abracar','beijar','cafune','declarar'), cmds('flertar','dancar','tapa','soco'), cmds('matar','morder','casar','adotar')]],
     ['💰 ECONOMIA',      [cmds('saldo','daily','trabalhar','crime'), cmds('roubar','depositar','sacar','transferir'), cmds('loja','comprar','inventario','rank')]],
     ['🎮 JOGOS',         [cmds('forca','quiz','adivinha'), cmds('blackjack','russa'), cmds('verdade','desafio','bingo')]],
@@ -1245,6 +1245,7 @@ module.exports = {
         { cmd: 'pinterest',emoji: '📌', desc: 'imagens Pinterest' },
         { cmd: 'pinpacks', emoji: '📌', desc: 'packs de stickers' },
         { cmd: 'stickerrename',emoji:'💧',desc:'renomear sticker' },
+        { cmd: 'pack',         emoji:'📦',desc:'configurar pack (nome/autor/link)' },
       ],
     });
   },
