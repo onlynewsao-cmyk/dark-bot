@@ -75,6 +75,7 @@ const PADROES = [
   [/^(qc|quote)\d*$/,            'Cria figurinha de citação'],
   [/^(definestickwm|setstickwm|stickwmgrupo|definirmarca|defpack|definestickpack|setpack|packlink|verpack)$/, 'Define o pack e o link do «Ver pacote de figurinhas»'],
   [/^(pack|pacote)$/, 'Muda nome/autor/slogan/link do pack de figurinhas (global ou do grupo)'],
+  [/^(stickerrename|renamesticker|renomesticker|renamestick|renomear|rename|trocarnome|packname)$/, 'Renomeia o pack/autor de qualquer sticker (responde a um sticker)'],
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],

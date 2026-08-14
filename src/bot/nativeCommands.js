@@ -2876,32 +2876,18 @@ module.exports = {
   },
 
   // ══════════════════════════════════════════════════════════════════════
-  // !stickerrename / !stickerpack — renomear sticker e pack
+  // !stickerrename / !renomear — renomear QUALQUER sticker (pack + autor)
+  // v7.1 — reescreve só os metadados do webp original: preserva animação.
   // ══════════════════════════════════════════════════════════════════════
   async stickerrename({ sock, msg, ctx, args }) {
-    const m = msg.message || {};
-    const quoted = m.extendedTextMessage?.contextInfo?.quotedMessage;
-    const stkMsg = m.stickerMessage || quoted?.stickerMessage;
-    if (!stkMsg) return reply(sock, msg, ctx, '🎨 Responde a um sticker com: !stickerrename <nome do pack> | <autor>');
-    const [pack = '', author = ''] = args.join(' ').split('|').map(x => x.trim());
-    if (!pack) return reply(sock, msg, ctx, '🎨 Use: !stickerrename <nome do pack> | <autor>\nEx: !stickerrename Dark Pack | Dark Net');
-    await react(sock, msg, '⏳');
-    try {
-      const buf = await mediaHandler.downloadFromMessage({ message: { stickerMessage: stkMsg } });
-      const stk = await stickerMaker.create(buf, {
-        botName: pack.slice(0, 25),
-        ownerName: author.slice(0, 25) || ctx.pushName,
-        userName: ctx.pushName,
-        groupName: ctx.groupName || 'PV',
-        isVideo: false,
-        packName: pack.slice(0, 80),
-        authorName: (author || ctx.pushName).slice(0, 80),
-        skipGroupWm: true,
-      });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-      await react(sock, msg, '✅');
-      return reply(sock, msg, ctx, `✅ Sticker renomeado!\n📦 Pack: *${pack}*\n👤 Autor: *${author || ctx.pushName}*`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
+    return require('./stickerRename').renomear({
+      sock, ctx,
+      m: { msg },
+      args,
+      prefix: (config.bot && config.bot.prefix) || '!',
+      reply: (t) => reply(sock, msg, ctx, t),
+      react: (e) => react(sock, msg, e),
+    });
   },
 
   // !pinterest <busca> — Carousel com imagens do Pinterest
