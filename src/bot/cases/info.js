@@ -136,6 +136,66 @@ module.exports = function registerInfoCases(registerCase) {
     return reply(lines.join('\n'));
   });
 
+  // ── rankativos / rankativo / rankinativo ────────────────────
+  // v7.3 — deixou de ser stub ("Uso: <args>") e passou a mostrar o
+  // ranking REAL de atividade do grupo, a partir do GroupMemberActivity
+  // (mensagens e comandos registados pelo messageListener/commandHandler).
+  registerCase(['rankativos', 'rankativo', 'rankinativo'], async ({ sock, msg, ctx, reply, command }) => {
+    const t = await getActiveTheme(ctx.remoteJid);
+    const f = t.frame;
+    const b = t.bullet;
+    const ehInativo = command === 'rankinativo';
+
+    if (!ctx.isGroup) return reply('👥 O ranking de atividade é só em *grupos*.');
+
+    let docs = [];
+    try {
+      const GroupMemberActivity = require('../database/models/GroupMemberActivity');
+      docs = await GroupMemberActivity.find({ groupJid: ctx.remoteJid })
+        .sort(ehInativo ? { lastMessageAt: 1, messages: 1 } : { messages: -1, lastMessageAt: -1 })
+        .limit(10)
+        .lean()
+        .catch(() => []);
+    } catch {}
+
+    if (!Array.isArray(docs) || !docs.length) {
+      return reply(
+        `${f[0]}${f[4].repeat(24)}${f[1]}\n` +
+        `${f[5]} ${t.icon} ${ehInativo ? 'ʀᴀɴᴋ ɪɴᴀᴛɪᴠᴏ' : 'ʀᴀɴᴋ ᴀᴛɪᴠᴏ'} ${t.icon}\n` +
+        `${f[2]}${f[4].repeat(24)}${f[3]}\n\n` +
+        `${b} Ainda não há atividade registada neste grupo.\n` +
+        `${b} Manda umas mensagens e tenta outra vez. 🕸️\n\n` +
+        `> ${t.vibe}`
+      );
+    }
+
+    const medalhas = ['🥇', '🥈', '🥉'];
+    const linhas = [
+      `${f[0]}${f[4].repeat(24)}${f[1]}`,
+      `${f[5]} ${t.icon} ${ehInativo ? 'ʀᴀɴᴋ ɪɴᴀᴛɪᴠᴏ' : 'ʀᴀɴᴋ ᴀᴛɪᴠᴏ'} ${t.icon}`,
+      `${f[2]}${f[4].repeat(24)}${f[3]}`,
+      '',
+    ];
+    const mentions = [];
+    docs.forEach((d, i) => {
+      const nome = (d.pushName || d.memberNumber || '?').toString().slice(0, 20);
+      const jid = d.memberJid;
+      if (jid) mentions.push(jid);
+      const medal = medalhas[i] || `#${i + 1}`;
+      const msgs = d.messages || 0;
+      const cmds = d.commands || 0;
+      const quando = d.lastMessageAt ? new Date(d.lastMessageAt).toLocaleDateString('pt-BR') : '—';
+      const extra = ehInativo
+        ? `— visto a ${quando}`
+        : `— ${msgs} msgs · ${cmds} cmds`;
+      linhas.push(`${b} ${medal} @${(d.memberNumber || '?')} ${extra}\n${b}    ${nome}`);
+    });
+    linhas.push('', `> ${t.vibe}`);
+
+    const texto = linhas.join('\n');
+    return sock.sendMessage(ctx.remoteJid, { text: texto, mentions }, { quoted: msg });
+  });
+
   // ── case 'aiapis' ──────────────────────────────────────────
   registerCase(['aiapis', 'iaapis', 'checkia'], async ({ ctx, prefix, reply }) => {
     const aiMod = require('../ai');
