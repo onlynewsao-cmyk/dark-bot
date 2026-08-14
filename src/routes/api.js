@@ -104,6 +104,34 @@ module.exports = function (io) {
   router.post('/callbot/connect', requireApiOwner, startCallBot);
   router.post('/callbot/start', requireApiOwner, startCallBot);
 
+  // ===== VOZ REAL (RTP / baileys-caller — 3.º aparelho) =====
+  router.get('/voip/status', requireApiAuth, (req, res) => {
+    try { res.json(require('../bot/liveVoip').getStatus()); }
+    catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+  router.post('/voip/start', requireApiOwner, async (req, res) => {
+    try {
+      const live = require('../bot/liveVoip');
+      const d = await live.disponivel();
+      if (!d) {
+        return res.status(400).json({
+          error: 'VOZ REAL não instalada. Corre "npm run setup:voip" no servidor.',
+        });
+      }
+      // fire-and-forget: o QR fica em getStatus().qr e o dashboard faz polling
+      live.conectar().catch((err) => console.error('VoIP connect:', err?.message || err));
+      res.status(202).json({ ok: true, role: 'voip' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  router.post('/voip/logout', requireApiOwner, async (req, res) => {
+    try {
+      require('../bot/liveVoip').apagarSessao();
+      res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
   // ===== LIGAR-ME AGORA (botão do painel) =====
   // v6.78 — dispara uma chamada real para o Dono num clique. Usa o socket
   // principal (o callbot secundário está desligado) e a mesma escada do

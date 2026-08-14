@@ -147,6 +147,57 @@
       </div>
     </div>
 
+    <!-- VOZ REAL (VoIP · 3.º aparelho) -->
+    <div class="card" style="margin-top:1.2rem;border:1px solid #06B6D4">
+      <h2>🎙️ Voz Real (VoIP · 3.º aparelho)</h2>
+      <p class="muted" style="margin-bottom:.75rem">
+        Áudio RTP de verdade — a Aura <strong>fala e ouve</strong> quando liga
+        (<code>.ligar</code> / autoCall). Requer <code>npm run setup:voip</code> no servidor.
+        Sessão isolada em <code>data/auth-voip</code>, não toca nas credenciais do bot.
+      </p>
+      <div class="bot-status" style="margin-bottom:.75rem">
+        <span class="status-dot status-<%= (voipState && voipState.estado) ? voipState.estado : 'off' %>" id="voipStatusDot"></span>
+        <span id="voipStatusText"><%= (voipState && voipState.estado) ? voipState.estado : 'off' %></span>
+      </div>
+      <div class="connect-grid">
+        <div>
+          <div class="qr-area" id="voipQrArea">
+            <% if (voipState && voipState.qr) { %>
+              <img src="<%= voipState.qr %>" alt="QR Voz Real" />
+            <% } else if (voipState && voipState.estado === 'ligado') { %>
+              <div class="qr-placeholder success">
+                <div class="qr-icon">🎙️</div>
+                <p><strong>Voz Real online</strong></p>
+                <p class="muted small">Aura pronta para ligar e falar</p>
+              </div>
+            <% } else if (voipState && voipState.disponivel === false) { %>
+              <div class="qr-placeholder">
+                <div class="qr-icon">⚠️</div>
+                <p>baileys-caller não instalado</p>
+                <p class="muted small">Corre <code>npm run setup:voip</code> no servidor</p>
+              </div>
+            <% } else { %>
+              <div class="qr-placeholder">
+                <div class="qr-icon">🎙️</div>
+                <p>Gera o QR da Voz Real</p>
+              </div>
+            <% } %>
+          </div>
+          <div class="button-row">
+            <button class="btn btn-primary" id="btnVoipQr" onclick="startVoipQR()">🎙️ Gerar QR Voz Real</button>
+            <% if (voipState && (voipState.estado === 'ligado' || voipState.sessao)) { %>
+              <button class="btn btn-danger btn-sm" onclick="disconnectVoip()">Desligar Voz Real</button>
+            <% } %>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:center;gap:.5rem">
+          <p class="muted small">✅ Voz 1:1 de saída — a Aura liga, fala e ouve</p>
+          <p class="muted small">❌ Atender entrada com áudio — não existe em Baileys</p>
+          <p class="muted small">❌ Vídeo · grupos</p>
+        </div>
+      </div>
+    </div>
+
     <!-- LOG DE CONEXÃO -->
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.85rem">
@@ -378,8 +429,144 @@
     } catch(e) { toast(e.message, 'error'); }
   }
 
+  // ══════════════ Baileys de Chamadas (secundário) ══════════════
+  // v7.0 — os botões desta secção chamavam funções que não existiam.
+  let lastCallQr = '', lastCallPair = '';
+  function fastPollStatus(url, render, seconds = 90) {
+    const stopAt = Date.now() + seconds * 1000;
+    (async function loop() {
+      if (Date.now() > stopAt) return;
+      try {
+        const r = await fetch(url, { cache: 'no-store' });
+        const data = await r.json().catch(() => ({}));
+        render(data, false);
+      } catch {}
+      setTimeout(loop, 2000);
+    })();
+  }
+  function renderCallStatus(data = {}, silent = false) {
+    if (!data) return;
+    const s = data.status || 'disconnected';
+    const dot = document.getElementById('callStatusDot');
+    const txt = document.getElementById('callStatusText');
+    if (dot) dot.className = 'status-dot status-' + s;
+    if (txt) txt.textContent = s;
+    const area = document.getElementById('callQrArea');
+    if (!area) return;
+    if (s === 'qr' && data.qr) {
+      if (data.qr !== lastCallQr) {
+        lastCallQr = data.qr;
+        area.innerHTML = `<img src="${data.qr}" alt="QR Chamadas" style="max-width:240px;border-radius:12px;background:white;padding:10px" />`;
+        addLog('success', '📞 QR das chamadas gerado — escaneie!');
+        if (!silent) toast('📞 QR das chamadas pronto!', 'success');
+      }
+    } else if (s === 'connected') {
+      area.innerHTML = `<div class="qr-placeholder success"><div class="qr-icon">📞</div><p><strong>Chamadas online</strong></p><p class="muted small">${data.user?.id?.split(':')[0] || ''}</p></div>`;
+    } else if (s === 'pairing') {
+      const pa = document.getElementById('callPairArea');
+      if (pa && data.pairingCode && data.pairingCode !== lastCallPair) {
+        lastCallPair = data.pairingCode;
+        pa.innerHTML = `<div style="text-align:center"><div class="muted small">PAIR CODE CHAMADAS:</div><div class="pair-code">${data.pairingCode}</div></div>`;
+        addLog('success', `🔐 Pair code chamadas: ${data.pairingCode}`);
+      }
+    }
+  }
+  async function refreshCallStatus(silent = true) {
+    try {
+      const r = await fetch('/api/callbot/status', { cache: 'no-store' });
+      renderCallStatus(await r.json().catch(() => ({})), silent);
+    } catch {}
+  }
+  async function startCallQR() {
+    addLog('info', '📞 A gerar QR das chamadas...');
+    try {
+      await postJSON('/api/callbot/start', { mode: 'qr', fresh: true });
+      addLog('info', '✅ Pedido enviado. Aguardando QR...');
+      fastPollStatus('/api/callbot/status', renderCallStatus, 120);
+    } catch (e) { addLog('error', '❌ ' + e.message); toast(e.message, 'error'); }
+  }
+  async function startCallPair() {
+    const num = (document.getElementById('callPairNumber')?.value || '').replace(/\D/g, '');
+    if (!num || num.length < 10) { toast('❌ Número inválido (mín. 10 dígitos com DDI)', 'error'); return; }
+    addLog('info', `🔐 Pair code das chamadas para ${num}...`);
+    try {
+      await postJSON('/api/callbot/start', { mode: 'pair', phoneNumber: num, fresh: true });
+      addLog('info', '✅ Pedido enviado. Aguardando pair code...');
+      fastPollStatus('/api/callbot/status', renderCallStatus, 120);
+    } catch (e) { addLog('error', '❌ ' + e.message); toast(e.message, 'error'); }
+  }
+  async function disconnectCallBot() {
+    if (!confirm('Desligar o Baileys de chamadas?')) return;
+    try {
+      await postJSON('/api/callbot/logout');
+      toast('📞 Chamadas desligadas.', 'warn');
+      refreshCallStatus(false);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  // ══════════════ Voz Real (VoIP) ══════════════
+  let lastVoipQr = '';
+  function renderVoipStatus(data = {}, silent = false) {
+    if (!data) return;
+    const s = data.estado || 'off';
+    const dot = document.getElementById('voipStatusDot');
+    const txt = document.getElementById('voipStatusText');
+    if (dot) dot.className = 'status-dot status-' + s;
+    if (txt) txt.textContent = s;
+    const area = document.getElementById('voipQrArea');
+    if (!area) return;
+    if (data.qr) {
+      if (data.qr !== lastVoipQr) {
+        lastVoipQr = data.qr;
+        area.innerHTML = `<img src="${data.qr}" alt="QR Voz Real" style="max-width:240px;border-radius:12px;background:white;padding:10px" />`;
+        addLog('success', '🎙️ QR da Voz Real gerado — escaneie como 3.º aparelho!');
+        if (!silent) toast('🎙️ QR da Voz Real pronto!', 'success');
+      }
+    } else if (s === 'ligado') {
+      area.innerHTML = `<div class="qr-placeholder success"><div class="qr-icon">🎙️</div><p><strong>Voz Real online</strong></p><p class="muted small">Aura pronta para ligar e falar</p></div>`;
+    } else if (data.disponivel === false) {
+      area.innerHTML = `<div class="qr-placeholder"><div class="qr-icon">⚠️</div><p>baileys-caller não instalado</p><p class="muted small">Corre "npm run setup:voip" no servidor</p></div>`;
+    } else if (s === 'a_ligar' || s === 'a_tocar' || s === 'em_chamada') {
+      area.innerHTML = `<div class="qr-placeholder"><div class="spinner"></div><p>A ligar o VoIP...</p></div>`;
+    }
+  }
+  async function refreshVoipStatus(silent = true) {
+    try {
+      const r = await fetch('/api/voip/status', { cache: 'no-store' });
+      renderVoipStatus(await r.json().catch(() => ({})), silent);
+    } catch {}
+  }
+  async function startVoipQR() {
+    const btn = document.getElementById('btnVoipQr');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Aguarde...'; }
+    addLog('info', '🎙️ A ligar a Voz Real...');
+    try {
+      await postJSON('/api/voip/start');
+      addLog('info', '✅ Pedido enviado. Aguardando QR do VoIP...');
+      fastPollStatus('/api/voip/status', renderVoipStatus, 120);
+    } catch (e) {
+      addLog('error', '❌ ' + e.message);
+      toast(e.message, 'error');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '🎙️ Gerar QR Voz Real'; }
+  }
+  async function disconnectVoip() {
+    if (!confirm('Desligar a Voz Real e apagar a sessão VoIP?')) return;
+    try {
+      await postJSON('/api/voip/logout');
+      toast('🎙️ Voz Real desligada.', 'warn');
+      refreshVoipStatus(false);
+    } catch (e) { toast(e.message, 'error'); }
+  }
+
+  if (connectSocket) connectSocket.on('callbot:status', (data) => renderCallStatus(data, false));
+
   // Polling leve permanente: se WebSocket falhar no Render, a página continua atualizando.
   setInterval(() => refreshStatus(true), 5000);
+  setInterval(() => refreshCallStatus(true), 8000);
+  setInterval(() => refreshVoipStatus(true), 8000);
   refreshStatus(true);
+  refreshCallStatus(true);
+  refreshVoipStatus(true);
 </script>
 <%- include('../partials/footer') %>

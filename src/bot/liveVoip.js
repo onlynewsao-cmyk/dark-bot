@@ -33,6 +33,7 @@ let _estado = 'off';
 let _ultimoErro = '';
 let _chamada = null;
 let _conexao = null; // Promise da ligação em curso (evita 2 connects em paralelo)
+let _qr = null;      // último QR capturado (para o dashboard)
 
 /* ══════════════════════════ Estado ══════════════════════════ */
 
@@ -49,6 +50,7 @@ function getStatus() {
     estado: _estado,
     sessao: temSessao(),
     chamadaActiva: !!_chamada,
+    qr: _qr,
     ultimoErro: _ultimoErro,
     limites: { inbound: false, video: false, grupo: false, outboundVoz: true },
   };
@@ -78,7 +80,30 @@ async function _carregarCliente() {
   return VoipClient;
 }
 
-async function conectar({ onEstado } = {}) {
+/**
+ * O baileys-caller imprime o QR via qrcode-terminal (import dinâmico).
+ * O Node partilha o cache entre require() e import() para módulos CJS,
+ * por isso patchar o .generate aqui captura o QR e deixa-o chegar ao
+ * dashboard — e continua a imprimir no log como fallback.
+ */
+function _capturarQr(onQr) {
+  try {
+    const qrt = require('qrcode-terminal');
+    if (qrt && !qrt.__darkbot_patched) {
+      const orig = qrt.generate;
+      qrt.generate = function (qrData, opts, cb) {
+        try {
+          _qr = String(qrData || '');
+          if (typeof onQr === 'function') onQr(_qr);
+        } catch {}
+        return orig.call(this, qrData, opts, cb);
+      };
+      qrt.__darkbot_patched = true;
+    }
+  } catch {}
+}
+
+async function conectar({ onEstado, onQr } = {}) {
   const notificar = (s, extra = {}) => {
     _estado = s;
     try { if (typeof onEstado === 'function') onEstado(s, extra); } catch {}
@@ -93,13 +118,15 @@ async function conectar({ onEstado } = {}) {
   _conexao = (async () => {
     const VoipClient = await _carregarCliente();
     fs.mkdirSync(AUTH_DIR, { recursive: true });
+    _qr = null;
+    _capturarQr(onQr);
 
-    // 1ª vez: o QR aparece no terminal/logs (qrcode-terminal) —
-    // escaneia em WhatsApp → Aparelhos conectados (3.º aparelho).
+    // 1ª vez: o QR aparece no terminal/logs E no dashboard (data-qr).
     notificar('a_ligar');
     const client = new VoipClient({ authDir: AUTH_DIR });
     await client.connect();
     _client = client;
+    _qr = null;
     notificar('ligado');
     return client;
   })().catch((e) => {
@@ -310,7 +337,14 @@ function desligar() {
   try { _client?.disconnect(); } catch {}
   _client = null;
   _conexao = null;
+  _qr = null;
   _estado = 'off';
+}
+
+/** Desliga E apaga a sessão local (equivale a "reset" do VoIP). */
+function apagarSessao() {
+  desligar();
+  try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
 }
 
 module.exports = {
@@ -321,6 +355,7 @@ module.exports = {
   ligarAoVivo,
   gravarTtsTemp,
   desligar,
+  apagarSessao,
   pcmParaWav,
   _criarEscuta,
   AUTH_DIR,
