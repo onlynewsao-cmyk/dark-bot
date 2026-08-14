@@ -42,6 +42,13 @@
     → packs de figurinhas **reais por categoria** (busca no Sticker.ly, estáticos + animados)
   - `gif <busca>` → envia **GIF real** (Tenor → APIs de anime)
   - (`faber`/`jeff`/`norian` já funcionavam — registados via loop em stickers2.js; falso alarme da auditoria por regex)
+- [x] **IA & CHATBOTS (v7.5)** — auditado **80/80 com handler real**. Já estava completo:
+  - modelos (claude, gpt4/5, llama, qwen, gemma, mistral, kimi, …) → `makeModelHandler` em ia2.js
+  - utilitários (corrigir, explicar, resumir, resumirurl/chat, ideias, debater, recomendar) → ia2.js
+  - imagem/news/pesquisar/deepsearch + memória (aimemoria/airesetar) → ia.js
+  - aura* (acordaaura, auraon/off, auramodo, aurasai, auragrupos…) → auraInvoke.js
+  - iawhatsapp/metaai → nativeCommands.js · microsoft-ai → online.js · philosophy → random.js
+  - adicionei `test:ia-audit` (80/80) para o futuro
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 
