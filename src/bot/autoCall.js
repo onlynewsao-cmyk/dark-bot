@@ -60,6 +60,43 @@ async function _ligarAgora(getSock, motivo) {
   }
 
   try {
+    // v7.0 — PRIMEIRO tenta a VOZ REAL (RTP) via baileys-caller: a Aura
+    // liga, FALA de verdade (saudação) e OUVE de verdade (transcreve e
+    // responde). Se não houver sessão VoIP (3.º aparelho) ou o pacote não
+    // estiver instalado, cai no realCall (sinalização) como sempre.
+    try {
+      const live = require('./liveVoip');
+      const alvo = numero + '@s.whatsapp.net';
+      const rv = await Promise.race([
+        live.ligarAoVivo(numero, {
+          saudacao: 'Oi meu Dark, sou eu, a Aura. Estou na linha.',
+          onEscuta: async (wavBuf) => {
+            try {
+              const ch = require('./callHandler');
+              ch.marcarActiva(alvo, { id: 'vozrtp-' + Date.now(), isVideo: false }, true);
+              await ch.continuarConversa(sock, alvo, wavBuf, { pushName: 'Dark' });
+            } catch {}
+          },
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout voip 25s')), 25000)),
+      ]);
+      if (rv?.ok) {
+        _falhasSeguidas = 0;
+        try {
+          require('./callHandler').marcarActiva(alvo, { id: rv.callId, isVideo: false }, true);
+        } catch {}
+        _registar({ motivo, ok: true, tocou: true, metodo: 'rtp_vivo', callId: rv.callId });
+        console.log(`[autoCall] VOZ REAL (RTP) para ${numero} — Aura fala e ouve`);
+        return { ok: true, metodo: 'rtp_vivo', callId: rv.callId };
+      }
+      // sem sessão/lib → fallback silencioso para realCall (não é falha)
+      if (rv?.motivo === 'sem_sessao_voip' || rv?.motivo === 'nao_instalado') {
+        _registar({ motivo, ok: false, metodo: 'rtp_vivo', fallback: rv.motivo });
+      }
+    } catch (e) {
+      _registar({ motivo, ok: false, metodo: 'rtp_vivo', erro: String(e?.message || e).slice(0, 80) });
+    }
+
     // Usamos realCall directamente, e NÃO o callBridge: a escada do bridge
     // cai em fallbacks que enviam mensagens (link de chamada, wa.me) em vez
     // de tocar. Num ciclo automático de 5 em 5 min isso seria spam contra o
