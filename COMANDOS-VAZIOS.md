@@ -37,6 +37,11 @@
   - `shazam` → identifica a música **pela letra via IA** (antes era texto falso "marca um áudio")
   - descrição do `shazam` corrigida (regex `sha` apanhava-o como "Codifica/descodifica")
   - `.env.example` com `COBALT_API_URL`/`YT_PROXY_URL` para quem quiser instância privada
+- [x] **STICKERS & IMAGENS (v7.5)** — auditado 54/54 com handler. Os 9 que eram vazios:
+  - `figanime`/`figcoreana`/`figdesenho`/`figemoji`/`figengracada`/`figmeme`/`figraiva`/`figroblox`
+    → packs de figurinhas **reais por categoria** (busca no Sticker.ly, estáticos + animados)
+  - `gif <busca>` → envia **GIF real** (Tenor → APIs de anime)
+  - (`faber`/`jeff`/`norian` já funcionavam — registados via loop em stickers2.js; falso alarme da auditoria por regex)
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 

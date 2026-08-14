@@ -74,6 +74,8 @@ const PADROES = [
   [/^(brat|bratvideo)\d*$/,      'Cria figurinha estilo brat'],
   [/^(qc|quote)\d*$/,            'Cria figurinha de citação'],
   [/^(definestickwm|setstickwm|stickwmgrupo|definirmarca|defpack|definestickpack|setpack|packlink|verpack)$/, 'Define o pack e o link do «Ver pacote de figurinhas»'],
+  [/^fig(anime|coreana|desenho|emoji|engracada|meme|raiva|roblox)$/, 'Pack de figurinhas por categoria (Sticker.ly)'],
+  [/^gif$/, 'Envia um GIF por busca'],
   [/^(pack|pacote)$/, 'Muda nome/autor/slogan/link do pack de figurinhas (global ou do grupo)'],
   [/^(stickerrename|renamesticker|renomesticker|renamestick|renomear|rename|trocarnome|packname)$/, 'Renomeia o pack/autor de qualquer sticker (responde a um sticker)'],
 
