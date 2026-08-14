@@ -74,6 +74,7 @@ const PADROES = [
   [/^(brat|bratvideo)\d*$/,      'Cria figurinha estilo brat'],
   [/^(qc|quote)\d*$/,            'Cria figurinha de citação'],
   [/^(definestickwm|setstickwm|stickwmgrupo|definirmarca|defpack|definestickpack|setpack|packlink|verpack)$/, 'Define o pack e o link do «Ver pacote de figurinhas»'],
+  [/^(pack|pacote)$/, 'Muda nome/autor/slogan/link do pack de figurinhas (global ou do grupo)'],
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],
