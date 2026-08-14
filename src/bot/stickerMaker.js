@@ -226,6 +226,24 @@ async function injectMeta(webpBuf, pack, author, packId, packUrl = '') {
   return writeStickerExif(fallback, { packId: id, pack, author, url: packUrl });
 }
 
+/**
+ * Renomeia o pack/author de um sticker JÁ PRONTO (webp) sem re-encodar.
+ * Escreve só os metadados EXIF → preserva animação, qualidade e frames.
+ * Funciona com qualquer sticker: estático ou animado, de quem quer que seja.
+ * @param {Buffer} webpBuf  sticker original (webp)
+ * @param {{packName?:string, authorName?:string, packUrl?:string}} opts
+ */
+async function renameMeta(webpBuf, { packName = '', authorName = '', packUrl = '' } = {}) {
+  if (!webpBuf || webpBuf.length < 100) throw new Error('sticker inválido');
+  const pack = String(packName || 'DARK NET 🕸️').trim().slice(0, 128);
+  const author = String(authorName || 'DARK NET 🕸️').trim().slice(0, 128);
+  const url = String(packUrl || '').trim();
+  const id = makePackId((url || '') + '|' + pack);
+  const out = await injectMeta(webpBuf, pack, author, id, url);
+  if (out && out.length > 50) return out;
+  throw new Error('não consegui renomear o sticker');
+}
+
 /* ─── API PÚBLICA ─────────────────────────────────────────────── */
 /**
  * Cria sticker WhatsApp 512x512 quadrado.
@@ -409,6 +427,7 @@ module.exports = {
   FFMPEG_OK,
   makePackId,
   injectMeta,
+  renameMeta,
   stampPack,
   packStickerOpts,
   buildStickerExifJson,

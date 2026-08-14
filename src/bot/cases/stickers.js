@@ -89,27 +89,12 @@ module.exports = function registerStickerCases(registerCase) {
     } catch (e) { react('❌'); reply('❌ ' + e.message); }
   });
 
-  // ── !stickerrename — Renomear pack ────────────────────────────────
-  registerCase(['stickerrename', 'renamesticker', 'packname'], async ({ m, sock, ctx, args, prefix, reply, react }) => {
-    const raw = m.msg?.message || {};
-    const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
-    const stkMsg = raw.stickerMessage || quoted?.stickerMessage;
-    if (!stkMsg) return reply(`🎨 Responde a um sticker com: *${prefix}stickerrename* <pack> | <autor>`);
-    const [pack = '', author = ''] = args.join(' ').split('|').map(x => x.trim());
-    if (!pack) return reply(`🎨 Ex: *${prefix}stickerrename* Dark Pack | Dark Net`);
-    react('⏳');
-    try {
-      const buf = await mediaHandler.downloadFromMessage({ message: { stickerMessage: stkMsg } });
-      const stk = await stickerMaker.create(buf, {
-        botName: pack.slice(0, 25), ownerName: author.slice(0, 25) || ctx.pushName,
-        userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
-        packName: pack.slice(0, 80), authorName: (author || ctx.pushName).slice(0, 80),
-        skipGroupWm: true,
-      });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
-      react('✅');
-      reply(`✅ Pack: *${pack}* | Autor: *${author || ctx.pushName}*`);
-    } catch (e) { react('❌'); reply('❌ ' + e.message); }
+  // ── !stickerrename — Renomear pack de QUALQUER sticker ─────────────
+  // v7.1 — agora reescreve só os metadados do webp original (sem
+  // re-encodar): preserva animação e funciona com stickers de qualquer
+  // pessoa, em grupo ou PV.
+  registerCase(['stickerrename', 'renamesticker', 'packname', 'renomear', 'rename', 'renomesticker', 'renamestick', 'trocarnome'], async ({ m, sock, ctx, args, prefix, reply, react }) => {
+    return require('../stickerRename').renomear({ sock, ctx, m, args, prefix, reply, react });
   });
 
   // ── !attp — Texto em sticker (animado) ────────────────────────────
