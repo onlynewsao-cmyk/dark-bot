@@ -23,6 +23,20 @@
 ## ✔️ Já corrigidos
 
 - [x] `rankativos` / `rankativo` / `rankinativo` → ranking real de atividade (GroupMemberActivity)
+- [x] **DOWNLOADS (auditado: 93/93 com handler)** — os 3 mortos do menu:
+  - `yt3v2` → alias do download de vídeo YouTube (`baixarvideo`)
+  - `letra` → alias da `forca` (adivinha a letra)
+  - `vd` → novo jogo "verdade ou desafio" (escolhe verdade/desafio ao acaso)
+- [x] **DOWNLOADS que não entregavam (v7.4)** — APIs públicas de download social
+  estavam mortas em 2026 (zahwazein, akuari, ryzendesu, davidcyriltech, delirius;
+  `systemzone.store` = 502; `api.spotifydown.com` offline). Corrigido:
+  - `instagram`/`facebook`/`twitter` → fallback **yt-dlp** (`downloader.js`), que funciona
+  - `spotify`/`soundcloud` → fallback **busca YouTube → áudio via yt-dlp** (a música chega)
+  - `kwai` → yt-dlp (suporta Kwai/Kuaishou) primeiro; zahwazein só como 2.º
+  - `tiktoktxt`/`tiktokstalk`/`ttstalk` → pesquisa real (tikwm) do perfil, mostra vídeos em alta
+  - `shazam` → identifica a música **pela letra via IA** (antes era texto falso "marca um áudio")
+  - descrição do `shazam` corrigida (regex `sha` apanhava-o como "Codifica/descodifica")
+  - `.env.example` com `COBALT_API_URL`/`YT_PROXY_URL` para quem quiser instância privada
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 

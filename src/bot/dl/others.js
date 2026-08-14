@@ -44,7 +44,14 @@ async function instagram(url) {
     }
   } catch (e) {}
 
-  throw new Error('❌ Não consegui baixar do Instagram. Link pode ser privado.');
+  // Fallback yt-dlp (reels/vídeos públicos; alguns posts exigem cookies)
+  try {
+    const dl = require('../downloader');
+    const r = await dl.instagram(url);
+    if (r) return r;
+  } catch (e) { console.log('[IG] yt-dlp falhou:', e.message?.slice(0, 80)); }
+
+  throw new Error('❌ Não consegui baixar do Instagram. Link pode ser privado ou exigir login.');
 }
 
 // ==================== FACEBOOK ====================
@@ -56,6 +63,13 @@ async function facebook(url) {
     const cobaltUrl = await cobaltDownload(url, 'auto');
     if (cobaltUrl) return { url: cobaltUrl, title: 'Facebook' };
   } catch (e) {}
+
+  // Fallback yt-dlp (vídeos públicos do Facebook)
+  try {
+    const dl = require('../downloader');
+    const r = await dl.facebook(url);
+    if (r) return r;
+  } catch (e) { console.log('[FB] yt-dlp falhou:', e.message?.slice(0, 80)); }
 
   throw new Error('❌ Não consegui baixar do Facebook.');
 }
@@ -69,6 +83,13 @@ async function twitter(url) {
     const cobaltUrl = await cobaltDownload(url, 'auto');
     if (cobaltUrl) return { url: cobaltUrl };
   } catch (e) {}
+
+  // Fallback yt-dlp (vídeos públicos do X)
+  try {
+    const dl = require('../downloader');
+    const r = await dl.twitter(url);
+    if (r) return r;
+  } catch (e) { console.log('[TW] yt-dlp falhou:', e.message?.slice(0, 80)); }
 
   throw new Error('❌ Não consegui baixar do X/Twitter.');
 }
@@ -85,7 +106,14 @@ async function spotify(url) {
     if (cobaltUrl) return { title: 'Spotify', url: cobaltUrl };
   } catch (e) {}
 
-  throw new Error('❌ Não consegui baixar do Spotify. Use !play <nome> como alternativa.');
+  // Fallback: entrega o ÁUDIO via busca YouTube (yt-dlp) — a música chega na mesma.
+  try {
+    const dl = require('../downloader');
+    const r = await dl.spotify(url);
+    if (r) return r;
+  } catch (e) { console.log('[SPOTIFY] fallback yt-dlp falhou:', e.message?.slice(0, 80)); }
+
+  throw new Error('❌ Não consegui baixar do Spotify. Envia o NOME da música (ex: spotify nome da música) ou usa !play <nome>.');
 }
 
 // ==================== SOUNDCLOUD ====================
@@ -98,7 +126,14 @@ async function soundcloud(url) {
     if (cobaltUrl) return { title: 'SoundCloud', url: cobaltUrl };
   } catch (e) {}
 
-  throw new Error('❌ Não consegui baixar do SoundCloud. Tente !play <nome>.');
+  // Fallback: entrega o ÁUDIO via busca YouTube (yt-dlp).
+  try {
+    const dl = require('../downloader');
+    const r = await dl.soundcloud(url);
+    if (r) return r;
+  } catch (e) { console.log('[SC] fallback yt-dlp falhou:', e.message?.slice(0, 80)); }
+
+  throw new Error('❌ Não consegui baixar do SoundCloud. Envia o nome da música ou usa !play <nome>.');
 }
 
 // ==================== PINTEREST ====================

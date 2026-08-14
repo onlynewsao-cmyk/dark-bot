@@ -310,6 +310,9 @@ async function twitter(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do X/Twitter.');
   const ztw = await systemZoneTwitter(url);
   if (ztw?.url) return { url: ztw.url, type: ztw.type, quality: ztw.quality };
+  // Fallback yt-dlp (vídeos públicos do X)
+  try { return await ytdlpSocialVideo(url, 'Twitter/X HD'); }
+  catch (e) { console.log('[TW] yt-dlp falhou:', e.message); }
   throw new Error('❌ Não consegui baixar do X/Twitter.');
 }
 
@@ -442,6 +445,7 @@ module.exports = {
   youtubeAudio, youtubeAudioSavefrom, youtubeAudioAuto,
   youtubeVideo, youtubeVideoSavefrom, youtubeSearch,
   play160, playMedium, play320, videoHD, videoFHD, youtubeYtdlp,
+  ytdlpSocialVideo,
   tiktok, instagram, facebook, twitter,
   spotify, soundcloud, pinterest, pinterestSearch,
   mediafire, liteapks, apkDownload,

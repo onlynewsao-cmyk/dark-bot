@@ -169,7 +169,7 @@ module.exports = function registerDownloads2(registerCase) {
   });
 
   // ═══ YOUTUBE VIDEO (aliases de gyt/video) ═══
-  registerCase(['baixarvideo', 'dlmp4', 'ytmp4', 'yt4', 'vid', 'fhd', 'ytmp4s', 'yt4v2', 'yt4k', 'ytplay4'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  registerCase(['baixarvideo', 'dlmp4', 'ytmp4', 'yt4', 'vid', 'fhd', 'ytmp4s', 'yt4v2', 'yt4k', 'ytplay4', 'yt3v2'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🎬 Uso: \`${prefix}video <url ou busca>\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
@@ -248,11 +248,53 @@ module.exports = function registerDownloads2(registerCase) {
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MediaFire: ' + e.message); }
   });
 
-  // ═══ SHAZAM ═══
-  registerCase(['shazam'], async ({ sock, msg, ctx, args, reply }) => {
+  // ═══ SHAZAM (identificar música pela letra) ═══
+  registerCase(['shazam', 'identificar', 'qualmusica'], async ({ sock, msg, ctx, args, prefix, reply, react }) => {
     const RE = require('../renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);
-    return reply(RE.renderBlock(t, 'SHAZAM', ['🎵 Marca um áudio para identificar a música.', '', `> ${t.vibe || 'Dark Engine'}`], { botName: config.bot.name }));
+    const trecho = args.join(' ').trim();
+    const quoted = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+
+    // áudio citado → reconhecimento por fingerprint precisa de API (AudD/ACRCloud)
+    if (quoted && (quoted.audioMessage || quoted.pttMessage)) {
+      return reply(RE.renderBlock(t, 'SHAZAM', [
+        '🎧 Não consigo reconhecer o áudio directamente — isso precisa de uma API de impressão digital (AudD/ACRCloud) que não está configurada.',
+        '',
+        '👉 Mas identifico pela LETRA:',
+        `\`${prefix}shazam <trecho da música>\``,
+      ], { botName: config.bot.name }));
+    }
+
+    if (!trecho) {
+      return reply(RE.renderBlock(t, 'SHAZAM', [
+        '🎵 Identifico músicas pela letra.',
+        '',
+        `Uso: \`${prefix}shazam <trecho da letra>\``,
+        `Ex: \`${prefix}shazam i know it is the last time\``,
+        '',
+        'Achas a música e queres o áudio? Usa ' + prefix + 'play <título>.',
+      ], { botName: config.bot.name }));
+    }
+
+    try { react('⏳'); } catch {}
+    try {
+      const ai = require('../ai');
+      const r = await ai.chat(
+        `Identifica a música a partir deste trecho de letra: "${trecho}". Responde SÓ com: Título — Artista (ano). Se não souberes, responde "não identifiquei".`,
+        'És um especialista em música com conhecimento enciclopédico.',
+        {}, false
+      );
+      const texto = String(r || '').trim().replace(/^[❌✗Xx-]+/, '').trim() || 'Não identifiquei.';
+      try { react('✅'); } catch {}
+      return reply(RE.renderBlock(t, 'SHAZAM', [
+        `🎶 *${texto.slice(0, 120)}*`,
+        trecho ? `Trecho: "${trecho.slice(0, 80)}"` : '',
+        `> Queres o áudio? ${prefix}play ${texto.split('—')[0].trim().slice(0, 40)}`,
+      ].filter(Boolean), { botName: config.bot.name }));
+    } catch (e) {
+      try { react('❌'); } catch {}
+      return reply(RE.renderBlock(t, 'ERRO', ['❌ IA indisponível agora: ' + (e.message || e).slice(0, 60)], { botName: config.bot.name }));
+    }
   });
 
   // ═══ MYINSTANTS ═══
@@ -275,17 +317,26 @@ module.exports = function registerDownloads2(registerCase) {
   // ═══ KWAI ═══
   registerCase(['kwai'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
-    if (!url) return reply(`📱 Uso: \`${prefix}kwai <url>\``);
+    if (!url) return reply(`📱 Uso: \`${prefix}kwai <url>\`\nEx: \`${prefix}kwai https://www.kwai.com/...\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
+      // 1º — yt-dlp (suporta Kwai/Kuaishou, sem depender de API externa)
+      try {
+        const dl = require('../downloader');
+        const r = await dl.ytdlpSocialVideo(url, 'Kwai HD');
+        await sendVideo(sock, ctx.remoteJid, msg, r);
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
+      } catch (e) { console.log('[KWAI] yt-dlp falhou:', e.message?.slice(0, 80)); }
+      // 2º — API pública (pode estar offline)
       const axios = require('axios');
-      const r = await axios.get(`https://api.zahwazein.xyz/downloader/kwai?url=${encodeURIComponent(url)}`, { timeout: 15000 });
+      const r = await axios.get(`https://api.zahwazein.xyz/downloader/kwai?url=${encodeURIComponent(url)}`, { timeout: 12000 });
       const dlUrl = r.data?.result?.url || r.data?.result?.video;
       if (!dlUrl) throw new Error('Sem resultado');
       const buf = await mediaHandler.fetchBuffer(dlUrl);
       await sendVideo(sock, ctx.remoteJid, msg, { buffer: buf, title: 'Kwai' });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Kwai: ' + e.message); }
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Kwai: ' + e.message + '\n\nSe o link for privado, tenta ' + prefix + 'video <nome> no YouTube.'); }
   });
 
   // ═══ MCPLUGIN ═══
@@ -340,27 +391,29 @@ module.exports = function registerDownloads2(registerCase) {
     }
   });
 
-  // ═══ TIKTOK STALK ═══
-  registerCase(['tiktoktxt'], async ({ sock, msg, ctx, args, prefix, reply }) => {
-    const user = args.join(' ').trim();
+  // ═══ TIKTOK STALK (perfil → vídeos em alta) ═══
+  // A API de stalk antiga (zahwazein) está offline. Fallback real:
+  // pesquisa o username no TikTok (tikwm) e mostra os vídeos do perfil.
+  registerCase(['tiktoktxt', 'tiktokstalk', 'ttstalk', 'ttkstalk'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+    const user = args.join(' ').trim().replace(/^@/, '');
     if (!user) return reply(`🎶 Uso: \`${prefix}tiktoktxt <username>\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
-      const axios = require('axios');
-      const r = await axios.get(`https://api.zahwazein.xyz/stalker/tiktok?username=${encodeURIComponent(user.replace('@', ''))}`, { timeout: 10000 });
-      const d = r.data?.result || r.data;
-      if (!d) throw new Error('Utilizador não encontrado');
-      const RE = require('../renderEngine');
-      const t = await RE.getTheme(ctx.remoteJid);
-      const text = RE.renderBlock(t, 'TIKTOK STALK', [
-        `👤 *${d.nickname || d.username || user}*`,
-        `📝 @${d.username || user}`,
-        `👥 Seguidores: ${d.followers || '?'}`,
-        `❤️ Likes: ${d.likes || '?'}`,
-        `🎬 Vídeos: ${d.videos || '?'}`,
-        `📝 Bio: ${(d.bio || 'sem bio').slice(0, 100)}`,
-      ], { botName: config.bot.name });
-      await sock.sendMessage(ctx.remoteJid, { text }, { quoted: msg });
+      const dl = require('../dl/others');
+      const results = await dl.tiktokSearch(user, 3);
+      if (!results.length) throw new Error('Perfil não encontrado ou sem vídeos públicos');
+      const r = results[0];
+      await sendVideo(sock, ctx.remoteJid, msg, r);
+      if (results.length > 1) {
+        const RE = require('../renderEngine');
+        const t = await RE.getTheme(ctx.remoteJid);
+        const extra = results.slice(1).map((v, i) => `${i + 2}. ${(v.title || 'TikTok').slice(0, 40)} — @${v.author || user}`).join('\n');
+        await reply(RE.renderBlock(t, 'TIKTOK · ' + user.toUpperCase(), [
+          `🎬 Vídeos em alta de *@${user}*:`,
+          extra,
+          `> Usa ${prefix}ttks ${user} para baixar outro`,
+        ], { botName: config.bot.name }));
+      }
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok Stalk: ' + e.message); }
   });
