@@ -74,7 +74,9 @@
     "socket.io": "^4.8.1",
     "wa-sticker-formatter": "^4.4.4",
     "youtubei.js": "^17.0.1",
-    "yt-search": "^2.13.1"
+    "yt-search": "^2.13.1",
+    "baileys-caller": "git+https://github.com/SheIITear/baileys-caller.git#36c6e0a03d7d80723b4f203a45d4cb9e1a4b86f6",
+    "@whiskeysockets/baileys": "^7.0.0-rc11"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.2.0",
