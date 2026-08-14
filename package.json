@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "postinstall": "pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true",
-    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:rpgcom && npm run test:comunidades && npm run test:ratelimit && npm run test:adopcao && npm run test:auracom && npm run test:auravoz && npm run test:chamadas && npm run test:auraviva && npm run test:sessao && npm run test:smoke && npm run test:casehandler && npm run test:auravozreal && npm run test:aurabrain && npm run test:pack && npm run test:renomear && npm run test:callback && npm run test:rankativos && npm run test:downloads-audit && npm run test:downloads-real",
+    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:rpgcom && npm run test:comunidades && npm run test:ratelimit && npm run test:adopcao && npm run test:auracom && npm run test:auravoz && npm run test:chamadas && npm run test:auraviva && npm run test:sessao && npm run test:smoke && npm run test:casehandler && npm run test:auravozreal && npm run test:aurabrain && npm run test:pack && npm run test:renomear && npm run test:callback && npm run test:rankativos && npm run test:downloads-audit && npm run test:downloads-real && npm run test:stickers-audit",
     "test:syntax": "node scripts/check-syntax.js",
     "test:ejs": "node scripts/check-ejs.js",
     "test:commands": "node scripts/audit-commands.js",
@@ -40,6 +40,7 @@
     "test:rankativos": "node scripts/test-rankativos.js",
     "test:downloads-audit": "node scripts/test-downloads-audit.js",
     "test:downloads-real": "node scripts/test-downloads-real.js",
+    "test:stickers-audit": "node scripts/test-stickers-audit.js",
     "setup:voip": "node scripts/setup-voip.js"
   },
   "engines": {
