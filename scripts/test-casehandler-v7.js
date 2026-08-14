@@ -299,6 +299,18 @@ test('m.chat → ctx.remoteJid', function() {
   return v.valid;
 });
 
+test('switch/case aninhado (pin systemzone) compila', function() {
+  var fs = require('fs');
+  var path = require('path');
+  var ch = require('../src/bot/caseHandler');
+  var raw = fs.readFileSync(path.join(__dirname, 'fixtures/case-pin-systemzone.js'), 'utf8');
+  var body = ch.extractCaseCode(raw);
+  if (!body.includes("tipo = 'video'") || !body.includes('catch (e)')) return false;
+  var v = validateCase(raw, 'pin');
+  if (!v.valid) { console.log('    ERRORS:', v.errors); return false; }
+  return true;
+});
+
 // ═══════════════════════════════════════════════════════
 // RESULTADO
 // ═══════════════════════════════════════════════════════

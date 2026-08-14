@@ -280,12 +280,15 @@ function canBotChat(ctx) {
 }
 
 async function isVipCommand(commandName) {
-  const defaults = ['decrypt','vpn','vpndec','play3','video2','statusvideo','ptv','figubug2','pinmp4','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
+  const defaults = ['decrypt','vpn','vpndec','play3','video2','statusvideo','ptv','figubug2','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
+  const cmd = String(commandName).toLowerCase();
+  // pin/pinmp4 deixou de ser VIP — o case e o nativo são para todos
+  if (['pinmp4', 'pinvd', 'pinvideo', 'pin', 'polo'].includes(cmd)) return false;
   try {
     const custom = await botConfigCache.get('vip_commands', defaults);
     const list = Array.isArray(custom) ? custom : String(custom || '').split(/[\s,]+/).filter(Boolean);
-    return list.map(x => String(x).toLowerCase()).includes(String(commandName).toLowerCase());
-  } catch { return defaults.includes(String(commandName).toLowerCase()); }
+    return list.map(x => String(x).toLowerCase()).includes(cmd);
+  } catch { return defaults.includes(cmd); }
 }
 
 // Verifica premium para documentos Mongoose OU POJOs (sem métodos)

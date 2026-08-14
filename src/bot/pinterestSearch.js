@@ -58,14 +58,25 @@ async function tryJson(url, extract, timeout = 12000) {
   return arr.map(x => normalize(x)).filter(Boolean);
 }
 
+async function fromSystemzoneV3(query, type, limit) {
+  const axios = require('axios');
+  const { data } = await axios.get('https://systemzone.store/api/v3/pinterest', {
+    params: { q: query, type: type === 'video' ? 'video' : 'image', limit, ia: true },
+    timeout: 15000,
+  });
+  const raw = Array.isArray(data?.results) ? data.results : (Array.isArray(data?.data) ? data.data : []);
+  return raw.map((x) => normalize(x, type)).filter(Boolean);
+}
+
 async function fromPublicApis(query) {
   const q = encodeURIComponent(query);
   const sources = [
+    { url: `https://api.siputzx.my.id/api/s/pinterest?query=${q}`, ext: r => r?.data || r?.result },
+    { url: `https://systemzone.store/api/v3/pinterest?q=${q}&type=image&limit=10&ia=true`, ext: r => r?.results || r?.data },
     { url: `https://delirius-apiofc.vercel.app/search/pinterest?query=${q}`, ext: r => r?.data || r?.result || r?.results },
     { url: `https://api.vreden.my.id/api/pinterest?query=${q}`, ext: r => r?.result || r?.data },
     { url: `https://api.agatz.xyz/api/pinterest?message=${q}`, ext: r => r?.data || r?.result },
     { url: `https://systemzone.store/api/search/pinterest?query=${q}&apikey=freekey`, ext: r => r?.resultados || r?.results || r?.result || r?.data },
-    { url: `https://api.siputzx.my.id/api/s/pinterest?query=${q}`, ext: r => r?.data || r?.result },
     { url: `https://api.lolhuman.xyz/api/pinterest?query=${q}&apikey=darkbot`, ext: r => r?.result },
   ];
   const collected = [];
@@ -117,7 +128,7 @@ async function resourceSearch(query, wantVideo) {
   const url = 'https://www.pinterest.com/resource/BaseSearchResource/get/'
     + `?source_url=${encodeURIComponent(`/${wantVideo ? 'search/videos' : 'search/pins'}/?q=${query}`)}`
     + `&data=${encodeURIComponent(data)}`;
-  const txt = await mediaHandler.fetchBuffer(url).then(b => b.toString('utf8')).catch(() => '');
+  const txt = await mh().fetchBuffer(url).then(b => b.toString('utf8')).catch(() => '');
   if (!txt) return [];
   let json;
   try { json = JSON.parse(txt); } catch { return []; }
