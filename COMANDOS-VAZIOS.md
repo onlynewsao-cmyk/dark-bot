@@ -56,6 +56,31 @@
   - bónus: `dice` tinha descrição errada no submenu ("Cria uma imagem estilizada")
     porque a regex de efeitos de logo casava "ice" dentro de "d**ice**" — corrigido com \b
   - adicionei `test:jogos-audit` (68/68)
+- [x] **INTERAÇÕES & FAMÍLIA (v7.5)** — auditado **121/121 com handler real**. Os 6 stubs:
+  - `abracarrpg` / `beijarrpg` → aliases do `abracar`/`beijar` reais (GIF)
+  - `crente` (e bónus `ateu`/`ateia`) → medidor percentual real com GIF
+  - `hallobat` → acção divertida (morcego de Halloween) com GIF
+  - `suic` / `suicidio` → **mensagem de apoio real** (não é piada/jogo)
+  - ⚠️ removi as linhas de stub destes comandos em stubs.js — os casos correm
+    ANTES dos pacotes, por isso as versões reais só ganham se o stub sair
+  - adicionei `test:interacoes-audit` (121/121)
+
+## Comandos FORA de lugar neste submenu (detectados na auditoria)
+
+Segundo o catálogo oficial (`commandCatalog.js`) e a semântica dos handlers:
+
+| Comando | Categoria correcta | Porquê |
+|---|---|---|
+| `aceitarinvocacao` / `recusarinvocacao` | **dono** | comandos owner-only |
+| `desistir` | **jogos** | cancela a forca/jogo |
+| `casal` | **diversao** | par aleatório (não família) |
+| `malucao` | **diversao** | medidor de zoeira |
+| `cat` / `dog` | **utils** | imagens de animais |
+| `pedir` | **economia** | pede esmola (coins) |
+| `negrito` | **texto** | formatação de texto |
+| `telefone` | **jogos** | jogo "telefone sem fome" |
+| `missoes` / `eventos` | **rpg/economia** | missões do RPG |
+| `train`/`treinarpet`, `equippet`, `unequippet`, `petbattle`, `petbet`, `petnome`, `renamepet`, `evolve` | **rpg/economia** | sistema de pets/RPG |
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 
