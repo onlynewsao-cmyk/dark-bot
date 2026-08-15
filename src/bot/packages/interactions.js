@@ -70,6 +70,7 @@ const GIF_QUERIES = {
   trabalhar:  'anime office working hard',
   cozinhar:   'anime cooking chef impressive',
   correr:     'anime running sprint speed',
+  hallobat:   'halloween bat dark spooky',
 
   // Fallback
   default:    'anime reaction wow amazing',
@@ -340,4 +341,32 @@ module.exports = {
   doido:    percentage({ name: 'LOUCURA',   emoji: '🤪',    adj: 'Doido(a)',  gifQuery: 'anime crazy wild' }),
   gostoso:  percentage({ name: 'GOSTOSURA', emoji: '🥵',    adj: 'Gostoso(a)',gifQuery: 'anime hot attractive' }),
   malucao:  percentage({ name: 'MALUQUICE', emoji: '🃏',    adj: 'Malucão',   gifQuery: 'anime joker laugh' }),
+  crente:   percentage({ name: 'CRENTE',    emoji: '⛪',    adj: 'Crente',    gifQuery: 'anime church prayer' }),
+  ateu:     percentage({ name: 'ATEU',      emoji: '🙅',    adj: 'Ateu',      gifQuery: 'anime skeptic face' }),
+  ateia:    percentage({ name: 'ATEIA',     emoji: '🙅‍♀️',    adj: 'Ateia',     gifQuery: 'anime skeptic face' }),
+
+  // ═══ ALIASES (variantes RPG dos mesmos gestos) ═══
+  abracarrpg: async (a) => module.exports.abracar(a),
+  beijarrpg: async (a) => module.exports.beijar(a),
+  hallobat: action({ name: 'halloween bat', emoji: '🦇', cat: 'dark', gif: 'hallobat',
+    verbs: ['soltou um morcego em', 'invocou o exército de morcegos em', 'assombrou'],
+    soloVerbs: ['virou o morcegão do Dark 🦇'] }),
 };
+
+/**
+ * ═══ COMANDOS SENSÍVEIS (suic / suicidio) ═══
+ * Não são jogo nem brincadeira. Respondem com acolhimento e recursos de
+ * apoio. Estes handlers são registados no commandHandler directamente
+ * (ver registration abaixo), porque os packages são resolvidos por
+ * nome de chave — aqui ficam como referência do comportamento.
+ */
+const _suporte = (a) => {
+  const { sock, msg, ctx } = a;
+  return reply(sock, msg, ctx,
+    '💜 *Se estás a passar por um momento difícil, não estás sozinho.*\n\n' +
+    'Fala com alguém de confiança agora. Pedir ajuda é um acto de coragem, não de fraqueza.\n\n' +
+    '🫂 O Dark Bot está aqui para conversar — usa *!ia <o que sentes>* e desabafa.\n' +
+    '📞 Se precisares de apoio profissional urgente, procura a linha de ajuda da tua região.');
+};
+module.exports.suic = _suporte;
+module.exports.suicidio = _suporte;
