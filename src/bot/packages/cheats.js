@@ -10,6 +10,8 @@ const botConfigCache = require('../botConfigCache');
 const reply = (sock, msg, ctx, text, mentions = []) =>
   sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
 
+let _lastFlood = 0; // cooldown global do flood (anti-ban)
+
 function getMentions(msg) {
   return msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
 }
@@ -235,5 +237,26 @@ module.exports = {
       const out = (stdout || stderr || err?.message || 'sem output').slice(0, 3000);
       reply(sock, msg, ctx, `🐚 *Output:*\n\`\`\`\n${out}\n\`\`\``);
     });
+  },
+
+  // ============ FLOOD (só Dono, com travões anti-ban) ============
+  async flood({ sock, msg, ctx, args, isOwner }) {
+    if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono');
+    const n = parseInt(args[0]);
+    const text = args.slice(1).join(' ').trim();
+    if (!Number.isFinite(n) || n < 1 || !text) {
+      return reply(sock, msg, ctx, '💦 Use: !flood <nº> <mensagem>\n⛔ Máximo: 5 mensagens (anti-ban)');
+    }
+    const agora = Date.now();
+    if (agora - _lastFlood < 20000) {
+      return reply(sock, msg, ctx, '⏳ Flood em cooldown. Espera ~20s entre floods (protege o número).');
+    }
+    const total = Math.min(n, 5);
+    _lastFlood = agora;
+    for (let i = 0; i < total; i++) {
+      await sock.sendMessage(ctx.remoteJid, { text });
+      await new Promise(r => setTimeout(r, 1200));
+    }
+    return reply(sock, msg, ctx, `💦 ${total} mensagens enviadas.`);
   },
 };

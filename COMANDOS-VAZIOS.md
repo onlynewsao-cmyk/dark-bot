@@ -82,6 +82,16 @@ Segundo o catálogo oficial (`commandCatalog.js`) e a semântica dos handlers:
 | `missoes` / `eventos` | **rpg/economia** | missões do RPG |
 | `train`/`treinarpet`, `equippet`, `unequippet`, `petbattle`, `petbet`, `petnome`, `renamepet`, `evolve` | **rpg/economia** | sistema de pets/RPG |
 
+- [x] **DONO & SISTEMA (v7.5)** — auditado **62/62 com handler real**:
+  - os 22 "gestores de cases" (`newcase`, `runcase`, `remcase`, `downcase`, `showcase`,
+    `testcase`, `auditcmds`, `mycases`, `reloadcases`, …) já existiam — registados
+    dentro do próprio `caseHandler.js` (não em `cases/*.js`), por isso pareciam mortos
+  - `flood` → implementado com travões anti-ban (só Dono, máx 5 msgs, cooldown 20s)
+  - `_adultSend` e `__change_theme_handler__` → eram FUNÇÕES INTERNAS que vazaram
+    para o menu DONO. Adicionei filtro em `submenuData.buildItems` para esconder
+    comandos que começam por `_` — já não aparecem em nenhum submenu
+  - adicionei `test:dono-audit` (62/62 + internos escondidos)
+
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 
 ```

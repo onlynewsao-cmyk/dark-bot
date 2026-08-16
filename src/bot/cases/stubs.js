@@ -389,7 +389,6 @@ module.exports = function(registerCase) {
   registerCase(['fish'], async c => hE(c), true);
   registerCase(['flag'], async c => hD(c), true);
   registerCase(['flaming'], async c => hD(c), true);
-  registerCase(['flood'], async c => hD(c), true);
   registerCase(['fluffy-logo'], async c => hD(c), true);
   registerCase(['fofoqueira'], async c => hZ(c), true);
   registerCase(['fofoqueiro'], async c => hZ(c), true);
