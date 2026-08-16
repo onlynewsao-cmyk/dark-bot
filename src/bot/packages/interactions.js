@@ -345,6 +345,34 @@ module.exports = {
   ateu:     percentage({ name: 'ATEU',      emoji: '🙅',    adj: 'Ateu',      gifQuery: 'anime skeptic face' }),
   ateia:    percentage({ name: 'ATEIA',     emoji: '🙅‍♀️',    adj: 'Ateia',     gifQuery: 'anime skeptic face' }),
 
+  // ═══ ZOEIRA & MEDIDORES (completo — antes eram fake %) ═══
+  atleta:     percentage({ name: 'ATLETA',     emoji: '⚽', adj: 'Atleta',     gifQuery: 'anime sports athlete' }),
+  bebado2:    percentage({ name: 'BÊBADO',     emoji: '🍺', adj: 'Bêbado(a)',  gifQuery: 'anime drunk funny' }),
+  ciumao:     percentage({ name: 'CIÚME',      emoji: '😤', adj: 'Ciumento',   gifQuery: 'anime jealous angry' }),
+  desapegado: percentage({ name: 'DESAPEGO',   emoji: '🧊', adj: 'Desapegado', gifQuery: 'anime cool cold' }),
+  dorminhoco2: percentage({ name: 'DORMINHOCO', emoji: '😴', adj: 'Dorminhoco', gifQuery: 'anime sleepy yawn' }),
+  fraco:      percentage({ name: 'FORÇA',      emoji: '🤏', adj: 'Fraco(a)',   gifQuery: 'anime weak tired' }),
+  insone:     percentage({ name: 'INSÓNIA',    emoji: '🌙', adj: 'Insone',     gifQuery: 'anime insomnia night' }),
+  inveja:     percentage({ name: 'INVEJA',     emoji: '🐍', adj: 'Invejoso(a)', gifQuery: 'anime envy jealous' }),
+  pecador:    percentage({ name: 'PECADOR',    emoji: '😈', adj: 'Pecador(a)', gifQuery: 'anime devil smirk' }),
+  pirocudo:   percentage({ name: 'PIROCUDO',   emoji: '🍆', adj: 'Pirocudo',   gifQuery: 'anime confident smirk' }),
+  possessivo: percentage({ name: 'POSSESSIVO', emoji: '💍', adj: 'Possessivo(a)', gifQuery: 'anime yandere possessive' }),
+  sono:       percentage({ name: 'SONO',       emoji: '💤', adj: 'Sonolento(a)', gifQuery: 'anime sleepy tired' }),
+  sorte:      percentage({ name: 'SORTE',      emoji: '🍀', adj: 'Sortudo(a)', gifQuery: 'anime lucky clover' }),
+  viciado:    percentage({ name: 'VICIADO',    emoji: '📱', adj: 'Viciado(a)', gifQuery: 'anime phone addiction' }),
+
+  // aliases das variantes (burro2 = burro, feio2 = feio, …)
+  burro2:   async (a) => module.exports.burro(a),
+  feio2:    async (a) => module.exports.feio(a),
+  gay2:     async (a) => module.exports.gay(a),
+  lindo2:   async (a) => module.exports.lindo(a),
+  invejosa: async (a) => module.exports.inveja(a),
+  invejoso: async (a) => module.exports.inveja(a),
+  pirokudo: async (a) => module.exports.pirocudo(a),
+  sortudo2: async (a) => module.exports.sorte(a),
+  viciada:  async (a) => module.exports.viciado(a),
+  viciadao: async (a) => module.exports.viciado(a),
+
   // ═══ ALIASES (variantes RPG dos mesmos gestos) ═══
   abracarrpg: async (a) => module.exports.abracar(a),
   beijarrpg: async (a) => module.exports.beijar(a),

@@ -7,7 +7,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "postinstall": "pip3 install yt-dlp 2>/dev/null || pip install yt-dlp 2>/dev/null || true",
-    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:rpgcom && npm run test:comunidades && npm run test:ratelimit && npm run test:adopcao && npm run test:auracom && npm run test:auravoz && npm run test:chamadas && npm run test:auraviva && npm run test:sessao && npm run test:smoke && npm run test:casehandler && npm run test:auravozreal && npm run test:aurabrain && npm run test:pack && npm run test:renomear && npm run test:callback && npm run test:rankativos && npm run test:downloads-audit && npm run test:downloads-real && npm run test:stickers-audit && npm run test:ia-audit && npm run test:jogos-audit && npm run test:interacoes-audit && npm run test:dono-audit",
+    "test": "npm run test:syntax && npm run test:ejs && npm run test:commands && npm run test:roles && npm run test:auramodes && npm run test:auraaudit && npm run test:auracmds && npm run test:submenus && npm run test:menu18 && npm run test:perf && npm run test:e2e && npm run test:rpgcom && npm run test:comunidades && npm run test:ratelimit && npm run test:adopcao && npm run test:auracom && npm run test:auravoz && npm run test:chamadas && npm run test:auraviva && npm run test:sessao && npm run test:smoke && npm run test:casehandler && npm run test:auravozreal && npm run test:aurabrain && npm run test:pack && npm run test:renomear && npm run test:callback && npm run test:rankativos && npm run test:downloads-audit && npm run test:downloads-real && npm run test:stickers-audit && npm run test:ia-audit && npm run test:jogos-audit && npm run test:interacoes-audit && npm run test:dono-audit && npm run test:zoeira-audit",
     "test:syntax": "node scripts/check-syntax.js",
     "test:ejs": "node scripts/check-ejs.js",
     "test:commands": "node scripts/audit-commands.js",
@@ -45,6 +45,7 @@
     "test:jogos-audit": "node scripts/test-jogos-audit.js",
     "test:interacoes-audit": "node scripts/test-interacoes-audit.js",
     "test:dono-audit": "node scripts/test-dono-audit.js",
+    "test:zoeira-audit": "node scripts/test-zoeira-audit.js",
     "setup:voip": "node scripts/setup-voip.js"
   },
   "engines": {

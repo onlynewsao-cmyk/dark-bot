@@ -91,6 +91,15 @@ Segundo o catálogo oficial (`commandCatalog.js`) e a semântica dos handlers:
     para o menu DONO. Adicionei filtro em `submenuData.buildItems` para esconder
     comandos que começam por `_` — já não aparecem em nenhum submenu
   - adicionei `test:dono-audit` (62/62 + internos escondidos)
+- [x] **ZOEIRA & MEDIDORES (v7.5)** — 24 dos 25 eram medidores FAKE (hZ/hE, % aleatória sem GIF).
+  Convertidos em medidores **reais com GIF** (`percentage()` em interactions.js):
+  - novos: atleta, bebado2, ciumao, desapegado, dorminhoco2, fraco, insone, inveja,
+    pecador, pirocudo, possessivo, sono, sorte, viciado
+  - aliases: burro2→burro, feio2→feio, gay2→gay, lindo2→lindo, invejosa/invejoso→inveja,
+    pirokudo→pirocudo, sortudo2→sorte, viciada/viciadao→viciado
+  - (doido já era real)
+  - removidas as 24 linhas de stub; descrições próprias no submenu
+  - adicionei `test:zoeira-audit` (25/25)
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 

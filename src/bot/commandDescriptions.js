@@ -139,6 +139,8 @@ const PADROES = [
                                  'Medidor de brincadeira — resultado aleatório'],
   [/(metro|medidor|nivel)$/,     'Medidor de brincadeira'],
   [/^(shipar|ship|shipo|casal)\d*$/,   'Faz o par entre duas pessoas'],
+  [/^(atleta|pecador|possessivo|desapegado|sono|insone|sorte|sortudo|ciume|ciumao|inveja|invejoso|invejosa|viciado|viciada|viciadao|dorminhoco|bebado|doido|fraco|lindo)\d*$/, 'Medidor de brincadeira — resultado aleatório com GIF'],
+  [/^(pirocudo|pirokudo|malucao|crente|ateu|ateia)\d*$/, 'Medidor de brincadeira — resultado aleatório com GIF'],
   [/^genio\d*$/,                 'Charadas de lógica (vale coins)'],
   [/^desafiosemanal\d*$/,        'Desafio da semana (rotativo)'],
   [/^desafiomensal\d*$/,         'Desafio do mês (rotativo)'],
