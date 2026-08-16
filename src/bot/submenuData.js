@@ -406,7 +406,8 @@ function buildItems(commands, category) {
   
   return commands
     .filter(cmd => {
-      // Filtrar comandos sem função
+      // Filtrar comandos sem função E internos (ex: _adultSend, __change_theme_handler__)
+      if (typeof cmd === 'string' && cmd.startsWith('_')) return false;
       const hasFunction = caseHandler.CASES.has(cmd) || 
                           typeof nativeCommands[cmd] === 'function' || 
                           typeof packageCommands[cmd] === 'function';
