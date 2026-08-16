@@ -151,6 +151,16 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
   - menu admin: 238 → 212 itens (só comandos de grupo)
   - `test:admin-dono` (74/74)
 
+- [x] **BUG de encaminhamento dos menus (v7.6)** — `dynamicSubmenus.js` tinha 2 menus
+  mapeados para a categoria ERRADA:
+  - `menustatus` (INFO & STATS) abria **EFEITOS DE ÁUDIO** → agora abre **info**
+  - `menulogos` (LOGOS & EFEITOS) abria **STICKERS** → agora abre **logos**
+  - novo comando `diagnostico`/`diag` (estado real: WhatsApp, MongoDB, uptime, RAM, msgs/cmds)
+  - `menustatus` nativo (curated) inclui ping + perfil + diagnóstico
+  - `test:menu-routing` (15/15)
+- [x] **Logos mais "logo de verdade" (v7.6)** — texto em MAIÚSCULAS, letter-spacing e
+  contorno mais forte (aspeto de letreiro de anime/jogo, ex: Naruto, Harry Potter, PUBG)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem

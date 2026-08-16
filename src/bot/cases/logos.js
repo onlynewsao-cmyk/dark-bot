@@ -210,6 +210,8 @@ function buildSvg(lines, width, height, style, font) {
   const fontSize = 100;
   const lineH = 138;
   const startY = fontSize + 50;
+  // contorno mais forte = aspeto de "logo" (ex: Naruto, Harry Potter, PUBG)
+  const strokeWidth = style.stroke ? 6 : 0;
 
   const defs = [
     `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">${bgStops}</linearGradient>`,
@@ -222,8 +224,10 @@ function buildSvg(lines, width, height, style, font) {
     </filter>`);
   }
 
-  const strokeAttr = style.stroke ? ` stroke="${style.stroke}" stroke-width="4" paint-order="stroke"` : '';
+  const strokeAttr = style.stroke ? ` stroke="${style.stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke"` : '';
   const filterAttr = style.glow ? ' filter="url(#glow)"' : '';
+  // letter-spacing dá o aspeto de letreiro (logo) em vez de texto corrido
+  const spacingAttr = ' style="letter-spacing:3px"';
 
   let texts = '';
   lines.forEach((ln, i) => {
@@ -231,9 +235,9 @@ function buildSvg(lines, width, height, style, font) {
     const esc = escapeXml(ln);
     if (style.off) {
       // efeito 3D: sombra deslocada por trás
-      texts += `<text x="${width / 2 + 6}" y="${y + 8}" text-anchor="middle" font-family="${font}" font-weight="bold" font-size="${fontSize}" fill="#000000" opacity="0.5">${esc}</text>`;
+      texts += `<text x="${width / 2 + 7}" y="${y + 9}" text-anchor="middle" font-family="${font}" font-weight="bold" font-size="${fontSize}" fill="#000000" opacity="0.55">${esc}</text>`;
     }
-    texts += `<text x="${width / 2}" y="${y}" text-anchor="middle" font-family="${font}" font-weight="bold" font-size="${fontSize}" fill="url(#tx)"${strokeAttr}${filterAttr}>${esc}</text>`;
+    texts += `<text x="${width / 2}" y="${y}" text-anchor="middle" font-family="${font}" font-weight="bold" font-size="${fontSize}" fill="url(#tx)"${strokeAttr}${filterAttr}${spacingAttr}>${esc}</text>`;
   });
 
   return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -251,8 +255,9 @@ function buildSvg(lines, width, height, style, font) {
 async function render(text, cmd) {
   const style = styleFor(cmd);
   if (!style) throw new Error(`Estilo desconhecido: ${cmd}`);
-  const clean = sanitizeText(text);
-  const lines = wrap(clean || 'DARK BOT', 14);
+  // MAIÚSCULAS: letreiro de logo (como os títulos dos animes/jogos)
+  const clean = sanitizeText(text).toUpperCase();
+  const lines = wrap(clean || 'DARK BOT', 12);
 
   const maxLen = Math.max(...lines.map(l => l.length));
   const width = Math.max(720, Math.min(1400, Math.round(maxLen * 62 + 180)));
