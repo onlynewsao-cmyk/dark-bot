@@ -63,6 +63,13 @@ const PADROES = [
   [/^(dlmp4|baixarvideo|videodl)\d*$/, 'Baixa o vídeo de um link'],
   [/^(down|downloads|dl)\d*$/,   'Abre o menu de downloads'],
 
+  // ── Conteúdo +18 (descrições específicas — antes dos padrões genéricos) ──
+  [/^(hentai|ximg|yande|kona|e621|nekos|erome|eromevid|livros18)\d*$/, 'Busca conteúdo +18 (só Dono/VIP)'],
+  [/^(fig18|pack18|gif18|shorts18)\d*$/, 'Conteúdo +18 em figurinha/pack/GIF (só Dono)'],
+  [/^(xvideo|xvideodl|adultvideo|adultsearch|adultapi|adultmode|adultstats|buscar18)\d*$/, 'Vídeos/config +18 (só Dono)'],
+  [/^(menu18|menu-rpg|menumais|maiscmds|cmdsocultos|menudono|menurpgfull|menurpg2)$/, 'Abre um menu especial'],
+  [/^ranking-update$/,             'Actualiza o ranking do RPG'],
+
   // Stickers e imagem
   [/^(s|sticker|fig|figu|figurinha)\d*$/, 'Cria figurinha a partir de imagem ou vídeo'],
   [/^(toimg|toimage|img)\d*$/,   'Converte figurinha em imagem'],
@@ -276,8 +283,9 @@ function describe(cmd, categoria = '') {
   // v6.47: variantes numeradas (bass2, 8d3...) partilham a descrição da
   // família. Sem distinguir, a lista do WhatsApp mostrava 3 linhas
   // exactamente iguais e o utilizador não sabia qual escolher.
-  const variante = nome.match(/^(.+?)([2-9])$/);
-  if (variante && d && !/\d/.test(d)) {
+  // v7.6: exclui '18' — menu18/pack18/fig18 não são variantes de 'menu/pack/fig'.
+  const variante = nome.match(/^(.+?)([2-9]|18)$/);
+  if (variante && variante[2] !== '18' && d && !/\d/.test(d)) {
     const base = variante[1];
     // só marca se a versão sem número existir como comando conhecido
     if (catalogo().has(base) || PADROES.some(([re]) => re.test(base))) {
