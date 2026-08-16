@@ -117,6 +117,13 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
   (restart, reconnect, clearLogs, clearCache, clearAllChats, setbomsg, actgp,
   goodbye, copyjid, myjid) e corrigi typos (tecnologicas→tecnologica, leader→lider)
 
+- [x] **SEARCH & STALK (v7.5)** — auditado **45/45 com handler real**:
+  - `robloxcodes` era stub vazio → virou alias de `rbxcodes` (códigos Roblox)
+  - `mangá` (acentuado) já existia como alias de `manga` — o detector sem acentos não o via
+  - anime (Jikan/MAL), animeapi/animedl/episódios, mangá, github stalk, cep/cnpj/ip,
+    google/pesquisar/noticias/deepsearch, wiki — tudo com handler real
+  - adicionei `test:search-audit` (45/45, normaliza acentos)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem

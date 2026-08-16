@@ -778,7 +778,6 @@ module.exports = function(registerCase) {
   registerCase(['rmconvite'], async c => hI(c), true);
   registerCase(['rmfotobv'], async c => hA(c), true);
   registerCase(['rmfotosaiu'], async c => hA(c), true);
-  registerCase(['robloxcodes'], async c => hD(c), true);
   registerCase(['rocket'], async c => hIA(c), true);
   registerCase(['role.alterar'], async c => hD(c), true);
   registerCase(['role.confirmados'], async c => hD(c), true);
