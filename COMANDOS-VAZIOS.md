@@ -124,6 +124,13 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
     google/pesquisar/noticias/deepsearch, wiki — tudo com handler real
   - adicionei `test:search-audit` (45/45, normaliza acentos)
 
+- [x] **EFEITOS DE ÁUDIO (v7.5)** — auditado **52/52 com handler real**:
+  - 50 efeitos com filtro ffmpeg real (`audioAdmin2.js` → `AUDIO_FILTERS` + loop)
+  - `audiofx` → dispatcher nativo (aplica qualquer efeito por nome)
+  - `audiomeme` usava `systemzone.store` (API morta, 502) → agora usa **MyInstants**
+    (vivo) como fonte primária, com systemzone só de fallback
+  - adicionei `test:audio-audit` (52/52 + verifica MyInstants)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem

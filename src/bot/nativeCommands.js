@@ -1661,6 +1661,28 @@ module.exports = {
     const qtd = Math.min(Number.isFinite(last) && last > 0 ? last : 1, 5);
     const search = Number.isFinite(last) ? parts.slice(0, -1).join(' ') : q;
     await react(sock, msg, '🔎');
+
+    // 1.º — MyInstants (fonte viva de áudios meme em 2026)
+    try {
+      const axios = require('axios');
+      const r = await axios.get(`https://www.myinstants.com/api/search/?term=${encodeURIComponent(search)}`, { timeout: 12000 });
+      const results = r.data?.results || [];
+      if (results.length) {
+        const enviados = Math.min(results.length, qtd);
+        for (let i = 0; i < enviados; i++) {
+          const item = results[i];
+          const mp3Url = `https://www.myinstants.com${item.mp3}`;
+          const buf = await mediaHandler.fetchBuffer(mp3Url).catch(() => null);
+          if (buf && buf.length > 500) {
+            await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', fileName: `${item.name || 'audiomeme'}.mp3`, ptt: true }, { quoted: msg });
+          }
+        }
+        await react(sock, msg, '✅');
+        return;
+      }
+    } catch (e) { console.log('[audiomeme] myinstants falhou:', e.message?.slice(0, 60)); }
+
+    // 2.º — fallback (systemzone, se voltar)
     try {
       const data = await mediaHandler.fetchJson(`https://systemzone.store/api/audiomemes?search=${encodeURIComponent(search)}`, 30000);
       const list = (data?.results || []).slice(0, qtd);
@@ -1669,7 +1691,8 @@ module.exports = {
         await sock.sendMessage(ctx.remoteJid, { audio: { url: item.download_url }, mimetype: 'audio/mpeg', fileName: `${item.title || 'audiomeme'}.mp3`, ptt: false }, { quoted: msg });
       }
       await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '🔊 Nenhum áudio meme encontrado.'); }
+      return;
+    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '🔊 Nenhum áudio meme encontrado. Tenta outro termo (ex: audiomeme gato).'); }
   },
   async ameme(a) { return module.exports.audiomeme(a); },
 
