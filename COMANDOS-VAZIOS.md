@@ -131,6 +131,14 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
     (vivo) como fonte primária, com systemzone só de fallback
   - adicionei `test:audio-audit` (52/52 + verifica MyInstants)
 
+- [x] **LOGOS & EFEITOS (v7.6)** — os ~84 comandos de logo (`naruto`, `rainbow`, `neon`,
+  `graffiti`, `fire`, `water`, `gold`, `galaxy`, `retro`, `halloween`, `pixel`, …)
+  eram stubs vazios. Agora geram **imagem real** (SVG → PNG via sharp, sem API externa,
+  funciona no Render Free). Novo `src/bot/cases/logos.js` com 106 estilos.
+  - `menulogos` actualizado com a lista de efeitos
+  - descrições próprias no submenu
+  - removidas 89 linhas de stub; `test:logos-audit` (22/22)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem

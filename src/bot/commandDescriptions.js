@@ -81,8 +81,8 @@ const PADROES = [
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],
-  [/\b(neon|glitch|fire|gold|silver|3d|graffiti|naruto|rainbow|thunder|water|ice|blood|sand|smoke|steel|wood|glass|matrix)\b/,
-                                 'Cria uma imagem estilizada com o teu texto'],
+  [/\b(naruto|neon\w*|rainbow|graffiti\w*|fire\w*|water\w*|ice\w*|gold\w*|silver\w*|galaxy\w*|retro\w*|metal\w*|titanium|smoke|snow|blood|stone3d|3dcrack|vintage3d|gradient|multicolor|colorful|glitter|glossy\w*|frozen|harrypotter|halloween|blackpink|pubg|battlefield|avengers|captain\w*|thor|deadpool|amongus|ffrose|ffgren|dragonfire|doubleexposure|summerbeach|cloudsky|shadowsky|watercolor|techstyle|royal|firework|ballon|stars|butterfly|flaming|cemetery|america\w*|flag|pixel|typography|ligatures|write|deleting|darkgreen|mascote\w*|lolavatar|skate\w*|phlogo|eraser|tiger|elegant\w*|fluffy\w*|fortune\w*|candy\w*|comic\w*|cool\w*|blue\w*|lava\w*|newyear|goldpink|pornhub|glitch|thunder|sand|steel|wood|glass|matrix)\b/,
+                                 'Cria um logo estilizado com o teu texto'],
 
   // IA
   [/^(ia|ai|gpt|chatgpt|bard|claude|gemini|llama|qwen|copilot|deepseek)\d*$/, 'Conversa com a inteligência artificial'],
