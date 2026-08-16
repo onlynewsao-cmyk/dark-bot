@@ -196,9 +196,38 @@ module.exports = function registerInfoCases(registerCase) {
     return sock.sendMessage(ctx.remoteJid, { text: texto, mentions }, { quoted: msg });
   });
 
+  // ── hora / data ────────────────────────────────────────────
+  registerCase(['hora', 'horas', 'data', 'date', 'agora'], async ({ sock, msg, ctx }) => {
+    const t = await getActiveTheme(ctx.remoteJid);
+    const f = t.frame;
+    const b = t.bullet;
+    const agora = new Date();
+    const data = agora.toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+    const hora = agora.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+    return reply(
+      `${f[0]}${f[4].repeat(22)}${f[1]}\n` +
+      `${f[5]} ${t.icon} HORA E DATA ${t.icon}\n` +
+      `${f[2]}${f[4].repeat(22)}${f[3]}\n\n` +
+      `${b} 📅 ${data}\n` +
+      `${b} ⏰ ${hora}\n` +
+      `${b} 🌍 Fuso: ${fuso}\n\n` +
+      `> ${t.vibe}`
+    );
+  });
+
+  // ── help (alias do menu) ───────────────────────────────────
+  registerCase(['help', 'ajuda', 'comandos', 'cmds'], async ({ sock, msg, ctx, config }) => {
+    try {
+      const nc = require('../nativeCommands');
+      return await nc.menu({ sock, msg, ctx, config, isOwner: ctx.isOwner });
+    } catch (e) {
+      return sock.sendMessage(ctx.remoteJid, { text: '📋 Usa *menu* para ver os comandos.' }, { quoted: msg });
+    }
+  });
+
   // ── case 'aiapis' ──────────────────────────────────────────
-  registerCase(['aiapis', 'iaapis', 'checkia'], async ({ ctx, prefix, reply }) => {
-    const aiMod = require('../ai');
+  registerCase(['aiapis', 'iaapis', 'checkia'], async ({ ctx, prefix, reply }) => {    const aiMod = require('../ai');
     const t     = await getActiveTheme(ctx.remoteJid);
     const b     = t.bullet;
 

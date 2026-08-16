@@ -30,13 +30,13 @@ const SEL_PATTERNS = [
   // ── GRUPOS (ações únicas sem dados) ──
   /^link$/, /^linkgp$/, /^grupo$/, /^todos$/, /^hidetag$/,
   /^admins$/, /^tagadmins$/, /^listmods$/, /^listadv$/, /^listamute$/,
-  /^regras$/, /^soadm$/, /^actgp$/, /^gruposalugados$/,
+  /^regras$/, /^soadm$/, /^gruposalugados$/,
   
   // ── TOGGLE GRUPOS (ligar/desligar sem dados) ──
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^welcome$/, /^goodbye$/, /^bemvindo$/, /^saida$/,
+  /^welcome$/, /^bemvindo$/, /^saida$/,
   /^open$/, /^close$/, /^abrir$/, /^fechar$/,
   /^everyone$/, /^all$/, /^whitelist$/, /^resetlink$/,
   /^novo-link$/, /^revoke$/,
@@ -51,7 +51,7 @@ const SEL_PATTERNS = [
   
   // ── UTILIDADES (ações únicas sem dados) ──
   /^clima$/, /^weather$/, /^tempo$/, /^hora$/,
-  /^getjid$/, /^copyjid$/, /^myjid$/, /^jid$/,
+  /^getjid$/, /^jid$/,
   /^getbio$/, /^getperfil$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
   /^dicio$/, /^dicionario$/, /^significado$/,
   
@@ -89,7 +89,7 @@ const SEL_PATTERNS = [
   /^moderno$/, /^moderna$/, /^conservador$/, /^conservadora$/,
   /^patriotico$/, /^patriotica$/, /^urbano$/, /^urbana$/,
   /^aventureiro$/, /^aventureira$/, /^caseiro$/, /^caseira$/,
-  /^tecnologico$/, /^tecnologicas$/, /^analogico$/, /^analogica$/,
+  /^tecnologico$/, /^tecnologica$/, /^analogico$/, /^analogica$/,
   /^solitario$/, /^solitaria$/, /^seguidor$/, /^seguidora$/,
   /^criativo$/, /^criativa$/, /^pratico$/, /^pratica$/,
   /^sonhador$/, /^sonhadora$/, /^inseguro$/, /^insegura$/,
@@ -102,7 +102,7 @@ const SEL_PATTERNS = [
   /^sortudo$/, /^sortuda$/, /^azarado$/, /^azarada$/,
   /^machista$/, /^comunista$/, /^petista$/, /^bolsonarista$/, /^lulista$/,
   /^global$/, /^local$/, /^digital$/, /^offline$/, /^online$/,
-  /^social$/, /^antisocial$/, /^popular$/, /^leader$/,
+  /^social$/, /^antisocial$/, /^popular$/, /^lider$/,
   /^independente$/, /^dependente$/, /^realista$/, /^otimista$/,
   /^pessimista$/, /^confiante$/, /^infantil$/, /^responsavel$/,
   /^irresponsavel$/, /^liberal$/, /^tradicional$/, /^cosmopolita$/,
@@ -123,11 +123,10 @@ const SEL_PATTERNS = [
   /^rankcharmosa$/, /^rankvisionaria$/, /^rankpoderosa$/, /^rankvencedora$/,
   
   // ── DONO (ações únicas sem dados) ──
-  /^restart$/, /^reconnect$/, /^clearLogs$/, /^clearCache$/,
   /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/,
   /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/,
-  /^addblacklist$/, /^delblacklist$/, /^clearAllChats$/,
-  /^setbomsg$/, /^setbammsg$/, /^changeprefix$/,
+  /^addblacklist$/, /^delblacklist$/,
+  /^setbammsg$/, /^changeprefix$/,
   /^listcases$/, /^viewcase$/, /^getcasecode$/,
 ];
 
