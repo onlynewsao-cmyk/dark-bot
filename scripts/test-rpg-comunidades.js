@@ -97,7 +97,7 @@ const check = (nome, cond, extra = '') => {
 
   const cmds = ['rpgstart', 'rpgmenu', 'rpginfo', 'inventario', 'trabalhar', 'minerar',
                 'pescar', 'explorar', 'dungeon', 'arena', 'rankrpg', 'classes',
-                'forjar', 'aventura', 'rpgstats'];
+                'forge', 'aventura', 'rpgstats'];
   const falhados = [];
   for (const c of cmds) {
     OUT = [];

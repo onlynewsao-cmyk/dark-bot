@@ -29,7 +29,7 @@ const PADROES = [
   [/^8d\d*$/,                    'Efeito 8D — som a girar à volta'],
   [/^slowedreverb\d*$/,          'Áudio lento com reverb (slowed + reverb)'],
   [/^slowed\d*$/,                'Deixa o áudio mais lento'],
-  [/^(nightcore|speedup)\d*$/,   'Acelera o áudio e sobe o tom'],
+  [/^nightcore\d*$/,              'Acelera o áudio e sobe o tom'],
   [/^vaporwave\d*$/,             'Efeito vaporwave — lento e sonhador'],
   [/^chorus\d*$/,                'Efeito coro — engrossa a voz'],
   [/^(robot|robo)\d*$/,          'Transforma a voz em robô'],
@@ -77,7 +77,8 @@ const PADROES = [
   [/^fig(anime|coreana|desenho|emoji|engracada|meme|raiva|roblox)$/, 'Pack de figurinhas por categoria (Sticker.ly)'],
   [/^gif$/, 'Envia um GIF por busca'],
   [/^(pack|pacote)$/, 'Muda nome/autor/slogan/link do pack de figurinhas (global ou do grupo)'],
-  [/^(stickerrename|renamesticker|renomesticker|renamestick|renomear|rename|trocarnome|packname)$/, 'Renomeia o pack/autor de qualquer sticker (responde a um sticker)'],
+  [/^(stickerrename|renamesticker|renomesticker|renamestick|renomear|trocarnome|packname)$/, 'Renomeia o pack/autor de qualquer sticker (responde a um sticker)'],
+  [/^(nome|rename|nomear)$/,       'Define o nome do teu personagem RPG'],
 
   // Logos e efeitos de texto
   [/^logo/,                      'Gera um logo com o teu texto'],
@@ -90,7 +91,8 @@ const PADROES = [
   [/^(traduz|traduzir|translate|tr)\d*$/, 'Traduz texto para outro idioma'],
   [/^(resumir|resumo|summarize)\d*$/, 'Resume um texto longo'],
   [/^(transcrever|transcribe|stt)\d*$/, 'Transcreve áudio para texto'],
-  [/^(tts|falar|voz|speak)\d*$/, 'Converte texto em voz'],
+  [/^(tts|voz|speak)\d*$/,        'Converte texto em voz'],
+  [/^(npc|falar|talk)$/,           'Fala com um NPC do RPG'],
 
   // Administração de grupo
   [/^(ban|kick|remover|expulsar)\d*$/, 'Remove um membro do grupo'],
@@ -142,6 +144,7 @@ const PADROES = [
   [/^(atleta|pecador|possessivo|desapegado|sono|insone|sorte|sortudo|ciume|ciumao|inveja|invejoso|invejosa|viciado|viciada|viciadao|dorminhoco|bebado|doido|fraco|lindo)\d*$/, 'Medidor de brincadeira — resultado aleatório com GIF'],
   [/^(pirocudo|pirokudo|malucao|crente|ateu|ateia)\d*$/, 'Medidor de brincadeira — resultado aleatório com GIF'],
   [/^genio\d*$/,                 'Charadas de lógica (vale coins)'],
+  [/^(speedup|reivindicar|streak)\d*$/, 'Acelera/reivindica recompensas do RPG'],
   [/^desafiosemanal\d*$/,        'Desafio da semana (rotativo)'],
   [/^desafiomensal\d*$/,         'Desafio do mês (rotativo)'],
   [/^(rank|ranking|top)/,        'Mostra o ranking do grupo'],

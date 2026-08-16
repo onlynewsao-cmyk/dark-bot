@@ -333,6 +333,15 @@ function categorize(cmd) {
     cancelrent:'economia', listrents:'economia', alugar:'economia', hospedar:'economia',
     statusalugar:'economia', desalugar:'economia', estender:'economia',
     meualuguel:'economia', gruposalugados:'economia',
+    // v7.6b — ECONOMIA & RPG limpo: donos/cheats saem, miscategorizados vão ao sítio
+    dar:'owner', forjar:'owner',
+    rpgadd:'owner', rpgremove:'owner', rpgsetlevel:'owner',
+    rpgadditem:'owner', rpgremoveitem:'owner', rpgresetplayer:'owner', rpgstats:'owner',
+    invocaraura:'ia',
+    invokedono:'admin',
+    cambio:'info', cripto:'info',
+    welcomerpg:'admin', bvrpg:'admin', regrasrpg:'admin', regrasville:'admin',
+    casais:'interacoes', dependente:'zoeira',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
