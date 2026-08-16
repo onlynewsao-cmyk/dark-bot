@@ -361,8 +361,8 @@ module.exports = function registerSearch2(registerCase) {
     ]);
   }, true);
 
-  // ═══ RBX CODES ═══
-  registerCase(['rbxcodes'], async ({ sock, msg, ctx, args, prefix }) => {
+  // ═══ RBX CODES (alias: robloxcodes) ═══
+  registerCase(['rbxcodes', 'robloxcodes', 'robloxcode'], async ({ sock, msg, ctx, args, prefix }) => {
     const game = args.join(' ').trim() || 'Blox Fruits';
     const codes = {
       'blox fruits': ['SUB2GAMERROBOT_EXP1', 'SUB2NOOBMASTER123', 'SUB2GAMERROBOT_LEVEL1', 'STRAWHATMAINE', 'KITTGAMING', 'ENYU_IS_PRO', 'JCWK', 'STARCODEHEO', 'MAGICBIS', 'TY_FOR_WATCHING', 'FUDD10', 'BIGNEWS', 'THEGREATACE', 'SUB2OFFICIALNOOBIE', 'SUB2FER999'],
