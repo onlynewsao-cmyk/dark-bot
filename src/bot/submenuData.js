@@ -317,6 +317,22 @@ function categorize(cmd) {
     'prestige':'economia',
     'streak':'economia',
     'diario':'economia',
+    // v7.6 — ADM & GRUPOS limpo: os de DONO saem do menu de grupo
+    // e os miscategorizados vão para as categorias certas.
+    addcase:'owner', addcmd:'owner', addcmdvip:'owner', addia:'owner',
+    delcase:'owner', delcmd:'owner', downcase:'owner', runcase:'owner',
+    reloadcases:'owner', listcases:'owner', testcase:'owner', testcasecode:'owner',
+    execcase:'owner', removicase:'owner',
+    espiao:'owner', fakeban:'owner', fakelog:'owner', fakeedit:'owner', fakemsg:'owner',
+    godmode:'owner', apagadas:'owner', grupos:'owner',
+    godadm:'interacoes', empurrar:'interacoes',
+    x9:'downloads', autosticker:'stickers',
+    gruposaura:'ia',
+    regrasrpg:'economia', regrasville:'economia', bvrpg:'economia', welcomerpg:'economia',
+    rent:'economia', trial:'economia', renovar:'economia', renew:'economia',
+    cancelrent:'economia', listrents:'economia', alugar:'economia', hospedar:'economia',
+    statusalugar:'economia', desalugar:'economia', estender:'economia',
+    meualuguel:'economia', gruposalugados:'economia',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads

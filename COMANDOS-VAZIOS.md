@@ -139,6 +139,18 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
   - descrições próprias no submenu
   - removidas 89 linhas de stub; `test:logos-audit` (22/22)
 
+- [x] **ADM & GRUPOS limpo (v7.6)** — o menu misturava dono, stickers, downloads e RPG.
+  Reclassificados 43 comandos em `submenuData.categorize()` (OVERRIDES):
+  - **→ DONO**: addcase/addcmd/addcmdvip/addia, delcase/delcmd, downcase/runcase/
+    reloadcases/listcases/testcase/testcasecode/execcase/removicase, espiao/fakeban/
+    fakelog/fakeedit/fakemsg/godmode/apagadas/grupos
+  - **→ categorias certas**: godadm+empurrar→interacoes, x9→downloads, autosticker→stickers,
+    gruposaura→ia, regrasrpg/regrasville/bvrpg/welcomerpg→economia,
+    rent/trial/renovar/renew/cancelrent/listrents/alugar/hospedar/statusalugar/desalugar/
+    estender/meualuguel/gruposalugados→economia
+  - menu admin: 238 → 212 itens (só comandos de grupo)
+  - `test:admin-dono` (74/74)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem
