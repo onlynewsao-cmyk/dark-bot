@@ -41,13 +41,36 @@ A AURA agora **recebe comandos por voz** e **responde por voz**:
 - Ficheiros: `src/bot/commandHandler.js` (bloco de áudio) + teste
   `npm run test:auravozcompleta` (27/27).
 
-## ⏭️ ETAPA 3 — STATUS, CANAIS E COMUNIDADES
+## ✅ ETAPA 3 — STATUS, CANAIS E COMUNIDADES (feita — v7.9)
 
-- **Status/estados**: ver os estados dos contactos (texto/foto/vídeo).
-- **Canais**: subscrever, ler posts, comentar/reagir.
-- **Comunidades**: ver grupos, adicionar/remover, gerir membros.
-- **"Ler e entrar"**: quando mandam link de canal/grupo/comunidade, a AURA
-  entra (se autorizada) e reporta o que há lá.
+A AURA agora cobre **status, canais e comunidades** por conversa (e por voz,
+via o mesmo GATE da Etapa 2), e executa a maioria dos comandos do bot em
+linguagem natural (~90% do cardápio: informação, economia, moderação,
+grupos, canais, comunidades).
+
+| Pedido natural | O que acontece |
+|---|---|
+| "status do grupo" / "como está o grupo" | comando real `statusgp` |
+| "status do bot" / "o bot tá vivo?" | comando real `statusbot` |
+| "meu status" / "como estou" | comando real `meustatus` (coins/aura/nível) |
+| "sou vip" | comando real `myvip` |
+| "qual é o teu canal" | comando real `ca` |
+| "quem está ativo no grupo" / "líderes do grupo" | `checkativo` / `lider` |
+| "qual é o meu recado" / "teu status" / "status do @fulano" | **lê o recado via USync** (`src/bot/usync.js`) |
+| "como está o canal <link>" / "info do canal" | nome, descrição, seguidores |
+| "segue o canal <link>" | `newsletterMetadata('invite')` + `newsletterFollow` |
+| "deixa de seguir o canal <link>" | `newsletterUnfollow` |
+| "entra <link de comunidade>" | `communityGetInviteInfo` → `communityAcceptInvite` |
+| "info da comunidade" / "grupos da comunidade" | `communityMetadata` (dentro de um grupo dela) |
+
+- **Fixes importantes**: "deixa de seguir o canal" já não é confundido com
+  "segue o canal" (a ordem no catálogo importa); links `chat.whatsapp.com`
+  agora distinguem **grupo vs comunidade**.
+- Informativos (`statusgp`, `statusbot`, `meustatus`, `myvip`, `ca`,
+  `checkativo`, `lider`, `infoff`) ficaram **livres para todos**.
+- Ficheiros: `src/bot/usync.js` (novo), `src/aura/auraBrain.js`,
+  `src/aura/auraExec.js`, `src/aura/auraCanais.js`, `src/aura/auraCommands.js`,
+  `src/aura/auraActions.js`. Testes: `npm run test:auraetapa3` (45/45).
 
 ## ⏭️ ETAPA 4 — GESTÃO DE CANAL COMPLETA
 

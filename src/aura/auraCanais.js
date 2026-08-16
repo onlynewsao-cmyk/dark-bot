@@ -49,8 +49,24 @@ async function entrarPorLink(sock, texto) {
     return { ok: false, msg: 'Não vi nenhum link de grupo nem de canal na mensagem. Manda o link que eu entro.' };
   }
 
-  // ── GRUPO ────────────────────────────────────────────────
+  // ── GRUPO OU COMUNIDADE ─────────────────────────────────
   if (conv.tipo === 'grupo') {
+    // v7.9: um link chat.whatsapp.com tanto pode ser de grupo como de
+    // comunidade. A comunidade é o caso específico — testa-se primeiro.
+    try {
+      if (typeof sock.communityGetInviteInfo === 'function') {
+        const c = await sock.communityGetInviteInfo(conv.code);
+        if (c?.isCommunity && typeof sock.communityAcceptInvite === 'function') {
+          const jid = await sock.communityAcceptInvite(conv.code);
+          const nome = c.subject || c.name || '';
+          return {
+            ok: true, tipo: 'comunidade', jid, nome,
+            msg: nome ? `Entrei na comunidade *${nome}*. 🖤` : 'Entrei na comunidade. 🖤',
+          };
+        }
+      }
+    } catch { /* não era comunidade — segue para grupo */ }
+
     try {
       // Espreita antes de entrar — assim consigo dizer o nome.
       let nome = '';
@@ -221,7 +237,66 @@ async function meusGrupos(sock, soAdmin = false) {
   } catch { return []; }
 }
 
+/** Resolve o jid de um canal a partir de um link ou jid directo. */
+async function resolverCanal(sock, alvo) {
+  const t = String(alvo || '').trim();
+  if (/@newsletter$/i.test(t)) return t;
+  const conv = extrairConvite(t);
+  if (conv?.tipo === 'canal') {
+    const meta = await sock.newsletterMetadata('invite', conv.code);
+    return meta?.id || null;
+  }
+  return null;
+}
+
+/**
+ * v7.9 — informação de um canal (nome, descrição, seguidores).
+ */
+async function infoCanal(sock, alvo) {
+  if (typeof sock.newsletterMetadata !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não lê canais.' };
+  }
+  const jid = await resolverCanal(sock, alvo).catch(() => null);
+  let meta = null;
+  try {
+    if (jid) {
+      meta = await sock.newsletterMetadata('jid', jid);
+    } else {
+      const conv = extrairConvite(String(alvo || ''));
+      if (conv?.tipo === 'canal') meta = await sock.newsletterMetadata('invite', conv.code);
+    }
+  } catch (e) {
+    return { ok: false, msg: `Não consegui ler o canal: ${String(e?.message || e).slice(0, 80)}` };
+  }
+  if (!meta?.name && !meta?.description) {
+    return { ok: false, msg: 'Não encontrei esse canal — manda o link (whatsapp.com/channel/...).' };
+  }
+  const linhas = [`Canal *${meta.name || ''}*`];
+  if (meta.description) linhas.push(String(meta.description).slice(0, 220));
+  if (typeof meta.subscribers === 'number') linhas.push(`👥 ${meta.subscribers} seguidores`);
+  if (meta.invite) linhas.push(`https://whatsapp.com/channel/${meta.invite}`);
+  return { ok: true, msg: linhas.join('\n\n') };
+}
+
+/**
+ * v7.9 — deixar de seguir um canal (por link ou jid).
+ */
+async function deixarCanal(sock, alvo) {
+  if (typeof sock.newsletterUnfollow !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não deixa de seguir canais.' };
+  }
+  const jid = await resolverCanal(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Manda o link do canal que queres que eu deixe de seguir.' };
+  try {
+    await sock.newsletterUnfollow(jid);
+    return { ok: true, msg: 'Deixei de seguir o canal. ✅' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui deixar de seguir: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
-  reencaminhar, meusGrupos, RE_GRUPO, RE_CANAL,
+  reencaminhar, meusGrupos, resolverCanal, infoCanal, deixarCanal,
+  RE_GRUPO, RE_CANAL,
 };

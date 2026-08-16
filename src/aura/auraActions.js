@@ -166,6 +166,16 @@ function detectarAcao(texto) {
     return { acao: 'criarComunidade', valor: extrairNome(texto) };
   }
 
+  // 3b. v7.9 ETAPA 3 — informação da comunidade (não é criar nem ligar)
+  if (/\bcomunidade\b/.test(t) &&
+      /\b(que|quais|quantos)\b[^.?!]{0,20}\bgrupos\b/.test(t)) {
+    return { acao: 'gruposComunidade' };
+  }
+  if (/\bcomunidade\b/.test(t) &&
+      /\b(info|informa[çc][aã]o|detalhes|como est[aá]|sobre a comunidade|membros|quantos s[aã]o)\b/.test(t)) {
+    return { acao: 'infoComunidade' };
+  }
+
   // ── Criar grupo ───────────────────────────────────────────
   if (/\b(cria|criar|faz|fazer|monta|montar)\b/.test(t) && /\bgrupo\b/.test(t)) {
     return { acao: 'criarGrupo', valor: extrairNome(texto) };
@@ -550,6 +560,46 @@ async function executar(acao, valor, { sock, ctx }) {
       const bridge = require('../bot/callBridge');
       await bridge.ligarGrupo(sock, jid);
       return { ok: true, msg: 'Abri a chamada no grupo. Entram pelo link / botão de chamada.' };
+    }
+
+    // ════ v7.9 ETAPA 3 — INFORMAÇÃO DA COMUNIDADE ════
+
+    case 'infoComunidade': {
+      if (!emGrupo) return { ok: false, msg: 'Diz-me dentro de um grupo da comunidade (ou diz *"cria uma comunidade"*).' };
+      if (typeof sock.communityMetadata !== 'function') {
+        return { ok: false, msg: 'A minha versão do WhatsApp não lê comunidades.' };
+      }
+      const c = await _descobrirComunidade(sock, ctx, jid, false);
+      if (!c.jid) return { ok: false, msg: c.erro || 'Este grupo não está numa comunidade.' };
+      try {
+        const m = await sock.communityMetadata(c.jid);
+        const linhas = [`Comunidade *${c.nome}*`];
+        if (m && m.desc) linhas.push(m.desc);
+        const membros = m ? (m.size ?? m.participants?.length) : 0;
+        if (typeof membros === 'number') linhas.push(`👥 ${membros} membros`);
+        return { ok: true, msg: linhas.join('\n\n') };
+      } catch (e) {
+        return { ok: true, msg: `Comunidade *${c.nome}*. (Não consegui mais detalhes: ${String(e?.message || e).slice(0, 60)})` };
+      }
+    }
+
+    case 'gruposComunidade': {
+      if (!emGrupo) return { ok: false, msg: 'Diz-me dentro de um grupo da comunidade.' };
+      if (typeof sock.communityMetadata !== 'function') {
+        return { ok: false, msg: 'A minha versão do WhatsApp não lê comunidades.' };
+      }
+      const c = await _descobrirComunidade(sock, ctx, jid, false);
+      if (!c.jid) return { ok: false, msg: c.erro || 'Este grupo não está numa comunidade.' };
+      try {
+        const m = await sock.communityMetadata(c.jid);
+        const ps = (m && m.participants) || [];
+        // na comunidade os grupos aparecem como participantes com jid de grupo
+        const grupos = ps.filter(p => p && p.id && /@g\.us$/.test(p.id));
+        if (!grupos.length) return { ok: true, msg: `A comunidade *${c.nome}* não tem grupos ligados ainda.` };
+        return { ok: true, msg: `Grupos da comunidade *${c.nome}*:\n` + grupos.map(g => '▸ ' + g.id.split('@')[0]).join('\n') };
+      } catch (e) {
+        return { ok: false, msg: `Não consegui listar os grupos: ${String(e?.message || e).slice(0, 60)}` };
+      }
     }
 
     default:
