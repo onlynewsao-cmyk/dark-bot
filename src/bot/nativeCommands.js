@@ -1875,6 +1875,34 @@ module.exports = {
     return reply(sock, msg, ctx, `╭━━━〔 ⭐ VIP TOP COMMANDS 〕━━━╮\n${(Array.isArray(list) ? list : defaults).map(x => `┃ ⚡ ${x}`).join('\n')}\n╰━━━〔 +9999999 AURA 〕━━━╯\n\nDono pode alterar: vipcmds play3 video2 ...`);
   },
 
+  // v7.6 — addcmdvip era stub ("Comando registado" fake).
+  // Agora adiciona um comando à lista VIP (delcmdvip remove).
+  async addcmdvip({ sock, msg, ctx, args, isOwner }) {
+    if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
+    const cmd = (args[0] || '').toLowerCase().trim().replace(/^[!.\/]/, '');
+    if (!cmd) return reply(sock, msg, ctx, '⭐ Use: addcmdvip <comando>\nEx: addcmdvip decrypt\n\nLista: vipcmds');
+    const defaults = ['decrypt','play3','video2','statusvideo','figubug2','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
+    const atual = await BotConfig.get('vip_commands', defaults).catch(() => defaults);
+    const list = new Set(Array.isArray(atual) ? atual : defaults);
+    list.add(cmd);
+    await BotConfig.set('vip_commands', [...list]);
+    botConfigCache.clear();
+    return reply(sock, msg, ctx, `⭐ Comando *${cmd}* adicionado à lista VIP.\n\nLista actual:\n${[...list].map(x => '• ' + x).join('\n')}`);
+  },
+
+  async delcmdvip({ sock, msg, ctx, args, isOwner }) {
+    if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
+    const cmd = (args[0] || '').toLowerCase().trim().replace(/^[!.\/]/, '');
+    if (!cmd) return reply(sock, msg, ctx, '⭐ Use: delcmdvip <comando>');
+    const defaults = ['decrypt','play3','video2','statusvideo','figubug2','gimage','audiomeme','vinil','sfull','noticias','pesquisar','resumir'];
+    const atual = await BotConfig.get('vip_commands', defaults).catch(() => defaults);
+    const list = new Set(Array.isArray(atual) ? atual : defaults);
+    list.delete(cmd);
+    await BotConfig.set('vip_commands', [...list]);
+    botConfigCache.clear();
+    return reply(sock, msg, ctx, `⭐ Comando *${cmd}* removido da lista VIP.\n\nLista actual:\n${[...list].map(x => '• ' + x).join('\n')}`);
+  },
+
 
   async menustyle({ sock, msg, ctx, args, isOwner }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');

@@ -108,7 +108,6 @@ module.exports = function(registerCase) {
   registerCase(['addautoadm'], async c => hA(c), true);
   registerCase(['addautoadmidia'], async c => hA(c), true);
   registerCase(['addblacklist'], async c => hA(c), true);
-  registerCase(['addcmdvip'], async c => hA(c), true);
   registerCase(['addmod'], async c => hA(c), true);
   registerCase(['addparceria'], async c => hA(c), true);
   registerCase(['addregra'], async c => hA(c), true);
