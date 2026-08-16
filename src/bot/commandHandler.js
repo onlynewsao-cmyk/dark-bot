@@ -1491,6 +1491,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
       // Contexto de mídia — a Aura vê/ouve tudo (foto, vídeo, áudio, sticker)
       let mediaContext = '';
+      let _resumoMidia = '';
       let isAudio = false, isImage = false, isVideo = false, isSticker = false;
       let stickerVision = null;
       const msgObj = msg.message;
@@ -1498,7 +1499,18 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       if (msgObj?.imageMessage) {
         isImage = true;
         const caption = msgObj.imageMessage.caption || '';
+        // v7.8 — a AURA VÊ a foto de verdade (Gemini Vision)
+        try {
+          const am = require('../aura/auraMedia');
+          const r = await am.verImagem(msg, require('./ai'), caption);
+          if (r.context) mediaContext = r.context;
+          if (r.resumo) _resumoMidia = r.resumo;
+        } catch (e) {
+          console.warn('[AuraFoto]', String(e.message || e).slice(0, 50));
+        }
+        if (!mediaContext) {
         mediaContext = `📸 Alguém enviou uma FOTO.${caption ? ` Legenda: "${caption}"` : ''} Comenta sobre ela como pessoa real.`;
+        }
       } else if (msgObj?.videoMessage) {
         isVideo = true;
         const caption = msgObj.videoMessage.caption || '';
@@ -1579,8 +1591,38 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             : '[Mandaram-te uma figurinha. Comenta o que VÊS nela.]';
         }
       } else if (msgObj?.documentMessage) {
+        // v7.8 — a AURA LÊ o documento (txt directo / PDF via Gemini)
+        try {
+          const am = require('../aura/auraMedia');
+          const r = await am.lerDocumento(msg, require('./ai'));
+          if (r.context) mediaContext = r.context;
+          if (r.resumo) _resumoMidia = r.resumo;
+        } catch (e) {
+          console.warn('[AuraDoc]', String(e.message || e).slice(0, 50));
+        }
+        if (!mediaContext) {
         const fname = msgObj.documentMessage.fileName || 'arquivo';
         mediaContext = `📄 Alguém enviou um DOCUMENTO: ${fname}. Comenta se relevante.`;
+        }
+      }
+
+      // v7.8 — a AURA LÊ links mandados na conversa
+      const _urlNaMsg = String(cleanText || text || '').match(/https?:\/\/[^\s<>()"']+/i);
+      if (!mediaContext && _urlNaMsg) {
+        try {
+          const am = require('../aura/auraMedia');
+          const r = await am.lerLink(_urlNaMsg[0], require('./ai'));
+          if (r.context) mediaContext = r.context;
+          if (r.resumo) _resumoMidia = r.resumo;
+        } catch (e) {
+          console.warn('[AuraLink]', String(e.message || e).slice(0, 50));
+        }
+      }
+
+      // v7.8 — guarda na memória o resumo do que viu/ouviu/leu
+      // (o importante fica, o resto some em 1h — heurística da auraMemory)
+      if (_resumoMidia && ctx.senderNumber) {
+        try { require('../aura/auraMemory').guardarMedia(ctx.senderNumber, _resumoMidia); } catch {}
       }
 
       // ═══ ESCOLHER A PERSONA ═══════════════════════════════════
