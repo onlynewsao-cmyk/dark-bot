@@ -135,6 +135,20 @@ const STYLES = {
   lava:         { bg: ['#0a0000', '#160300'], text: ['#ff4400', '#ff8800', '#ffcc00'], glow: '#ff4400' },
   glossy:       { bg: ['#0c0c0c', '#1a1a1a'], text: ['#ffffff', '#ffd700', '#00e5ff'], glow: '#ffffff' },
   blue:         { bg: ['#000a14', '#001626'], text: ['#2a7fff', '#00d4ff'], glow: '#2a7fff' },
+
+  // ── v7.7 — logos que faltavam ──
+  blackhzx:     { bg: ['#050505', '#0e0e0e'], text: ['#ff2a2a', '#7a0000'], glow: '#ff2a2a' },
+  cemiterio:    { bg: ['#05070a', '#0d1218'], text: ['#aab4bf', '#4a5560'], glow: '#8899aa' },
+  comics:       { bg: ['#0a0a0c', '#141418'], text: ['#ff2a2a', '#ffd400', '#2a7fff'], stroke: '#000' },
+  ffavatar:     { bg: ['#0a1018', '#14202e'], text: ['#ff8c00', '#ffffff'], glow: '#ff8c00' },
+  game:         { bg: ['#050a14', '#0c1628'], text: ['#00e5ff', '#ff2a6a'], glow: '#00e5ff' },
+  perfilff:     { bg: ['#0a1018', '#14202e'], text: ['#ff8c00', '#ffffff'], glow: '#ff8c00' },
+  playboy:      { bg: ['#0a0a0a', '#181818'], text: ['#ffffff', '#b8b8b8'], glow: '#ffffff' },
+  pornhub:      { bg: ['#0a0500', '#180d00'], text: ['#ff8c00', '#ffd400', '#000000'], glow: '#ff8c00' },
+  pubgavatar:   { bg: ['#1a1404', '#2a2008'], text: ['#ffd400', '#ff8c00'], glow: '#ffd400', stroke: '#000' },
+  pubgvideo:    { bg: ['#1a1404', '#2a2008'], text: ['#ffd400', '#ff8c00'], glow: '#ffd400', stroke: '#000' },
+  tecnologica:  { bg: ['#000814', '#001d3d'], text: ['#00f0ff', '#0077ff'], glow: '#00e5ff' },
+  gradiente:    { bg: ['#050505', '#141414'], text: ['#ff0088', '#ffcc00', '#00ffcc'] },
 };
 
 // Aliases — comando → estilo base
