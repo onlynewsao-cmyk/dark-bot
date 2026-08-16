@@ -3,7 +3,10 @@
  */
 'use strict';
 
-const IMPORTANTE = /\b(chamo-?me|meu nome|gosto de|amo|odeio|mor[oa]|vivo em|anivers[aá]rio|lembra|nunca|sempre|trabalho|fam[ií]lia|namorad|filho|filha|idade|tenho \d+)\b/i;
+const IMPORTANTE = /\b(chamo-?me|meu nome|gosto de|amo|odeio|mor[oa]|vivo em|anivers[aá]rio|lembra|nunca|sempre|trabalho|fam[ií]lia|namorad|filho|filha|idade|tenho \d+|conta|iban|senha|endere[cç]o|telefone|email|morada|apelido)\b/i;
+
+// v7.8 — mídia com legenda relevante também é importante
+const MIDIA_IMPORTANTE = /^(?:\[FOTO\]|\[DOC\]|\[LINK\]|\[ÁUDIO\]).{15,}/i;
 
 const _leve = new Map(); // key → { itens: [{t, ts}], expira }
 const HORA = 60 * 60 * 1000;
@@ -11,7 +14,7 @@ const HORA = 60 * 60 * 1000;
 function eImportante(texto) {
   const t = String(texto || '');
   if (t.length > 120) return true;
-  return IMPORTANTE.test(t);
+  return IMPORTANTE.test(t) || MIDIA_IMPORTANTE.test(t);
 }
 
 function _k(num) { return String(num || '').replace(/\D/g, ''); }
@@ -70,4 +73,14 @@ function paraPrompt(mem) {
   return s;
 }
 
-module.exports = { eImportante, guardar, lembrar, paraPrompt };
+/**
+ * v7.8 — guarda resumos do que a AURA viu/ouviu/leu (mídia).
+ * Usa a mesma heurística: importante fica para sempre, resto some em 1h.
+ */
+async function guardarMedia(numero, resumo) {
+  if (!resumo || String(resumo).length < 6) return;
+  const imp = eImportante(resumo);
+  return guardar(numero, resumo, { importante: imp });
+}
+
+module.exports = { eImportante, guardar, guardarMedia, lembrar, paraPrompt };

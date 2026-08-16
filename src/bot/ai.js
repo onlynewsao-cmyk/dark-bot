@@ -920,6 +920,46 @@ async function describeImage(imageBuffer, question = 'Descreve esta imagem em de
 }
 
 /**
+ * Chat com DOCUMENTO (PDF, texto, etc.) — envia o ficheiro como inlineData
+ * e deixa o Gemini ler o conteúdo. Usado pela AURA para "ler" documentos.
+ */
+async function chatWithDocument(prompt, systemPrompt, buffer, mimeType = 'application/pdf', memoryOpts = {}) {
+  if (!config.ai.geminiApiKey) throw new Error('sem chave Gemini');
+  if (!buffer || !Buffer.isBuffer(buffer) || buffer.length < 20) throw new Error('documento vazio');
+  if (buffer.length > 18 * 1024 * 1024) throw new Error('documento > 18MB');
+
+  const body = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType, data: buffer.toString('base64') } },
+      ],
+    }],
+    generationConfig: { temperature: 0.4, maxOutputTokens: 1200 },
+    safetySettings: GEMINI_SAFETY,
+  };
+
+  const models = await getGeminiModels();
+  for (const model of models) {
+    try {
+      const data = await withTimeout(
+        post(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
+          body
+        ),
+        20000
+      );
+      const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
+      if (out) return out;
+    } catch (e) {
+      if (/401|invalid/i.test(e.message)) break;
+    }
+  }
+  throw new Error('Gemini Document falhou');
+}
+
+/**
  * Chat com imagem — envia texto + imagem para o Gemini Vision
  * e retorna a resposta da IA com a personalidade/system prompt
  */
@@ -1013,6 +1053,7 @@ module.exports = {
   chatGroq,
   chatGemini,
   chatWithImage,
+  chatWithDocument,
   describeImage,
   detectImageMime,
   toImageBuffers,
