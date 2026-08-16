@@ -158,6 +158,21 @@ const MAPA = [
   // conforme o verbo da frase (ver detectarComando).
   [/\b(liga|ligar|ativa|activa|ativar|activar|p[õo]e|abre)\b[^.?!]{0,20}\b(modo adulto|conte[úu]do adulto|portal 18|18\+|nsfw)\b/i, 'adultmode', 'on'],
   [/\b(desliga|desligar|desativa|desactiva|tira|fecha)\b[^.?!]{0,20}\b(modo adulto|conte[úu]do adulto|portal 18|18\+|nsfw)\b/i, 'adultmode', 'off'],
+
+  // ── v7.9 ETAPA 3: STATUS / INFORMAÇÃO DO BOT E DO GRUPO ─────
+  // Ordem importa: as regras específicas (grupo/bot) vêm ANTES da
+  // genérica "meu status", senão "status do grupo" cai em "meu status".
+  [/\bstatus\b[^.?!]{0,16}\b(grupo|gp)\b/i, 'statusgp', 'nenhum'],
+  [/\bcomo (est[aá]|vai|t[aá])[^.?!]{0,16}\b(grupo|gp)\b/i, 'statusgp', 'nenhum'],
+  [/\b(info|informa[çc][aã]o)\b[^.?!]{0,16}\b(do grupo|deste grupo|desse grupo)\b/i, 'statusgp', 'nenhum'],
+  [/\bstatus\b[^.?!]{0,16}\bbot\b/i, 'statusbot', 'nenhum'],
+  [/\bcomo (est[aá]|vai)[^.?!]{0,16}\bbot\b/i, 'statusbot', 'nenhum'],
+  [/\bbot\b[^.?!]{0,16}\b(t[aá] vivo|est[aá] vivo|online|de p[eé]|funciona|acordado)\b/i, 'statusbot', 'nenhum'],
+  [/\b(meu status|meu estado|meu progresso|como estou|minha situa[çc][aã]o)\b/i, 'meustatus', 'nenhum'],
+  [/\b(sou vip|meu vip|o meu vip|estado do vip|situa[çc][aã]o do vip)\b/i, 'myvip', 'nenhum'],
+  [/\b(qual|manda|d[aá]|mostra|passa|envia)\b[^.?!]{0,16}\b(teu|o teu|seu|o seu|do bot)\b[^.?!]{0,8}\bcanal\b/i, 'ca', 'nenhum'],
+  [/\b(quem est[aá] ativo|ativos|atividade|participa[çc][aã]o)\b[^.?!]{0,16}\b(do grupo|no grupo|aqui|grupo)\b/i, 'checkativo', 'nenhum'],
+  [/\b(l[ií]deres|ranking|top|top 5)\b[^.?!]{0,16}\b(do grupo|no grupo|aqui|grupo)\b/i, 'lider', 'nenhum'],
 ];
 
 /** Tira o que vem depois do verbo — o argumento do comando. */
@@ -244,6 +259,8 @@ const LIVRES = new Set([
   'menu', 'ping', 'info', 'perfil', 'saldo', 'daily', 'trabalhar',
   'admins', 'participantes', 'regras', 'dono', 'sticker', 'toimg',
   'traduzir', 'clima', 'letra', 'calc', 'wikipedia', 'vip',
+  // v7.9 Etapa 3: informação inofensiva
+  'statusgp', 'statusbot', 'meustatus', 'myvip', 'ca', 'checkativo', 'lider', 'infoff',
 ]);
 
 // VIP e acima: downloads e coisas que custam recursos

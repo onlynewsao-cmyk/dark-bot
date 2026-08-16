@@ -174,16 +174,35 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
 
     // ══ CANAIS ════════════════════════════════════════════
     case 'canal_seguir': {
-      const alvoCanal = (arg || '').trim();
+      const canais = require('./auraCanais');
+      const alvoCanal = (arg || '').trim() || texto;
       if (!alvoCanal) return { ok: false, msg: 'Manda o link do canal.' };
-      const jidCanal = alvoCanal.includes('@newsletter')
-        ? alvoCanal
-        : (alvoCanal.match(/[0-9]{5,}@newsletter/) || [])[0];
-      if (!jidCanal) return { ok: false, msg: 'Esse link não me parece de um canal. Manda o link certo.' };
-      const r = await mega.followChannel(sock, jidCanal);
-      return r?.success
-        ? { ok: true, msg: 'Já sigo o canal. ✅' }
-        : { ok: false, msg: `Não consegui seguir: ${r?.message || 'erro'}` };
+      // v7.9: entra por link (newsletterMetadata invite + follow) em vez
+      // de adivinhar o jid — é o mecanismo real do protocolo.
+      const r = await canais.entrarPorLink(sock, alvoCanal);
+      if (r.ok && r.tipo === 'canal') return { ok: true, msg: r.msg };
+      if (r.ok) return { ok: true, msg: r.msg };
+      return { ok: false, msg: r.msg };
+    }
+
+    case 'canal_deixar': {
+      const canais = require('./auraCanais');
+      const alvo = (arg || '').trim() || texto;
+      const r = await canais.deixarCanal(sock, alvo, ctx);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_info': {
+      const canais = require('./auraCanais');
+      const alvo = (arg || '').trim() || texto;
+      const r = await canais.infoCanal(sock, alvo);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'ver_status': {
+      const usync = require('../bot/usync');
+      const r = await usync.lerStatus(sock, { ctx, msg, texto });
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
     }
 
     case 'canal_postar': {

@@ -209,6 +209,18 @@ const CAPACIDADES = [
     desc: 'Publicar um status/story (texto ou a imagem enviada)',
     gatilhos: [/\b(posta|publica|poe|coloca|bota)\b.{0,20}\b(status|estado|story|stories)\b/, /\bstatus\b.{0,16}\b(com|dessa|desta|essa foto)\b/],
   },
+  {
+    // v7.9 ETAPA 3: LER o recado/status de alguém via USync.
+    // "qual é o meu recado", "qual é o teu status", "status do @fulano".
+    id: 'ver_status', nivel: 'todos', arg: 'alvo', risco: 'seguro',
+    desc: 'Ler o recado/status de um contacto (via USync)',
+    gatilhos: [
+      /\b(recado|bio)\b.{0,14}\b(meu|teu|minha|tua|diz|mostra|qual|v[eê]|o que)\b/,
+      /\b(meu|teu|minha|tua)\b.{0,10}\b(recado|bio)\b/,
+      /\b(status|recado)\b(?!.{0,20}\b(grupo|bot|canal|comunidade)\b).{0,16}\b(do|da|de)\b.{0,40}/,
+      /\b(teu|tua|seu|sua)\b.{0,10}\b(status|estado)\b/,
+    ],
+  },
 
   // ══ CANAIS (newsletter) ═══════════════════════════════════
   {
@@ -225,9 +237,21 @@ const CAPACIDADES = [
     gatilhos: [/\bcanal\b.{0,30}\brea(ge|gir|ja)\b/, /\brea(ge|gir|ja)\b.{0,30}\bcanal\b/],
   },
   {
+    // v7.9 ETAPA 3: deixar de seguir tem de vir ANTES de seguir,
+    // senão "deixa de seguir o canal X" é lido como "seguir".
+    id: 'canal_deixar', nivel: 'dono', arg: 'depois', risco: 'seguro',
+    desc: 'Deixar de seguir um canal',
+    gatilhos: [/\b(deixa de seguir|deixar de seguir|deixar o canal|unfollow)\b.{0,14}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,14}\b(deixa de seguir|deixar de seguir|unfollow)\b/],
+  },
+  {
+    id: 'canal_info', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Informação sobre um canal (nome, descrição, seguidores)',
+    gatilhos: [/\b(info|informa[çc][aã]o|detalhes|como est[aá]|sobre o canal|seguidores|subscritores)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(info|informa[çc][aã]o|detalhes|seguidores|subscritores)\b/],
+  },
+  {
     id: 'canal_seguir', nivel: 'dono', arg: 'depois', risco: 'seguro',
     desc: 'Seguir um canal',
-    gatilhos: [/\b(segue|seguir|entra n)\b.{0,14}\b(canal|newsletter)\b/],
+    gatilhos: [/\b(segue|seguir|entra n|subscreve)\b.{0,14}\b(canal|newsletter)\b/],
   },
 
   // ══ ENTRAR / PARTILHAR (v6.82) ════════════════════════════
