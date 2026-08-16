@@ -1,10 +1,35 @@
 # DARK BOT — Inventário de comandos vazios / sem funcionalidade
 
-> Gerado em 14-08-2026. Fonte: `src/bot/cases/stubs.js` (stubs) cruzados com
-> os comandos reais (cases + nativeCommands + catálogo).
->
-> Um stub só fica **activo** se NÃO existir implementação real noutro lado
-> (`registerCase(..., true)` = onlyIfNew). Os números abaixo são os **activos**.
+> ⚠️ **RESOLVIDO (v7.7):** este inventário já não tem pendências. O ficheiro
+> `stubs.js` foi esvaziado — **0 comandos fake**. Todos os comandos têm
+> handler real. Mantém-se aqui o histórico do que foi feito.
+
+## ✅ FINAL (v7.7) — stubs.js esvaziado
+
+- **754 stubs eliminados** em lote (medidores zoeira, ranks, economia, info,
+  admin, roles, afk, logos).
+- **405 eram órfãos genuínos** (sem handler em lado nenhum) — implementados:
+  - `src/bot/cases/medidores.js` — ~200 medidores zoeira + ~200 ranks, com GIF
+    real (Tenor) + aura. Cobre `brabo`, `bandido`, `corajosa`, `dependente`,
+    `responsavel`, `tecnologica`, `corna`… e `rank*` (singular + plural).
+  - `src/bot/cases/finalizar.js` — economia (assaltar, mercado, sell, cultivar,
+    casa, equipamentos, reparar, presente, tributos, topriqueza, ranklvl,
+    auction, guerra, boost…), info (info, dono, subdono, suporte, meustatus,
+    myvip, lid, statusbot, statusgp, topcmd, totalcmd, gitbot, zipbot, voltei,
+    mention, perfilpic, afk…), admin (antiraid, raidstatus, autorespostas,
+    bemvindo, saida, capturalink, soadm, grupo, listmods, listblacklist,
+    listmodcmds, parcerias, solicitacoes, atividade…) e **sistema de ROLES**
+    completo (role.criar, role.vou, role.nvou, role.alterar, role.excluir,
+    role.confirmados, roles).
+  - `src/bot/cases/logos.js` — +13 logos (blackhzx, cemiterio, comics, ffavatar,
+    game, perfilff, playboy, pornhub, pubgavatar, pubgvideo, tecnologica…).
+- **4 stubs que tapavam pacotes** (bug) removidos: genio, shipo,
+  desafiosemanal, desafiomensal (agora respondem os handlers de jogos).
+- Suite: **33 suites, 0 falhas** · `test:finalizacao` (72/72).
+
+---
+
+## (Histórico)
 
 ## Resumo
 
