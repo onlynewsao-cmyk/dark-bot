@@ -10,124 +10,34 @@
 // Comandos que NÃO precisam de argumentos (executam directo)
 const SEL_PATTERNS = [
   // ══════════════════════════════════════════════════════════════════════
-  // AÇÃO DIRETA - Comandos que executam SEM PRECISAR DE:
-  // - Dados adicionais (cep, Wikipedia, etc.)
-  // - Responder a mensagem
-  // - Marcar/mencionar alguém
-  // - Definir valor ou opção (dado, moeda, etc.)
-  // - Qualquer informação extra
+  // v7.7 — AÇÃO DIRETA = apenas INTERRUPTORES (on/off, activar/desactivar)
+  // e acções que INICIAM algo sem precisar de input.
+  //
+  // Info/status, medidores de zoeira e rankings DEIXARAM de ser "acção
+  // directa": ficam no texto dos submenus, não como botão clicável.
   // ══════════════════════════════════════════════════════════════════════
-  
-  // ── INFO E STATUS (só mostram informação) ──
-  /^ping$/, /^info$/, /^perfil$/, /^dono$/, /^criador$/, /^donos$/,
-  /^uptime$/, /^status$/, /^statusbot$/, /^stats$/, /^perf$/,
-  /^aiapis$/, /^checkia$/, /^checkativo$/, /^statusalugar$/,
-  /^statusgp$/, /^statusbot$/, /^system$/, /^topcmd$/, /^totalcmd$/,
-  
-  // ── NAVEGAÇÃO (só abrem submenus) ──
-  /^menu$/, /^start$/, /^help$/,
-  
-  // ── GRUPOS (ações únicas sem dados) ──
-  /^link$/, /^linkgp$/, /^grupo$/, /^todos$/, /^hidetag$/,
-  /^admins$/, /^tagadmins$/, /^listmods$/, /^listadv$/, /^listamute$/,
-  /^regras$/, /^soadm$/, /^gruposalugados$/,
-  
-  // ── TOGGLE GRUPOS (ligar/desligar sem dados) ──
+
+  // ── TOGGLES DE GRUPO (ligar/desligar — interruptores) ──
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^welcome$/, /^bemvindo$/, /^saida$/,
-  /^open$/, /^close$/, /^abrir$/, /^fechar$/,
-  /^everyone$/, /^all$/, /^whitelist$/, /^resetlink$/,
-  /^novo-link$/, /^revoke$/,
-  
-  // ── ECONOMIA (ações únicas sem dados) ──
-  /^daily$/, /^saldo$/, /^coins$/, /^carteira$/, /^inventario$/, /^inv$/,
-  /^perfilrpg$/, /^rpgstats$/, /^rpginfo$/, /^ficha$/, /^caixa$/,
-  /^arvore$/, /^familia$/, /^cla$/, /^conquistas$/, /^diario$/,
-  /^atividade$/, /^checkativo$/, /^rentstatus$/, /^statusalugar$/,
-  /^statusgp$/, /^meustats$/, /^toprep$/, /^denuncias$/,
-  /^conquistas$/, /^caixa$/, /^diario$/, /^rep$/,
-  
-  // ── UTILIDADES (ações únicas sem dados) ──
-  /^clima$/, /^weather$/, /^tempo$/, /^hora$/,
-  /^getjid$/, /^jid$/,
-  /^getbio$/, /^getperfil$/, /^getcasecode$/, /^viewcase$/, /^listcase$/, /^listcases$/,
-  /^dicio$/, /^dicionario$/, /^significado$/,
-  
-  // ── ZOEIRA (medidores - ações únicas sem dados) ──
-  /^gay$/, /^lindo$/, /^linda$/, /^feio$/, /^feia$/, /^burro$/, /^burra$/,
-  /^rico$/, /^rica$/, /^pobre$/, /^corno$/, /^corna$/, /^safado$/, /^safada$/,
-  /^gado$/, /^gada$/, /^gostoso$/, /^gostosa$/, /^forte$/, /^fraca$/,
-  /^nerd$/, /^nerd2$/, /^otaku$/, /^preguicoso$/, /^preguicosa$/,
-  /^trabalhador$/, /^trabalhadora$/, /^brabo$/, /^braba$/,
-  /^malandro$/, /^malandra$/, /^simpatico$/, /^simpatica$/,
-  /^engracado$/, /^engracada$/, /^charmoso$/, /^charmosa$/,
-  /^misterioso$/, /^misteriosa$/, /^carinhoso$/, /^carinhosa$/,
-  /^ciumento$/, /^ciumenta$/, /^corajoso$/, /^corajosa$/,
-  /^esperto$/, /^esperta$/, /^chorao$/, /^chorona$/,
-  /^brincalhao$/, /^brincalhona$/, /^traidor$/, /^traidora$/,
-  /^bandido$/, /^bandida$/, /^cachorro$/, /^cachorra$/,
-  /^vagabundo$/, /^vagabunda$/, /^pilantra$/, /^mito$/,
-  /^padrao$/, /^comedia$/, /^psicopata$/, /^fortao$/, /^fortona$/,
-  /^magrelo$/, /^magrela$/, /^bombado$/, /^bombada$/,
-  /^chefe$/, /^presidente$/, /^presidenta$/, /^rei$/, /^rainha$/,
-  /^patrao$/, /^patroa$/, /^playboy$/, /^zueiro$/, /^zueira$/,
-  /^gamer$/, /^programador$/, /^programadora$/,
-  /^visionario$/, /^visionaria$/, /^billionario$/, /^bilionaria$/,
-  /^poderoso$/, /^poderosa$/, /^vencedor$/, /^vencedora$/,
-  /^senhor$/, /^senhora$/, /^fofoqueiro$/, /^fofoqueira$/,
-  /^dorminhoco$/, /^dorminhoca$/, /^comilao$/, /^comilona$/,
-  /^sedentario$/, /^sedentaria$/, /^estudioso$/, /^estudiosa$/,
-  /^romantico$/, /^romantica$/, /^extrovertido$/, /^extrovertida$/,
-  /^introvertido$/, /^introvertida$/, /^calmo$/, /^calma$/,
-  /^nervoso$/, /^nervosa$/, /^organizado$/, /^organizada$/,
-  /^bagunceiro$/, /^bagunceira$/, /^economico$/, /^economica$/,
-  /^gastador$/, /^gastadora$/, /^saudavel$/, /^doente$/,
-  /^supersticioso$/, /^supersticiosa$/, /^cetico$/, /^cetica$/,
-  /^religioso$/, /^religiosa$/, /^ateu$/, /^ateia$/,
-  /^moderno$/, /^moderna$/, /^conservador$/, /^conservadora$/,
-  /^patriotico$/, /^patriotica$/, /^urbano$/, /^urbana$/,
-  /^aventureiro$/, /^aventureira$/, /^caseiro$/, /^caseira$/,
-  /^tecnologico$/, /^tecnologica$/, /^analogico$/, /^analogica$/,
-  /^solitario$/, /^solitaria$/, /^seguidor$/, /^seguidora$/,
-  /^criativo$/, /^criativa$/, /^pratico$/, /^pratica$/,
-  /^sonhador$/, /^sonhadora$/, /^inseguro$/, /^insegura$/,
-  /^maduro$/, /^madura$/, /^serio$/, /^seria$/,
-  /^inteligente$/, /^fiel$/, /^infiel$/, /^pegador$/, /^pegadora$/,
-  /^otario$/, /^otaria$/, /^macho$/, /^bobo$/, /^boba$/,
-  /^humilde$/, /^desumilde$/, /^covarde$/, /^talarico$/, /^talarica$/,
-  /^bebado$/, /^bebada$/, /^vesgo$/, /^vesga$/, /^ladrao$/, /^ladra$/,
-  /^nazista$/, /^homofobico$/, /^homofobica$/, /^racista$/, /^chato$/, /^chata$/,
-  /^sortudo$/, /^sortuda$/, /^azarado$/, /^azarada$/,
-  /^machista$/, /^comunista$/, /^petista$/, /^bolsonarista$/, /^lulista$/,
-  /^global$/, /^local$/, /^digital$/, /^offline$/, /^online$/,
-  /^social$/, /^antisocial$/, /^popular$/, /^lider$/,
-  /^independente$/, /^dependente$/, /^realista$/, /^otimista$/,
-  /^pessimista$/, /^confiante$/, /^infantil$/, /^responsavel$/,
-  /^irresponsavel$/, /^liberal$/, /^tradicional$/, /^cosmopolita$/,
-  /^rural$/, /^viajante$/, /^lesbica$/, /^bucetuda$/,
-  
-  // ── RANKINGS (só mostram ranking) ──
-  /^rank$/, /^rankglobal$/, /^ranklvl$/, /^rankuser$/,
-  /^rankativo$/, /^rankinativo$/, /^rankativos$/,
-  /^rankgay$/, /^rankburro$/, /^rankinteligente$/, /^rankotaku$/,
-  /^rankfiel$/, /^rankinfiel$/, /^rankcorno$/, /^rankgado$/,
-  /^rankgostoso$/, /^rankrico$/, /^rankpobre$/, /^rankforte$/,
-  /^rankpegador$/, /^rankmacho$/, /^ranknerd$/, /^ranktrabalhador$/,
-  /^rankbrabo$/, /^ranklindo$/, /^rankmalandro$/, /^rankengracado$/,
-  /^rankcharmoso$/, /^rankvisionario$/, /^rankpoderoso$/, /^rankvencedor$/,
-  /^ranklesbica$/, /^rankburra$/, /^rankcorna$/, /^rankgada$/,
-  /^rankgostosa$/, /^rankrica$/, /^rankpegadora$/, /^ranktrabalhadora$/,
-  /^rankbraba$/, /^ranklinda$/, /^rankmalandra$/, /^rankengracada$/,
-  /^rankcharmosa$/, /^rankvisionaria$/, /^rankpoderosa$/, /^rankvencedora$/,
-  
-  // ── DONO (ações únicas sem dados) ──
-  /^setprefix$/, /^changeprefix$/, /^settheme$/, /^changetheme$/,
-  /^blockcmd$/, /^unblockcmd$/, /^blockuser$/, /^unblockuser$/,
-  /^addblacklist$/, /^delblacklist$/,
-  /^setbammsg$/, /^changeprefix$/,
-  /^listcases$/, /^viewcase$/, /^getcasecode$/,
+  /^antiraid$/, /^antilinkcanal$/, /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
+  /^welcome$/, /^bemvindo$/, /^goodbye$/, /^saida$/, /^boasvindas$/,
+  /^autosticker$/, /^autorespostas$/,
+  /^open$/, /^close$/, /^abrir$/, /^fechar$/, /^opengp$/, /^closegp$/,
+  /^whitelist$/, /^resetlink$/, /^novo-link$/, /^revoke$/,
+  /^adultmode$/, /^buttonmode$/, /^antidelete$/, /^espiao$/,
+
+  // ── ACÇÕES QUE INICIAM (jogos / recompensas / trabalho) ──
+  /^forca$/, /^quiz$/, /^adivinha$/, /^dado$/, /^dice$/, /^d6$/,
+  /^moeda$/, /^coin$/, /^coinflip$/, /^caraoucoroa$/, /^flip$/,
+  /^roleta$/, /^roulette$/, /^verdade$/, /^desafio$/, /^vd$/,
+  /^bingo$/, /^blackjack$/, /^russa$/, /^enigma$/, /^charada$/,
+  /^eununca$/, /^cacapalavras$/, /^batalhanaval$/, /^genio$/,
+  /^daily$/, /^diario$/, /^trabalhar$/, /^work$/, /^minerar$/, /^mine$/,
+  /^pescar$/, /^fish$/, /^coletar$/, /^colher$/, /^saldo$/, /^coins$/,
+  /^carteira$/, /^inventario$/, /^inv$/, /^caixa$/,
+  /^cambio$/, /^cripto$/, /^noticias$/, /^conselho$/,
 ];
 
 function isSelectable(cmd) {
@@ -196,16 +106,10 @@ function categorize(cmd) {
     auditcmds:'owner', audit:'owner', vercode:'owner', cmdcheck:'owner', newcase:'owner',
     recarregarcases:'owner', refreshcases:'owner', removecase:'owner', remcase:'owner',
     showcase:'owner', validarcase:'owner', verificarcmds:'owner', listcmds:'owner', mycases:'owner',
-    adultapi:'owner', adultmode:'owner', adultsearch:'owner', adultvideo:'owner',
-    e621:'owner', erome:'owner', eromevid:'owner', hotchat:'owner', kona:'owner', nekos:'owner', yande:'owner',
+    // v7.7 — comandos 18+ foram movidos para a categoria '18' (só menu18).
     '__change_theme_handler__':'owner',
-    // v7.0b — Mais comandos que caíam em 'outros'
-    _adultsend:'owner', adultstats:'owner', gif18:'owner', hentai:'owner',
-    // v7.1 — 18+ movidos para owner
-    fig18:'owner', shorts18:'owner', menu18:'owner', '_adultsend':'owner',
-    portal18:'owner', cmdsocultos:'owner',
-
-    livros18:'owner', xvideo:'owner', xvideodl:'owner',
+    _adultsend:'18',
+    cmdsocultos:'owner',
     aceitar:'interacoes', aceitarinvocacao:'interacoes', ameme:'interacoes',
     cat:'interacoes', dog:'interacoes', fofocar:'interacoes', hallobat:'interacoes',
     mata:'interacoes', paparico:'interacoes', pet:'interacoes', pickup:'interacoes',
@@ -342,6 +246,14 @@ function categorize(cmd) {
     cambio:'info', cripto:'info',
     welcomerpg:'admin', bvrpg:'admin', regrasrpg:'admin', regrasville:'admin',
     casais:'interacoes', dependente:'zoeira',
+    // v7.7 — SEGREGAÇÃO DEFINITIVA: comandos 18+ ficam SÓ no menu18.
+    // A categoria '18' não tem submenu dinâmico → não aparecem em mais
+    // nenhum submenu (só no menu18 nativo).
+    hentai:'18', ximg:'18', yande:'18', kona:'18', e621:'18', nekos:'18',
+    erome:'18', eromevid:'18', livros18:'18', xvideo:'18', xvideodl:'18',
+    adultvideo:'18', adultsearch:'18', adultapi:'18', adultmode:'18', adultstats:'18',
+    buscar18:'18', fig18:'18', pack18:'18', gif18:'18', shorts18:'18', hotchat:'18',
+    figbusca:'18', packbusca:'18', figgif:'18', portal18:'18', menu18:'18',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads

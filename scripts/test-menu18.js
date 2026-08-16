@@ -198,18 +198,21 @@ const check = (nome, cond, extra = '') => {
   check('Pelo menos 3 fontes de imagem vivas', vivas >= 3, `${vivas}/4`);
 
   // A URL devolvida entrega mesmo bytes?
+  // v7.7 — tenta TODAS as fontes vivas (a 1.ª às vezes devolve URL quebrada).
   if (urls.length) {
-    const [nome, u] = urls[0];
-    let bytes = 0, tipo = '';
-    try {
-      const ctl = new AbortController();
-      const to = setTimeout(() => ctl.abort(), 20000);
-      const r = await fetch(u, { signal: ctl.signal, headers: { 'User-Agent': 'DarkBot/6.4' } });
-      tipo = r.headers.get('content-type') || '';
-      bytes = Buffer.from(await r.arrayBuffer()).length;
-      clearTimeout(to);
-    } catch {}
-    check('A URL entrega mídia real (bytes)', bytes > 10000 && /image|video/.test(tipo), `${nome}: ${bytes} bytes ${tipo}`);
+    let bytes = 0, tipo = '', nomeOk = '';
+    for (const [nome, u] of urls) {
+      try {
+        const ctl = new AbortController();
+        const to = setTimeout(() => ctl.abort(), 20000);
+        const r = await fetch(u, { signal: ctl.signal, headers: { 'User-Agent': 'DarkBot/6.4' } });
+        const t = r.headers.get('content-type') || '';
+        const b = Buffer.from(await r.arrayBuffer()).length;
+        clearTimeout(to);
+        if (b > 10000 && /image|video/.test(t)) { bytes = b; tipo = t; nomeOk = nome; break; }
+      } catch {}
+    }
+    check('A URL entrega mídia real (bytes)', bytes > 10000, `${nomeOk || '?'}: ${bytes} bytes ${tipo}`);
   } else {
     check('A URL entrega mídia real (bytes)', false, 'nenhuma fonte respondeu');
   }

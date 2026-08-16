@@ -141,9 +141,12 @@ async function abrir(cmd, de) {
     errados.length ? errados.map(([c, e]) => `${c}→${sd.categorize(c)}≠${e}`).join(', ') : `${Object.keys(esperado).length}/${Object.keys(esperado).length}`);
 
   // ══ 3. AÇÃO DIRECTA ═══════════════════════════════════════
-  console.log('\n▸ "Ação directa" = executa SEM dados/media/menção');
-  const acao = { ping: true, info: true, saldo: true, gay: true, antilink: true,
-                 dado: false, moeda: false, roleta: false, cep: false, wikipedia: false,
+  // v7.7 — acção directa = apenas toggles (on/off) e acções que iniciam.
+  // Info/status, medidores de zoeira e comandos com dados deixaram de ser sel.
+  console.log('\n▸ "Ação directa" = toggle (on/off) ou acção que inicia');
+  const acao = { antilink: true, saldo: true, dado: true, moeda: true, roleta: true,
+                 daily: true, open: true, close: true,
+                 ping: false, info: false, gay: false, cep: false, wikipedia: false,
                  play: false, sticker: false, ban: false, traduzir: false };
   const acErr = Object.entries(acao).filter(([c, e]) => sd.isSelectable(c) !== e);
   check('Classificação de ação directa', acErr.length === 0,

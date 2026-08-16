@@ -173,6 +173,18 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
     `falar`/`npc`→"fala com NPC", `speedup`→RPG (já não "acelera o áudio")
   - `test:economia-audit` (64/64)
 
+- [x] **SEGREGAÇÃO DEFINITIVA dos menus (v7.7)** — regras do Dono implementadas:
+  - **18+ SÓ no menu18**: os 28 comandos +18 (hentai, ximg, yande, kona, e621, nekos,
+    erome, eromevid, livros18, xvideo, xvideodl, adultvideo/adultsearch/adultapi/adultmode/
+    adultstats, buscar18, fig18, pack18, gif18, shorts18, hotchat, figbusca, packbusca,
+    figgif, portal18, menu18) foram movidos para a categoria **'18'**, que não tem submenu
+    dinâmico → já não aparecem em nenhum outro submenu (0 vazados confirmado em runtime)
+  - **Acções directas (sel) = só interruptores e acções de início**: SEL_PATTERNS
+    reescrito. Info/status, medidores de zoeira e rankings DEIXARAM de ser botão
+    clicável — ficam no texto dos submenus. sel: 351 → 81
+  - **ADM só em admin · DONO só em owner** (já coberto por test:admin-dono/economia)
+  - `test:segregacao` (92/92)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem
