@@ -93,7 +93,9 @@ module.exports = function registerStickerCases(registerCase) {
   // v7.1 — agora reescreve só os metadados do webp original (sem
   // re-encodar): preserva animação e funciona com stickers de qualquer
   // pessoa, em grupo ou PV.
-  registerCase(['stickerrename', 'renamesticker', 'packname', 'renomear', 'rename', 'renomesticker', 'renamestick', 'trocarnome'], async ({ m, sock, ctx, args, prefix, reply, react }) => {
+  // v7.6 — removido 'rename' daqui: no RPG, 'rename' é o alias de 'nome' (personagem).
+  // Para renomear stickers usa: stickerrename / renomear / trocarnome / packname.
+  registerCase(['stickerrename', 'renamesticker', 'packname', 'renomear', 'renomesticker', 'renamestick', 'trocarnome'], async ({ m, sock, ctx, args, prefix, reply, react }) => {
     return require('../stickerRename').renomear({ sock, ctx, m, args, prefix, reply, react });
   });
 

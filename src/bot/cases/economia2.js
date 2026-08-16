@@ -135,7 +135,9 @@ module.exports = function registerEconomia2(registerCase) {
   }, true);
 
   // ═══ CRAFTING ═══
-  registerCase(['forge', 'forjar'], async ({ sock, msg, ctx, args }) => {
+  // v7.6 — 'forjar' passou a ser o cheat do DONO (forja mensagem como outro).
+  // O crafting fica só em 'forge'.
+  registerCase(['forge'], async ({ sock, msg, ctx, args }) => {
     const item = args.join(' ').toLowerCase();
     if (!item) {
       const recipes = Object.entries(rpg.RECIPES).map(([k, v]) => {

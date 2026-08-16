@@ -23,7 +23,7 @@ const esperado = {
   // ── Miscategorizados (saíram do menu ADM) ──
   godadm: 'interacoes', empurrar: 'interacoes',
   x9: 'downloads', autosticker: 'stickers', gruposaura: 'ia',
-  regrasrpg: 'economia', regrasville: 'economia', bvrpg: 'economia', welcomerpg: 'economia',
+  regrasrpg: 'admin', regrasville: 'admin', bvrpg: 'admin', welcomerpg: 'admin',
   rent: 'economia', trial: 'economia', renovar: 'economia', renew: 'economia',
   cancelrent: 'economia', listrents: 'economia', alugar: 'economia', hospedar: 'economia',
   statusalugar: 'economia', desalugar: 'economia', estender: 'economia',

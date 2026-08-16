@@ -161,6 +161,18 @@ Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
 - [x] **Logos mais "logo de verdade" (v7.6)** — texto em MAIÚSCULAS, letter-spacing e
   contorno mais forte (aspeto de letreiro de anime/jogo, ex: Naruto, Harry Potter, PUBG)
 
+- [x] **ECONOMIA & RPG limpo (v7.6)** — separados donos/miscategorizados:
+  - **→ DONO**: dar, forjar (cheat "forja mensagem"), rpgadd/rpgremove/rpgsetlevel/
+    rpgadditem/rpgremoveitem/rpgresetplayer/rpgstats (todos "Só o dono")
+  - **→ categorias certas**: invocaraura→ia, invokedono→admin, cambio/cripto→info,
+    welcomerpg/bvrpg/regrasrpg/regrasville→admin, casais→interacoes, dependente→zoeira
+  - **conflitos de nome resolvidos**: `forjar` (RPG crafting) → só `forge`; o cheat
+    `forjar` do dono volta a funcionar. `rename` (RPG nome) já não é tapado pelo
+    rename de sticker
+  - **descrições corrigidas** (colisões de regex): `rename`/`nome`→"personagem RPG",
+    `falar`/`npc`→"fala com NPC", `speedup`→RPG (já não "acelera o áudio")
+  - `test:economia-audit` (64/64)
+
 ## ⏳ Ainda por fazer (bulk)
 
 - **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem
