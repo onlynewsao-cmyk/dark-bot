@@ -1537,6 +1537,26 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                 : `🎵 ÁUDIO/MÚSICA transcrito: "${transcribed}" — Comenta naturalmente.`;
               // Adiciona a transcrição ao prompt para a Aura saber o que foi dito
               prompt = (prompt || '') + ` [O áudio que recebi diz: "${transcribed}"]`;
+
+              // v7.8 ETAPA 2 — COMANDOS POR VOZ
+              // Se o áudio de voz é uma ORDEM ("cria um grupo", "toca
+              // Shakira", "manda um áudio"), o texto transcrito passa a
+              // ser tratado como comando — o MESMO caminho dos comandos
+              // escritos (cérebro da AURA, acções, comandos, imagem).
+              // Conversa normal continua a ser conversa: o gate
+              // `pareceOrdem` é uma regex barata (0 ms, sem IA).
+              if (isPtt && !cleanText) {
+                try {
+                  // gate barato (regex, 0 ms): ordem OU comando conhecido.
+                  // "toca shakira" e "qual o meu saldo" não têm verbo de
+                  // ordem mas SÃO comandos — têm de passar.
+                  const brainVoz = require('../aura/auraBrain');
+                  const cmdsVoz = require('../aura/auraCommands');
+                  if (brainVoz.pareceOrdem(transcribed) || cmdsVoz.detectarComando(transcribed)) {
+                    cleanText = transcribed;
+                  }
+                } catch {}
+              }
             } else {
               mediaContext = isPtt
                 ? `🎧 Alguém enviou um ÁUDIO DE VOZ mas não consegui transcrever. Reage naturalmente.`

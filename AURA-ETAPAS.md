@@ -26,12 +26,20 @@ A AURA agora **vê, ouve e lê** tudo o que recebe no privado/grupo:
 Ficheiros: `src/aura/auraMedia.js`, `src/aura/auraMemory.js`, `src/bot/ai.js` (`chatWithDocument`), integração no `src/bot/commandHandler.js`.
 Testes: `npm run test:auramidia` (28/28).
 
-## ⏭️ ETAPA 2 — VOZ COMPLETA (comandos e conversa por voz)
+## ✅ ETAPA 2 — VOZ COMPLETA (feita — v7.8)
 
-- **Receber comandos por voz**: hoje a transcrição vira texto; falta detectar que
-  o áudio é um COMANDO (ex: "aura, cria um grupo chamado X") e executá-lo.
-- **Responder por voz** quando o Dono pede (`.voz` / modo de conversa por áudio).
-- **Chamadas**: já há callback RTP (v7.2) — ligar esta conversa à mesma lógica.
+A AURA agora **recebe comandos por voz** e **responde por voz**:
+
+| Comportamento | Como funciona |
+|---|---|
+| 🎤 **Comando por voz** | a transcrição do PTT é passada pelo GATE (ordem OU comando conhecido) → segue o MESMO caminho dos comandos escritos: cérebro da AURA (`auraBrain`) → acções (`auraActions`) → comandos (`auraCommands`). "toca Shakira", "qual o meu saldo", "promove o João", "cria um grupo", "manda um áudio"… tudo funciona por áudio. |
+| 🎧 **Voz entra → voz sai** | quando entra um áudio (PTT do Dono ou no PV), a resposta também é FALADA (TTS → PTT). Já existia; mantido e coberto por teste. |
+| 📞 **Chamadas** | callback RTP (v7.2) usa a mesma transcrição/conversa — integrado. |
+
+- O GATE é regex barata (0 ms, sem IA): `pareceOrdem || detectarComando`.
+  Conversa normal ("oi", "gostei da foto") NUNCA é tratada como comando.
+- Ficheiros: `src/bot/commandHandler.js` (bloco de áudio) + teste
+  `npm run test:auravozcompleta` (27/27).
 
 ## ⏭️ ETAPA 3 — STATUS, CANAIS E COMUNIDADES
 
