@@ -81,6 +81,63 @@ const REFLEXOES = [
   'O que te impede de ser feliz agora? 🚧',
 ];
 
+const PIADAS = [
+  'Porque é que o computador foi ao médico? Porque tinha um vírus! 🤒💻',
+  'O que o zero disse ao oito? Bonito cinto! 🎱',
+  'Porque é que o livro de matemática está triste? Porque tem muitos problemas. 📚',
+  'O que um pato disse ao outro? Estamos sem grana! 🦆',
+  'Porque é que a bicicleta caiu? Porque era duas-rodas e estava cansada. 🚲',
+  'Sabe qual é o café mais perigoso? O ex-presso! ☕',
+  'Porque é que o mar não transborda? Porque tem ondas. 🌊',
+  'O que a impressora disse ao papel? Não me pressiones! 🖨️',
+  'Porque é que o esqueleto não lutou? Porque não tinha coragem. 💀',
+  'A minha memória é tão boa que me lembro de coisas que nunca aconteceram. 🧠',
+];
+
+const CHARADAS = [
+  { q: 'O que é, o que é? Tem dentes mas não morde.', a: 'pente' },
+  { q: 'O que é, o que é? Tem cabeça mas não tem cérebro.', a: 'alfinete' },
+  { q: 'O que é, o que é? Quanto mais seca, mais molhada fica.', a: 'toalha' },
+  { q: 'O que é, o que é? Tem cidades mas não tem casas.', a: 'mapa' },
+  { q: 'O que é, o que é? Tem pés mas não anda.', a: 'mesa' },
+  { q: 'O que é, o que é? Tem face mas não tem corpo.', a: 'moeda' },
+  { q: 'O que é, o que é? Tem chaves mas não abre portas.', a: 'piano' },
+  { q: 'O que é, o que é? Tem olhos mas não enxerga.', a: 'agulha' },
+  { q: 'O que é, o que é? Tem coroa mas não é rei.', a: 'abacaxi' },
+  { q: 'O que é, o que é? Tem asas mas não voa.', a: 'ventilador' },
+  { q: 'O que é, o que é? Corre mas não tem pernas.', a: 'água' },
+  { q: 'O que é, o que é? Tem boca mas não fala.', a: 'jarra' },
+  { q: 'O que é, o que é? Pode encher uma sala mas não ocupa espaço.', a: 'luz' },
+  { q: 'O que é, o que é? Quanto mais cai, mais limpa fica.', a: 'chuva' },
+  { q: 'O que é, o que é? Tem bico mas não é ave.', a: 'garrafa' },
+];
+
+const ELOGIOS = [
+  'A tua energia muda o clima de qualquer conversa. ✨',
+  'Tu tens um brilho que não dá para imitar. 🌟',
+  'A tua presença faz o dia de alguém melhor. ☀️',
+  'Tens um coração raro — cuida bem dele. ❤️',
+  'A tua forma de pensar é uma inspiração silenciosa. 🧠',
+  'És muito mais forte do que imaginas. 💪',
+  'O teu sorriso tem o poder de desarmar qualquer mau dia. 😊',
+  'Tens o tipo de coragem que se conta em silêncio. 🦁',
+  'O mundo ganha contigo nele. 🌍',
+  'A tua autenticidade é o teu superpoder. 🦸',
+];
+
+const MOTIVACIONAIS = [
+  'A jornada de mil milhas começa com um único passo. 🚶',
+  'Não esperes por motivação — começa e ela aparece. 🔥',
+  'Tu não estás atrasado. Estás exactamente onde precisas de estar. 🌱',
+  'A disciplina constrói o que a motivação só sonha. 🧱',
+  'Cada dia é uma página nova. Escreve uma boa história. 📖',
+  'O fracasso é só o ensaio do teu próximo sucesso. 🎭',
+  'Faz hoje o que o teu eu de amanhã vai agradecer. ⏰',
+  'Pequenos passos constantes batem saltos esporádicos. 👣',
+  'A tua única competição é quem eras ontem. 🏁',
+  'Enquanto houver tentativa, não há derrota definitiva. ⚔️',
+];
+
 // Fancy fonts para fazernick
 const FANCY_FONTS = [
   t => t.split('').map(c => c + '̷̸̶').join(''),
@@ -297,6 +354,34 @@ module.exports = function registerTexto2(registerCase) {
   // ═══ CANTADA ═══
   registerCase(['cantada'], async ({ sock, msg, ctx }) => {
     return tReply(sock, msg, ctx, '💘 CANTADA', [P(CANTADAS)]);
+  }, true);
+
+  // ═══ PIADA ═══
+  registerCase(['piada'], async ({ sock, msg, ctx }) => {
+    return tReply(sock, msg, ctx, '😂 PIADA', [P(PIADAS)]);
+  }, true);
+
+  // ═══ CHARADA (pergunta + resposta oculta) ═══
+  registerCase(['charada'], async ({ sock, msg, ctx }) => {
+    const c = P(CHARADAS);
+    return tReply(sock, msg, ctx, '🕵️ CHARADA', [
+      `❓ ${c.q}`,
+      '',
+      '> Resposta escondida — toca para revelar:',
+      `||${c.a.toUpperCase()}||`,
+    ]);
+  }, true);
+
+  // ═══ ELOGIO ═══
+  registerCase(['elogio'], async ({ sock, msg, ctx, args }) => {
+    const alvo = args.join(' ').trim();
+    const linha = alvo ? `@${ctx.pushName} elogia *${alvo}*:` : `Elogio para ti:`;
+    return tReply(sock, msg, ctx, '💐 ELOGIO', [linha, '', P(ELOGIOS)]);
+  }, true);
+
+  // ═══ MOTIVACIONAL / FRASE ═══
+  registerCase(['motivacional', 'frase'], async ({ sock, msg, ctx }) => {
+    return tReply(sock, msg, ctx, '🔥 MOTIVAÇÃO', [P(MOTIVACIONAIS)]);
   }, true);
 
   // ═══ CONSELHO BIBLICO ═══

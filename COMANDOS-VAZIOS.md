@@ -100,6 +100,28 @@ Segundo o catálogo oficial (`commandCatalog.js`) e a semântica dos handlers:
   - (doido já era real)
   - removidas as 24 linhas de stub; descrições próprias no submenu
   - adicionei `test:zoeira-audit` (25/25)
+- [x] **TEXTO & UTILIDADES (v7.5)** — auditado completo:
+  - `piada`/`charada`/`elogio`/`motivacional` usavam o handler de FONTE (errado) → agora
+    são conteúdo real (piadas, charadas com resposta oculta `||spoiler||`, elogios, frases)
+  - `frase` estava MORTO (no catálogo/menu sem handler) → virou alias de `motivacional`
+  - `hora`/`data` (faltava, estava no SEL_PATTERNS) → comando real de hora/data/fuso
+  - `help`/`ajuda`/`comandos`/`cmds` (faltava) → alias do `menu`
+  - adicionei `test:texto-audit` (68/68)
+
+## Auditoria de ACÇÕES DIRECTAS (todos os submenus) — v7.5
+
+Script `scripts/test-submenus-full-audit.js` (runtime, ~2min):
+- 16 submenus, **0 itens sem handler** ✅
+- 351 acções directas (sel), **0 sem handler** ✅
+- Limpei os padrões SEL mortos que apontavam para comandos inexistentes
+  (restart, reconnect, clearLogs, clearCache, clearAllChats, setbomsg, actgp,
+  goodbye, copyjid, myjid) e corrigi typos (tecnologicas→tecnologica, leader→lider)
+
+## ⏳ Ainda por fazer (bulk)
+
+- **~170 medidores ZOEIRA ainda são fake** (hZ/hE em stubs.js). O submenu zoeira tem
+  203 itens (todos sel), mas só ~30 têm `percentage()` real com GIF. Converter o resto
+  em lote (mapear nome→emoji+gif) é mecânico e vale a pena fazer a seguir.
 
 ## 📋 Por corrigir — os 171 VAZIOS (hD activos)
 
