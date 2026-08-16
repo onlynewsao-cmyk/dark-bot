@@ -362,6 +362,28 @@ async function _handleInner(sock, msg) {
     }
   }
 
+  // ── Interceptar cliques dos botões de plano premium ("Contratar") ───
+  // O carousel do .vip tem botões PREMIUM_7_<numero> / _30_ / _90_.
+  // v7.6: antes não eram tratados — clicar não fazia nada.
+  if (/^PREMIUM_(7|30|90)_\d+$/.test(text)) {
+    const m = text.match(/^PREMIUM_(7|30|90)_(\d+)$/);
+    const dias = parseInt(m[1], 10);
+    const numero = m[2];
+    const senderNum = String(ctx.senderNumber || '').replace(/\D/g, '');
+    if (senderNum === String(numero).replace(/\D/g, '')) {
+      const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
+      const nomes = { 7: '⭐ PREMIUM — 7 dias', 30: '💎 PREMIUM — 30 dias', 90: '🏆 PREMIUM — 90 dias' };
+      await sock.sendMessage(ctx.remoteJid, {
+        text:
+          `✅ *Pedido registado: ${nomes[dias]}*\n\n` +
+          `Para concluir a contratação, fala com o Dono:\n` +
+          `📲 wa.me/${ownerNum}\n\n` +
+          `O plano é activado assim que ele confirmar. 🕸️`,
+      }, { quoted: msg });
+      return true;
+    }
+  }
+
   // Botões de menu chegam com prefixo embutido (ex: "!menup") → processados normalmente
   // Remove emojis do início dos IDs de botão de menu (ex: "📥!menudownload" → "!menudownload")
   // MAS: não remove se o texto contém URL ou é um ID de pinsticker/imagem
