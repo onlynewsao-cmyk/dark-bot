@@ -6,6 +6,7 @@ const Economy = require('../../database/models/Economy');
 const GameSession = require('../../database/models/GameSession');
 const DeletedMessage = require('../../database/models/DeletedMessage');
 const botConfigCache = require('../botConfigCache');
+const config = require('../../config');
 
 const reply = (sock, msg, ctx, text, mentions = []) =>
   sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
@@ -111,6 +112,28 @@ module.exports = {
         text += `${i+1}. *${g.subject}*\n   👥 ${g.participants?.length || 0} membros\n   🆔 \`${g.id}\`\n\n`;
       });
       return reply(sock, msg, ctx, text.slice(0, 4000));
+    } catch (e) { return reply(sock, msg, ctx, '❌ ' + e.message); }
+  },
+
+  // ============ BROADCAST (mensagem para todos os grupos) ============
+  // v7.6 — estava referenciado no menu DONO mas não existia.
+  async broadcast({ sock, msg, ctx, args, isOwner }) {
+    if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono');
+    const text = args.join(' ').trim();
+    if (!text) return reply(sock, msg, ctx, '📢 Use: !broadcast <mensagem>\nEnvia para TODOS os grupos onde o bot está.');
+    try {
+      const chats = await sock.groupFetchAllParticipating();
+      const arr = Object.values(chats);
+      if (!arr.length) return reply(sock, msg, ctx, '📢 O bot não está em nenhum grupo.');
+      let ok = 0, falhas = 0;
+      for (const g of arr) {
+        try {
+          await sock.sendMessage(g.id, { text: `📢 *${config.bot?.name || 'DARK BOT'}*\n\n${text}` });
+          ok++;
+          await new Promise(r => setTimeout(r, 800)); // ritmo anti-ban
+        } catch { falhas++; }
+      }
+      return reply(sock, msg, ctx, `📢 Broadcast concluído.\n✅ Enviado: ${ok} grupos\n❌ Falhou: ${falhas}`);
     } catch (e) { return reply(sock, msg, ctx, '❌ ' + e.message); }
   },
 

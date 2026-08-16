@@ -204,7 +204,7 @@ module.exports = function registerPremiumCases(registerCase) {
         { title: '⭐ VIP Planos',     description: 'ver e gerir planos',        id: prefix + 'vip' },
         { title: '🧠 Memória IA',     description: 'ver memória da IA',         id: prefix + 'aimemoria' },
         { title: '🗑️ Resetar IA',    description: 'apagar memória',            id: prefix + 'airesetar' },
-        { title: '🎭 Tom da IA',      description: 'personalizar comportamento',id: prefix + 'aiton' },
+        { title: '🔌 Status APIs IA', description: 'ver chaves/modelos activos',id: prefix + 'iaapis' },
         { title: '🎨 Sticker WM',     description: 'marca d\'agua dos stickers',id: prefix + 'stickerwm' },
       ],
     });
@@ -216,9 +216,9 @@ module.exports = function registerPremiumCases(registerCase) {
         rows: [
           { title: '📢 Broadcast',   description: 'mensagem para todos os grupos', id: prefix + 'broadcast' },
           { title: '🔑 Prefixo',     description: 'mudar prefixo global',           id: prefix + 'prefixos' },
-          { title: '🤖 BotChat',     description: 'ligar/desligar auto-resposta',   id: prefix + 'botchat' },
+          { title: '👥 Listar Grupos', description: 'grupos onde o bot está',       id: prefix + 'grupos' },
           { title: '📋 Stats',       description: 'estatísticas do bot',            id: prefix + 'stats' },
-          { title: '🔄 Restart',     description: 'reiniciar o bot',                id: prefix + 'restart' },
+          { title: '🩺 Diagnóstico', description: 'estado real do bot',             id: prefix + 'diagnostico' },
           { title: '🕳️ Cmds Ocultos',description: 'portal privado',               id: prefix + 'cmdsocultos' },
         ],
       });
