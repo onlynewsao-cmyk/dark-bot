@@ -216,6 +216,57 @@ module.exports = function registerInfoCases(registerCase) {
     );
   });
 
+  // ── diagnóstico / diag — estado real do bot ────────────────
+  registerCase(['diagnostico', 'diagnóstico', 'diag'], async ({ ctx, reply }) => {
+    const t = await getActiveTheme(ctx.remoteJid);
+    const f = t.frame;
+    const b = t.bullet;
+
+    const fmtUptime = (s) => {
+      s = Math.floor(s || 0);
+      const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+      return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m ${s % 60}s`;
+    };
+
+    let waStatus = 'desconhecido';
+    let waNum = '—';
+    let msgs = 0, cmds = 0;
+    try {
+      const bot = require('../whatsapp').getBot();
+      const st = bot.getStatus();
+      waStatus = st.status || 'desconhecido';
+      waNum = st.user?.id ? String(st.user.id).split(':')[0].split('@')[0] : '—';
+      msgs = st.messageCount || 0;
+      cmds = st.commandCount || 0;
+    } catch {}
+
+    let mongo = 'desconectado';
+    try {
+      const mongoose = require('mongoose');
+      mongo = mongoose.connection.readyState === 1 ? 'conectado' : 'desconectado';
+    } catch {}
+
+    let versao = '?';
+    try { versao = require('../../../package.json').version || '?'; } catch { try { versao = require('../../package.json').version || '?'; } catch {} }
+
+    const ram = Math.round(process.memoryUsage().heapUsed / 1024 / 1024);
+    const uptimeProc = fmtUptime(process.uptime());
+
+    return reply(
+      `${f[0]}${f[4].repeat(24)}${f[1]}\n` +
+      `${f[5]} ${t.icon} DIAGNÓSTICO DO BOT ${t.icon}\n` +
+      `${f[2]}${f[4].repeat(24)}${f[3]}\n\n` +
+      `${b} 🤖 Bot: *${config.bot.name}* v${versao}\n` +
+      `${b} 📶 WhatsApp: *${waStatus}* (${waNum})\n` +
+      `${b} 🗄️ MongoDB: *${mongo}*\n` +
+      `${b} ⏱️ Uptime: *${uptimeProc}*\n` +
+      `${b} 🧠 RAM: *${ram} MB*\n` +
+      `${b} 💬 Mensagens: *${msgs}* · Comandos: *${cmds}*\n` +
+      `${b} 🔧 Node: *${process.version}*\n\n` +
+      `> ${t.vibe}`
+    );
+  });
+
   // ── help (alias do menu) ───────────────────────────────────
   registerCase(['help', 'ajuda', 'comandos', 'cmds'], async ({ sock, msg, ctx, config }) => {
     try {

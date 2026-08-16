@@ -139,7 +139,7 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'downloads');
   });
   
-  registerCase(['menustickers', 'menufigurinhas', 'menulogos'], async ({ sock, msg, ctx, config }) => {
+  registerCase(['menustickers', 'menufigurinhas'], async ({ sock, msg, ctx, config }) => {
     return dynSub(sock, msg, ctx, config, 'stickers');
   });
   
@@ -164,8 +164,12 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'interacoes');
   });
   
-  registerCase(['menustatus', 'menualteradores', 'menuaudio'], async ({ sock, msg, ctx, config }) => {
+  registerCase(['menuaudio', 'menualteradores'], async ({ sock, msg, ctx, config }) => {
     return dynSub(sock, msg, ctx, config, 'audio');
+  });
+
+  registerCase(['menustatus'], async ({ sock, msg, ctx, config }) => {
+    return dynSub(sock, msg, ctx, config, 'info');
   });
   
   // Novos submenus que não existiam
@@ -177,7 +181,7 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'search');
   });
   
-  registerCase(['menulogos2', 'menuefeitos'], async ({ sock, msg, ctx, config }) => {
+  registerCase(['menulogos', 'menulogos2', 'menuefeitos'], async ({ sock, msg, ctx, config }) => {
     return dynSub(sock, msg, ctx, config, 'logos');
   });
   
