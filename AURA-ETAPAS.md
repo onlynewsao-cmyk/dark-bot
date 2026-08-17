@@ -97,6 +97,34 @@ só para o Dono (as estatísticas são livres).
   `src/aura/auraExec.js`, `src/aura/auraActions.js`.
   Testes: `npm run test:auraetapa4` (39/39).
 
+## ✅ ETAPA 5 — VER O GRUPO E FALAR COM QUEM O DARK QUISER (feita — v7.11)
+
+A AURA agora **vê as mensagens do grupo de verdade** (via `messageCache` do
+messageListener — memória real do que chegou, nunca invenção) e **dirige a
+fala a quem o Dark mandar**.
+
+| Pedido natural | O que acontece |
+|---|---|
+| "quem escreveu isso?" (a responder a uma msg) | lê a mensagem **citada** e diz o autor com o texto — 100% certo |
+| "quem escreveu X?" | varre as últimas ~300 msgs do grupo e devolve autor + texto exacto |
+| "quem escreveu Y?" (ninguém) | responde com certeza: "ninguém escreveu isso nas últimas N mensagens" |
+| "o que é que o João escreveu?" | resolve o nome→jid e lista as últimas mensagens dele |
+| "o que o 2449… mandou?" | também resolve por número |
+| "fala só com o João [que …]" | responde a mencionar **só** essa pessoa (`@` real) |
+| "diz a todos que …" / "avisa todos do grupo" | menciona **o grupo inteiro** (menos o bot) |
+
+- **Sem dúvida**: se não há prova (sem citação nem termo), ela **não inventa** —
+  deixa a conversa normal responder.
+- O contexto que a IA recebe passou de 5 → **10 mensagens** com o nome de
+  quem escreveu, para acompanhar melhor a conversa.
+- `VERBO_ORDEM` ganhou `fala|falar|diz|diga|avisa|anuncia|chama` → estas
+  ordens também funcionam **por voz**.
+- Permissões: consultas (`quem escreveu`, `o que escreveu`) são livres;
+  `falar_com` / `falar_com_todos` são só do Dono.
+- Ficheiros: `src/aura/auraHistorico.js` (novo), `src/aura/auraBrain.js`,
+  `src/aura/auraExec.js`, `src/bot/commandHandler.js` (contexto do grupo).
+  Testes: `npm run test:auraetapa5` (40/40).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

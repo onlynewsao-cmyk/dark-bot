@@ -255,6 +255,31 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       }
     }
 
+    // ══ v7.11 ETAPA 5 — VER O GRUPO / FALAR COM ALGUÉM ════
+    case 'quem_escreveu': {
+      const hist = require('./auraHistorico');
+      const r = await hist.quemEscreveu(sock, ctx, texto || arg || '', msg);
+      if (!r.ok && !r.msg) return { ok: false, msg: null };  // conversa normal decide
+      return r;
+    }
+
+    case 'o_que_escreveu': {
+      const hist = require('./auraHistorico');
+      const r = await hist.oQueEscreveu(sock, ctx, texto || arg || '', msg);
+      if (!r.ok && !r.msg) return { ok: false, msg: null };
+      return r;
+    }
+
+    case 'falar_com': {
+      const hist = require('./auraHistorico');
+      return await hist.falarCom(sock, ctx, texto || arg || '', msg);
+    }
+
+    case 'falar_com_todos': {
+      const hist = require('./auraHistorico');
+      return await hist.falarComTodos(sock, ctx, texto || arg || '', msg);
+    }
+
     case 'ver_status': {
       const usync = require('../bot/usync');
       const r = await usync.lerStatus(sock, { ctx, msg, texto });

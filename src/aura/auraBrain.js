@@ -95,7 +95,7 @@ const VERBO_ORDEM = new RegExp(
   'traduz|traduzir|resume|resumir|' +
   'gera|gerar|desenha|desenhar|' +
   'fixa|fixar|arquiva|arquivar|' +
-  'vai|ve|olha|verifica|mostra|mostre|mostrar|' +
+  'vai|ve|olha|verifica|mostra|mostre|mostrar|fala|falar|diz|diga|avisa|anuncia|chama|' +
   'para de|deixa de|comeca a|passa a' +
   ')\\b', 'i');
 
@@ -116,6 +116,39 @@ function pareceOrdem(texto) {
  * `risco`: 'seguro' | 'destrutivo'  (destrutivo pede confirmação)
  */
 const CAPACIDADES = [
+  // ══ v7.11 ETAPA 5 — VER O GRUPO (histórico) ══════════════
+  {
+    id: 'quem_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Dizer quem escreveu uma mensagem (citada ou por texto exacto)',
+    gatilhos: [/\bquem\b.{0,10}\b(escreveu|mandou|enviou|digitou|disse)\b/],
+  },
+  {
+    id: 'o_que_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Mostrar as últimas mensagens de uma pessoa no grupo',
+    gatilhos: [
+      /\b(o que|mostra o que|que)\b.{0,10}\b(?:e que\s+)?(?:o|a|ao)\s+@?[a-z0-9_\-]{2,30}\s+(?:escreveu|disse|mandou|falou|enviou)\b/,
+      /\b(o que|mostra o que)\b.{0,10}\b(?:escreveu|disse|mandou|falou)\s+(?:o|a)\s+@?[a-z0-9_\-]{2,30}\b/,
+    ],
+  },
+  {
+    id: 'falar_com', nivel: 'dono', arg: 'depois', risco: 'moderado',
+    desc: 'Falar apenas com uma pessoa (menciona só ela)',
+    gatilhos: [
+      /\b(fala|responde|escreve|manda)\b.{0,14}\b(so|somente|apenas)\b.{0,14}\b(com|para|pra|pro|ao|a)\b/,
+      /\b(responde)\b.{0,10}\b(a|ao)\s+@?(?!toda|todos|todo mundo|ninguem|gente)\S+/,
+      /\b(fala|escreve|manda)\b.{0,12}\b(com|para|pra|pro|ao)\s+(o|a|ao|a)\s+@?\S+(?!.{0,16}\b(todos|toda a gente|todo mundo|ninguem)\b)/,
+    ],
+  },
+  {
+    id: 'falar_com_todos', nivel: 'dono', arg: 'depois', risco: 'moderado',
+    desc: 'Falar com todos do grupo (menciona toda a gente)',
+    gatilhos: [
+      /\b(diz|diga|avisa|anuncia|manda|chama)\b.{0,10}\b(a todos|a toda a gente|todos do grupo|ao grupo todo|todos aqui|todo mundo)\b/,
+      /\bchama todos\b/,
+      /\bfala com todos\b.{0,12}\b(que|dizendo|e diz|:)\b/,
+    ],
+  },
+
   // ══ MODOS DE COMPORTAMENTO (o que o Dark pediu) ═══════════
   {
     id: 'modo_so_audio', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
