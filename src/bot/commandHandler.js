@@ -1467,7 +1467,8 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
               }
             }
           }
-          const last5 = recentGroupMsgs.slice(-5);
+          // v7.11: mais contexto (10 mensagens) para a AURA saber quem disse o quê
+          const last5 = recentGroupMsgs.slice(-10);
           if (last5.length) {
             groupContext = `Grupo "${ctx.groupName || 'grupo'}":\n` +
               last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n';
