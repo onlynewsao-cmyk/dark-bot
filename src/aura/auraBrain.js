@@ -95,7 +95,7 @@ const VERBO_ORDEM = new RegExp(
   'traduz|traduzir|resume|resumir|' +
   'gera|gerar|desenha|desenhar|' +
   'fixa|fixar|arquiva|arquivar|' +
-  'vai|ve|olha|verifica|' +
+  'vai|ve|olha|verifica|mostra|mostre|mostrar|' +
   'para de|deixa de|comeca a|passa a' +
   ')\\b', 'i');
 
@@ -244,6 +244,11 @@ const CAPACIDADES = [
     gatilhos: [/\b(deixa de seguir|deixar de seguir|deixar o canal|unfollow)\b.{0,14}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,14}\b(deixa de seguir|deixar de seguir|unfollow)\b/],
   },
   {
+    id: 'canal_stats', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Estatísticas do canal do bot (seguidores, admins)',
+    gatilhos: [/\b(estat[ií]sticas|stats|n[úu]meros)\b.{0,20}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,20}\b(estat[ií]sticas|stats|n[úu]meros|seguidores)\b/, /\bcomo est[aá]\b.{0,10}\b(meu|o meu|nosso)\b.{0,6}\bcanal\b/],
+  },
+  {
     id: 'canal_info', nivel: 'todos', arg: 'depois', risco: 'seguro',
     desc: 'Informação sobre um canal (nome, descrição, seguidores)',
     gatilhos: [/\b(info|informa[çc][aã]o|detalhes|como est[aá]|sobre o canal|seguidores|subscritores)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(info|informa[çc][aã]o|detalhes|seguidores|subscritores)\b/],
@@ -252,6 +257,38 @@ const CAPACIDADES = [
     id: 'canal_seguir', nivel: 'dono', arg: 'depois', risco: 'seguro',
     desc: 'Seguir um canal',
     gatilhos: [/\b(segue|seguir|entra n|subscreve)\b.{0,14}\b(canal|newsletter)\b/],
+  },
+
+  // ══ v7.10 ETAPA 4 — GESTÃO DO CANAL DO BOT ══════════════
+  {
+    id: 'canal_renomear', nivel: 'dono', arg: 'nome', risco: 'moderado',
+    desc: 'Mudar o nome do canal do bot',
+    gatilhos: [/\b(muda|mudar|renomeia|renomear|altera|alterar|troca)\b.{0,20}\bnome\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(muda|mudar|renomeia|renomear|altera)\b.{0,16}\bnome\b/, /\b(renomeia|renomear)\b.{0,14}\b(canal|newsletter)\b/],
+  },
+  {
+    id: 'canal_descrever', nivel: 'dono', arg: 'texto', risco: 'moderado',
+    desc: 'Mudar a descrição do canal do bot',
+    gatilhos: [/\b(muda|mudar|altera|alterar|poe|põe|define|definir)\b.{0,20}\b(descri[çc][aã]o|desc|bio)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(muda|mudar|altera|alterar|define)\b.{0,16}\b(descri[çc][aã]o|desc)\b/],
+  },
+  {
+    id: 'canal_foto', nivel: 'dono', arg: 'nenhum', risco: 'moderado',
+    desc: 'Mudar a foto do canal do bot para a imagem enviada',
+    gatilhos: [/\b(muda|mudar|troca|poe|põe|coloca|altera)\b.{0,20}\b(foto|imagem)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(muda|mudar|troca|poe|põe|coloca)\b.{0,16}\b(foto|imagem)\b/],
+  },
+  {
+    id: 'canal_tirarfoto', nivel: 'dono', arg: 'nenhum', risco: 'moderado',
+    desc: 'Remover a foto do canal do bot',
+    gatilhos: [/\b(tira|tirar|remove|remover|apaga)\b.{0,16}\ba foto\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(tira|tirar|remove|remover)\b.{0,16}\bfoto\b/],
+  },
+  {
+    id: 'canal_apagar', nivel: 'dono', arg: 'nenhum', risco: 'destrutivo',
+    desc: 'Apagar o canal do bot (irreversível)',
+    gatilhos: [/\b(apaga|apagar|elimina|eliminar|deleta|exclui)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(apaga|apagar|elimina|eliminar|deleta|exclui)\b/],
+  },
+  {
+    id: 'canal_agendar', nivel: 'dono', arg: 'texto', risco: 'seguro',
+    desc: 'Agendar publicações periódicas no canal do bot',
+    gatilhos: [/\b(agenda|agendar|programa|todos os dias|diariamente|todas as)\b.{0,30}\bno canal\b/, /\bno canal\b.{0,20}\b(todos os dias|diariamente|de hora em hora|agenda|agendar)\b/],
   },
 
   // ══ ENTRAR / PARTILHAR (v6.82) ════════════════════════════

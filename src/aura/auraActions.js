@@ -337,13 +337,35 @@ async function executar(acao, valor, { sock, ctx }) {
       if (typeof sock.newsletterCreate !== 'function') {
         return { ok: false, msg: 'A minha versão do WhatsApp não deixa criar canais.' };
       }
-      const n = await sock.newsletterCreate(valor, `Canal do ${ctx?.botName || 'DARK BOT'}`);
+      // v7.10: aceita descrição: "cria um canal chamado X com a descrição Y"
+      let nome = String(valor);
+      let desc = `Canal do ${ctx?.botName || 'DARK BOT'}`;
+      const mDesc = nome.match(/^(.{2,60}?)\s+(?:com a|com|de)\s+descri[çc][aã]o\s+(?:de\s+)?["'“”]?(.+)$/i);
+      if (mDesc) { nome = mDesc[1].trim(); desc = mDesc[2].trim(); }
+
+      const n = await sock.newsletterCreate(nome, desc);
       const id = n?.id || n?.jid || '';
-      const invite = n?.invite || n?.inviteCode;
+      const invite = n?.invite || n?.inviteCode || '';
+
+      // v7.10: lembra o canal para "muda o nome do MEU canal" funcionar
+      if (id) {
+        try {
+          const canais = require('./auraCanais');
+          await canais.guardarCanal({
+            jid: canais.normJid(id),
+            name: n?.name || nome,
+            description: n?.description || desc,
+            invite,
+            criadoEm: Date.now(),
+          });
+        } catch { /* sem persistência não bloqueia */ }
+      }
+
       return {
         ok: true,
-        msg: `Criei o canal *${valor}*.` +
-             (invite ? `\nhttps://whatsapp.com/channel/${invite}` : (id ? `\nID: ${id}` : '')),
+        msg: `Criei o canal *${nome}*.` +
+             (invite ? `\nhttps://whatsapp.com/channel/${invite}` : (id ? `\nID: ${id}` : '')) +
+             '\n\nAgora posso gerir: *muda o nome do meu canal*, *muda a descrição*, *põe a foto*, *estatísticas do canal*.',
       };
     }
 

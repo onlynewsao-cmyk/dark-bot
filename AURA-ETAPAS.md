@@ -72,10 +72,30 @@ grupos, canais, comunidades).
   `src/aura/auraExec.js`, `src/aura/auraCanais.js`, `src/aura/auraCommands.js`,
   `src/aura/auraActions.js`. Testes: `npm run test:auraetapa3` (45/45).
 
-## ⏭️ ETAPA 4 — GESTÃO DE CANAL COMPLETA
+## ✅ ETAPA 4 — GESTÃO DE CANAL COMPLETA (feita — v7.10)
 
-- Criar canal, editar nome/descrição/foto, agendar posts, responder comentários,
-  estatísticas — tudo **por comando ou por voz**, com permissões de Dono.
+A AURA **cria, gere e agenda o canal do bot** — tudo por conversa ou voz,
+só para o Dono (as estatísticas são livres).
+
+| Pedido natural | O que acontece |
+|---|---|
+| "cria um canal chamado X [com a descrição Y]" | `newsletterCreate` + **guarda o canal** (MongoDB via `botConfigCache`) |
+| "muda o nome do meu canal para X" | `newsletterUpdateName` |
+| "muda a descrição do meu canal para X" | `newsletterUpdateDescription` |
+| "põe esta foto no canal" (envia a imagem) | `newsletterUpdatePicture` |
+| "tira a foto do canal" | `newsletterRemovePicture` |
+| "estatísticas do meu canal" / "como está o meu canal" | seguidores + admins + link |
+| "posta no canal: X" | **publica de verdade** (antes só gerava o texto e não postava) |
+| "agenda um post no canal todos os dias" | agenda real (reutiliza `auraAgenda`) |
+| "apaga o meu canal" | `newsletterDelete` (destrutivo, só Dono) |
+
+- O canal criado é **lembrado** (`aura_canal`), por isso "o MEU canal"
+  funciona sem link, mesmo depois de reiniciar (Render free).
+- Fix: `canal_postar` publicava em `gerar` e o texto nunca chegava ao canal.
+- `VERBO_ORDEM` ganhou `mostra|mostre|mostrar` ("mostra as estatísticas").
+- Ficheiros: `src/aura/auraCanais.js`, `src/aura/auraBrain.js`,
+  `src/aura/auraExec.js`, `src/aura/auraActions.js`.
+  Testes: `npm run test:auraetapa4` (39/39).
 
 ## 🔒 Regras sempre válidas
 

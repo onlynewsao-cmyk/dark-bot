@@ -199,6 +199,62 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
     }
 
+    // ══ v7.10 ETAPA 4 — GESTÃO DO CANAL DO BOT ════════════
+    case 'canal_renomear': {
+      const canais = require('./auraCanais');
+      const m = (arg || texto || '').match(/para\s+["'“”]?([^"'“”\n]{1,120})["'“”]?\s*$/i);
+      const nome = m ? m[1].trim() : '';
+      const r = await canais.renomearCanal(sock, arg || texto, nome);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_descrever': {
+      const canais = require('./auraCanais');
+      const m = (arg || texto || '').match(/para\s+["'“”]?([^"'“”\n]{1,240})["'“”]?\s*$/i);
+      const desc = m ? m[1].trim() : '';
+      const r = await canais.descreverCanal(sock, arg || texto, desc);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_foto': {
+      const canais = require('./auraCanais');
+      const buf = await imagemDaMensagem(msg, sock);
+      const r = await canais.fotoCanal(sock, arg || texto, buf);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_tirarfoto': {
+      const canais = require('./auraCanais');
+      const r = await canais.tirarFotoCanal(sock, arg || texto);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_stats': {
+      const canais = require('./auraCanais');
+      const r = await canais.estatisticasCanal(sock, arg || texto);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_apagar': {
+      const canais = require('./auraCanais');
+      const r = await canais.apagarCanal(sock, arg || texto);
+      return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    case 'canal_agendar': {
+      const canais = require('./auraCanais');
+      const jidCanal = await canais.resolverAlvo(sock, arg || texto).catch(() => null);
+      if (!jidCanal) {
+        return { ok: false, msg: 'Diz-me em que canal: manda o link ou diz *"no meu canal"*.' };
+      }
+      try {
+        const ag = require('./auraAgenda');
+        return await ag.criar((arg || texto || '').trim(), { jid: jidCanal });
+      } catch (e) {
+        return { ok: false, msg: 'O agendamento ainda não está ligado.' };
+      }
+    }
+
     case 'ver_status': {
       const usync = require('../bot/usync');
       const r = await usync.lerStatus(sock, { ctx, msg, texto });
@@ -206,13 +262,27 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
     }
 
     case 'canal_postar': {
-      const conteudo = (arg || '').trim();
-      if (!conteudo) return { ok: false, msg: 'Diz-me o que queres que publique no canal.' };
-      return {
-        ok: true, gerar: true,
-        instrucao: `O Dark quer que publiques num canal: "${conteudo}". Escreve o post pronto a publicar — bem escrito, com emojis a sério, formatado para WhatsApp. Só o texto do post.`,
-        posConteudo: 'canal',
-      };
+      // v7.10: publica DE VERDADE no canal (antes só devolvia o texto
+      // gerado e nunca chegava a postar — posConteudo não era consumido).
+      const canais = require('./auraCanais');
+      const jidCanal = await canais.resolverAlvo(sock, arg || texto).catch(() => null);
+      if (!jidCanal) {
+        return { ok: false, msg: 'Diz-me em que canal: manda o link ou diz *"no meu canal"*.' };
+      }
+      const conteudo = (arg || '').trim() || texto;
+      let post = '';
+      try {
+        const ai = require('../bot/ai');
+        post = await ai.chat(
+          `O Dark quer que publiques num canal: "${conteudo}". Escreve o post pronto a publicar — bem escrito, com emojis a sério, formatado para WhatsApp. Só o texto do post.`,
+          'És a AURA, assistente do DARK BOT. Escreves posts para WhatsApp, em português de Angola, com emojis a sério e formatação (*negrito*). Só o post, sem introduções nem aspas.',
+          { userRole: 'owner' }, false,
+        );
+      } catch { /* sem IA, usa o pedido à letra */ }
+      post = String(post || '').trim() || String(conteudo).trim();
+      if (!post) return { ok: false, msg: 'Diz-me o que queres que publique no canal.' };
+      const r = await canais.postarCanal(sock, jidCanal, post);
+      return r.ok ? { ok: true, msg: 'Postei no canal. ✅' } : { ok: false, msg: r.msg };
     }
 
     case 'canal_reagir': {
