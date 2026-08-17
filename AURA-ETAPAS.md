@@ -125,6 +125,24 @@ fala a quem o Dark mandar**.
   `src/aura/auraExec.js`, `src/bot/commandHandler.js` (contexto do grupo).
   Testes: `npm run test:auraetapa5` (40/40).
 
+## ✅ MODO ASSISTENTE MELHORADO (feito — v7.12)
+
+O **modo assistente** (o modo padrão — 42 dos 44 grupos) agora é uma pessoa
+competente a sério, não um robô com 4 frases decoradas:
+
+| Melhoria | Antes | Agora |
+|---|---|---|
+| **Memória** | esquecia-se de tudo entre mensagens | lembra-se dos factos que guardou sobre cada pessoa (reusa `auraMemory`, sem o tom íntimo da AURA) |
+| **Contexto** | não sabia quem falava | sabe o cargo (Dono/VIP/utilizador), o nº de pessoas do grupo e as últimas 10 mensagens com nomes |
+| **Offline (IA em baixo)** | 4 respostas decoradas | ~13 categorias: saudação, como estás, quem és, o que fazes, obrigado, despedida, **hora**, **data**, piadas, empatia (triste/zangado), clima… |
+| **Sanitização** | — | mantida: limpa "sou uma IA", call-center e emojis à saída |
+
+- A memória é a **mesma** nos dois modos: o que se guarda no grupo (assistente)
+  também aparece no PV da AURA e vice-versa.
+- Tudo neutro: sem emojis, sem "amor", sem fórmulas de call-center.
+- Ficheiros: `src/aura/auraModes.js`, `src/bot/commandHandler.js` (opts).
+  Testes: `npm run test:auraassistente` (33/33).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

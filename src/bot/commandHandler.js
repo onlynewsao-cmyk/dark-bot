@@ -1889,7 +1889,10 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             botName: config.bot.name, userName: ctx.pushName,
             isGroup: ctx.isGroup, groupName: ctx.groupName,
             groupContext, historyArray, prefix,
-            isOwner, isVip, mediaContext, isAudio, isImage, isVideo, isSticker,
+            isOwner, isVip, isAdmin: ctx.isAdmin,
+            senderNumber: ctx.senderNumber,
+            pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,
+            mediaContext, isAudio, isImage, isVideo, isSticker,
           });
         }
       }
