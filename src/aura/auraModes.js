@@ -174,12 +174,16 @@ function buildAssistantPrompt(opts = {}) {
     groupName = '',
     groupContext = '',
     isAdmin = false,
+    isOwner = false,
+    isVip = false,
     prefix = '!',
     mediaContext = '',
     isImage = false,
     isAudio = false,
     isVideo = false,
     isSticker = false,
+    pessoasNoGrupo = 0,
+    memoria = '',
   } = opts;
 
   const linhas = [
@@ -244,13 +248,19 @@ function buildAssistantPrompt(opts = {}) {
     linhas.push(
       '',
       'CONTEXTO',
-      `- Estás no grupo "${groupName || 'sem nome'}".`,
+      `- Estás no grupo "${groupName || 'sem nome'}"${pessoasNoGrupo > 0 ? ` (${pessoasNoGrupo} pessoas)` : ''}.`,
       `- Falas com ${userName}${isAdmin ? ' (admin do grupo)' : ''}.`,
+      `- Trata-${isOwner ? 'o como o Dono do bot' : isVip ? 'o como VIP' : 'o como um utilizador normal'} — sem prometer o que não tem direito.`,
       '- Num grupo, sê breve: as pessoas estão a conversar entre si.'
     );
   } else {
-    linhas.push('', 'CONTEXTO', `- Conversa privada com ${userName}.`);
+    linhas.push(
+      '', 'CONTEXTO',
+      `- Conversa privada com ${userName}${isOwner ? ' (o Dono do bot)' : ''}.`
+    );
   }
+
+  if (memoria) linhas.push('', 'O QUE SABES SOBRE ESTA PESSOA (factos guardados)', memoria);
 
   if (groupContext) linhas.push('', 'MENSAGENS RECENTES', groupContext.slice(0, 700));
 
@@ -268,7 +278,17 @@ function buildAssistantPrompt(opts = {}) {
  */
 async function assistantRespond(text, opts = {}) {
   const ai = require('../bot/ai');
-  const systemPrompt = buildAssistantPrompt(opts);
+
+  // v7.12 — o assistente também se lembra: factos guardados sobre esta
+  // pessoa entram no prompt (neutros, sem o tom íntimo da AURA).
+  let memoria = '';
+  try {
+    const mem = require('./auraMemory');
+    const r = await mem.lembrar(opts.senderNumber || '');
+    memoria = mem.paraPrompt(r);
+  } catch { /* sem memória não bloqueia */ }
+
+  const systemPrompt = buildAssistantPrompt({ ...opts, memoria });
 
   try {
     const reply = await ai.chat(text, systemPrompt, {
@@ -361,9 +381,10 @@ const _pick = (a) => a[Math.floor(Math.random() * a.length)];
 function assistantFallback(text, opts = {}) {
   const prefix = opts.prefix || '!';
   const nome   = opts.botName || 'DARK BOT';
-  const t = String(text || '').toLowerCase();
+  const t = String(text || '').toLowerCase().trim();
 
-  if (/^(oi|ol[áa]|hey|bom dia|boa tarde|boa noite|e a[íi]|opa|salve)\b/.test(t)) {
+  // saudações
+  if (/^(oi|ol[áa]|hello|hi|hey|bom dia|boa tarde|boa noite|e a[íi]|opa|salve)\b/.test(t)) {
     return _pick([
       'Olá. Diz.',
       `Olá. Precisas de quê? Tens tudo em ${prefix}menu.`,
@@ -372,10 +393,16 @@ function assistantFallback(text, opts = {}) {
     ]);
   }
 
-  if (/obrigad|valeu|thanks|brigad/.test(t)) {
-    return _pick(['De nada.', 'Sempre às ordens.', 'Ora essa.', 'Tranquilo.']);
+  // como estás
+  if (/\b(como (est[áa]s?|vais?|tás?)|tudo bem|tudo certo|beleza|blz)\b/.test(t)) {
+    return _pick([
+      'Bem, obrigado. E contigo?',
+      'Tudo bem por aqui. Diz.',
+      'Bem. O que precisas?',
+    ]);
   }
 
+  // quem és
   if (/quem (és|e) (tu|voc[êe])|teu nome|como te chamas/.test(t)) {
     return _pick([
       `Sou a assistente do ${nome}.`,
@@ -384,12 +411,67 @@ function assistantFallback(text, opts = {}) {
     ]);
   }
 
-  if (/ajuda|help|comandos?|o que (fazes|sabes)/.test(t)) {
+  // o que fazes / ajuda
+  if (/o que (fazes|sabes|consegues)|ajuda|help|comandos?|menu/.test(t)) {
     return _pick([
-      `Escreve ${prefix}menu — está tudo lá.`,
-      `Vê ${prefix}menu para a lista completa.`,
-      `Tens a lista toda em ${prefix}menu.`,
+      `Faço downloads, stickers, jogos, economia, moderação de grupo e muito mais. Está tudo em ${prefix}menu.`,
+      `Sei responder perguntas, baixar músicas e vídeos, fazer stickers, gerir grupos. Lista completa em ${prefix}menu.`,
+      `Tens a lista toda em ${prefix}menu — downloads, IA, jogos, economia, grupos.`,
     ]);
+  }
+
+  // obrigado
+  if (/obrigad|valeu|thanks|brigad/.test(t)) {
+    return _pick(['De nada.', 'Sempre às ordens.', 'Ora essa.', 'Tranquilo.']);
+  }
+
+  // despedida
+  if (/^(tchau|at[ée] logo|adeus|falou|flw|at[ée] mais|bye|xau)\b/.test(t)) {
+    return _pick(['Até já.', 'Até logo.', 'Fica bem.', 'Até à próxima.']);
+  }
+
+  // hora (não precisa de IA)
+  if (/\b(que horas s[ãa]o|horas agora|me dizes as horas|que hora)\b/.test(t)) {
+    const h = new Date();
+    return `São ${h.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}.`;
+  }
+
+  // data (não precisa de IA)
+  if (/\b(que dia [ée] hoje|data de hoje|qual a data|dia de hoje)\b/.test(t)) {
+    const d = new Date();
+    return `Hoje é ${d.toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}.`;
+  }
+
+  // piada
+  if (/\b(piada|conta uma piada|faz-me rir|engraçado|humor)\b/.test(t)) {
+    return _pick([
+      'Porque é que o livro de matemática estava triste? Porque tinha demasiados problemas.',
+      'O que diz um cão a outro cão? Nada, eles ladram.',
+      'Eu ia contar uma piada sobre química, mas achei que não ia ter reacção.',
+    ]);
+  }
+
+  // triste / em baixo
+  if (/\b(estou triste|tô triste|estou mal|deprimid[oa]|sozinho|chatead[oa]|desanimad[oa]|em baixo)\b/.test(t)) {
+    return _pick([
+      'Lamento. Queres falar sobre isso?',
+      'Força. Se precisares de desabafar, estou aqui.',
+      'Isso passa. Conta comigo se precisares.',
+    ]);
+  }
+
+  // zangado
+  if (/\b(estou zangad[oa]|tô put[oa]|irritad[oa]|com raiva|furios[oa])\b/.test(t)) {
+    return _pick([
+      'Respira. Queres contar o que aconteceu?',
+      'Calma. O que se passou?',
+      'Entendo. Desabafa, que eu ouço.',
+    ]);
+  }
+
+  // clima — precisa de IA, encaminha com naturalidade
+  if (/\b(clima|tempo|chuva|temperatura|previs[ãa]o)\b/.test(t)) {
+    return `Agora não consigo ver o tempo. Tenta daqui a pouco.`;
   }
 
   // Sem IA disponível: assume sem drama nem jargão técnico
