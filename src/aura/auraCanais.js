@@ -237,6 +237,42 @@ async function meusGrupos(sock, soAdmin = false) {
   } catch { return []; }
 }
 
+// ═══════════════════════════════════════════════════════════
+// v7.10 ETAPA 4 — GESTÃO DO CANAL DO BOT
+// Lembra o canal criado/gerido pelo bot (MongoDB via botConfigCache),
+// para "muda o nome do MEU canal" funcionar sem precisar de link.
+// ═══════════════════════════════════════════════════════════
+
+const CHAVE_CANAL = 'aura_canal';
+let _meuCanalCache = null;
+
+/** Guarda o canal do bot (jid, name, invite, description). */
+async function guardarCanal(dados) {
+  _meuCanalCache = dados || null;
+  try {
+    const cache = require('../bot/botConfigCache');
+    await cache.set(CHAVE_CANAL, dados || null);
+  } catch { /* sem BD não persiste, mas fica em memória */ }
+}
+
+/** O canal do bot (guardado), ou null. */
+async function meuCanal() {
+  if (_meuCanalCache) return _meuCanalCache;
+  try {
+    const cache = require('../bot/botConfigCache');
+    const d = await cache.get(CHAVE_CANAL, null);
+    if (d && d.jid) _meuCanalCache = d;
+    return _meuCanalCache;
+  } catch { return null; }
+}
+
+/** Garante o sufixo @newsletter num jid de canal. */
+function normJid(id) {
+  const s = String(id || '').trim();
+  if (!s) return '';
+  return s.endsWith('@newsletter') ? s : `${s}@newsletter`;
+}
+
 /** Resolve o jid de um canal a partir de um link ou jid directo. */
 async function resolverCanal(sock, alvo) {
   const t = String(alvo || '').trim();
@@ -250,13 +286,30 @@ async function resolverCanal(sock, alvo) {
 }
 
 /**
+ * v7.10 — resolve o alvo de uma acção de gestão: link, jid, ou o
+ * "meu canal" guardado (por omissão). Para seguir/deixar de seguir
+ * passa { permitirMeu: false } — não faz sentido seguir o próprio canal.
+ */
+async function resolverAlvo(sock, texto, opts = {}) {
+  const { permitirMeu = true } = opts;
+  const t = String(texto || '').trim();
+  const direto = await resolverCanal(sock, t).catch(() => null);
+  if (direto) return direto;
+  if (permitirMeu) {
+    const meu = await meuCanal();
+    if (meu?.jid) return meu.jid;
+  }
+  return null;
+}
+
+/**
  * v7.9 — informação de um canal (nome, descrição, seguidores).
  */
 async function infoCanal(sock, alvo) {
   if (typeof sock.newsletterMetadata !== 'function') {
     return { ok: false, msg: 'Esta versão do WhatsApp que uso não lê canais.' };
   }
-  const jid = await resolverCanal(sock, alvo).catch(() => null);
+  const jid = await resolverAlvo(sock, alvo, { permitirMeu: true }).catch(() => null);
   let meta = null;
   try {
     if (jid) {
@@ -295,8 +348,119 @@ async function deixarCanal(sock, alvo) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// v7.10 ETAPA 4 — GESTÃO DO CANAL (renomear, descrever, foto, stats, apagar)
+// ═══════════════════════════════════════════════════════════
+
+/** Muda o nome do canal do bot. */
+async function renomearCanal(sock, alvo, nome) {
+  if (!nome) return { ok: false, msg: 'Diz para que nome. Ex: *muda o nome do meu canal para Dark News*' };
+  if (typeof sock.newsletterUpdateName !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não muda o nome de canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Cria um primeiro (*cria um canal chamado X*) ou manda o link.' };
+  try {
+    await sock.newsletterUpdateName(jid, nome);
+    if (nome) { const m = await meuCanal(); if (m) await guardarCanal({ ...m, name: nome }); }
+    return { ok: true, msg: `Mudei o nome do canal para *${nome}*. ✅` };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui mudar o nome: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Muda a descrição do canal do bot. */
+async function descreverCanal(sock, alvo, desc) {
+  if (!desc) return { ok: false, msg: 'Diz qual é a descrição. Ex: *muda a descrição do meu canal para X*' };
+  if (typeof sock.newsletterUpdateDescription !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não muda a descrição de canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Cria um primeiro ou manda o link.' };
+  try {
+    await sock.newsletterUpdateDescription(jid, desc);
+    const m = await meuCanal(); if (m) await guardarCanal({ ...m, description: desc });
+    return { ok: true, msg: 'Descrição do canal actualizada. ✅' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui mudar a descrição: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Muda a foto do canal do bot (recebe um Buffer de imagem). */
+async function fotoCanal(sock, alvo, buffer) {
+  if (!buffer || buffer.length < 500) return { ok: false, msg: 'Manda/enviar uma imagem para eu pôr como foto do canal.' };
+  if (typeof sock.newsletterUpdatePicture !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não muda a foto de canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Cria um primeiro ou manda o link.' };
+  try {
+    await sock.newsletterUpdatePicture(jid, buffer);
+    return { ok: true, msg: 'Foto do canal actualizada. ✅' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui mudar a foto: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Remove a foto do canal do bot. */
+async function tirarFotoCanal(sock, alvo) {
+  if (typeof sock.newsletterRemovePicture !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não remove a foto de canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Cria um primeiro ou manda o link.' };
+  try {
+    await sock.newsletterRemovePicture(jid);
+    return { ok: true, msg: 'Removi a foto do canal. ✅' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui remover a foto: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Estatísticas do canal do bot (nome, descrição, seguidores, admins). */
+async function estatisticasCanal(sock, alvo) {
+  if (typeof sock.newsletterMetadata !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não lê canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Cria um primeiro ou manda o link.' };
+  try {
+    const meta = await sock.newsletterMetadata('jid', jid);
+    const linhas = [`📡 *${meta?.name || 'Canal'}*`];
+    if (meta?.description) linhas.push(String(meta.description).slice(0, 200));
+    if (typeof meta?.subscribers === 'number') linhas.push(`👥 ${meta.subscribers} seguidores`);
+    if (typeof sock.newsletterAdminCount === 'function') {
+      const admins = await sock.newsletterAdminCount(jid).catch(() => null);
+      if (typeof admins === 'number') linhas.push(`🛡️ ${admins} admins`);
+    }
+    if (meta?.invite) linhas.push(`🔗 https://whatsapp.com/channel/${meta.invite}`);
+    return { ok: true, msg: linhas.join('\n\n') };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui ler as estatísticas: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Apaga o canal do bot. DESTRUTIVO — só o Dono chega aqui. */
+async function apagarCanal(sock, alvo) {
+  if (typeof sock.newsletterDelete !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não apaga canais.' };
+  }
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal.' };
+  try {
+    await sock.newsletterDelete(jid);
+    await guardarCanal(null);
+    return { ok: true, msg: 'Apaguei o canal. ✅' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui apagar: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
-  reencaminhar, meusGrupos, resolverCanal, infoCanal, deixarCanal,
+  reencaminhar, meusGrupos, resolverCanal, resolverAlvo, infoCanal, deixarCanal,
+  guardarCanal, meuCanal, normJid,
+  renomearCanal, descreverCanal, fotoCanal, tirarFotoCanal,
+  estatisticasCanal, apagarCanal,
   RE_GRUPO, RE_CANAL,
 };
