@@ -333,24 +333,48 @@ async function executar(acao, valor, { sock, ctx }) {
     }
 
     case 'criarCanal': {
-      if (!valor) return { ok: false, msg: 'Diz-me o nome do canal. Ex: *cria um canal chamado Dark News*' };
-      if (typeof sock.newsletterCreate !== 'function') {
+      // v7.14: "cria um canal e me manda o link" — o pedido do link NÃO é
+      // o nome do canal. Tira-se o rabo da frase; sem nome usa o do bot.
+      let nome = String(valor || '')
+        .replace(/\s*[,;]?\s*(?:e|e a[íi]|e depois)\s*(?:me\s+)?(?:manda|mandar|envia|enviar|manda-?me|envia-?me)\s+o\s+link\.?\s*$/i, '')
+        .replace(/\s*[,;]?\s*(?:me\s+)?(?:manda|mandar|envia|enviar|manda-?me|envia-?me)\s+o\s+link\.?\s*$/i, '')
+        .trim();
+      if (!nome) nome = String(ctx?.botName || 'DARK BOT');
+
+      if (typeof sock.newsletterCreate !== 'function' && typeof sock.query !== 'function') {
         return { ok: false, msg: 'A minha versão do WhatsApp não deixa criar canais.' };
       }
+
       // v7.10: aceita descrição: "cria um canal chamado X com a descrição Y"
-      let nome = String(valor);
       let desc = `Canal do ${ctx?.botName || 'DARK BOT'}`;
       const mDesc = nome.match(/^(.{2,60}?)\s+(?:com a|com|de)\s+descri[çc][aã]o\s+(?:de\s+)?["'“”]?(.+)$/i);
       if (mDesc) { nome = mDesc[1].trim(); desc = mDesc[2].trim(); }
 
-      const n = await sock.newsletterCreate(nome, desc);
+      const canais = require('./auraCanais');
+
+      // v7.14: cria pelo caminho seguro — o newsletterCreate do fork
+      // rebenta em `thread.picture.id` porque um canal novo tem picture=null.
+      let n = null;
+      try {
+        n = await canais.criarCanalSeguro(sock, nome, desc);
+      } catch (e) {
+        return { ok: false, msg: `Não consegui criar o canal: ${String(e?.message || e).slice(0, 80)}` };
+      }
+      // fallback: fork sem os internals que o caminho seguro precisa
+      if (!n) {
+        try {
+          n = await sock.newsletterCreate(nome, desc);
+        } catch (e) {
+          return { ok: false, msg: 'Não consegui criar o canal agora. Tenta outra vez.' };
+        }
+      }
+
       const id = n?.id || n?.jid || '';
       const invite = n?.invite || n?.inviteCode || '';
 
       // v7.10: lembra o canal para "muda o nome do MEU canal" funcionar
       if (id) {
         try {
-          const canais = require('./auraCanais');
           await canais.guardarCanal({
             jid: canais.normJid(id),
             name: n?.name || nome,
@@ -364,7 +388,7 @@ async function executar(acao, valor, { sock, ctx }) {
       return {
         ok: true,
         msg: `Criei o canal *${nome}*.` +
-             (invite ? `\nhttps://whatsapp.com/channel/${invite}` : (id ? `\nID: ${id}` : '')) +
+             (invite ? `\n🔗 https://whatsapp.com/channel/${invite}` : (id ? `\nID: ${id}` : '')) +
              '\n\nAgora posso gerir: *muda o nome do meu canal*, *muda a descrição*, *põe a foto*, *estatísticas do canal*.',
       };
     }

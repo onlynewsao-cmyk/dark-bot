@@ -459,6 +459,76 @@ async function apagarCanal(sock, alvo) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// v7.14 — CRIAR CANAL SEM REBENTAR NO PARSER DO FORK
+// O newsletterCreate do Baileys faz `thread.picture.id` na resposta e um
+// canal recém-criado tem picture=null → "Cannot read properties of null
+// (reading 'id')". O canal É criado no WhatsApp, só a leitura é que morre.
+// Aqui replica-se a MESMA query w:mex, com parser seguro.
+// ═══════════════════════════════════════════════════════════
+
+/** Parseia a resposta do create sem assumir que picture/name existem. */
+function parseCriacaoCanal(response) {
+  if (!response || typeof response !== 'object') return null;
+  const thread = response.thread_metadata || {};
+  const viewer = response.viewer_metadata || {};
+  const pic = thread.picture || {};
+  return {
+    id: response.id || '',
+    name: (thread.name && thread.name.text) || '',
+    description: (thread.description && thread.description.text) || '',
+    invite: thread.invite || '',
+    subscribers: parseInt(thread.subscribers_count || '0', 10) || 0,
+    verification: thread.verification || '',
+    pictureId: pic.id || '',
+    mute_state: viewer.mute,
+  };
+}
+
+/**
+ * Cria um canal via w:mex com parser seguro.
+ * @returns {Promise<object|null>} dados do canal criado, ou null se não
+ *   conseguiu sequer correr (sem internals). LANÇA se o servidor responder
+ *   erro — assim quem chama nunca cria o canal duas vezes.
+ */
+async function criarCanalSeguro(sock, nome, desc) {
+  if (!sock || typeof sock.query !== 'function') return null;
+  let QueryIds, XWAPaths, S_WHATSAPP_NET;
+  try {
+    const raiz = require('@systemzero/baileys');
+    QueryIds = raiz.QueryIds; XWAPaths = raiz.XWAPaths;
+    S_WHATSAPP_NET = require('@systemzero/baileys/lib/WABinary/index.js').S_WHATSAPP_NET;
+    if (!QueryIds?.CREATE || !XWAPaths?.xwa2_newsletter_create) return null;
+  } catch { return null; }
+
+  const tag = typeof sock.generateMessageTag === 'function'
+    ? sock.generateMessageTag()
+    : 'AQ' + Date.now() + Math.random().toString(36).slice(2);
+
+  const result = await sock.query({
+    tag: 'iq',
+    attrs: { id: tag, type: 'get', to: S_WHATSAPP_NET, xmlns: 'w:mex' },
+    content: [{
+      tag: 'query',
+      attrs: { query_id: QueryIds.CREATE },
+      content: Buffer.from(JSON.stringify({
+        variables: { input: { name: nome, description: desc ?? null } },
+      }), 'utf-8'),
+    }],
+  });
+
+  const child = (Array.isArray(result?.content) ? result.content : []).find(n => n?.tag === 'result');
+  if (!child?.content) throw new Error('resposta do WhatsApp vazia');
+  let data;
+  try { data = JSON.parse(child.content.toString()); } catch { throw new Error('resposta ilegível'); }
+  if (data?.errors?.length) {
+    const e = new Error(data.errors.map(x => x.message || 'erro').join(', '));
+    e.graphql = data.errors[0];
+    throw e;
+  }
+  return parseCriacaoCanal(data?.data?.[XWAPaths.xwa2_newsletter_create]);
+}
+
+// ═══════════════════════════════════════════════════════════
 // v7.13 — CANAL DE STICKERS: assumir, perguntar, ler e enviar
 // ═══════════════════════════════════════════════════════════
 
@@ -697,5 +767,6 @@ module.exports = {
   estatisticasCanal, apagarCanal,
   adotarCanal, parsePergunta, perguntarSeguidores, lerRespostasCanal,
   enviarStickersCanal, enviarPackCanal,
+  criarCanalSeguro, parseCriacaoCanal,
   RE_GRUPO, RE_CANAL,
 };
