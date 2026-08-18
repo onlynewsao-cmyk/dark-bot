@@ -324,6 +324,20 @@ const CAPACIDADES = [
     gatilhos: [/\b(agenda|agendar|programa|todos os dias|diariamente|todas as)\b.{0,30}\bno canal\b/, /\bno canal\b.{0,20}\b(todos os dias|diariamente|de hora em hora|agenda|agendar)\b/],
   },
 
+  // ══ v7.15 — ACEITAR CONVITE DE CANAL ═══════════════════════
+  {
+    // "aceita o link de convite do canal" — segue o link (na mensagem
+    // ou o último que recebeste) em vez de fingir que entrou.
+    id: 'aceitar_convite_canal', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Aceitar um convite de canal (segue o link do convite)',
+    gatilhos: [
+      /\baceita\b.{0,20}\b(convite|link|link de convite)\b.{0,20}\b(canal|newsletter)\b/,
+      /\baceita\b.{0,10}\b(canal|newsletter)\b/,
+      /\baceita\b.{0,10}\bo\s+convite\b/,
+      /\baceita\b.{0,10}\bo\s+link\b/,
+    ],
+  },
+
   // ══ v7.13 ETAPA 6 — CANAL DE STICKERS ════════════════════
   {
     // "gere este canal <link>" tem de vir ANTES de entrar_link,

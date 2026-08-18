@@ -255,6 +255,12 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       }
     }
 
+    // ══ v7.15 — ACEITAR CONVITE DE CANAL ════════════════
+    case 'aceitar_convite_canal': {
+      const canais = require('./auraCanais');
+      return await canais.aceitarConviteCanal(sock, texto || arg || '', ctx);
+    }
+
     // ══ v7.13 ETAPA 6 — CANAL DE STICKERS ════════════════
     case 'adotar_canal': {
       const canais = require('./auraCanais');

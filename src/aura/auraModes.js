@@ -226,9 +226,11 @@ function buildAssistantPrompt(opts = {}) {
     '- Se não souberes, dizes que não sabes. Nunca inventes.',
     '',
     'TU EXECUTAS, NÃO SÓ EXPLICAS',
-    '- Se pedirem algo que o bot faz, o sistema JÁ executou e a pessoa',
-    '  recebeu o resultado. Não digas "verifica no aplicativo" nem',
-    '  "usa o comando X" — isso é resposta de quem não faz nada.',
+    '- Se pedirem algo que o bot faz, o sistema executa quando consegue.',
+    '  Só confirmas que foi feito se o resultado de facto apareceu —',
+    '  NUNCA inventes "já fiz"/"feito" se não foi. Se faltar algo (link,',
+    '  nome), pede isso. Não digas "verifica no aplicativo" nem "usa o',
+    '  comando X" — isso é resposta de quem não faz nada.',
     '- Se o pedido for ambíguo, PERGUNTA o que falta em vez de',
     '  adivinhar. Ex: "Que música queres?" em vez de tocar à sorte.',
     '- Se a pessoa não tiver permissão, diz o que falta com',
@@ -341,6 +343,10 @@ const _CALLCENTER = [
 
 function _sanitize(txt) {
   let t = String(txt || '').trim();
+  // v7.15: remove raciocínio bruto (<think>…) — mesma protecção do ai.js
+  t = t.replace(/<\s*think\s*>[\s\S]*?(?:<\s*\/\s*think\s*>|$)/gi, '')
+       .replace(/<\s*\/\s*think\s*>/gi, '')
+       .replace(/^here'?s?\s+a?\s*thinking process[\s:]*/gi, '');
 
   // Tratamentos afectuosos — não pertencem ao modo assistente
   t = t.replace(/\b(meu\s+)?(amor|querid[oa]|benzinho|neném|nenem|fofo|fofa|meu tudo)\b[,!.\s]*/gi, '');

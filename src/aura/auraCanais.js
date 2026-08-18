@@ -30,7 +30,7 @@ const { randomBytes, createHash } = require('crypto');
  */
 
 const RE_GRUPO = /chat\.whatsapp\.com\/(?:invite\/)?([0-9A-Za-z]{20,26})/i;
-const RE_CANAL = /whatsapp\.com\/channel\/([0-9A-Za-z_-]{15,40})/i;
+const RE_CANAL = /(?:whatsapp\.com|wa\.me)\/channel\/([0-9A-Za-z_-]{15,40})/i;
 
 /** Tira o código de convite de um texto. */
 function extrairConvite(texto = '') {
@@ -759,6 +759,38 @@ async function enviarPackCanal(sock, alvo, termo) {
   }
 }
 
+/**
+ * v7.15 — "aceita o link/convite do canal". Segue o link que está na
+ * própria mensagem; se não houver, procura o ÚLTIMO link de canal que
+ * recebeste neste chat (o convite que mandaram) e segue-o. Se não houver
+ * nenhum, pede o link com honestidade — nunca finge que entrou.
+ */
+async function aceitarConviteCanal(sock, texto, ctx) {
+  const conv = extrairConvite(texto);
+  if (conv?.tipo === 'canal') return entrarPorLink(sock, texto);
+
+  // varrer o cache: último link de canal neste chat
+  try {
+    const cache = require('../bot/messageListener').messageCache;
+    const hist = require('./auraHistorico');
+    let melhor = null;
+    for (const [, m] of cache) {
+      if (m.key?.remoteJid !== ctx?.remoteJid) continue;
+      const c = extrairConvite(hist.textoDaMsg(m));
+      if (c?.tipo === 'canal') {
+        const ts = Number(m.messageTimestamp) || 0;
+        if (!melhor || ts > melhor.ts) melhor = { txt: hist.textoDaMsg(m), ts };
+      }
+    }
+    if (melhor) {
+      const r = await entrarPorLink(sock, melhor.txt);
+      if (r.ok) return r;
+    }
+  } catch { /* sem cache, segue para o pedido honesto */ }
+
+  return { ok: false, msg: 'Manda o link do canal (whatsapp.com/channel/…) que eu entro já.' };
+}
+
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
   reencaminhar, meusGrupos, resolverCanal, resolverAlvo, infoCanal, deixarCanal,
@@ -767,6 +799,6 @@ module.exports = {
   estatisticasCanal, apagarCanal,
   adotarCanal, parsePergunta, perguntarSeguidores, lerRespostasCanal,
   enviarStickersCanal, enviarPackCanal,
-  criarCanalSeguro, parseCriacaoCanal,
+  criarCanalSeguro, parseCriacaoCanal, aceitarConviteCanal,
   RE_GRUPO, RE_CANAL,
 };

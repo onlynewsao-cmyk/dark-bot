@@ -102,6 +102,20 @@ function providerStatus() {
   return out;
 }
 
+/**
+ * v7.15 — remove blocos de raciocínio (<think>…</think>) que os modelos
+ * reasoning devolvem no content. Sem isto o raciocínio bruto ia para o
+ * WhatsApp ("Here's a thinking process…").
+ */
+function stripThinking(txt) {
+  let t = String(txt || '');
+  t = t.replace(/<\s*think\s*>[\s\S]*?(?:<\s*\/\s*think\s*>|$)/gi, '');
+  t = t.replace(/<\s*\/\s*think\s*>/gi, '');
+  t = t.replace(/^here'?s?\s+a?\s*thinking process[\s:]*/gi, '');
+  t = t.replace(/\n{3,}/g, '\n\n');
+  return t.trim();
+}
+
 function shortErr(e) {
   const m = String(e?.message || '').toLowerCase();
   if (/401|invalid.*key/i.test(m)) return 'chave inválida';
@@ -310,7 +324,7 @@ async function chatGroq(messages, system) {
         stream:      false,
       }, { Authorization: `Bearer ${config.ai.groqApiKey}` });
       const out = data.choices?.[0]?.message?.content;
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
       if (/401|invalid.*key/i.test(e.message)) break;
@@ -403,7 +417,7 @@ async function chatGemini(messages, system) {
         { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }, safetySettings: GEMINI_SAFETY }
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
       if (/401|invalid.*key/i.test(e.message)) break;
@@ -429,7 +443,7 @@ async function chatRouter(messages, system) {
   });
   const out = data.choices?.[0]?.message?.content;
   if (!out) throw new Error('sem resposta');
-  return out;
+  return stripThinking(out);
 }
 
 // ─────────────────────────────────────────────
@@ -661,7 +675,7 @@ async function chatCerebras(messages, system) {
         temperature: 0.7, max_completion_tokens: 1024, stream: false,
       }, { Authorization: `Bearer ${config.ai.cerebrasApiKey}` });
       const out = data.choices?.[0]?.message?.content;
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) { lastErr = e; if (/401|invalid/i.test(e.message)) break; }
   }
   throw lastErr || new Error('sem resposta Cerebras');
@@ -679,7 +693,7 @@ async function chatApiFreeLLM(messages, system) {
       system: system,
     }, { Authorization: `Bearer ${config.ai.apifreellmKey}` });
     const out = data.choices?.[0]?.message?.content || data.message || data.response;
-    if (out) return out;
+    if (out) return stripThinking(out);
   } catch (e) { throw e; }
   throw new Error('sem resposta ApiFreeLLM');
 }
@@ -705,7 +719,7 @@ async function chatHuggingFace(messages, system) {
       }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
 
       const out = data.choices?.[0]?.message?.content?.trim();
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
       // chave inválida → não vale a pena tentar os outros modelos
@@ -911,7 +925,7 @@ async function describeImage(imageBuffer, question = 'Descreve esta imagem em de
         15000
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       if (/401|invalid/i.test(e.message)) break;
     }
@@ -951,7 +965,7 @@ async function chatWithDocument(prompt, systemPrompt, buffer, mimeType = 'applic
         20000
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       if (/401|invalid/i.test(e.message)) break;
     }
@@ -991,7 +1005,7 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
         15000
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
-      if (out) return out;
+      if (out) return stripThinking(out);
     } catch (e) {
       if (/401|invalid/i.test(e.message)) break;
     }
@@ -1066,4 +1080,5 @@ module.exports = {
   GROQ_MODELS,
   GEMINI_MODELS,
   getGeminiModels,
+  stripThinking,
 };
