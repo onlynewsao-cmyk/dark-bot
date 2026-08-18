@@ -183,6 +183,27 @@ do fork: ele faz `thread.picture.id` na resposta, e um canal recém-criado tem
 - Erros de servidor (GraphQL) são reportados sem duplicar o canal.
 - Testes: `npm run test:auracriarcanal` (17/17).
 
+## ✅ FIX — "<think> vazou" + "aceita o link do canal" (feito — v7.15)
+
+**Bug 1 — raciocínio bruto no WhatsApp**: o modelo reasoning devolvia o
+`<think>Here's a thinking process…</think>` e isso ia parar ao chat, porque
+nada o removia. Agora há `stripThinking()` **central** no `src/bot/ai.js`
+(aplicado a todos os providers de texto: Groq, Gemini, OpenRouter, Cerebras,
+HuggingFace, imagem, documento) + protecção defensiva no
+`auraSanitizer.limparResposta` e no `_sanitize` do modo assistente.
+
+**Bug 2 — "aceita o link do canal" fingia que tinha entrado**: a ordem do
+prompt ("o sistema já executou") fazia a AURA responder "Já entrei" sem fazer
+nada. Corrigido em duas frentes:
+- A ordem agora manda-a **só confirmar o que de facto aconteceu** e pedir o
+  que falta ("manda o link") em vez de fingir — na AURA e no assistente.
+- Novo comando real `aceitar_convite_canal` (cérebro + executor): segue o link
+  do convite que está na própria mensagem, ou o **último link de canal
+  recebido no chat**; sem link nenhum, pede-o com honestidade.
+- `RE_CANAL` agora também reconhece `wa.me/channel/…`.
+
+- Testes: `npm run test:auraconvite` (17/17).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

@@ -30,6 +30,10 @@ function eSoPontuacao(t) {
 
 function limparResposta(txt) {
   let t = String(txt || '');
+  // v7.15: remove raciocínio bruto (<think>…) que o modelo reasoning devolve
+  t = t.replace(/<\s*think\s*>[\s\S]*?(?:<\s*\/\s*think\s*>|$)/gi, '')
+       .replace(/<\s*\/\s*think\s*>/gi, '')
+       .replace(/^here'?s?\s+a?\s*thinking process[\s:]*/gi, '');
   for (const re of LEAK) t = t.replace(re, '');
   t = t.replace(/[_*]{1,2}\s*(ignora|nao responde|prefixo)[^_*]{0,80}[_*]{1,2}/gi, '');
   t = t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
