@@ -167,6 +167,22 @@ A AURA agora **assume, gere e anima um canal de stickers** — tudo por conversa
 - Ficheiros: `src/aura/auraCanais.js`, `src/aura/auraBrain.js`,
   `src/aura/auraExec.js`. Testes: `npm run test:auraetapa6` (41/41).
 
+## ✅ FIX — "cria um canal" rebentava (feito — v7.14)
+
+**Bug**: "cria um canal e me manda o link" respondia *"Não consegui: Cannot
+read properties of null (reading 'id')"*. A culpa era do `newsletterCreate`
+do fork: ele faz `thread.picture.id` na resposta, e um canal recém-criado tem
+`picture: null` — ou seja, o canal **era criado**, só a leitura é que morria.
+
+**Correcção**:
+- Novo `criarCanalSeguro()` em `src/aura/auraCanais.js`: replica a mesma query
+  `w:mex` do `newsletterCreate` mas com **parser seguro** (tolera
+  picture/name/description ausentes). Assim nunca cria o canal duas vezes.
+- "cria um canal **e me manda o link**" → o pedido do link já não vira o nome
+  do canal; sem nome usa o do bot (e responde sempre com o 🔗 link).
+- Erros de servidor (GraphQL) são reportados sem duplicar o canal.
+- Testes: `npm run test:auracriarcanal` (17/17).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
