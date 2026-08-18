@@ -1,4 +1,6 @@
 'use strict';
+const { randomBytes, createHash } = require('crypto');
+
 /**
  * AURA — CANAIS, CONVITES E PARTILHA (v6.82)
  *
@@ -456,11 +458,244 @@ async function apagarCanal(sock, alvo) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// v7.13 — CANAL DE STICKERS: assumir, perguntar, ler e enviar
+// ═══════════════════════════════════════════════════════════
+
+// Enquetes que EU criei no canal: pollId → { jid, options, secret }.
+// O secret é o messageSecret do poll — sem ele não se descodificam votos.
+const _polls = new Map();
+// Último vencedor de uma enquete (para "manda esses stickers").
+const _vencedor = new Map();
+
+/** Assume a gestão de um canal a partir do convite (subscribe + guarda). */
+async function adotarCanal(sock, texto) {
+  const conv = extrairConvite(texto);
+  if (conv?.tipo !== 'canal') {
+    return { ok: false, msg: 'Manda o link do canal (whatsapp.com/channel/...) que eu assumo.' };
+  }
+  if (typeof sock.newsletterMetadata !== 'function' || typeof sock.newsletterFollow !== 'function') {
+    return { ok: false, msg: 'Esta versão do WhatsApp que uso não mexe em canais.' };
+  }
+  try {
+    const meta = await sock.newsletterMetadata('invite', conv.code);
+    if (!meta?.id) return { ok: false, msg: 'Não encontrei esse canal — o link deve estar partido.' };
+    await sock.newsletterFollow(meta.id);
+    await guardarCanal({
+      jid: meta.id,
+      name: meta.name || '',
+      description: meta.description || '',
+      invite: meta.invite || conv.code,
+      criadoEm: Date.now(),
+    });
+    return {
+      ok: true, jid: meta.id, nome: meta.name || 'sem nome',
+      msg: `Entrei e assumi a gestão do canal *${meta.name || 'sem nome'}*. 🖤\n\nAgora posso: *posta no canal*, *muda o nome/descrição/foto*, *pergunta aos seguidores* e *manda stickers/packs*.`,
+    };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui entrar: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Extrai pergunta + opções de "pergunta aos seguidores X: a, b, c". */
+function parsePergunta(texto) {
+  let t = String(texto || '').trim();
+  let opcoes = [];
+  const idx = t.search(/[:?]/);
+  if (idx >= 0) {
+    const resto = t.slice(idx + 1).trim();
+    const cands = resto.split(/\s*(?:,|\bou\b|;)\s*/i)
+      .map(x => x.replace(/[?!.]+$/, '').trim())
+      .filter(x => x.length > 0 && x.length <= 60);
+    if (cands.length >= 2) { opcoes = cands; t = t.slice(0, idx).trim(); }
+  }
+  let pergunta = t
+    .replace(/^(pergunta|perguntar|questiona|questionar|faz|fazer|faz uma|faz um)\b\s*/i, '')
+    .replace(/^(?:uma|um)\s+(?:enquete|poll|pergunta)\s*/i, '')
+    .replace(/^(?:enquete|poll)\s*/i, '')
+    .replace(/^(?:aos|para os|aos meus)\s+(?:seguidores|subscritores|membros do canal|seguidores do canal)\s*/i, '')
+    .replace(/^(?:no canal|no meu canal|no canal de stickers)\s*/i, '')
+    .trim();
+  pergunta = pergunta ? pergunta.charAt(0).toUpperCase() + pergunta.slice(1) : '';
+  if (!pergunta || pergunta.length < 6) pergunta = 'Quais stickers querem?';
+  return { pergunta, opcoes };
+}
+
+/** Publica uma pergunta (enquete ou texto) no canal. */
+async function perguntarSeguidores(sock, alvo, texto) {
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal. Assuma um primeiro (manda o link) ou diz o canal.' };
+
+  const { pergunta, opcoes } = parsePergunta(texto);
+  try {
+    if (opcoes.length >= 2 && typeof sock.sendMessage === 'function') {
+      const secret = randomBytes(32);
+      const resp = await sock.sendMessage(jid, {
+        poll: { name: pergunta, values: opcoes, selectableCount: 1, messageSecret: secret },
+      });
+      const pollId = resp?.key?.id || resp?.id || '';
+      if (pollId) _polls.set(pollId, { jid, options: opcoes, secret });
+      return {
+        ok: true,
+        msg: `Perguntei no canal: *${pergunta}*\n\n${opcoes.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\nQuando houver respostas, diz *"vê as respostas do canal"*.`,
+      };
+    }
+    // sem opções → pergunta aberta em texto (seguidores respondem nos comentários)
+    const r = await postarCanal(sock, jid, `📢 ${pergunta}\nRespondam nos comentários. 👇`);
+    return r.ok
+      ? { ok: true, msg: `Perguntei no canal: *${pergunta}*. Quando responderem, diz *"vê as respostas"*.` }
+      : { ok: false, msg: r.msg || 'Não consegui publicar a pergunta.' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui publicar a pergunta: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+function _hashOpt(nome) { return createHash('sha256').update(String(nome)).digest('hex'); }
+
+/** Lê as respostas do canal: votos (descodificados) + comentários. */
+async function lerRespostasCanal(sock, alvo) {
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal.' };
+
+  let cache;
+  try { cache = require('../bot/messageListener').messageCache; } catch { cache = new Map(); }
+  const hist = require('./auraHistorico');
+
+  // 1. votos nas enquetes que eu criei
+  const votos = {};
+  let total = 0, ilegiveis = 0;
+  for (const [, m] of cache) {
+    const pu = m?.message?.pollUpdateMessage;
+    if (!pu) continue;
+    const key = pu.pollCreationMessageKey;
+    if (key?.remoteJid !== jid) continue;
+    let info = _polls.get(key.id);
+    // v7.13: recupera o secret da mensagem de criação (sobrevive a reinícios)
+    if (!info) {
+      for (const [, m2] of cache) {
+        if (m2.key?.id !== key.id || m2.key?.remoteJid !== jid) continue;
+        const pc = m2.message?.pollCreationMessageV3 || m2.message?.pollCreationMessage;
+        const secret = m2.messageContextInfo?.messageSecret;
+        if (pc?.options?.length && secret) {
+          info = { jid, options: pc.options.map(o => o.optionName), secret };
+          _polls.set(key.id, info);
+        }
+        break;
+      }
+    }
+    if (!info) continue;
+    const voter = m.key?.participant || m.key?.remoteJid || '';
+    let hashes = null;
+    try {
+      const { decryptPollVote } = require('@systemzero/baileys');
+      const vote = decryptPollVote(
+        { encPayload: pu.vote?.encPayload, encIv: pu.vote?.encIv },
+        { pollCreatorJid: sock?.user?.id || '', pollMsgId: key.id, pollEncKey: info.secret, voterJid: voter }
+      );
+      hashes = (vote?.selectedOptions || []).map(h => Buffer.from(h).toString('hex'));
+    } catch { hashes = null; }
+    total++;
+    if (hashes && hashes.length) {
+      for (const h of hashes) {
+        const idx = info.options.findIndex(o => _hashOpt(o) === h);
+        const nome = idx >= 0 ? info.options[idx] : 'outra opção';
+        votos[nome] = (votos[nome] || 0) + 1;
+      }
+    } else { ilegiveis++; }
+  }
+
+  // 2. comentários em texto no canal
+  const textos = [];
+  for (const [, m] of cache) {
+    if (m?.key?.remoteJid !== jid || m.key.fromMe) continue;
+    const txt = hist.textoDaMsg(m);
+    if (txt && txt.length >= 2) {
+      textos.push({ quem: m.pushName || String(m.key.participant || '').split('@')[0], txt: txt.slice(0, 120) });
+    }
+  }
+
+  const linhas = [];
+  if (total) {
+    const ordem = Object.entries(votos).sort((a, b) => b[1] - a[1]);
+    linhas.push(`📊 *${total} voto${total > 1 ? 's' : ''}* nas enquetes do canal:`);
+    if (ordem.length) {
+      linhas.push(ordem.map(([n, c]) => `▸ ${n}: ${c}`).join('\n'));
+      _vencedor.set(String(sock?.user?.id || 'bot'), ordem[0][0]);
+    }
+    if (ilegiveis) linhas.push(`_(${ilegiveis} voto${ilegiveis > 1 ? 's' : ''} não consegui ler — chega depois que eu tento outra vez)_`);
+  } else {
+    linhas.push('Ainda não há votos nas minhas enquetes.');
+  }
+  if (textos.length) {
+    linhas.push('', `💬 ${textos.length} resposta${textos.length > 1 ? 's' : ''} em texto:`);
+    linhas.push(textos.slice(0, 8).map(t => `▸ ${t.quem}: "${t.txt}"`).join('\n'));
+  } else if (!total) {
+    return { ok: true, msg: 'Ainda ninguém respondeu ao canal. Pergunta primeiro ou espera um pouco.' };
+  }
+  return { ok: true, msg: linhas.join('\n') };
+}
+
+/** Envia N stickers de um tema para o canal (busca real no sticker.ly). */
+async function enviarStickersCanal(sock, alvo, termo, quantas = 5) {
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal.' };
+  let q = (termo || '').trim();
+  // "manda esses stickers" → o vencedor da última enquete
+  if (/^(esses|estes|desses|deles|aqueles|os mesmos|o vencedor)$/i.test(q)) {
+    q = _vencedor.get(String(sock?.user?.id || 'bot')) || '';
+  }
+  if (!q || q.length < 2) return { ok: false, msg: 'Diz o tema dos stickers. Ex: *manda 5 stickers de gatos no canal*' };
+  try {
+    const sly = require('../bot/stickerly');
+    const r = await sly.searchAndDownload(q, Math.min(Number(quantas) || 5, 15));
+    if (!r.stickers.length) return { ok: false, msg: `Não encontrei stickers de "${q}".` };
+    let enviados = 0;
+    for (const st of r.stickers.slice(0, Math.min(Number(quantas) || 5, 15))) {
+      try {
+        await sock.sendMessage(jid, { sticker: st.buf });
+        enviados++;
+        await new Promise(res => setTimeout(res, 400));
+      } catch { /* um a um; se falhar, continua */ }
+    }
+    if (!enviados) return { ok: false, msg: `Encontrei stickers de "${q}" mas não consegui enviar.` };
+    return { ok: true, msg: `Enviei ${enviados} sticker${enviados > 1 ? 's' : ''} de *${q}* para o canal. 🖤` };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui buscar stickers: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
+/** Envia um pack inteiro de stickers de um tema para o canal. */
+async function enviarPackCanal(sock, alvo, termo) {
+  const jid = await resolverAlvo(sock, alvo).catch(() => null);
+  if (!jid) return { ok: false, msg: 'Não sei qual é o meu canal.' };
+  let q = (termo || '').trim();
+  if (/^(esses|estes|desses|deles|aqueles|o vencedor)$/i.test(q)) {
+    q = _vencedor.get(String(sock?.user?.id || 'bot')) || '';
+  }
+  if (!q || q.length < 2) return { ok: false, msg: 'Diz o tema do pack. Ex: *manda um pack de gatos no canal*' };
+  try {
+    const sly = require('../bot/stickerly');
+    const r = await sly.searchAndDownload(q, 30);
+    if (!r.stickers.length) return { ok: false, msg: `Não encontrei stickers de "${q}".` };
+    const bufs = r.stickers.map(s => s.buf).filter(Boolean);
+    const okc = await require('../bot/stickerPack').sendNativeStickerPack(sock, jid, bufs, {
+      name: r.title || q, publisher: 'DARK NET 🕸️', description: `Pack de ${q}`,
+    });
+    return okc
+      ? { ok: true, msg: `Mandei o pack *${r.title || q}* para o canal. 🖤` }
+      : { ok: false, msg: 'Não consegui mandar o pack — diz *"manda N stickers"* que envio um a um.' };
+  } catch (e) {
+    return { ok: false, msg: `Não consegui montar o pack: ${String(e?.message || e).slice(0, 80)}` };
+  }
+}
+
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
   reencaminhar, meusGrupos, resolverCanal, resolverAlvo, infoCanal, deixarCanal,
   guardarCanal, meuCanal, normJid,
   renomearCanal, descreverCanal, fotoCanal, tirarFotoCanal,
   estatisticasCanal, apagarCanal,
+  adotarCanal, parsePergunta, perguntarSeguidores, lerRespostasCanal,
+  enviarStickersCanal, enviarPackCanal,
   RE_GRUPO, RE_CANAL,
 };

@@ -143,6 +143,30 @@ competente a sério, não um robô com 4 frases decoradas:
 - Ficheiros: `src/aura/auraModes.js`, `src/bot/commandHandler.js` (opts).
   Testes: `npm run test:auraassistente` (33/33).
 
+## ✅ ETAPA 6 — CANAL DE STICKERS (feita — v7.13)
+
+A AURA agora **assume, gere e anima um canal de stickers** — tudo por conversa
+(ou voz), só para o Dono.
+
+| Pedido natural | O que acontece |
+|---|---|
+| "gere este canal <link>" | subscribe (`newsletterFollow`) + **guarda como "meu canal"** |
+| "pergunta aos seguidores quais stickers querem: gatos, cães, memes" | publica uma **enquete** (poll) no canal |
+| "pergunta no canal X" (sem opções) | publica pergunta aberta em texto (seguidores respondem nos comentários) |
+| "vê as respostas do canal" | lê **votos** (descodificados via `decryptPollVote` + `messageSecret`) e os **comentários** em texto — sem inventar quando não há nada |
+| "manda 5 stickers de gatos no canal" | busca stickers reais (sticker.ly) e envia um a um |
+| "manda um pack de gatos no canal" | envia o **pack inteiro** (`sendNativeStickerPack`) |
+| "manda esses stickers" | usa o tema **vencedor** da última enquete |
+| "muda a foto fixada do canal" (envia a imagem) | muda a foto do canal (`newsletterUpdatePicture`) |
+
+- Os votos são **descodificados de verdade**: a enquete é criada com um
+  `messageSecret` guardado, e cada `pollUpdateMessage` é descodificado com
+  `decryptPollVote`. O secret também é recuperado da mensagem de criação
+  (sobrevive a reinícios do Render). Voto que não der para ler é contado
+  mas marcado como "não consegui ler" — nunca se inventa a opção.
+- Ficheiros: `src/aura/auraCanais.js`, `src/aura/auraBrain.js`,
+  `src/aura/auraExec.js`. Testes: `npm run test:auraetapa6` (41/41).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

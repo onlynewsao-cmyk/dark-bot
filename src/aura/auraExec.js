@@ -255,6 +255,50 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       }
     }
 
+    // ══ v7.13 ETAPA 6 — CANAL DE STICKERS ════════════════
+    case 'adotar_canal': {
+      const canais = require('./auraCanais');
+      return await canais.adotarCanal(sock, texto || arg || '');
+    }
+
+    case 'canal_perguntar': {
+      const canais = require('./auraCanais');
+      return await canais.perguntarSeguidores(sock, arg || texto, texto || arg || '');
+    }
+
+    case 'canal_respostas': {
+      const canais = require('./auraCanais');
+      return await canais.lerRespostasCanal(sock, arg || texto);
+    }
+
+    case 'canal_stickers': {
+      const canais = require('./auraCanais');
+      const raw = (texto || arg || '');
+      const mNum = raw.match(/\b(\d+)\s+stickers?/i);
+      const quantas = mNum ? parseInt(mNum[1], 10) : 5;
+      // tema = o que sobra depois de tirar o verbo e "no canal"
+      const termo = raw
+        .replace(/\b(manda|mandar|envia|enviar)\b/i, '')
+        .replace(/\b\d+\s+stickers?\b/i, '')
+        .replace(/\b(no|pro|para o)\s+canal\b/i, '')
+        .replace(/\b(esses|estes|desses|deles|aqueles|os mesmos)\b/i, '$1')
+        .replace(/\s+/g, ' ').trim();
+      return await canais.enviarStickersCanal(sock, arg || texto, termo, quantas);
+    }
+
+    case 'canal_pack': {
+      const canais = require('./auraCanais');
+      const raw = (texto || arg || '');
+      const termo = raw
+        .replace(/\b(manda|mandar|envia|enviar)\b/i, '')
+        .replace(/\bum|uma\b/i, '')
+        .replace(/\b(pack|pacote)\b/i, '')
+        .replace(/\b(no|pro|para o)\s+canal\b/i, '')
+        .replace(/\b(esses|estes|desses|deles|aqueles)\b/i, '$1')
+        .replace(/\s+/g, ' ').trim();
+      return await canais.enviarPackCanal(sock, arg || texto, termo);
+    }
+
     // ══ v7.11 ETAPA 5 — VER O GRUPO / FALAR COM ALGUÉM ════
     case 'quem_escreveu': {
       const hist = require('./auraHistorico');

@@ -305,8 +305,8 @@ const CAPACIDADES = [
   },
   {
     id: 'canal_foto', nivel: 'dono', arg: 'nenhum', risco: 'moderado',
-    desc: 'Mudar a foto do canal do bot para a imagem enviada',
-    gatilhos: [/\b(muda|mudar|troca|poe|põe|coloca|altera)\b.{0,20}\b(foto|imagem)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(muda|mudar|troca|poe|põe|coloca)\b.{0,16}\b(foto|imagem)\b/],
+    desc: 'Mudar a foto (fixada) do canal do bot para a imagem enviada',
+    gatilhos: [/\b(muda|mudar|troca|poe|põe|coloca|altera)\b.{0,20}\b(foto|imagem|foto fixada)\b.{0,16}\b(canal|newsletter)\b/, /\b(canal|newsletter)\b.{0,16}\b(muda|mudar|troca|poe|põe|coloca)\b.{0,16}\b(foto|imagem|foto fixada)\b/],
   },
   {
     id: 'canal_tirarfoto', nivel: 'dono', arg: 'nenhum', risco: 'moderado',
@@ -322,6 +322,52 @@ const CAPACIDADES = [
     id: 'canal_agendar', nivel: 'dono', arg: 'texto', risco: 'seguro',
     desc: 'Agendar publicações periódicas no canal do bot',
     gatilhos: [/\b(agenda|agendar|programa|todos os dias|diariamente|todas as)\b.{0,30}\bno canal\b/, /\bno canal\b.{0,20}\b(todos os dias|diariamente|de hora em hora|agenda|agendar)\b/],
+  },
+
+  // ══ v7.13 ETAPA 6 — CANAL DE STICKERS ════════════════════
+  {
+    // "gere este canal <link>" tem de vir ANTES de entrar_link,
+    // senão o link dispara o "entrar" simples e não adopta a gestão.
+    id: 'adotar_canal', nivel: 'dono', arg: 'depois', risco: 'moderado',
+    desc: 'Assumir a gestão de um canal por convite (subscribe + guardar)',
+    gatilhos: [
+      /whatsapp\.com\/channel\/[0-9A-Za-z_-]{15,40}[\s\S]{0,60}\b(gere|gerir|assume|assumir|adota|adotar|toma conta|meu canal)\b/,
+      /\b(gere|gerir|assume|assumir|adota|adotar|toma conta)\b.{0,20}\b(canal|newsletter)\b/,
+      /\b(meu canal|canal de stickers|canal do bot)\b.{0,20}(link|convite)?/,
+    ],
+  },
+  {
+    id: 'canal_perguntar', nivel: 'dono', arg: 'texto', risco: 'seguro',
+    desc: 'Perguntar aos seguidores do canal o que querem (enquete ou texto)',
+    gatilhos: [
+      /\b(pergunta|perguntar|questiona|questionar|faz uma enquete|faz um poll)\b.{0,24}\b(seguidores|subscritores|membros do canal|no canal|canal)\b/,
+      /\b(enquete|poll)\b.{0,20}\b(no canal|canal|seguidores)\b/,
+      /\bpergunta no canal\b/,
+    ],
+  },
+  {
+    id: 'canal_respostas', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Ler as respostas/votos do canal (quem respondeu, o que escolheram)',
+    gatilhos: [
+      /\b(v[eê]|le|ler|l[êe]|mostra|mostre)\b.{0,14}\bas respostas?\b.{0,14}\b(do canal|no canal|canal|da enquete|do poll)\b/,
+      /\b(o que|quem)\b.{0,16}\bresponderam\b.{0,14}\b(no canal|canal|na enquete)\b/,
+    ],
+  },
+  {
+    id: 'canal_stickers', nivel: 'dono', arg: 'texto', risco: 'moderado',
+    desc: 'Enviar stickers de um tema para o canal (um a um)',
+    gatilhos: [
+      /\b(manda|mandar|envia|enviar)\b.{0,14}\b(\d+\s+)?stickers?\b.{0,24}\b(no canal|pro canal|para o canal|canal)\b/,
+      /\b(no canal|pro canal|para o canal)\b.{0,16}\bstickers?\b/,
+    ],
+  },
+  {
+    id: 'canal_pack', nivel: 'dono', arg: 'texto', risco: 'moderado',
+    desc: 'Enviar um pack inteiro de stickers de um tema para o canal',
+    gatilhos: [
+      /\b(manda|mandar|envia|enviar)\b.{0,14}\b(pack|pacote)\b.{0,24}\b(no canal|pro canal|para o canal|canal)\b/,
+      /\b(no canal|pro canal|para o canal)\b.{0,16}\b(pack|pacote)\b/,
+    ],
   },
 
   // ══ ENTRAR / PARTILHAR (v6.82) ════════════════════════════
