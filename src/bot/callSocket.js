@@ -299,7 +299,9 @@ class CallBaileys {
           }
           this.setStatus('pairing', { phoneNumber: clean });
           this.log('info', `A gerar pair code de CHAMADAS para ${clean}...`);
-          await delay(2000);
+          // v7.17: espera o websocket abrir (requestPairingCode rebenta
+          // com "Connection Closed" se chamado antes — deixava "sem ligação")
+          await this._esperarWsAberto(30000);
           const code = await Promise.race([
             this.sock.requestPairingCode(clean),
             new Promise((_, r) => setTimeout(() => r(new Error('Timeout pair code (30s)')), 30000)),
@@ -335,6 +337,34 @@ class CallBaileys {
     this.pairingCode = null;
     this.setStatus('disconnected');
     this.log('info', '🔌 Call-Baileys desligado');
+  }
+
+  /**
+   * v7.17 — espera o WEBSOCKET abrir (não a conexão completa 'open').
+   * requestPairingCode → sendNode → sendRawMessage atira "Connection
+   * Closed" se `ws.isOpen` for false; esperar por `connection === 'open'`
+   * não serve porque esse só dispara DEPOIS do emparelhamento terminar.
+   */
+  _esperarWsAberto(timeoutMs = 30000) {
+    const sock = this.sock;
+    if (sock?.ws?.isOpen) return Promise.resolve(true);
+    if (typeof sock?.waitForSocketOpen === 'function') {
+      return Promise.race([
+        sock.waitForSocketOpen().then(() => true),
+        new Promise((_, r) => setTimeout(() => r(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)')), timeoutMs)),
+      ]);
+    }
+    return new Promise((resolve, reject) => {
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        const ws = sock?.ws;
+        if (ws?.isOpen) { clearInterval(timer); resolve(true); }
+        else if (ws?.isClosed || Date.now() - t0 > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)'));
+        }
+      }, 400);
+    });
   }
 
   isConnected() {

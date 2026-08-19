@@ -315,7 +315,18 @@ async function emparelhar(numero, { onEstado } = {}) {
     _pairSocket = sock;
     sock.ev.on('creds.update', saveCreds);
 
-    await new Promise(r => setTimeout(r, 2500));
+    // v7.17: espera o websocket abrir antes de pedir o pair code.
+    // requestPairingCode rebenta com "Connection Closed" se o ws ainda
+    // não abriu — era o que deixava a Voz Real "sem ligação".
+    try {
+      await Promise.race([
+        sock.waitForSocketOpen(),
+        new Promise((_, r) => setTimeout(() => r(new Error('Timeout a abrir ligação')), 30000)),
+      ]);
+    } catch (e) {
+      notificar('falhou', { detalhe: String(e?.message || e) });
+      return { ok: false, motivo: 'sem_ligacao', detalhe: String(e?.message || e) };
+    }
 
     const code = await sock.requestPairingCode(digits);
     _pairCode = code;
