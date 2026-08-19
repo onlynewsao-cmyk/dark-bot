@@ -204,6 +204,25 @@ nada. Corrigido em duas frentes:
 
 - Testes: `npm run test:auraconvite` (17/17).
 
+## ✅ AUDITORIA — "o que faltava" na AURA/assistente (feito — v7.16)
+
+Varrimento completo: 55 capacidades do cérebro ↔ executores, 45 comandos do
+MAPA ↔ comandos reais, permissões por cargo e placeholders. Achado e corrigido:
+
+| Problema | Correcção |
+|---|---|
+| **"traduz X"** mapeava para um comando `traduzir` que **não existia** (o menu até anunciava `!translate` sem handler) | novo case real `traduzir`/`translate` (tradução via IA, deteta "para/em <língua>", códigos en→inglês, etc.) |
+| **"letra da música X"** ia parar ao **jogo da forca** (`letra` é o comando da forca) | entrada removida do MAPA — agora cai para a IA responder as letras |
+| **"rebaixa o joao"** não era detectado (faltava 'rebaixa') | `demote` passou a aceitar `rebaixa\|rebaixar` |
+| **"manda/envia o video X"** não era detectado (só 'baixa') | `video` passou a aceitar `manda\|envia` |
+| **"adiciona 244945280380"** exigia "no grupo" | `add` passou a aceitar número direto |
+| Mensagem falsa "agendamento ainda não está ligado" (a agenda já funciona) | trocada por "não consegui agendar agora" |
+
+- Confirmado: **nenhum** comando do MAPA sem implementação; todas as 55
+  capacidades do cérebro têm executor; todos os comandos têm cargo no
+  `podeExecutar`.
+- Testes: `npm run test:aurafaltava` (19/19).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

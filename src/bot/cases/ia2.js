@@ -131,6 +131,48 @@ module.exports = function registerIA2(registerCase) {
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);
 
+  // ── v7.16: tradução real — a MAPA conversacional mapeava "traduz X"
+  // para um comando que NÃO existia (o menu até anunciava !translate).
+  registerCase(['traduzir', 'translate', 'trad'], async ({ sock, msg, ctx, args, prefix, reply, isOwner }) => {
+    const texto = (args || []).join(' ').trim();
+    if (!texto || texto.length < 2) {
+      return reply(`🌍 Uso: \`${prefix}traduzir <texto> para <língua>\`\n\nEx: *${prefix}traduzir hello para português*\n*${prefix}traduzir olá para inglês*`);
+    }
+    const LINGUAS = {
+      en: 'inglês', english: 'inglês', ingles: 'inglês', inglês: 'inglês',
+      pt: 'português', portugues: 'português', portuguese: 'português', português: 'português',
+      es: 'espanhol', espanhol: 'espanhol', spanish: 'espanhol',
+      fr: 'francês', frances: 'francês', francês: 'francês', french: 'francês',
+      ar: 'árabe', arabe: 'árabe', árabe: 'árabe', arabic: 'árabe',
+      de: 'alemão', alemao: 'alemão', alemão: 'alemão', german: 'alemão',
+      it: 'italiano', italiano: 'italiano', italian: 'italiano',
+      ru: 'russo', russo: 'russo', russian: 'russo',
+      zh: 'chinês', chines: 'chinês', chinês: 'chinês', chinese: 'chinês',
+      ja: 'japonês', japones: 'japonês', japonês: 'japonês', japanese: 'japonês',
+      umbundo: 'umbundo', kimbundu: 'kimbundo', lingala: 'lingala', francesa: 'francês',
+    };
+    // "texto para/em/pra LÍNGUA"
+    let destino = 'português';
+    let conteudo = texto;
+    const m = texto.match(/^(.*?)\s+(?:para|pra|em|to|in)\s+(.+)$/i);
+    if (m) { conteudo = m[1].trim(); destino = m[2].trim().replace(/[?.!]+$/, ''); }
+    const alvoNorm = destino.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    destino = LINGUAS[destino.toLowerCase()] || LINGUAS[alvoNorm] || destino;
+
+    sock.sendMessage(ctx.remoteJid, { react: { text: '🌍', key: msg.key } }).catch(() => {});
+    try {
+      const sys = `És um tradutor. Traduz o texto para ${destino}. Devolve SÓ a tradução, sem aspas, sem "tradução:" nem explicações. Mantém o tom e a formatação.`;
+      const resposta = await ai.chat(conteudo, sys, { userRole: isOwner ? 'owner' : 'free' }, !!isOwner);
+      const limpo = String(sanitizeAI(resposta) || '').trim();
+      if (!limpo || limpo.startsWith('❌')) throw new Error('tradução falhou');
+      await sock.sendMessage(ctx.remoteJid, { text: `🌍 *${destino}:*\n\n${limpo}` }, { quoted: msg });
+      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+    } catch (e) {
+      return reply('❌ Não consegui traduzir agora. Tenta outra vez.');
+    }
+  }, true);
+
   registerCase(['resumir'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const text = args.join(' ').trim();
     if (!text) return reply(`📝 Uso: \`${prefix}resumir <texto longo>\``);

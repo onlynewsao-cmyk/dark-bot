@@ -551,7 +551,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
         const ag = require('./auraAgenda');
         return await ag.criar(pedido, { jid, sock });
       } catch (e) {
-        return { ok: false, msg: 'O agendamento ainda não está ligado — é a próxima fase.' };
+        return { ok: false, msg: 'Não consegui agendar agora. Tenta outra vez.' };
       }
     }
 
