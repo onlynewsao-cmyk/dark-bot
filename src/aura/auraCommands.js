@@ -86,7 +86,7 @@ const MAPA = [
   [/\b(toca|tocar|toque)\b/i, 'play', 'depois'],
   [/\b(p[oõ]e|coloca|manda|quero ouvir|ouvir|bota)\b[^.?!]{0,20}\b(m[úu]sica|som|canção|cancao|mp3)\b/i, 'play', 'depois'],
   [/\b(baixa|baixar|descarrega|download)\b.*\b(m[úu]sica|audio|mp3)\b/i, 'play', 'depois'],
-  [/\b(baixa|baixar|descarrega|download)\b.*\b(v[íi]deo|mp4|filme)\b/i, 'video', 'depois'],
+  [/\b(baixa|baixar|descarrega|download|manda|mandar|envia|enviar)\b.*\b(v[íi]deo|mp4|filme)\b/i, 'video', 'depois'],
   [/\b(procura|pesquisa|acha)\b.*\b(no youtube|youtube|yt)\b/i, 'play', 'depois'],
 
   // figurinhas
@@ -113,7 +113,8 @@ const MAPA = [
   // utilidades
   [/\b(traduz|traduzir)\b/i, 'traduzir', 'depois'],
   [/\b(clima|tempo|previs[ãa]o)\b.*\b(em|de|no|na)\b/i, 'clima', 'depois'],
-  [/\b(letra|l[íi]rica|lyrics)\b.*\b(de|da|do)\b/i, 'letra', 'depois'],
+  // v7.16: "letra da música X" ia parar ao jogo da forca (`letra`).
+  // Não há comando de letras de música — deixa cair para a IA responder.
 
   // ── v6.80: MODERAÇÃO E GRUPO ────────────────────────────────
   // Faltava tudo isto. O Dark dizia "aura fecha o grupo" e ela
@@ -121,7 +122,7 @@ const MAPA = [
   // reconhecida como ordem. O cargo é validado em podeExecutar().
   [/\b(bane|banir|ban|expulsa|expulsar|remove|remover|tira|kick|chuta)\b/i, 'ban', 'nenhum'],
   [/\b(promove|promover|p[õo]e como admin|torna admin|d[aá] admin|adiciona.{0,20}(adm|admin)|quero ser (adm|admin)|me (faz|p[õo]e|mete|d[aá]) .{0,10}(adm|admin)|com (adm|admin))\b/i, 'promote', 'nenhum'],
-  [/\b(despromove|despromover|tira (o |de )?admin|remove (o )?admin)\b/i, 'demote', 'nenhum'],
+  [/\b(despromove|despromover|rebaixa|rebaixar|tira (o |de )?admin|remove (o )?admin)\b/i, 'demote', 'nenhum'],
   [/\b(fecha|fechar|tranca|trancar|silencia)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'fechar', 'nenhum'],
   [/\b(abre|abrir|destranca|destrancar|liberta)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'abrir', 'nenhum'],
   [/\b(marca|marcar|chama|menciona|mencionar)\b[^.?!]{0,15}\b(todos|toda a gente|geral|pessoal)\b/i, 'tagall', 'nenhum'],
@@ -146,6 +147,7 @@ const MAPA = [
   [/\b(muda|mudar|troca|trocar|altera|p[õo]e)\b[^.?!]{0,20}\b(descri[çc][ãa]o|desc)\b/i, 'setdesc', 'depois'],
   [/\b(revoga|revogar|reseta|resetar|novo)\b[^.?!]{0,15}\b(link|convite)\b/i, 'revoke', 'nenhum'],
   [/\b(apaga|apagar|elimina|deleta)\b[^.?!]{0,15}\b(essa|esta|a)?\s*(mensagem|msg)\b/i, 'del', 'nenhum'],
+  [/\b(adiciona|adicionar|p[õo]e|coloca)\b[^.?!]{0,12}\b\+?\d{8,15}\b/i, 'add', 'depois'],
   [/\b(adiciona|adicionar|p[õo]e)\b[^.?!]{0,15}\b(no grupo|ao grupo|aqui)\b/i, 'add', 'depois'],
 
   // ── v6.80: MÉDIA E IA ───────────────────────────────────────
@@ -230,7 +232,7 @@ function detectarComando(texto) {
       : '';
 
     // comandos que precisam de argumento e não o têm → não força
-    const precisaArg = ['play', 'video', 'traduzir', 'clima', 'letra'];
+    const precisaArg = ['play', 'video', 'traduzir', 'clima'];
     if (precisaArg.includes(cmd) && (!args || args.length < 2)) continue;
 
     return { comando: cmd, args };
