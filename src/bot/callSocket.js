@@ -18,6 +18,7 @@ const {
   default: makeWASocket,
   useMultiFileAuthState,
   DisconnectReason,
+  fetchLatestBaileysVersion,
   Browsers,
   makeCacheableSignalKeyStore,
   delay,
@@ -36,6 +37,26 @@ const AUTH_FOLDER = path.join(__dirname, '..', '..', 'data', 'auth-call');
 if (!fs.existsSync(AUTH_FOLDER)) fs.mkdirSync(AUTH_FOLDER, { recursive: true });
 
 const BACKOFF = [3000, 6000, 12000, 24000, 48000];
+
+// v7.18: versão fresca — versão velha quebra o pair code (notificação não cai)
+const WA_VERSION_FALLBACK = [2, 3000, 1043857760];
+let _waVersionCache = null;
+let _waVersionTs = 0;
+async function _resolverWaVersion() {
+  if (_waVersionCache && Date.now() - _waVersionTs < 6 * 60 * 60 * 1000) return _waVersionCache;
+  try {
+    const latest = await Promise.race([
+      fetchLatestBaileysVersion(),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000)),
+    ]);
+    if (latest && Array.isArray(latest.version) && latest.version.length === 3) {
+      _waVersionCache = latest.version;
+      _waVersionTs = Date.now();
+      return _waVersionCache;
+    }
+  } catch { /* usa fallback */ }
+  return WA_VERSION_FALLBACK;
+}
 
 class CallBaileys {
   constructor() {
@@ -152,7 +173,8 @@ class CallBaileys {
       }
 
       const { state, saveCreds } = await this.getAuthState();
-      const version = [2, 3000, 1037641644];
+      const version = await _resolverWaVersion();
+      this.log('info', `📱 WA Version (calls): [${version.join(', ')}]`);
       const logger = pino({ level: 'silent' });
 
       this.sock = makeWASocket({
@@ -302,6 +324,8 @@ class CallBaileys {
           // v7.17: espera o websocket abrir (requestPairingCode rebenta
           // com "Connection Closed" se chamado antes — deixava "sem ligação")
           await this._esperarWsAberto(30000);
+          // v7.18: espera o servidor aceitar o login antes do companion_hello
+          await this._esperarProntoParaPair(30000);
           const code = await Promise.race([
             this.sock.requestPairingCode(clean),
             new Promise((_, r) => setTimeout(() => r(new Error('Timeout pair code (30s)')), 30000)),
@@ -364,6 +388,34 @@ class CallBaileys {
           reject(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)'));
         }
       }, 400);
+    });
+  }
+
+  /**
+   * v7.18 — espera o SERVIDOR aceitar o login (evento qr/pair-device).
+   * Sem isto o companion_hello cai e a notificação do pair code não chega.
+   */
+  _esperarProntoParaPair(timeoutMs = 30000) {
+    const sock = this.sock;
+    if (!sock) return Promise.reject(new Error('socket ausente'));
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const fim = (err) => {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        try { sock.ev.off('connection.update', onUpd); } catch {}
+        err ? reject(err) : resolve(true);
+      };
+      const timer = setTimeout(() => fim(new Error('Timeout: WhatsApp não respondeu (sem ligação)')), timeoutMs);
+      const onUpd = (u) => {
+        if (u?.qr) return fim(null);
+        if (u?.connection === 'open') return fim(null);
+        if (u?.connection === 'close') {
+          const code = u?.lastDisconnect?.error?.output?.statusCode;
+          return fim(new Error(`Ligação fechada antes de emparelhar (${code || '?'})`));
+        }
+      };
+      sock.ev.on('connection.update', onUpd);
     });
   }
 

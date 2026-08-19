@@ -239,6 +239,27 @@ Baileys de chamadas (`callSocket.js`) e Voz Real (`liveVoip.js`).
 
 - Testes: `npm run test:paircode` (10/10).
 
+## ✅ FIX — pair code: notificação não caía + código não conectava (feito — v7.18)
+
+Dois problemas em conjunto:
+
+1. **Versão do WhatsApp desatualizada.** O bot estava fixo em
+   `[2,3000,1037641644]` (de 2 de agosto); a atual é `[2,3000,1043857760]`.
+   O código que devia buscar a versão nova tinha um bug — `fetchLatestBaileysVersion()`
+   devolve `{version, isLatest}` e o código testava `Array.isArray()` (sempre falso),
+   por isso **nunca usava a versão nova** e ainda bloqueava o arranque (foi removido).
+   Versão velha → o WhatsApp rejeita o emparelhamento: **a notificação não cai e o
+   código não conecta**.
+   Agora: `_resolverWaVersion()` busca a versão com timeout de 4s e cache de 6h,
+   com fallback `[2,3000,1043857760]` — no bot principal e no Baileys de chamadas.
+
+2. **Timing do requestPairingCode.** O `companion_hello` só é processado depois de o
+   servidor aceitar o login e pedir o emparelhamento (o fork sinaliza com o evento
+   `qr` / resposta `pair-device`). Chamar antes faz o pedido cair em silêncio.
+   Agora `_esperarProntoParaPair()` espera esse sinal (com timeout), antes de pedir o código.
+
+- Testes: `npm run test:paircode` (15/15).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
