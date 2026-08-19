@@ -98,6 +98,61 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     t('requestPairingCode só depois do ws abrir', ordem[0] === 'ws-open' && ordem[1] === 'pair');
   }
 
+  console.log('\n╔═══ 4. _esperarProntoParaPair (v7.18 — servidor pronto) ═══╗');
+  {
+    const mkEv = () => {
+      const handlers = new Set();
+      return { handlers, on: (e, fn) => handlers.add(fn), off: (e, fn) => handlers.delete(fn), emit: (u) => { for (const fn of handlers) fn(u); } };
+    };
+
+    // 4a. resolve no evento qr (servidor mandou pair-device)
+    const ev = mkEv();
+    bot.sock = { ws: { isOpen: true }, ev };
+    setTimeout(() => ev.emit({ qr: 'ref,keys' }), 40);
+    t('resolve no evento qr (servidor pronto)', (await bot._esperarProntoParaPair(2000)) === true);
+
+    // 4b. resolve se já conectou (open)
+    const ev2 = mkEv();
+    bot.sock = { ws: { isOpen: true }, ev: ev2 };
+    setTimeout(() => ev2.emit({ connection: 'open' }), 40);
+    t('resolve se connection open', (await bot._esperarProntoParaPair(2000)) === true);
+
+    // 4c. rejeita se a ligação fechar (versão rejeitada)
+    const ev3 = mkEv();
+    bot.sock = { ws: { isOpen: true }, ev: ev3 };
+    setTimeout(() => ev3.emit({ connection: 'close', lastDisconnect: { error: { output: { statusCode: 403 } } } }), 40);
+    let fechou = false;
+    try { await bot._esperarProntoParaPair(2000); } catch (e) { fechou = /fechada|403/.test(e.message); }
+    t('rejeita se a ligação fechar (403)', fechou);
+
+    // 4d. timeout se o servidor nunca responder
+    const ev4 = mkEv();
+    bot.sock = { ws: { isOpen: true }, ev: ev4 };
+    let t0 = Date.now();
+    let timeout = false;
+    try { await bot._esperarProntoParaPair(500); } catch (e) { timeout = /Timeout|não respondeu/i.test(e.message); }
+    t('timeout se o servidor nunca responder', timeout && (Date.now() - t0) < 3000);
+  }
+
+  console.log('\n╔═══ 5. Sequência completa do pair code ═══╗');
+  {
+    // ws abre → servidor manda qr → requestPairingCode
+    const ordem = [];
+    const ev = (() => { const s = new Set(); return { on: (e, fn) => s.add(fn), off: (e, fn) => s.delete(fn), fire: (u) => { for (const fn of [...s]) fn(u); } }; })();
+    bot.sock = {
+      ws: { isOpen: false },
+      ev,
+      waitForSocketOpen: async () => { await sleep(30); },
+      requestPairingCode: async () => { ordem.push('pair'); return '1234-5678'; },
+    };
+    // simula: ws abre, e depois o servidor manda qr
+    setTimeout(() => ev.fire({ qr: 'x' }), 150);
+    await bot._esperarWsAberto(2000);
+    await bot._esperarProntoParaPair(2000);
+    await bot.sock.requestPairingCode('244999999999');
+    t('pair só depois do servidor ficar pronto', ordem[0] === 'pair');
+  }
+
   console.log(`\n${fail === 0 ? '🎉' : '⚠️ '} PAIR CODE: ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

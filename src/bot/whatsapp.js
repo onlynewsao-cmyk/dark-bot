@@ -51,6 +51,32 @@ let _attempt = 0;
 const nextDelay = () => BACKOFF[Math.min(_attempt++, BACKOFF.length - 1)];
 const resetDelay = () => { _attempt = 0; };
 
+// ── Versão do WhatsApp Web ───────────────────────────────────
+// v7.18: o pair code é sensível à versão. WhatsApp rejeita versões
+// antigas: a notificação não cai e o código não conecta ("sem ligação").
+// Fallback fixo + fetch com cache (o código antigo lia a resposta
+// errada — `Array.isArray` — e nunca usava a versão nova).
+const WA_VERSION_FALLBACK = [2, 3000, 1043857760];
+let _waVersionCache = null;
+let _waVersionTs = 0;
+async function _resolverWaVersion(log) {
+  if (_waVersionCache && Date.now() - _waVersionTs < 6 * 60 * 60 * 1000) return _waVersionCache;
+  try {
+    const latest = await Promise.race([
+      fetchLatestBaileysVersion(),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000)),
+    ]);
+    if (latest && Array.isArray(latest.version) && latest.version.length === 3) {
+      _waVersionCache = latest.version;
+      _waVersionTs = Date.now();
+      return _waVersionCache;
+    }
+  } catch (e) {
+    if (log) log('warn', `Versão WA não verificada (${e?.message?.slice(0, 40)}), uso fallback`);
+  }
+  return WA_VERSION_FALLBACK;
+}
+
 class WhatsAppBot {
   constructor() {
     this.io = null;
@@ -177,6 +203,43 @@ class WhatsAppBot {
     });
   }
 
+  /**
+   * v7.18 — espera o SERVIDOR ficar pronto para o pair code.
+   *
+   * O websocket aberto não chega: o requestPairingCode (companion_hello)
+   * só é processado depois de o servidor aceitar o login e pedir o
+   * emparelhamento — o que o fork sinaliza com o evento `qr`
+   * (resposta `pair-device`). Chamar antes deixa o pedido cair e a
+   * notificação nunca chega ao telemóvel.
+   */
+  _esperarProntoParaPair(timeoutMs = 30000) {
+    const sock = this.sock;
+    if (!sock) return Promise.reject(new Error('socket ausente'));
+    return new Promise((resolve, reject) => {
+      let done = false;
+      const fim = (err) => {
+        if (done) return; done = true;
+        clearTimeout(timer);
+        try { sock.ev.off('connection.update', onUpd); } catch {}
+        err ? reject(err) : resolve(true);
+      };
+      const timer = setTimeout(() => fim(new Error('Timeout: WhatsApp não respondeu (sem ligação)')), timeoutMs);
+      const onUpd = (u) => {
+        if (u?.qr) return fim(null);                        // servidor pronto (pair-device)
+        if (u?.connection === 'open') return fim(null);     // já emparelhado
+        if (u?.connection === 'close') {
+          const code = u?.lastDisconnect?.error?.output?.statusCode;
+          return fim(new Error(`Ligação fechada antes de emparelhar (${code || '?'})`));
+        }
+      };
+      sock.ev.on('connection.update', onUpd);
+      // se o ws já abriu e o servidor já mandou pair-device, resolve já
+      if (sock?.ws?.isOpen) {
+        // não resolve na hora: o qr/close chega nos próximos ms
+      }
+    });
+  }
+
   async start({ mode = 'qr', phoneNumber = null, fresh = false } = {}) {
     const cleanMode = mode === 'pair' ? 'pair' : 'qr';
 
@@ -202,8 +265,8 @@ class WhatsAppBot {
       const { state, saveCreds } = await this.getAuthState();
 
       // Versão estável recomendada (WhatsApp Web fix)
-      // v1037641644 - actualizado para evitar erro 405 (Connection Failure)
-      const version = [2, 3000, 1037641644];
+      // v7.18: versão fresca (cache 6h) — versão velha quebra o pair code
+      const version = await _resolverWaVersion((l, m) => this.log(l, m));
       this.log('info', `📱 WA Version: [${version.join(', ')}]`);
       const logger = pino({ level: 'silent' });
 
@@ -422,6 +485,10 @@ class WhatsAppBot {
           // v7.17: espera o WEBSOCKET abrir antes de pedir o código
           // (não espera a conexão completa — essa só vem após emparelhar)
           await this._esperarWsAberto(30000);
+
+          // v7.18: espera o SERVIDOR aceitar o login (evento qr/pair-device).
+          // Sem isto o companion_hello cai e a notificação não chega.
+          await this._esperarProntoParaPair(30000);
 
           // Pede o código imediatamente (como na documentação Baileys)
           const code = await Promise.race([
