@@ -348,16 +348,22 @@ async function emparelhar(numero, { onEstado } = {}) {
     _pairCode = code;
     notificar('codigo', { pairingCode: code });
 
+    // v7.20: depois do pair-success o servidor FECHA a ligação de propósito
+    // (emite `isNewLogin` e espera o cliente reiniciar). Antes tratávamos
+    // esse close como erro → o VoIP nunca se religava e o telemóvel ficava
+    // preso a "a vincular". Agora o isNewLogin É o sinal de sucesso.
     await new Promise((resolve) => {
       let done = false;
+      let novoLogin = false;
       const fim = (s, extra) => { if (done) return; done = true; notificar(s, extra); resolve(); };
       sock.ev.on('connection.update', (u) => {
-        if (u.connection === 'open') {
+        const d = _decidirEmparelhar(u, novoLogin);
+        if (d.r === 'sucesso') {
+          if (d.novoLogin) novoLogin = true;
           try { saveCreds(); } catch {}
           fim('emparelhado');
-        } else if (u.connection === 'close') {
-          const sc = u.lastDisconnect?.error?.output?.statusCode;
-          _ultimoErro = 'fechou (' + (sc || '?') + ')';
+        } else if (d.r === 'erro') {
+          _ultimoErro = 'fechou (' + (d.code || '?') + ')';
           fim('erro', { erro: _ultimoErro });
         }
       });
@@ -581,8 +587,59 @@ function desligar() {
   _salvarNoMongo().catch(() => {});
 }
 
+/**
+ * v7.20 — decide o que fazer com um connection.update durante o emparelhamento.
+ * O par é: isNewLogin/open = sucesso; close só é erro se ainda não houve
+ * isNewLogin (o close pós-pair-success é o "restart" esperado).
+ */
+function _decidirEmparelhar(u, jaViuNovoLogin) {
+  if (u?.isNewLogin) return { r: 'sucesso', novoLogin: true };
+  if (u?.connection === 'open') return { r: 'sucesso' };
+  if (u?.connection === 'close') {
+    return jaViuNovoLogin
+      ? { r: 'ignora' }
+      : { r: 'erro', code: u.lastDisconnect?.error?.output?.statusCode };
+  }
+  return { r: 'ignora' };
+}
+
+/**
+ * v7.20 — desliga o aparelho do WhatsApp (logout de verdade).
+ *
+ * O VoipClient.disconnect() só faz `sock.end()` — o aparelho ficava
+ * para sempre na lista "Aparelhos conectados" do WhatsApp ("não fecha
+ * a conexão"). Aqui abre-se uma socket com as creds guardadas e chama-se
+ * sock.logout(), que remove o aparelho do servidor.
+ */
+async function _logoutWhatsApp() {
+  try {
+    if (!temSessao()) return false;
+    const b = await import('@whiskeysockets/baileys');
+    const { state } = await b.useMultiFileAuthState(AUTH_DIR);
+    if (!state.creds.registered) return false;
+
+    const sock = b.makeWASocket({ auth: state, logger: _silentLogger(), emitOwnEvents: true });
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('timeout a abrir para logout')), 20000);
+      sock.ev.on('connection.update', (u) => {
+        if (u.connection === 'open') { clearTimeout(t); resolve(); }
+        else if (u.connection === 'close') { clearTimeout(t); reject(new Error('fechou antes do logout')); }
+      });
+    });
+    await sock.logout();
+    try { sock.ev.removeAllListeners(); } catch {}
+    try { sock.end(); } catch {}
+    return true;
+  } catch (e) {
+    console.warn('[VoIP] logout:', String(e?.message || e).slice(0, 100));
+    return false;
+  }
+}
+
 /** Desliga E apaga a sessão (disco + Mongo) — equivale a "reset" do VoIP. */
 async function apagarSessao() {
+  // v7.20: primeiro desliga o aparelho no WhatsApp (senão fica lá pendurado)
+  await _logoutWhatsApp().catch(() => {});
   _encerrar();
   try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}
   _sessaoNoMongo = false;
@@ -609,5 +666,7 @@ module.exports = {
   _salvarNoMongo,
   _restaurarDoMongo,
   _capturarQr,
+  _decidirEmparelhar,
+  _logoutWhatsApp,
   AUTH_DIR,
 };

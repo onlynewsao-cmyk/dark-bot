@@ -276,6 +276,24 @@ tinha conexão": não dava para escanear.
 
 - Testes: `npm run test:voipqr` (6/6).
 
+## ✅ FIX — VoIP: "não fecha a conexão" (feito — v7.20)
+
+Dois bugs:
+
+1. **O emparelhamento tratava o fecho pós-pair-success como erro.** O
+   servidor emite `isNewLogin` e FECHA a ligação de propósito (espera o
+   cliente reiniciar). O código esperava `connection === 'open'` (que não
+   chega nessa socket) e marcava erro → o VoIP nunca se religava e o
+   telemóvel ficava preso a "a vincular". Agora `isNewLogin` é o sinal de
+   sucesso (`_decidirEmparelhar`) e o close seguinte é ignorado.
+
+2. **"Desligar Voz Real" não fazia logout** — só `sock.end()`, e o aparelho
+   ficava para sempre em "Aparelhos conectados" do WhatsApp. Agora
+   `apagarSessao()` chama `_logoutWhatsApp()` (abre a socket com as creds e
+   faz `sock.logout()`) antes de apagar disco + Mongo.
+
+- Testes: `npm run test:voipfechar` (8/8).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
