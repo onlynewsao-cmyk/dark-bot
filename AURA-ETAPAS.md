@@ -223,6 +223,22 @@ MAPA ↔ comandos reais, permissões por cargo e placeholders. Achado e corrigid
   `podeExecutar`.
 - Testes: `npm run test:aurafaltava` (19/19).
 
+## ✅ FIX — pair code "sem ligação" (feito — v7.17)
+
+**Bug**: a última alteração ao pair code (commit `da656f1`) trocou a espera
+pela ligação por um `delay(2000)` cego. O `requestPairingCode` → `sendNode` →
+`sendRawMessage` atira **"Connection Closed"** se o websocket ainda não abriu —
+e no Render free o websocket muitas vezes demora mais de 2s. O bot ficava
+"sem ligação" e o código nunca aparecia.
+
+**Correcção**: novo `_esperarWsAberto()` — espera o **websocket** abrir
+(`sock.waitForSocketOpen()` do Baileys, com timeout), **não** a conexão
+completa `connection === 'open'` (essa só dispara depois de emparelhar).
+Aplicado nos 3 sítios que emparelham: bot principal (`whatsapp.js`),
+Baileys de chamadas (`callSocket.js`) e Voz Real (`liveVoip.js`).
+
+- Testes: `npm run test:paircode` (10/10).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

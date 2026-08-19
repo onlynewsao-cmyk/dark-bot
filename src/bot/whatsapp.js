@@ -138,25 +138,42 @@ class WhatsAppBot {
    * @returns {Promise<boolean>}
    */
   _waitForSocketReady(timeoutMs = 30000) {
-    if (this.sock?.ws?.readyState === 1) return Promise.resolve(true);
+    return this._esperarWsAberto(timeoutMs);
+  }
+
+  /**
+   * v7.17 — espera o WEBSOCKET abrir (não a conexão completa 'open').
+   *
+   * O pair code exige isto: requestPairingCode → sendNode →
+   * sendRawMessage atira "Connection Closed" se `ws.isOpen` for false.
+   * A última alteração ao pair code (da656f1) trocou a espera por um
+   * `delay(2000)` cego — no Render free o websocket muitas vezes ainda
+   * não abriu aos 2s, o pedido rebentava e o bot ficava "sem ligação".
+   *
+   * `waitForSocketOpen()` do Baileys devolve quando o ws abre e rejeita
+   * se fechar. Esperar por `connection === 'open'` NÃO serve: esse só
+   * dispara DEPOIS do emparelhamento terminar (loop infinito).
+   */
+  _esperarWsAberto(timeoutMs = 30000) {
+    const sock = this.sock;
+    if (sock?.ws?.isOpen) return Promise.resolve(true);
+    if (typeof sock?.waitForSocketOpen === 'function') {
+      return Promise.race([
+        sock.waitForSocketOpen().then(() => true),
+        new Promise((_, r) => setTimeout(() => r(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)')), timeoutMs)),
+      ]);
+    }
+    // fallback: poll do ws cru
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.sock.ev.off('connection.update', onUpdate);
-        reject(new Error('Timeout a esperar socket ficar pronto'));
-      }, timeoutMs);
-      const onUpdate = (update) => {
-        if (update.connection === 'open') {
-          clearTimeout(timer);
-          this.sock.ev.off('connection.update', onUpdate);
-          resolve(true);
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        const ws = sock?.ws;
+        if (ws?.isOpen) { clearInterval(timer); resolve(true); }
+        else if (ws?.isClosed || Date.now() - t0 > timeoutMs) {
+          clearInterval(timer);
+          reject(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)'));
         }
-        if (update.connection === 'close') {
-          clearTimeout(timer);
-          this.sock.ev.off('connection.update', onUpdate);
-          reject(new Error('Socket fechou antes de ficar pronto'));
-        }
-      };
-      this.sock.ev.on('connection.update', onUpdate);
+      }, 400);
     });
   }
 
@@ -402,8 +419,9 @@ class WhatsAppBot {
           this.setStatus('pairing', { phoneNumber: clean });
           this.log('info', `A gerar pair code para ${clean}...`);
 
-          // Pequena pausa para o socket inicializar (não espera conexão abrir)
-          await delay(2000);
+          // v7.17: espera o WEBSOCKET abrir antes de pedir o código
+          // (não espera a conexão completa — essa só vem após emparelhar)
+          await this._esperarWsAberto(30000);
 
           // Pede o código imediatamente (como na documentação Baileys)
           const code = await Promise.race([
