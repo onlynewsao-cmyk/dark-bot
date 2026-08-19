@@ -260,6 +260,22 @@ Dois problemas em conjunto:
 
 - Testes: `npm run test:paircode` (15/15).
 
+## ✅ FIX — QR do VoIP não aparecia no dashboard (feito — v7.19)
+
+**Bug**: o QR da Voz Real era capturado como **string crua** (`2@...`), mas o
+dashboard mostra `<img src="...">` — imagem partida. O QR aparecia no terminal
+(ASCII via qrcode-terminal) e o dashboard ficava vazio, por isso o VoIP "não
+tinha conexão": não dava para escanear.
+
+**Correcção**:
+- `_capturarQr` agora converte o QR cru em **data URL** (`qrcode.toDataURL` —
+  o mesmo pacote que o bot principal usa) antes de o guardar em `getStatus().qr`.
+- O terminal continua a imprimir o ASCII (fallback intacto).
+- `disponivel()` já não cola um "false" para sempre (volta a tentar).
+- `emparelhar` deixa o handshake assentar 2s antes do `companion_hello`.
+
+- Testes: `npm run test:voipqr` (6/6).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

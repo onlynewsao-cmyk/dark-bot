@@ -62,15 +62,17 @@ function getStatus() {
 let _voipDisponivel = null;
 let _sessaoNoMongo = false;
 async function disponivel() {
-  if (_voipDisponivel !== null) return _voipDisponivel;
+  // v7.19: nunca cola um "false" para sempre — se a 1.ª tentativa falhou
+  // (módulo a carregar, disco), a próxima volta a tentar.
   try {
     await _carregarCliente();
     _voipDisponivel = true;
+    return true;
   } catch (e) {
     _voipDisponivel = false;
     _ultimoErro = 'baileys-caller não instalado (npm run setup:voip)';
+    return false;
   }
-  return _voipDisponivel;
 }
 
 /* ══════════════════════════ ffmpeg + logger ══════════════════════════ */
@@ -113,21 +115,32 @@ async function _carregarCliente() {
  * O Node partilha o cache entre require() e import() para módulos CJS,
  * por isso patchar o .generate aqui captura o QR e deixa-o chegar ao
  * dashboard — e continua a imprimir no log como fallback.
+ *
+ * v7.19: o QR cru (string "2@...") não serve de src de <img>. O dashboard
+ * precisa de um data URL — converte-se aqui com o pacote `qrcode` (o mesmo
+ * que o bot principal usa). Antes, o QR aparecia no terminal (ASCII) e o
+ * dashboard ficava com a imagem partida = "não consigo conectar o VoIP".
  */
 function _capturarQr(onQr) {
   try {
     const qrt = require('qrcode-terminal');
-    if (qrt && !qrt.__darkbot_patched) {
-      const orig = qrt.generate;
-      qrt.generate = function (qrData, opts, cb) {
-        try {
-          _qr = String(qrData || '');
-          if (typeof onQr === 'function') onQr(_qr);
-        } catch {}
-        return orig.call(this, qrData, opts, cb);
-      };
-      qrt.__darkbot_patched = true;
-    }
+    if (!qrt || qrt.__darkbot_patched) return;
+    const QRCode = require('qrcode');
+    const orig = qrt.generate;
+    qrt.generate = function (qrData, opts, cb) {
+      // continua a imprimir no terminal (fallback)
+      const res = orig.call(this, qrData, opts, cb);
+      try {
+        QRCode.toDataURL(String(qrData || ''), { width: 420, margin: 2, color: { dark: '#0a0a0a', light: '#ffffff' } })
+          .then((url) => {
+            _qr = url;
+            if (typeof onQr === 'function') onQr(url);
+          })
+          .catch(() => { _qr = String(qrData || ''); });
+      } catch { _qr = String(qrData || ''); }
+      return res;
+    };
+    qrt.__darkbot_patched = true;
   } catch {}
 }
 
@@ -327,6 +340,9 @@ async function emparelhar(numero, { onEstado } = {}) {
       notificar('falhou', { detalhe: String(e?.message || e) });
       return { ok: false, motivo: 'sem_ligacao', detalhe: String(e?.message || e) };
     }
+    // v7.19: deixa o handshake de ruído assentar antes do companion_hello
+    // (o exemplo oficial do Baileys espera ~5s; 2s chega e é mais rápido)
+    await new Promise(r => setTimeout(r, 2000));
 
     const code = await sock.requestPairingCode(digits);
     _pairCode = code;
@@ -592,5 +608,6 @@ module.exports = {
   _criarEscuta,
   _salvarNoMongo,
   _restaurarDoMongo,
+  _capturarQr,
   AUTH_DIR,
 };
