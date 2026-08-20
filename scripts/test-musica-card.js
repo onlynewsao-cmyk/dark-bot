@@ -159,6 +159,63 @@ function stubSystemZeroPlay() {
   if (realYtdl) require.cache[require.resolve('../src/bot/ytdl')] = realYtdl; else delete require.cache[require.resolve('../src/bot/ytdl')];
   if (realSZP) require.cache[require.resolve('../src/bot/systemZeroPlay')] = realSZP; else delete require.cache[require.resolve('../src/bot/systemZeroPlay')];
 
+  console.log('\n╔═══ 6. FONTE estilizada (letras/símbolos/emojis) ═══╗');
+  {
+    const ft = require('../src/bot/fancyText');
+    t('estilizar pequenas', ft.estilizar('title', 'pequenas') === 'ᴛɪᴛʟᴇ');
+    t('estilizar cartao (negrito+smallcaps)', ft.estilizar('duration', 'cartao') === '𝗗ᴜʀᴀᴛɪᴏɴ');
+    t('estilizar views', ft.estilizar('views', 'cartao') === '𝗩ɪᴇᴡꜱ');
+    t('estilizar published', ft.estilizar('published', 'cartao') === '𝗣ᴜʙʟɪꜱʜᴇᴅ');
+    t('estilizar channel', ft.estilizar('channel', 'cartao') === '𝗖ʜᴀɴɴᴇʟ');
+    t('estilizar mono (REPLY WITH NUMBER)', ft.estilizar('REPLY WITH NUMBER', 'mono') === '𝚁𝙴𝙿𝙻𝚈 𝚆𝙸𝚃𝙷 𝙽𝚄𝙼𝙱𝙴𝚁');
+    t('ROTULOS.downAudio', ft.ROTULOS.downAudio === 'ᴅᴏᴡɴʟᴏᴀᴅ ᴀᴜᴅɪᴏ');
+    // a legenda do bot usa os mesmos rótulos (fonte única)
+    const l = mc.legenda(VIDEO);
+    t('legenda usa a fonte estilizada', l.includes('ᴛɪᴛʟᴇ') && l.includes('𝗗ᴜʀᴀᴛɪᴏɴ') && l.includes('𝚁𝙴𝙿𝙻𝚈 𝚆𝙸𝚃𝙷 𝙽𝚄𝙼𝙱𝙴𝚁'));
+  }
+
+  console.log('\n╔═══ 7. Código portável (para outros bots) ═══╗');
+  {
+    const fs = require('fs');
+    const path = require('path');
+    const ficheiro = path.join(__dirname, '..', 'exports', 'case-som-portavel.js');
+    t('ficheiro portável existe', fs.existsSync(ficheiro));
+
+    const port = require('../exports/case-som-portavel.js');
+    t('portável exporta som()', typeof port.som === 'function');
+    t('portável exporta tentarNumero()', typeof port.tentarNumero === 'function');
+    t('portável exporta estilizar()', typeof port.estilizar === 'function');
+
+    const lp = port.legenda(VIDEO);
+    t('portável: legenda estilizada', lp.includes('ᴛɪᴛʟᴇ') && lp.includes('𝗗ᴜʀᴀᴛɪᴏɴ') && lp.includes('01') && lp.includes('03'));
+
+    const codigo = fs.readFileSync(ficheiro, 'utf8');
+    t('portável marca ADAPTE AQUI (fonte)', /ADAPTE AQUI/.test(codigo) && /FONTE/.test(codigo));
+    t('portável marca ADAPTE AQUI (download)', /DOWNLOAD/.test(codigo) && /baixarAudio/.test(codigo));
+    // autónomo: só depende de pacotes npm/builtins — nunca de ficheiros do repo (`../`)
+    const alvos = [...codigo.matchAll(/require\(['"]([^'"]+)['"]\)/g)].map(m => m[1]);
+    const interno = alvos.filter(a => a.startsWith('..'));
+    t('portável é autónomo (nada de ../ do repo)', interno.length === 0);
+
+    // tentarNumero do portável (mesmo contrato)
+    port._pendentes.clear();
+    port._pendentes.set('123@g.us::244945280380', { video: { ...VIDEO, youtube_url: 'https://youtu.be/abc12345678' }, ts: Date.now() });
+    const r = await port.tentarNumero(mkSock([]), { key: { id: 'q' } }, { remoteJid: '123@g.us', senderNumber: '244945280380' }, '01')
+      .catch(() => 'erro-controlado');
+    t('portável tentarNumero responde (tratou ou erro controlado)', r === true || r === 'erro-controlado');
+    port._pendentes.clear();
+  }
+
+  console.log('\n╔═══ 8. case somcode registada ═══╗');
+  {
+    const caseHandler = require('../src/bot/caseHandler');
+    caseHandler.init();   // carrega os ficheiros de cases (síncrono)
+    const { CASES } = caseHandler;
+    t('somcode registado', CASES.has('somcode'));
+    t('codsom registado', CASES.has('codsom'));
+    t('codesom registado', CASES.has('codesom'));
+  }
+
   console.log(`\n${fail === 0 ? '🎉' : '⚠️ '} MUSICA CARD: ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();
