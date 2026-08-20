@@ -317,6 +317,17 @@ async function _handleInner(sock, msg) {
 
   const ctx = getSenderInfo(msg);
   try { require('./stickerWm').bind(ctx); } catch {}
+
+  // ── v7.21: resposta por número do cartão de música (som) ─────────
+  // "01"/"02"/"03" (ou 1/2/3) logo após um !som — sem prefixo, mas só
+  // actua se houver um cartão pendente para este chat+utilizador.
+  try {
+    if (/^0?[1-3](?:\s|$)/.test(text)) {
+      const musicaCard = require('./musicaCard');
+      if (await musicaCard.tentarNumero(sock, msg, ctx, text)) return true;
+    }
+  } catch {}
+
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
 
   // ── Interceptar cliques do change theme (lista interativa) ──────────
