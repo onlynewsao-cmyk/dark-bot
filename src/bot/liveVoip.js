@@ -619,14 +619,21 @@ async function _logoutWhatsApp() {
     if (!state.creds.registered) return false;
 
     const sock = b.makeWASocket({ auth: state, logger: _silentLogger(), emitOwnEvents: true });
-    await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('timeout a abrir para logout')), 20000);
+
+    // v7.20: tudo com tecto rígido — o logout NUNCA pode pendurar a rota
+    const abrir = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('timeout a abrir para logout')), 12000);
       sock.ev.on('connection.update', (u) => {
         if (u.connection === 'open') { clearTimeout(t); resolve(); }
         else if (u.connection === 'close') { clearTimeout(t); reject(new Error('fechou antes do logout')); }
       });
     });
-    await sock.logout();
+    await Promise.race([abrir, new Promise((_, r) => setTimeout(() => r(new Error('timeout logout')), 15000))]);
+
+    await Promise.race([
+      sock.logout(),
+      new Promise((_, r) => setTimeout(() => r(new Error('timeout no logout()')), 15000)),
+    ]);
     try { sock.ev.removeAllListeners(); } catch {}
     try { sock.end(); } catch {}
     return true;
@@ -638,7 +645,13 @@ async function _logoutWhatsApp() {
 
 /** Desliga E apaga a sessão (disco + Mongo) — equivale a "reset" do VoIP. */
 async function apagarSessao() {
-  // v7.20: primeiro desliga o aparelho no WhatsApp (senão fica lá pendurado)
+  // v7.20: PRIMEIRO desliga o cliente/pairSocket locais — o logout abre uma
+  // socket nova e, com o _client ainda ligado nas mesmas creds, dava 440
+  // (conflito) e o logout nunca completava → ficava "processando".
+  _encerrar();
+
+  // v7.20: desliga o aparelho no WhatsApp (senão fica lá pendurado).
+  // Melhor esforço — se falhar, o reset local segue na mesma.
   await _logoutWhatsApp().catch(() => {});
   _encerrar();
   try { fs.rmSync(AUTH_DIR, { recursive: true, force: true }); } catch {}

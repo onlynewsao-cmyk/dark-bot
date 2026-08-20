@@ -294,6 +294,27 @@ Dois bugs:
 
 - Testes: `npm run test:voipfechar` (8/8).
 
+## ✅ case 'som' — cartão de música com capa (feito — v7.21)
+
+Novo comando **descartável** tipo `play`: `!som <música>` (aliases `song`,
+`faixa`, `track`, `musik`, `disco`).
+
+- Mostra a **CAPA da música** (imagem) + título, duração, views, publicado
+  e canal.
+- O utilizador responde com o número:
+  - **01** → baixa áudio (MP3)
+  - **02** → baixa documento (.mp3)
+  - **03** → baixa voz (nota de voz PTT, convertida para opus)
+- Estado pendente em memória (15 min) — "descartável", por chat + utilizador.
+- Intercepção da resposta por número sem prefixo no `commandHandler`.
+
+## ✅ FIX — VoIP: "Desligar" ficava processando (v7.20.1)
+
+O logout abria uma socket nova **com as mesmas creds do `_client` ainda
+ligado** → 440 (conflito) e o logout nunca completava. Agora `apagarSessao()`
+faz `_encerrar()` **antes** do `_logoutWhatsApp()`, e o logout tem tecto rígido
+de tempo (nunca pendura a rota).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
