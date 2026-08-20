@@ -108,24 +108,29 @@ async function buscar(query) {
   };
 }
 
-/** Legenda do cartão (o layout que o Dono pediu). */
+/**
+ * Legenda do cartão (o layout que o Dono pediu).
+ * Os rótulos vêm do fancyText.ROTULOS — para mudar só a "fonte"
+ * (letras/símbolos/emojis), edita src/bot/fancyText.js.
+ */
 function legenda(v) {
+  const R = require('./fancyText').ROTULOS;
   const views = Number(v.views || 0).toLocaleString('en-US');
   const linhas = [
-    `☘️ *ᴛɪᴛʟᴇ* : _${v.title || '—'}_`,
+    `☘️ *${R.titulo}* : _${v.title || '—'}_`,
   ];
-  if (v.duration) linhas.push(`▫️*⏱️ 𝗗ᴜʀᴀᴛɪᴏɴ* ➟ _${v.duration}_`);
-  if (views !== '0') linhas.push(`▫️*👀 𝗩ɪᴇᴡꜱ* ➟ _${views}_`);
-  if (v.ago) linhas.push(`▫️*📅 𝗣ᴜʙʟɪꜱʜᴇᴅ* ➟ _${v.ago}_`);
-  if (v.author) linhas.push(`▫️*🎤 𝗖ʜᴀɴɴᴇʟ* ➟ _${v.author}_`);
+  if (v.duration) linhas.push(`▫️*⏱️ ${R.duracao}* ➟ _${v.duration}_`);
+  if (views !== '0') linhas.push(`▫️*👀 ${R.views}* ➟ _${views}_`);
+  if (v.ago) linhas.push(`▫️*📅 ${R.publicado}* ➟ _${v.ago}_`);
+  if (v.author) linhas.push(`▫️*🎤 ${R.canal}* ➟ _${v.author}_`);
 
   linhas.push(
     '',
-    '*☱ 🔢 𝚁𝙴𝙿𝙻𝚈 𝚆𝙸𝚃𝙷 𝙽𝚄𝙼𝙱𝙴𝚁 ☱*',
+    `*☱ 🔢 ${R.replyNum} ☱*`,
     '',
-    '*01 ❯❯ ᴅᴏᴡɴʟᴏᴀᴅ ᴀᴜᴅɪᴏ🎧*',
-    '*02 ❯❯ ᴅᴏᴡɴʟᴏᴀᴅ ᴅᴏᴄᴜᴍᴇɴᴛ📁*',
-    '*03 ❯❯ ᴅᴏᴡɴʟᴏᴀᴅ ᴠᴏɪᴄᴇ🎤*',
+    `*01 ❯❯ ${R.downAudio}🎧*`,
+    `*02 ❯❯ ${R.downDoc}📁*`,
+    `*03 ❯❯ ${R.downVoice}🎤*`,
   );
   return linhas.join('\n');
 }

@@ -294,7 +294,7 @@ Dois bugs:
 
 - Testes: `npm run test:voipfechar` (8/8).
 
-## ✅ case 'som' — cartão de música com capa (feito — v7.21)
+## ✅ case 'som' — cartão de música com capa (feito — v7.22)
 
 Novo comando **descartável** tipo `play`: `!som <música>` (aliases `song`,
 `faixa`, `track`, `musik`, `disco`).
@@ -307,6 +307,20 @@ Novo comando **descartável** tipo `play`: `!som <música>` (aliases `song`,
   - **03** → baixa voz (nota de voz PTT, convertida para opus)
 - Estado pendente em memória (15 min) — "descartável", por chat + utilizador.
 - Intercepção da resposta por número sem prefixo no `commandHandler`.
+
+**v7.22 — fonte + código portável:**
+- `src/bot/fancyText.js` — letras/símbolos/signos estilizados (small caps,
+  negrito matemático, monospace matemático). Os rótulos do cartão
+  (ᴛɪᴛʟᴇ, 𝗗ᴜʀᴀᴛɪᴏɴ, 𝗩ɪᴇᴡꜱ, 𝚁𝙴𝙿𝙻𝚈 𝚆𝙸𝚃𝙷 𝙽𝚄𝙼𝙱𝙴𝚁…) saem de `ROTULOS` —
+  para mudar só a "fonte", edita esse ficheiro.
+- `!somcode` (aliases `codsom`, `codesom`) — envia o **código COMPLETO** da
+  case (`exports/case-som-portavel.js`) como ficheiro .js, portável para
+  outros bots: autónomo, com "ADAPTE AQUI" marcado (fonte, download, prefixo).
+  Dependências: `yt-search`, `@distube/ytdl-core`, `ffmpeg-static`.
+
+**Verificado com dados reais (mídia entregue):**
+- busca real → MP3 5,8 MB (ID3) via yt-dlp, com capa JPEG;
+- 01 → áudio `ptt:false` · 02 → documento .mp3 · 03 → opus `ptt:true` (magic `OggS`).
 
 ## ✅ FIX — VoIP: "Desligar" ficava processando (v7.20.1)
 
