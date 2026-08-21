@@ -56,6 +56,7 @@ async function dynSub(sock, msg, ctx, config, category) {
   const textBody = RE.renderSubmenu(t, meta.title.replace(/^[^\s]+\s/, ''), txtCmds.map(it => ({
     name: it.cmd,
     desc: it.desc || '',
+    group: it.subcat || undefined,   // v7.24: secção dentro do submenu
   })), { prefix: p, botName });
   
   // Lista de seleção
@@ -193,8 +194,10 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'zoeira');
   });
   
+  // v7.24: rank<adjetivo> passou para zoeira (medidores) — o submenu
+  // 'rank' já não existe; menurank abre os medidores/rankings.
   registerCase(['menurank', 'menuranking'], async ({ sock, msg, ctx, config }) => {
-    return dynSub(sock, msg, ctx, config, 'rank');
+    return dynSub(sock, msg, ctx, config, 'zoeira');
   });
   
       registerCase(['submenuRPG', 'menurpg', 'menurpg2'], async ({ sock, msg, ctx, config }) => {

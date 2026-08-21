@@ -65,11 +65,35 @@ function renderSubmenu(theme, title, commands = [], opts = {}) {
   const icon = t.icon || '🕸️';
   const prefix = opts.prefix || '!';
 
-  const lines = commands.map(c => {
-    const cmd = `${prefix}${c.name || c.cmd || ''}`;
-    const desc = c.desc || c.description || getDefaultDesc(c.cmd || c.name);
-    return `*${cmd}* — _${desc}_`;
-  });
+  // v7.24: agrupa por sub-categoria (group) — o submenu deixa de ser uma
+  // lista plana gigante e passa a ter secções com título.
+  let lines;
+  if (commands.some(c => c.group)) {
+    const grupos = new Map();
+    for (const c of commands) {
+      const g = c.group || 'Geral';
+      if (!grupos.has(g)) grupos.set(g, []);
+      grupos.get(g).push(c);
+    }
+    lines = [];
+    let primeiro = true;
+    for (const [g, itens] of grupos) {
+      if (!primeiro) lines.push('');
+      primeiro = false;
+      lines.push(`*« ${g} »*`);
+      for (const c of itens) {
+        const cmd = `${prefix}${c.name || c.cmd || ''}`;
+        const desc = c.desc || c.description || getDefaultDesc(c.cmd || c.name);
+        lines.push(`*${cmd}* — _${desc}_`);
+      }
+    }
+  } else {
+    lines = commands.map(c => {
+      const cmd = `${prefix}${c.name || c.cmd || ''}`;
+      const desc = c.desc || c.description || getDefaultDesc(c.cmd || c.name);
+      return `*${cmd}* — _${desc}_`;
+    });
+  }
   
   function getDefaultDesc(cmd) {
     if (!cmd) return 'Comando do bot';

@@ -349,6 +349,24 @@ Auditoria ao `!change` encontrou e corrigiu:
   `src/bot/menuThemes.js`, `src/bot/themeFormatter.js`,
   `src/bot/commandHandler.js`. Testes: `npm run test:temas` (44/44).
 
+## ✅ SUBMENUS ORGANIZADOS + TEMAS LIMPOS (feito — v7.24)
+
+Auditoria aos submenus (`submenuData`) e ao `!change`:
+
+| Problema | Correcção |
+|---|---|
+| **"outros" com 62 comandos mal classificados** (som, traduzir, help, hora, chamadas, packs, RPG…) | todos mapeados para o sítio certo → **0 em "outros"** |
+| **"rank" (425)** separava `rank<adjetivo>` do medidor | `rank<adjetivo>` fundido com os medidores em **zoeira** (submenu "rank" extinto; `menurank` → zoeira) |
+| **Aliases a encher os submenus** (play/music/musica/yt, sticker/s/fig…) | `eAlias()` deriva os grupos reais do `registerCase` e mostra **só o canónico** (425 aliases escondidos; digitados continuam a funcionar) |
+| **Comandos em 2 submenus** | `categorize` é 1:1 → **0 duplicados** entre submenus |
+| **Submenus sem organização (listas planas)** | **sub-categorias**: cada submenu tem secções (`« 🎵 Música »`, `« ⛔ Protecções (Anti-X) »`, `« ⚔️ RPG »`…); `renderSubmenu` agrupa |
+| **7 temas novos com molduras de caracteres de combinação** (pareciam "fundo/skin" com ruído) | molduras limpas de 1 carácter, mantendo a identidade (RONIN ◢◣◥◤, CIPHER ┏┓, SORCERER ╓╖, PHANTOM ▛▜, ROSE ✦, STEEL ┌┐, PIXEL ╔╗) |
+
+- Ficheiros: `src/bot/submenuData.js` (categorias + aliases + subcategorias),
+  `src/bot/renderEngine.js` (secções), `src/bot/nativeCommands.js`,
+  `src/bot/cases/dynamicSubmenus.js`, `src/bot/cases/downloads2.js`,
+  `src/bot/changeThemes.js`. Testes: `npm run test:submenusorg` (40/40).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
