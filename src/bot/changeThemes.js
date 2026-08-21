@@ -594,10 +594,10 @@ const THEMES = {
 
   ronin: {
     name: 'ronin', label: '⛩️ RONIN — Lâmina Sombria', emoji: '⛩️', style: 7,
-    frame: ['❀ֹ͜','❀ֹ͊╯','╰ܻܻ','֮͜','━⵿໋','┃𝅥࣪'],
+    frame: ['◢','◣','◥','◤','━','┃'],
     bullet: '⛩️', sep: '🩸', accent: '🩸', icon: '⛩️',
     vibe: '⛩️ ᴀʀᴋ ʀᴏɴɴ ᴇɴɢɪɴᴇ 🩸',
-    headerDec: '⛩️ ─ ⋆ 🩸 ⋆ ──── ⊰˖°⛩️ ࣪𖤐',
+    headerDec: '◢⛩️🩸〔 {TITLE} 〕🩸⛩️◣',
     react: '⛩️', tip: '🩸 O caminho do ronin não tem volta.',
     menuTitle: '⛩️ 𝐄𝐔 𝐑𝐏𝐆 ⛩️',
     menuFooter: '> ⛩️ DARK RONIN 🩸',
@@ -615,10 +615,10 @@ const THEMES = {
 
   cipher: {
     name: 'cipher', label: '⌬ CIPHER — Protocolo Sombrio', emoji: '⌬', style: 8,
-    frame: ['╔━᳀『','』═᳀','╚═','═᳀','═','⌬'],
+    frame: ['┏','┓','┗','┛','━','┃'],
     bullet: '⌬', sep: '═', accent: '᳀', icon: '⌬',
     vibe: '𝙳𝙰𝚁𝙺 𝙱𝙾𝚃 𝚅6',
-    headerDec: '╔━『 *{TITLE}* 』═᳀',
+    headerDec: '┏⌬〔 *{TITLE}* 〕⌬┓',
     react: '⌬', tip: '⌬ Cipher — precisão absoluta.',
     menuTitle: '⌬ CIPHER',
     menuFooter: '> 𝙳𝙰 𝙱𝚃 𝚅6',
@@ -634,10 +634,10 @@ const THEMES = {
 
   sorcerer: {
     name: 'sorcerer', label: '🌀 SORCERER — Magia Sombria', emoji: '🌀', style: 9,
-    frame: ['╭─ ┄┄─','─⟡','╰─ ͡┄┄─','─⟡','─','║⋆🌀'],
+    frame: ['╓','╖','╙','╜','─','║'],
     bullet: '⋆🌀ׁ̟̇·₊˚', sep: '⟡', accent: '🌀', icon: '🌀',
     vibe: '🕸️ ᴅᴀ sᴏᴄᴇʀʀ ᴠ6',
-    headerDec: '╭─ ͡┄┄───────ׂ─ׅ───ׂ─ׅ─ׅ───ׅ───⟡',
+    headerDec: '╓🌀⋆〔 {TITLE} 〕⋆🌀╖',
     react: '🌀', tip: '🌀 O poder está dentro de ti.',
     menuTitle: '🌀 MENU SORCERER',
     menuFooter: '> 🕸️ ᴅᴀᴋ ʙᴏᴛ ᴠ1',
@@ -654,10 +654,10 @@ const THEMES = {
 
   phantom: {
     name: 'phantom', label: '👾 PHANTOM — Domínio Sombrio', emoji: '👾', style: 6,
-    frame: ['┌─*̥˚*ੈ─','─┐','└─*˚*ੈ─','─┘','─','╎ '],
+    frame: ['▛','▜','▙','▟','▀','▌'],
     bullet: '✦', sep: '⋆｡°✩', accent: '💀', icon: '👾',
     vibe: '☩ 𝐃𝐀𝐑𝐊-𝐏𝐇𝐀𝐓𝐎𝐌',
-    headerDec: '┌─*̥˚˚*ੈ‧₊˚୨⋆ ˚｡⋆『👾』⋆ ˚｡⋆୨୧˚*ੈ‧₊˚*̥˚─┐',
+    headerDec: '▛👾💀〔 {TITLE} 〕💀👾▜',
     react: '👾', tip: '👾 Dark Phantom — domínio total.',
     menuTitle: '👾 MENU PRINCIPAL',
     menuFooter: '> ☩ 𝐃𝐀𝐑𝐊-𝐏𝐇𝐀𝐓𝐎𝐌',
@@ -672,10 +672,10 @@ const THEMES = {
 
   rose: {
     name: 'rose', label: '💝 ROSE — Purpurina Sombria', emoji: '💝', style: 8,
-    frame: ['╭━━━〔','〕━━━╮','╰━','━╯','━','┃'],
+    frame: ['✦','✦','✧','✧','━','┃'],
     bullet: '💝', sep: '💝', accent: '💖', icon: '💝',
     vibe: '💝 DARK BOT 💝',
-    headerDec: '╭━━━〔 💝 {TITLE} 〕━━━╮',
+    headerDec: '✦💝💖〔 {TITLE} 〕💖💝✦',
     react: '💝', tip: '💝 Com carinho, sempre.',
     menuTitle: '💝 MENU PRINCIPAL 💝',
     menuFooter: '> 💝 DARK BOT 💝',
@@ -693,10 +693,10 @@ const THEMES = {
 
   steel: {
     name: 'steel', label: '💔 STEEL — Coração de Aço', emoji: '💔', style: 3,
-    frame: ['╭┈ *','*','╰─','─╯','─','┊'],
+    frame: ['┌','┐','└','┘','─','│'],
     bullet: '💔', sep: '💔', accent: '💔', icon: '💔',
     vibe: '💔 Dark Steel Engine',
-    headerDec: '╭┈ *💔 {TITLE}*',
+    headerDec: '┌💔〔 {TITLE} 〕💔┐',
     react: '💔', tip: '💔 A máquina não para.',
     menuTitle: '💔 MENU PRINCIPAL',
     menuFooter: '> 💔 Dark Steel',
@@ -710,10 +710,10 @@ const THEMES = {
 
   pixel: {
     name: 'pixel', label: '🖋️ PIXEL — Design Proibido', emoji: '🖋️', style: 1,
-    frame: ['╔═════','═════╗','╰═','══ 🌟','═','┃│'],
+    frame: ['╔','╗','╚','╝','═','║'],
     bullet: '🖋️', sep: '✨', accent: '✨', icon: '🖋️',
     vibe: '🖋️ Dark Pixel Design',
-    headerDec: '╔═════ ∘◦ ✨ ∘ ═════╗',
+    headerDec: '╔🖋️✨〔 {TITLE} 〕✨🖋️╗',
     react: '🖋️', tip: '🖋️ Arte em cada pixel.',
     menuTitle: '🖋️ LOGOS & DESIGN',
     menuFooter: '> ╰═════════════════ 🌟',

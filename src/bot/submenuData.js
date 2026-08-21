@@ -254,6 +254,33 @@ function categorize(cmd) {
     adultvideo:'18', adultsearch:'18', adultapi:'18', adultmode:'18', adultstats:'18',
     buscar18:'18', fig18:'18', pack18:'18', gif18:'18', shorts18:'18', hotchat:'18',
     figbusca:'18', packbusca:'18', figgif:'18', portal18:'18', menu18:'18',
+    // ── v7.24: 'outros' → sítio certo ──────────────────────────────
+    // Música / cartão som → downloads
+    som:'downloads', song:'downloads', faixa:'downloads', track:'downloads', musik:'downloads', disco:'downloads',
+    qualmusica:'downloads', identificar:'downloads', pinvideo:'downloads', letra:'downloads',
+    // Tradução / frases → texto
+    traduzir:'texto', trad:'texto', translate:'texto', frase:'texto',
+    // Ajuda / horas / chamadas → info
+    help:'info', ajuda:'info', cmds:'info', comandos:'info',
+    hora:'info', horas:'info', data:'info', date:'info', agora:'info',
+    liga:'info', ligar:'info', desliga:'info', desligar:'info', encerrar:'info',
+    call:'info', calls:'info', chamada:'info', chamadas:'info', 'chamada-video':'info', vcall:'info',
+    diag:'info', diagnostico:'info', 'diagnóstico':'info',
+    // AURA (moderação da aura) → ia
+    auramod:'ia', aurarpg:'ia', moderar:'ia',
+    // Código do case → owner
+    somcode:'owner', codsom:'owner',
+    // RPG → economia
+    cozinhar:'economia', desmontar:'economia', encantar:'economia', leaderboard:'economia', ranking:'economia',
+    'darkrpg-guia':'economia', rpgguia:'economia', rpgregras:'economia', rpgsetup:'economia',
+    // Packs de stickers → stickers
+    definestickpack:'stickers', defpack:'stickers', setpack:'stickers', pack:'stickers',
+    packlink:'stickers', pacote:'stickers', verpack:'stickers',
+    renamestick:'stickers', renomesticker:'stickers', trocarnome:'stickers',
+    // Roblox → search
+    robloxcode:'search',
+    // Eventos → interacoes
+    event:'interacoes', evento:'interacoes', eventos:'interacoes',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
@@ -283,8 +310,10 @@ function categorize(cmd) {
   if (/^(ping|info|perfil|dono|criador|donos|subdono|uptime|status|statusbot|statusgp|system|stats|aiapis|myvip|lid|perfilpic|avaliar|suporte|bug|zipbot|gitbot|likeff|infoff|me|dados|meustatus|totalcmd|topcmd|rankativo|rankinativo|rankativos|checkativo|atividade|rep|toprep|denuncias|conquistas|caixa|diario|roles|role\.|mention|afk|voltei|statusbot|statusgp)/.test(c)) return 'info';
   // Zoeira (medidores)
   if (/^(gay|gay2|lindo|lindo2|linda|feio|feio2|feia|burro|burro2|burra|inteligente|otaku|fiel|infiel|corno|corna|gado|gada|gostoso|gostosa|rico|rica|pobre|safado|safada|vesgo|vesga|bebado|bebada|machista|homofobico|homofobica|racista|chato|chata|sortudo|sortuda|azarado|azarada|forte|fraco|fraca|pegador|pegadora|otario|otaria|macho|bobo|boba|nerd|nerd2|preguicoso|preguicosa|trabalhador|trabalhadora|brabo|braba|malandro|malandra|simpatico|simpatica|engracado|engracada|charmoso|charmosa|misterioso|misteriosa|carinhoso|carinhosa|desumilde|humilde|ciumento|ciumenta|corajoso|corajosa|covarde|esperto|esperta|talarico|talarica|chorao|chorona|brincalhao|brincalhona|bolsonarista|petista|comunista|lulista|traidor|traidora|bandido|bandida|cachorro|cachorra|vagabundo|vagabunda|pilantra|mito|padrao|comedia|psicopata|fortao|fortona|magrelo|magrela|bombado|bombada|chefe|presidente|presidenta|rei|rainha|patrao|patroa|playboy|zueiro|zueira|gamer|programador|programadora|visionario|visionaria|billionario|bilionaria|poderoso|poderosa|vencedor|vencedora|senhor|senhora|fofoqueiro|fofoqueira|dorminhoco|dorminhoca|comilao|comilona|sedentario|sedentaria|atleta|estudioso|estudiosa|romantico|romantica|extrovertido|extrovertida|introvertido|introvertida|calmo|calma|nervoso|nervosa|organizado|organizada|bagunceiro|bagunceira|economico|economica|gastador|gastadora|saudavel|doente|supersticioso|supersticiosa|cetico|cetica|religioso|religiosa|ateu|ateia|tradicional|moderno|moderna|conservador|conservadora|liberal|patriotico|patriotica|cosmopolita|rural|urbano|urbana|aventureiro|aventureira|caseiro|caseira|viajante|local|global|tecnologico|tecnologicas|analogico|analogica|digital|offline|online|social|antisocial|popular|solitario|solitaria|lider|seguidor|seguidora|independente|dependente|criativo|criativa|pratico|pratica|sonhador|sonhadora|realista|otimista|pessimista|confiante|inseguro|insegura|maduro|madura|infantil|serio|seria|sorte|sortudo2|responsavel|irresponsavel|lesbica|bucetuda|ladra|nazista|homofobica|racista|chata|sortuda|azarada|fraca|pegadora|otaria|boba|nerd|preguicosa|trabalhadora|braba|linda|malandra|simpatica|engracada|charmosa|misteriosa|carinhosa|ciumenta|corajosa|esperta|talarica|chorona|brincalhona|traidora|bandida|cachorra|vagabunda|fortona|magrela|bombada|presidenta|rainha|patroa|programadora|visionaria|bilionaria|poderosa|vencedora|senhora|fofoqueira|dorminhoca|comilona|sedentaria|estudiosa|romantica|extrovertida|introvertida|calma|nervosa|organizada|bagunceira|economica|gastadora|supersticiosa|cetica|religiosa|ateia|moderna|conservadora|patriotica|urbana|aventureira|caseira|tecnologicas|analogica|solitaria|seguidora|criativa|pratica|sonhadora|insegura|madura|seria|criente|pecador|ciumao|possessivo|desapegado|sono|insone|dorminhoco2|viciado|viciada|viciadao|invejoso|invejosa|inveja|pirocudo|pirokudo|safado|safada|vesgo|vesga|bebado|bebada)/.test(c)) return 'zoeira';
-  // Rank
-  if (/^rank/.test(c)) return 'rank';
+  // v7.24: rank<adjetivo> é o rank do medidor — fica JUNTO do medidor
+  // (zoeira), não num submenu à parte. rankativo/ranklvl/etc já foram
+  // apanhados acima (info/economia).
+  if (/^rank/.test(c)) return 'zoeira';
   // Owner
   if (/^(broadcast|send|eval|restart|panel|addcase|removicase|downcase|listcases|runcase|reloadcases|setprefix|settheme|temas|change|themeglobal|globaltheme|buttonmode|menustyle|addcmdvip|flood)/.test(c)) return 'owner';
   // Anti-link / Anti-spam / Welcome
@@ -315,18 +344,126 @@ const SUBMENU_META = {
   audio:        { title: '🎧 EFEITOS DE ÁUDIO',        sub: 'Bass • Reverb • 8D • Slowed • Voz',   btn: '🎧 Áudio' },
   logos:        { title: '🖋️ LOGOS & EFEITOS',         sub: 'Criação de logos e efeitos de texto',  btn: '🖋️ Logos' },
   info:         { title: 'ℹ️ INFO & PERFIL',           sub: 'Ping • Status • Perfil • Diagnóstico', btn: 'ℹ️ Info' },
-  zoeira:       { title: '😂 ZOEIRA & MEDIDORES',      sub: 'Medidores • Brincadeiras • Ranks',     btn: '😂 Zoeira' },
-  rank:         { title: '🏆 RANKINGS',                sub: 'Rankings do grupo por atributo',       btn: '🏆 Ranks' },
+  zoeira:       { title: '😂 ZOEIRA & MEDIDORES',      sub: 'Medidores • Rankings • Brincadeiras',   btn: '😂 Zoeira' },
   owner:        { title: '👑 DONO & SISTEMA',          sub: 'Broadcast • Eval • Config • Cases',    btn: '👑 Dono' },
-  outros:       { title: '📌 OUTROS COMANDOS',         sub: 'Comandos diversos e utilitários',      btn: '📌 Outros' },
 };
 
 // ── EMOJIS POR CATEGORIA ─────────────────────────────────────
 const CAT_EMOJI = {
   downloads: '📥', stickers: '🎨', ia: '🤖', admin: '🛡️', jogos: '🎮',
   economia: '💰', interacoes: '💕', texto: '✍️', search: '🔎', audio: '🎧',
-  logos: '🖋️', info: 'ℹ️', zoeira: '😂', rank: '🏆', owner: '👑', outros: '📌',
+  logos: '🖋️', info: 'ℹ️', zoeira: '😂', owner: '👑',
 };
+
+// ── v7.24: ALIASES — um comando não pode aparecer em 2 submenus ──
+// Nem encher o submenu com 5 nomes para a MESMA função (play/music/
+// musica/yt/ytmp3 → só play). Deriva-se dos grupos reais do registerCase
+// (COMMAND_REGISTRY): o 1.º nome é o canónico, os restantes escondem-se.
+const NAO_ESCONDER = new Set(['letra']);   // letra = jogada da forca, não alias
+
+function eAlias(cmd) {
+  try {
+    const ch = require('./caseHandler');
+    const reg = ch.COMMAND_REGISTRY.get(cmd);
+    if (!reg || !Array.isArray(reg.aliases) || reg.aliases.length < 2) return false;
+    if (NAO_ESCONDER.has(cmd)) return false;
+    return reg.aliases[0] !== cmd;
+  } catch { return false; }
+}
+
+// ── v7.24: SUB-CATEGORIAS dentro de cada submenu ────────────────
+// Agrupa os comandos por secção (título + padrão). O 1.º padrão que
+// casar ganha; senão cai em "Geral".
+const SUBCATEGORIES = {
+  downloads: [
+    { id: '🎵 Música', re: /^(play|play2|play3|playhq|hq|playmax|music|musica|yt|ytmp3|ytd|baixaraudio|dlmp3|som|song|faixa|track|musik|disco|qualmusica|shazam|identificar|tomp3|letra|spotify|scdl)$/ },
+    { id: '🎬 Vídeo', re: /^(video|vid|ytmp4|yt4|gyt|baixarvideo|dlmp4|pinvideo|pinmp4|pinvd|playvid|playid|fhd|fullhd|ytfhd|ythd)$/ },
+    { id: '📱 Redes Sociais', re: /^(tiktok|tt|instagram|ig|facebook|fb|twitter|tw|x|pinterest|pinpack|pinpacks|kwai|igstory|gdrive|mediafire|mcplugin|scdl)$/ },
+  ],
+  admin: [
+    { id: '🛡️ Moderação', re: /^(kick|ban|ban2|bam|mute|desmute|mute2|desmute2|tempban|tempkick|warn|advertir|unwarn|warnings|resetwarn|promote|demote|rebaixar|promover|calar|unmute|unadmin|silenciar|del|apagar|deletar|delete|limpar|dam|fakeban|fakelog|fakeedit|fakemsg)$/ },
+    { id: '⛔ Protecções (Anti-X)', re: /^(antilink|antilinkgp|antilinkcanal|antilinkhard|antilinksoft|antispam|antiflood|antifigurinha|antistatus|antidoc|antiloc|antifig|antibtn|antiporn|antitoxic|antipalavra|antidemote|antiraid|capturalink|captcha|x9)$/ },
+    { id: '👋 Boas-vindas & Saída', re: /^(welcome|bemvindo|boasvindas|bv|goodbye|saida|legendabv|legendasaiu|fotobv|rmfotobv|fotosaiu|rmfotosaiu)$/ },
+    { id: '👥 Grupo', re: /^(open|abrir|abrir-grupo|close|fechar|fechar-grupo|opengp|closegp|actgp|grupo|setnomegrupo|nomegp|setdesc|descgrupo|fotogrupo|setregras|regras|rules|normas|addregra|delregra|link|linkgp|convite|invite|revoke|resetlink|novo-link|add|adicionar|addmembro|out|sair|leave|bye|todos|hidetag|everyone|all|tagall|marcar|totag|sorteio|participantes|admins|tagadmins|jid|getjid|atividade|inativos|inatividade)$/ },
+    { id: '🔐 Permissões & Cargos', re: /^(addmod|delmod|grantmodcmd|revokemodcmd|listmods|listmodcmds|listautoadm|addautoadm|addautoadmidia|delautoadm|whitelist|wladd|wldel|wllist|blockuser|unblockuser|addblacklist|delblacklist|listblacklist|listblocksgp|listamute|listadv|adv|rmadv|addparceria|delparceria|parcerias|aprovar|recusarsolic|solicitacoes)$/ },
+    { id: '⚙️ Configuração', re: /^(setprefix|prefixgrupo|groupprefix|multiprefixo|settheme|temagrupo|grouptheme|buttonmode|assistente|modobn|modoparceria|modorpg|modolite|autorespostas|automsg|banghost|blockcmd|unblockcmd|cmdlimit|limitmessage|dellimitmessage|minmessage|autorepo|autodl|autosticker|fotomenugrupo|infoperso|soadm|espiao|raidstatus|list)$/ },
+  ],
+  economia: [
+    { id: '💰 Economia', re: /^(daily|diario|saldo|coins|carteira|caixa|banco|depositar|levantar|transferir|doar|dep|sacar|pix|loja|comprar|vender|sell|emprego|demitir|investir|tributos|cambio|cripto|topriqueza|rankricos|propriedades|cprop|cprops|boost|rara|lendaria|presente)$/ },
+    { id: '⚒️ Trabalho', re: /^(trabalhar|work|minerar|mine|pescar|fish|coletar|colher|cacar|plantar|cultivar|cook|cozinhar|eat|vendercomida|assaltar|crime|roubar)$/ },
+    { id: '⚔️ RPG', re: /^(rpgstart|newchar|despertar|perfilrpg|ficha|rg|quest|historia|aventura|explorar|explore|lutar|fight|combate|duelrpg|duelar|arena|torneio|masmorra|dungeon|bossrpg|npc|pocao|potion|reviver|revive|evoluir|prestige|streak|vidas|lives|racas|classes|rpginfo|mapa|biomas|world|cartas|gacha|pet|pets|guilda|guild|criarguilda|rankrpg|toprpg|ranking|leaderboard|rankglobal|ranklvl)$/ },
+    { id: '🔨 Crafting', re: /^(forge|forjar|enchant|encantar|dismantle|desmontar|reparar|materiais|precos|receitas|ingredientes|sementes|plantacao|equipamentos|gear|qg|bau|inventario|inv|usar)$/ },
+    { id: '🏠 Aluguer', re: /^(alugar|desalugar|hospedar|rent|trial|renovar|renew|cancelrent|listrents|statusalugar|meualuguel|gruposalugados|estender)$/ },
+  ],
+  interacoes: [
+    { id: '💕 Carinho', re: /^(abracar|abracarrpg|beijar|beijarrpg|cafune|morder|mordida|lamber|lambida|flertar|chocolate|cafe|cafezinho|paparico|highfive|wave|declarar|elogiar)$/ },
+    { id: '🤪 Zoeira Física', re: /^(tapa|tapar|soco|socar|matar|mata|chutar|pontape|bater|espancar|facada|tiro|envenenar|amaldicoar|bencao|bullying|mimimi|cuspir|empurrar|godadm|goza|gozar)$/ },
+    { id: '👨‍👩‍👧 Família & Casamento', re: /^(casar|divorciar|namorar|terminar|casamento|namoro|relacionamento|casais|familia|arvore|trair|historicotraicao|proteger|adotaruser|deserdar|casal)$/ },
+    { id: '🐾 Pets', re: /^(adotar|feed|train|evolve|petbattle|renamepet|petbet|equippet|unequippet|petnome|treinarpet|lojapet|pet)$/ },
+    { id: '🎭 Acções', re: /^(cantar|rir|chorar|dancar|dormir|comer|pedir|pensar|falar|estudar|cuidar|experimentar|desistir|programar|aceitar|recusar|aceitarinvocacao|recusarinvocacao|talk)$/ },
+  ],
+  texto: [
+    { id: '🔤 Fontes', re: /^(bold|bold2|mini|tiny|smallcaps|scaps|mono|monospace|code|glitch|zalgo|negrito|pequeno)$/ },
+    { id: '🛠️ Ferramentas', re: /^(calc|calcular|math|base|baseconv|encurtar|short|curto|cor|color|randomcolor|traduzir|trad|translate|renomear)$/ },
+    { id: '💬 Frases & Conselhos', re: /^(conselho|conselhobiblico|piada|charada|motivacional|elogio|reflexao|fato|cantada|filosofo|biblia|versiculo|frase|horoscopo|idade|age|anos)$/ },
+  ],
+  search: [
+    { id: '🔍 Stalk', re: /^(stalkff|ttstalk|tikstalk|stalkinsta|instastalk|stalktk|githubstalk|ghstalk|gitubstalk)$/ },
+    { id: '📡 Consultas', re: /^(clima|tempo|cep|cnpj|ip|dicionario|dicio|significado|gethtml|idcanal|apps|aptoide|rbxcodes|robloxcodes|robloxcode)$/ },
+    { id: '🌐 Web & Notícias', re: /^(google|pesquisar|procurar|search|wikipedia|wiki|noticias|news|jornal|deepsearch|filme|movie|anime|anime2|manga|lermanga|mangacap|capitulo|lercap|episodiosanime|historia)$/ },
+  ],
+  audio: [
+    { id: '🔊 Graves & Bass', re: /^(bass|bass2|bass3|grave|grave2|grave3|earrape|fat|smooth)$/ },
+    { id: '🌌 Espaciais & Reverb', re: /^(8d|8d2|8d3|reverb|reverb2|reverb3|echo|stadium|cave|underwater|flanger|phaser|tremolo|vibrato|chorus|chorus2|chorus3|lofi)$/ },
+    { id: '🤖 Voz', re: /^(robot|chipmunk|squirrel|monster|whisper|pitch|deep|telephone|radio|karaoke|blown|reverse)$/ },
+    { id: '⏩ Velocidade & Estilo', re: /^(slowed|slowed2|slowed3|slowedreverb|slowedreverb2|slowedreverb3|nightcore|vaporwave|hardcore|fast|slow|audiofx|audiomeme)$/ },
+  ],
+  info: [
+    { id: '🤖 Bot', re: /^(ping|info|status|statusbot|statusgp|system|stats|uptime|tempoonline|aiapis|totalcmd|topcmd|likeff|infoff|dono|criador|donos|suporte|bug|zipbot|gitbot|start)$/ },
+    { id: '👤 Perfil', re: /^(perfil|me|dados|meustatus|lid|myid|msgid|msginfo|perfilpic|getprefix|prefixo|avaliar|roles|mention|afk|voltei|equipe|subdono|staff|planos|vip|assinar|premium|myvip)$/ },
+    { id: '📞 Chamadas', re: /^(ligar|liga|desligar|desliga|encerrar|call|calls|chamada|chamadas|chamada-video|vcall|videocall)$/ },
+    { id: '🕐 Utilidades', re: /^(hora|horas|data|date|agora|help|ajuda|cmds|comandos|menu|diag|diagnostico|diagnóstico|tempo|clima)$/ },
+  ],
+  stickers: [
+    { id: '🎨 Criar', re: /^(sticker|s|fig|figurinha|sfull|figubug|attp|ttp|toimg|aisticker|brat|legenda|totext|ptvmsg)$/ },
+    { id: '📦 Packs', re: /^(pinpack|pinpacks|pinsticker|pack|pacote|packlink|verpack|setpack|defpack|definestickpack|sly|slypack|takepack|packname|renamestick|renomesticker|trocarnome|stickerrename)$/ },
+    { id: '🔎 Busca', re: /^(figbusca|figgif|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada|gimage|imagem)$/ },
+    { id: '🏷️ Marca / Watermark', re: /^(stickerwm|definestickwm|setstickwm|stickwmgrupo|definirmarca|textosticker|textsticker|txtsticker)$/ },
+  ],
+  ia: [
+    { id: '💬 Conversa', re: /^(ia|gpt|chat|ask|pergunta|chatgpt|gpt4|gpt5|copiloto|copilot|claude|pplx|llama|llama3|gemma|gemma2|qwen|qwen2|qwen3|kimi|mistral|magistral|explicar|ideias|debater|recomendar|aventura)$/ },
+    { id: '🖼️ Imagem', re: /^(imagem|img|imagine|gerar|gimage|sys-img|deepai)$/ },
+    { id: '🧠 Memória', re: /^(aimemoria|mymemory|airesetar|resetia|clearmemory|addai|addmetaai)$/ },
+    { id: '🌹 AURA', re: /^(aura|acordar|acordaaura|dormiraura|auradorme|aurasai|auramodo|modoaura|aurastatus|auragrupos|auralist|auraon|auraoff|invocaraura|gruposaura|auramod|aurarpg|moderar)$/ },
+  ],
+  jogos: [
+    { id: '🎯 Clássicos', re: /^(quiz|forca|adivinha|charada|enigma|eununca|cacapalavras|batalhanaval|genio|wordle|memoria|stop|anagrama|digitar|jogodavelha|tictactoe|velha)$/ },
+    { id: '🎲 Sorte & Dados', re: /^(dado|dice|d6|moeda|coin|coinflip|caraoucoroa|flip|roleta|roulette|dados|chance|quando|sn|ppt|jokenpo)$/ },
+    { id: '🃏 Apostas & Casino', re: /^(cassino|blackjack|slots|crash|apostar|loteria|corrida|leilao|truco|bingo|russa|akinator|combate|simular|palavra|chute|termo|vab)$/ },
+  ],
+  logos: [
+    { id: '🖋️ Logos', re: /^(darkgreen|write|advanced|typography|pixel|flag|americanflag|deleting|pornhub|avengers|captainamerica|thor|amongus|deadpool|blackpink|naruto|harrypotter|battlefield|pubg|anime|game|blackhzx|blood|cemiterio|ffavatar|ffrose|ffgren|neymar|placaneymar)$/ },
+    { id: '✨ Efeitos', re: /^(stone3d|neon2|rainbow|shadowsky|smoke|stars|metal|butterfly|flaming|gradient|graffiti|neonparty|neonglow|neonmetalic|tiktoktxt|lava|cool|comic|fire|water|ice|elegant|gold|fortune|blue|silver|neon|skate|retro|candy|glossy|newyear|tiger|galaxy|dragonfire|goldpink|mascote|titanium|eraser|halloween|snow|america|mascoteneon|doubleexposure|3dcrack|colorful|ballon|multicolor|graffitipaint|graffitistyle|frozen|ligatures|watercolor|summerbeach|cloudsky|techstyle|royal|firework|mascotemetal|captain|graffitiwall|phlogo|glitter|vintage3d)$/ },
+  ],
+  zoeira: [
+    { id: '📏 Medidores', re: /.*/ },   // zoeira é SÓ medidores — 1 grupo
+  ],
+  owner: [
+    { id: '👑 Sistema', re: /^(broadcast|send|eval|exec|shell|restart|shutdown|panel|autodecrypt|prefixos|buttonmode|menustyle)$/ },
+    { id: '🧩 Cases', re: /^(addcase|removicase|downcase|listcases|runcase|reloadcases|execcase|testcase|testcasecode|viewcase|getcasecode|listcase|mycases|validarcase|verificarcmds|cmdcheck|vercode|audit|auditcmds|recarregarcases|refreshcases|removecase|remcase|showcase|newcase|listcmds|somcode|codsom)$/ },
+    { id: '🎨 Temas', re: /^(change|tema|settheme|themes|temas|listtemas|listthemes|themechange|themeglobal|globaltheme|mudarstema)$/ },
+  ],
+};
+
+/** Devolve o id da sub-categoria de um comando dentro de uma categoria. */
+function subcategorize(cmd, category) {
+  const grupos = SUBCATEGORIES[category];
+  if (!grupos) return 'Geral';
+  for (const g of grupos) {
+    if (g.re.test(cmd)) return g.id;
+  }
+  return 'Geral';
+}
 
 // ── CONSTRUIR ITENS DE UM SUBMENU ────────────────────────────
 function buildItems(commands, category) {
@@ -347,7 +484,12 @@ function buildItems(commands, category) {
       const hasFunction = caseHandler.CASES.has(cmd) || 
                           typeof nativeCommands[cmd] === 'function' || 
                           typeof packageCommands[cmd] === 'function';
-      return hasFunction && categorize(cmd) === category;
+      if (!hasFunction || categorize(cmd) !== category) return false;
+      // v7.24: um comando NÃO aparece em 2 submenus nem como alias
+      // (play/music/musica/yt → só play). O alias continua a funcionar
+      // digitado — só não polui o submenu.
+      if (eAlias(cmd)) return false;
+      return true;
     })
     .sort()
     .map(cmd => ({
@@ -357,6 +499,7 @@ function buildItems(commands, category) {
       // saíam sem descrição, o que produzia o "undefined" no WhatsApp.
       desc: describe(cmd, category),
       sel: isSelectable(cmd),
+      subcat: subcategorize(cmd, category),   // v7.24: secção dentro do submenu
     }));
 }
 
@@ -443,10 +586,13 @@ function categorizeExtra(c) {
 module.exports = {
   isSelectable,
   categorize,
+  eAlias,
+  subcategorize,
   buildItems,
   getAllSubmenus,
   getMainMenuSections,
   SUBMENU_META,
+  SUBCATEGORIES,
   CAT_EMOJI,
   SEL_PATTERNS,
 };

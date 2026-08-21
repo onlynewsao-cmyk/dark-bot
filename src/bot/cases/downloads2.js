@@ -432,7 +432,7 @@ module.exports = function registerDownloads2(registerCase) {
     const p = await pe.getActivePrefix(ctx.remoteJid).catch(() => (cfg || config).bot.prefix);
     const txtCmds = items.filter(it => it.sel !== true);
     const selCmds = items.filter(it => it.sel === true);
-    const textBody = RE.renderSubmenu(t, 'DOWNLOADS', txtCmds.map(it => ({ name: it.cmd, desc: it.desc })), { prefix: p, botName: (cfg || config).bot.name });
+    const textBody = RE.renderSubmenu(t, 'DOWNLOADS', txtCmds.map(it => ({ name: it.cmd, desc: it.desc, group: it.subcat || undefined })), { prefix: p, botName: (cfg || config).bot.name });
     const rows = selCmds.slice(0, 24).map(it => ({ title: `${it.emoji || '📥'} ${p}${it.cmd}`, description: (it.desc || '').slice(0, 72), id: `${p}${it.cmd}` }));
     if (rows.length) {
       try {

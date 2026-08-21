@@ -560,6 +560,7 @@ const selCmds = allowed.filter(it => it.sel === true);
   const textBody = RE.renderSubmenu(t, title, txtCmds.map(it => ({
     name: (useP ? p : '') + it.cmd,
     desc: it.desc || '',
+    group: it.subcat || undefined,   // v7.24: secção dentro do submenu
   })), { prefix: useP ? '' : p, botName });
 
   // ── v6.3: separação SEL vs TEXTO ──────────────────────────────────
