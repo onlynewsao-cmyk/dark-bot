@@ -284,49 +284,9 @@ const THEMES = {
   // ════════════════════════════════════════════════════════
   //  11. ITADORI  —  Identidade: Jujutsu / Maldição / Força
   // ════════════════════════════════════════════════════════
-  sorcerer: {
-    name: 'sorcerer',
-    label:      '⛩️ RONIN — Caminho do Guerreiro',
-    emoji:      '⛩️',
-    style:      1,
-    frame:      ['┏', '┓', '┗', '┛', '━', '┃'],
-    bullet:     '⛩',
-    sep:        '☯',
-    accent:     '🩸',
-    icon:       '⛩️',
-    vibe:       '⛩️ 術式展開 — Ronin Core',
-    headerDec:  '⛩☯━〔 {TITLE} 〕━☯⛩',
-    react:      '⛩️',
-    tip:        '⛩️ A maldição é domada por quem entende o poder.',
-    menuTitle:  '⛩️ RONIN — Dark Warrior',
-    menuFooter: '> ⛩️ 術式展開 — Ronin Core',
-    thumbText:  '⛩️ {BOT}',
-    sectionSep: '┣⛩☯━━━━━━━━━━━━━━━━━☯⛩┫',
-  },
-
   // ════════════════════════════════════════════════════════
   //  12. SASUKE  —  Identidade: Sharingan / Uchiha / Sangue
   // ════════════════════════════════════════════════════════
-  ronin: {
-    name: 'ronin',
-    label:      '🔴 RONIN — Olho Sombrio',
-    emoji:      '🔴',
-    style:      4,
-    frame:      ['╔', '╗', '╚', '╝', '─', '¦'],
-    bullet:     '⊗',
-    sep:        '🩸',
-    accent:     '🔴',
-    icon:       '⊗',
-    vibe:       '⊗ OLHO SOMBRIO ATIVADO 🔴 RONIN',
-    headerDec:  '⊗🩸〔 {TITLE} 〕🩸⊗',
-    react:      '🔴',
-    tip:        '🔴 O olho sombrio registou — nunca esquece.',
-    menuTitle:  '⊗ RONIN — Olho Sombrio',
-    menuFooter: '> ⊗ OLHO SOMBRIO ATIVADO 🔴 RONIN',
-    thumbText:  '⊗ {BOT}',
-    sectionSep: '╚⊗🩸──────────────🩸⊗╝',
-  },
-
   // ════════════════════════════════════════════════════════
   //  13. NEON  —  Identidade: Cidade Neon / Cyberpunk / Roxo
   // ════════════════════════════════════════════════════════
@@ -633,9 +593,9 @@ const THEMES = {
   // ═══════════════════════════════════════════════════════════
 
   ronin: {
-    name: 'ronin', style: 7,
+    name: 'ronin', label: '⛩️ RONIN — Lâmina Sombria', emoji: '⛩️', style: 7,
     frame: ['❀ֹ͜','❀ֹ͊╯','╰ܻܻ','֮͜','━⵿໋','┃𝅥࣪'],
-    bullet: '⛩️', sep: '', accent: '', icon: '⛩️',
+    bullet: '⛩️', sep: '🩸', accent: '🩸', icon: '⛩️',
     vibe: '⛩️ ᴀʀᴋ ʀᴏɴɴ ᴇɴɢɪɴᴇ 🩸',
     headerDec: '⛩️ ─ ⋆ 🩸 ⋆ ──── ⊰˖°⛩️ ࣪𖤐',
     react: '⛩️', tip: '🩸 O caminho do ronin não tem volta.',
@@ -646,6 +606,7 @@ const THEMES = {
     bottomBorder: '╰━━━ ⛩️🩸 ━━━╯',
     sectionTop: '┃ ┏━━ {ICON} {TITLE} ⛩️ ━━┓',
     linePrefix: '┃ ⛩️🩸 ',
+    sectionSep: '┃ ⛩️🩸 ━━━━━━━━ ⛩️ ━━━━━━━━ 🩸⛩️ ┃',
     footerLine: '┃ └─݊━⵿໋݊─⊢ ️ 𝑺𝑺𝑲𝑬 𝑶 🩸 ⵿໋━⵿໋━⵿໋─┘',
     headerTop: '⛩️  ⋆⋅  ⋆ ──── ⊰˖°️ ࣪',
     infoLine: '┃ ⛩️ ',
@@ -653,7 +614,7 @@ const THEMES = {
   },
 
   cipher: {
-    name: 'cipher', style: 8,
+    name: 'cipher', label: '⌬ CIPHER — Protocolo Sombrio', emoji: '⌬', style: 8,
     frame: ['╔━᳀『','』═᳀','╚═','═᳀','═','⌬'],
     bullet: '⌬', sep: '═', accent: '᳀', icon: '⌬',
     vibe: '𝙳𝙰𝚁𝙺 𝙱𝙾𝚃 𝚅6',
@@ -667,11 +628,12 @@ const THEMES = {
     sectionTop: '᳀═『 *{TITLE}* 』═᳀',
     linePrefix: '⌬ ',
     footerLine: '> 𝙳𝙰𝙺 𝙾𝚃 𝚅6',
+    sectionSep: '⌬═━━━━━━━━━━━━━━━━━━━━━━═⌬',
     font: 'monospace', personality: 'formal',
   },
 
   sorcerer: {
-    name: 'sorcerer', style: 9,
+    name: 'sorcerer', label: '🌀 SORCERER — Magia Sombria', emoji: '🌀', style: 9,
     frame: ['╭─ ┄┄─','─⟡','╰─ ͡┄┄─','─⟡','─','║⋆🌀'],
     bullet: '⋆🌀ׁ̟̇·₊˚', sep: '⟡', accent: '🌀', icon: '🌀',
     vibe: '🕸️ ᴅᴀ sᴏᴄᴇʀʀ ᴠ6',
@@ -691,9 +653,9 @@ const THEMES = {
   },
 
   phantom: {
-    name: 'phantom', style: 10,
+    name: 'phantom', label: '👾 PHANTOM — Domínio Sombrio', emoji: '👾', style: 6,
     frame: ['┌─*̥˚*ੈ─','─┐','└─*˚*ੈ─','─┘','─','╎ '],
-    bullet: '', sep: '', accent: '', icon: '👾',
+    bullet: '✦', sep: '⋆｡°✩', accent: '💀', icon: '👾',
     vibe: '☩ 𝐃𝐀𝐑𝐊-𝐏𝐇𝐀𝐓𝐎𝐌',
     headerDec: '┌─*̥˚˚*ੈ‧₊˚୨⋆ ˚｡⋆『👾』⋆ ˚｡⋆୨୧˚*ੈ‧₊˚*̥˚─┐',
     react: '👾', tip: '👾 Dark Phantom — domínio total.',
@@ -704,11 +666,12 @@ const THEMES = {
     bottomBorder: '└─*̥˚˚*ੈ‧₊˚୨୧⋆ ˚｡⋆『{ICON}』⋆ ｡⋆୨˚*ੈ‧₊˚*̥˚─┘',
     sectionTop: '┊ ✦『 {ICON} 』✦ {TITLE} ✦『 {ICON} 』✦',
     linePrefix: '╎ 👾 ',
+    sectionSep: '⋆｡°✩ ───────── ⋆｡°✩°｡⋆ ───────── ✩°｡⋆',
     font: 'bold', personality: 'aggressive',
   },
 
   rose: {
-    name: 'rose', style: 11,
+    name: 'rose', label: '💝 ROSE — Purpurina Sombria', emoji: '💝', style: 8,
     frame: ['╭━━━〔','〕━━━╮','╰━','━╯','━','┃'],
     bullet: '💝', sep: '💝', accent: '💖', icon: '💝',
     vibe: '💝 DARK BOT 💝',
@@ -721,6 +684,7 @@ const THEMES = {
     bottomBorder: '╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯',
     separator: '💝━━━━━━━━━━━━━━━━━━━━━━━━━━💝',
     linePrefix: '┃ ',
+    sectionSep: '💝━━━━━━━━━━━━━━━━━━━━━━━━━━💝',
     headerTop: '💝╭━━━━━━━━━━━━━━━━━━━━━━━━╮💝',
     headerMid: '💝┃     ✧ {BOT} ✧      ┃💝',
     headerBot: '💝╰━━━━━━━━━━━━━━━━━━━━━━━━╯💝',
@@ -728,7 +692,7 @@ const THEMES = {
   },
 
   steel: {
-    name: 'steel', style: 12,
+    name: 'steel', label: '💔 STEEL — Coração de Aço', emoji: '💔', style: 3,
     frame: ['╭┈ *','*','╰─','─╯','─','┊'],
     bullet: '💔', sep: '💔', accent: '💔', icon: '💔',
     vibe: '💔 Dark Steel Engine',
@@ -740,11 +704,12 @@ const THEMES = {
     topBorder: '╭┈💔 *{ICON} {TITLE}*',
     bottomBorder: '╰─┈┈┈┈┈┈◜◞┈┈┈┈┈┈─╯',
     linePrefix: '┊💔',
+    sectionSep: '┊💔┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈💔┊',
     font: 'normal', personality: 'dark',
   },
 
   pixel: {
-    name: 'pixel', style: 13,
+    name: 'pixel', label: '🖋️ PIXEL — Design Proibido', emoji: '🖋️', style: 1,
     frame: ['╔═════','═════╗','╰═','══ 🌟','═','┃│'],
     bullet: '🖋️', sep: '✨', accent: '✨', icon: '🖋️',
     vibe: '🖋️ Dark Pixel Design',
@@ -757,6 +722,7 @@ const THEMES = {
     bottomBorder: '╰═════════════════ 🌟',
     sectionTop: '╰╦══════════════════ 🖋️',
     sectionLine: '┃│〘{ICON}〙➢ #{CMD} - {DESC}',
+    sectionSep: '┃│ ✨ ══════════════════════ ✨ │┃',
     sectionBottom: '┃╰══ 🖋️',
     font: 'normal', personality: 'formal',
   },
@@ -795,6 +761,28 @@ function _inferFont(name) {
 
 function listThemes() {
   return Object.values(THEMES);
+}
+
+/**
+ * v7.23 — pagina os temas em secções para a lista interativa.
+ * O native_flow single_select aceita ~10 rows por secção; com 31 temas
+ * a lista rebentava. Devolve [{ title, rows: [{title, description, id}] }].
+ */
+function paginarTemas(maxPorSeccao = 10, icon = '🎭') {
+  const all = listThemes();
+  const seccoes = [];
+  for (let i = 0; i < all.length; i += maxPorSeccao) {
+    const bloco = all.slice(i, i + maxPorSeccao);
+    seccoes.push({
+      title: `${icon} TEMAS ${i + 1}–${i + bloco.length} DE ${all.length}`,
+      rows: bloco.map(th => ({
+        title:       `${th.emoji} ${th.name.toUpperCase()}`,
+        description: th.vibe.slice(0, 72),
+        id:          `CHANGE_THEME_${th.name}`,
+      })),
+    });
+  }
+  return seccoes;
 }
 
 /**
@@ -873,4 +861,4 @@ function formatBlock(theme, lines = []) {
   ].join('\n');
 }
 
-module.exports = { THEMES, getTheme, listThemes, previewTheme, listThemesText, formatHeader, formatBlock };
+module.exports = { THEMES, getTheme, listThemes, paginarTemas, previewTheme, listThemesText, formatHeader, formatBlock };

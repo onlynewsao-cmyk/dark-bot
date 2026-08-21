@@ -350,10 +350,37 @@ async function _handleInner(sock, msg) {
         (dbNum && senderNum === dbNum) ||
         (Array.isArray(extraOwners) && extraOwners.includes(senderNum)) ||
         (ownerLidB && senderJid.includes(ownerLidB));
-      if (!isOwner) {
-        await sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono pode mudar o tema.' }, { quoted: msg });
+
+      // v7.23: ADM do grupo também pode mudar o tema — mas só o DO GRUPO
+      // (o Dono muda o global). Antes o botão exigia sempre Dono, enquanto
+      // o comando !change deixava o ADM mexer no tema do grupo.
+      let ehAdmin = false;
+      if (!isOwner && ctx.isGroup) {
+        try { ehAdmin = await isGroupAdminForHandler(sock, ctx); } catch {}
+      }
+      if (!isOwner && !ehAdmin) {
+        await sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono (ou um ADM do grupo) pode mudar o tema.' }, { quoted: msg });
         return true;
       }
+
+      if (!isOwner) {
+        // ADM do grupo → tema do grupo (não mexe no global)
+        const GroupSettings = require('../database/models/GroupSettings');
+        await GroupSettings.findOneAndUpdate(
+          { groupJid: ctx.remoteJid },
+          { groupTheme: found.name },
+          { upsert: true }
+        );
+        const txt =
+          `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
+          `${found.headerDec.replace('{TITLE}', 'TEMA DO GRUPO')}\n` +
+          `${found.bullet} Tema: *${found.name.toUpperCase()}*\n\n` +
+          `✅ *${found.name.toUpperCase()}* aplicado a este grupo!\n\n` +
+          `> ${found.icon} ${found.vibe}`;
+        await sock.sendMessage(ctx.remoteJid, { text: txt }, { quoted: msg });
+        return true;
+      }
+
       await BotConfig.set('active_theme', found.name);
       await BotConfig.set('menu_style', String(found.style));
       botConfigCache.clear();

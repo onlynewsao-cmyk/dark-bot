@@ -274,4 +274,4 @@ function submenuButtons(prefix = '!') {
   ];
 }
 
-module.exports = { getStyle, renderMainMenu, renderSubmenu, submenuButtons, visibleCommands, CATEGORY_META, ALWAYS_HIDDEN };
+module.exports = { getStyle, renderMainMenu, renderSubmenu, submenuButtons, visibleCommands, CATEGORY_META, ALWAYS_HIDDEN, FRAMES, PALETTES };
