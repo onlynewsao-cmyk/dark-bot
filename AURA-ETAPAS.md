@@ -329,6 +329,26 @@ ligado** → 440 (conflito) e o logout nunca completava. Agora `apagarSessao()`
 faz `_encerrar()` **antes** do `_logoutWhatsApp()`, e o logout tem tecto rígido
 de tempo (nunca pendura a rota).
 
+## ✅ FIX + EMBELEZAMENTO — sistema de temas (!change) (feito — v7.23)
+
+Auditoria ao `!change` encontrou e corrigiu:
+
+| Problema | Correcção |
+|---|---|
+| **`sorcerer` e `ronin` duplicados** — o 2.º sobrescrevia o 1.º e o `!change`/`!temas` mostravam "undefined" | apagados os blocos mortos; ficaram 31 temas únicos |
+| **7 temas novos sem `emoji`/`label`** (e `accent`/`sectionSep` nalguns) | preenchidos todos — os temas já não aparecem "undefined" |
+| **`style` 10–13 fora do range 0–9 das molduras** | normalizado para 0–9 |
+| **Lista interativa com 31 rows numa secção** (native_flow aguenta ~10) | `paginarTemas()` → 4 secções (10+10+10+1) |
+| **Molduras diferentes no menu vs. assinatura** (2 tabelas divergentes) | `themeFormatter` usa agora `menuThemes.FRAMES` |
+| **Botão da lista exigia Dono**, mas `!change` deixava o ADM mudar o tema do grupo | ADM agora muda o tema **do grupo** pela lista; Dono muda o global |
+
+- **Embelezamento**: os 7 temas novos ganharam identidade completa — tóxicos
+  (RONIN ⛩️🩸, CIPHER ⌬, STEEL 💔, PHANTOM 💀) e purpurina (SORCERER 🌀✩,
+  ROSE 💝, PIXEL 🖋️✨) — com separadores, acentos e símbolos próprios.
+- Ficheiros: `src/bot/changeThemes.js`, `src/bot/cases/change.js`,
+  `src/bot/menuThemes.js`, `src/bot/themeFormatter.js`,
+  `src/bot/commandHandler.js`. Testes: `npm run test:temas` (44/44).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.

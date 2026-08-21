@@ -34,16 +34,11 @@ module.exports = function registerChangeCases(registerCase) {
 
       // ── Sem args → lista interativa de seleção ─────────────────────
       if (!args.length) {
-        const all = changeThemes.listThemes();
-
-        // Monta rows para single_select (máx 24 por secção)
-        const rows = all.map(t => ({
-          title:       `${t.emoji} ${t.name.toUpperCase()}`,
-          description: t.vibe.slice(0, 72),
-          id:          `CHANGE_THEME_${t.name}`,
-        }));
-
         const t = currentTheme;
+
+        // v7.23: paginado (10 por secção) — ver changeThemes.paginarTemas
+        const seccoes = changeThemes.paginarTemas(10, t.icon);
+
         const bodyTxt =
           `${t.icon} *TEMAS DO BOT — ${botName}*\n\n` +
           `${t.bullet} Tema actual: *${currentThemeName.toUpperCase()}*\n` +
@@ -52,12 +47,7 @@ module.exports = function registerChangeCases(registerCase) {
 
         const listParams = {
           title:    `${t.icon} TEMAS DISPONÍVEIS`,
-          sections: [
-            {
-              title: `${t.icon} ESCOLHE O TEU TEMA`,
-              rows,
-            },
-          ],
+          sections: seccoes,
         };
 
         try {

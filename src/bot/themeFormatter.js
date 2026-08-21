@@ -28,10 +28,10 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 function styleParts(style = 'classic') {
   const n = Number(String(style).replace(/\D/g, '')) || 0;
-  const frames = [
-    ['╭','╮','╰','╯','─','│'], ['┏','┓','┗','┛','━','┃'], ['╔','╗','╚','╝','═','║'], ['▛','▜','▙','▟','▀','▌'],
-    ['✦','✦','✧','✧','━','┃'], ['⎔','⎔','⎔','⎔','═','║'], ['◢','◣','◥','◤','━','┃'], ['╓','╖','╙','╜','─','║'],
-  ];
+  // v7.23: usa as MESMAS molduras do menu (menuThemes.FRAMES) — antes havia
+  // duas tabelas diferentes e o mesmo índice dava molduras diferentes no
+  // menu vs. na assinatura.
+  const frames = require('./menuThemes').FRAMES;
   const icons = ['⚡','♾️','🌑','🕸️','👑','💎','🔥','🧬','🛡️','🗡️','☯️','🌀'];
   return { frame: frames[n % frames.length], icon: icons[n % icons.length] };
 }
