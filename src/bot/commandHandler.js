@@ -149,6 +149,17 @@ function startsWithAnyPrefix(text, prefixes) {
   return prefixes.some(p => text.startsWith(p));
 }
 
+// v7.25: mensagem que COMEÇA com um símbolo de prefixo de comando
+// (!menu, .play, $saldo, #vip…) NUNCA é conversa — é uma tentativa de
+// comando. A AURA respondia a comandos com prefixo "errado" (que o
+// prefixEngine não reconhecia como activo) porque o gate só cobria
+// ! . /. Agora qualquer símbolo de comando é ignorado pela AURA.
+const _PREFIXO_COMANDO = /^[!$./#?*>+=\-~%&|\\]/;
+function pareceComando(texto) {
+  const c = String(texto || '').trimStart()[0];
+  return !!c && _PREFIXO_COMANDO.test(c);
+}
+
 async function isGroupAdminForHandler(sock, ctx) {
   if (!ctx.isGroup) return false;
   try {
@@ -1362,12 +1373,16 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // v6.69: no PV o Dono é sempre ouvido (não depende do modo do chat);
   // em grupo mantém-se a regra de só onde ela está acordada, senão o
   // bot respondia a tudo o que ele escreve em grupos alheios.
-  const isOwnerFreeText = isOwner && !prefixInfo && (text.length > 0 || hasIncomingMedia) && (isPv || _auraAwakeHere);
-  const pvDeTodos = isPv && !prefixInfo && (text.length > 0 || hasIncomingMedia) && !text.startsWith('!') && !text.startsWith('.') && !text.startsWith('/');
+  // v7.25: comandos (qualquer prefixo) NÃO são conversa — a AURA ficava
+  // a responder a "!menu"/"$play"/".saldo" quando o prefixo usado não era
+  // o activo (prefixEngine devolve null e o gate deixava passar).
+  const _pareceCmd = !prefixInfo && pareceComando(text);
+  const isOwnerFreeText = isOwner && !prefixInfo && !_pareceCmd && (text.length > 0 || hasIncomingMedia) && (isPv || _auraAwakeHere);
+  const pvDeTodos = isPv && !prefixInfo && !_pareceCmd && (text.length > 0 || hasIncomingMedia);
   let grupoAFalar = false;
   try {
     const talk = require('../aura/auraTalk');
-    if (ctx.isGroup && _auraAwakeHere && talk.estaAFalar(ctx.remoteJid, ctx.senderNumber) && !prefixInfo) {
+    if (ctx.isGroup && _auraAwakeHere && talk.estaAFalar(ctx.remoteJid, ctx.senderNumber) && !prefixInfo && !_pareceCmd) {
       grupoAFalar = true;
     }
     if (isAuraTrigger || isReplyToBot || isBotMentioned) talk.marcarFala(ctx.remoteJid, ctx.senderNumber);
@@ -2845,4 +2860,4 @@ async function handle(sock, msg) {
   }
 }
 
-module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg };
+module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando };
