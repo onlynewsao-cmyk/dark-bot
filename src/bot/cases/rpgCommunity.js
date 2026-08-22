@@ -18,6 +18,62 @@ async function tReply(sock, msg, ctx, title, lines) {
 
 module.exports = function registerRPGCommunity(registerCase) {
 
+  // ═══ v7.25: SELECCIONAR ESTE GRUPO COMO GRUPO DO RPG ═══
+  // O Dono cria a comunidade à mão, adiciona o bot como ADM, entra num
+  // dos grupos da comunidade e dispara o comando desse grupo. O bot
+  // regista-o, TROCA O NOME, põe a descrição, liga-o à comunidade e
+  // promove o dono — o RPG passa a funcionar ali.
+  async function definirGrupo({ sock, msg, ctx, isOwner, tipo }) {
+    if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode definir os grupos do RPG.']);
+    if (!ctx.isGroup) return tReply(sock, msg, ctx, '👥 Grupo', ['Isto só funciona dentro do grupo da comunidade.']);
+
+    const def = community.COMMUNITY_GROUPS[tipo];
+    if (!def) return tReply(sock, msg, ctx, '❌ Tipo', ['Tipo inválido: ' + tipo]);
+
+    await sock.sendMessage(ctx.remoteJid, { react: { text: def.emoji, key: msg.key } }).catch(() => {});
+
+    const r = await community.adoptGroupAs(sock, tipo, ctx.remoteJid, ctx.senderJid);
+    if (!r.ok) {
+      return tReply(sock, msg, ctx, '❌ Falhou', [String(r.error).slice(0, 140)]);
+    }
+
+    const linhas = [
+      def.emoji + ' *' + def.name + '*',
+      '',
+      def.desc,
+      '',
+      'O que fiz aqui:',
+      ...(r.acoes.length ? r.acoes.map(a => '▸ ' + a) : ['▸ Nada por fazer — já estava tudo certo']),
+      '',
+      '🎮 *O RPG já funciona neste grupo.* Comandos:',
+      '• !rpgstart <nome> <raça> <classe> — criar personagem',
+      '• !rg — ficha · !lutar — batalha · !explorar — explorar',
+    ];
+    return tReply(sock, msg, ctx, def.emoji + ' GRUPO DEFINIDO', linhas);
+  }
+
+  registerCase(['setarena'],   async (a) => definirGrupo({ ...a, tipo: 'arena' }));
+  registerCase(['setdungeons'], async (a) => definirGrupo({ ...a, tipo: 'dungeons' }));
+  registerCase(['settrocas'],  async (a) => definirGrupo({ ...a, tipo: 'trocas' }));
+  registerCase(['setcavernas'], async (a) => definirGrupo({ ...a, tipo: 'cavernas' }));
+  registerCase(['setlazer'],   async (a) => definirGrupo({ ...a, tipo: 'lazer' }));
+  registerCase(['setarsenal'], async (a) => definirGrupo({ ...a, tipo: 'arsenal' }));
+
+  // um comando único também: !setgrupo arena|dungeons|trocas|cavernas|lazer|arsenal
+  registerCase(['setgrupo'], async ({ sock, msg, ctx, args, isOwner }) => {
+    const tipo = String(args[0] || '').toLowerCase().trim();
+    if (!community.COMMUNITY_GROUPS[tipo]) {
+      return tReply(sock, msg, ctx, '❓ Qual grupo?', [
+        'Usa um destes:',
+        '⚔️ !setarena   🐉 !setdungeons   💰 !settrocas',
+        '⛏️ !setcavernas   😂 !setlazer   🏆 !setarsenal',
+        '',
+        'Ou: !setgrupo <arena|dungeons|trocas|cavernas|lazer|arsenal>',
+      ]);
+    }
+    return definirGrupo({ sock, msg, ctx, isOwner, tipo });
+  });
+
   // ═══ INICIAR DARKRPG ═══
   registerCase(['darkrpg', 'rpginit', 'iniciar-rpg'], async ({ sock, msg, ctx, isOwner, args }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode iniciar o DARKRPG.']);

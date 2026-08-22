@@ -254,6 +254,9 @@ function categorize(cmd) {
     adultvideo:'18', adultsearch:'18', adultapi:'18', adultmode:'18', adultstats:'18',
     buscar18:'18', fig18:'18', pack18:'18', gif18:'18', shorts18:'18', hotchat:'18',
     figbusca:'18', packbusca:'18', figgif:'18', portal18:'18', menu18:'18',
+    // ── v7.25: seleccionar grupo da comunidade (RPG) → owner ──────
+    setgrupo:'owner', setarena:'owner', setdungeons:'owner', settrocas:'owner',
+    setcavernas:'owner', setlazer:'owner', setarsenal:'owner',
     // ── v7.24: 'outros' → sítio certo ──────────────────────────────
     // Música / cartão som → downloads
     som:'downloads', song:'downloads', faixa:'downloads', track:'downloads', musik:'downloads', disco:'downloads',
@@ -449,6 +452,7 @@ const SUBCATEGORIES = {
     { id: '📏 Medidores', re: /.*/ },   // zoeira é SÓ medidores — 1 grupo
   ],
   owner: [
+    { id: '🏰 RPG / Comunidade', re: /^(darkrpg|rpginit|iniciar-rpg|setgrupo|setarena|setdungeons|settrocas|setcavernas|setlazer|setarsenal|criaclan|criaclã|newclan|menu-rpg|menurpg|rpgmenu|rpgmenu2|comunicado|arsenal|ranking-update|addglb|addglobal|darkrpg-status|rpgstatus|darkrpg-test|rpgtest)$/ },
     { id: '👑 Sistema', re: /^(broadcast|send|eval|exec|shell|restart|shutdown|panel|autodecrypt|prefixos|buttonmode|menustyle)$/ },
     { id: '🧩 Cases', re: /^(addcase|removicase|downcase|listcases|runcase|reloadcases|execcase|testcase|testcasecode|viewcase|getcasecode|listcase|mycases|validarcase|verificarcmds|cmdcheck|vercode|audit|auditcmds|recarregarcases|refreshcases|removecase|remcase|showcase|newcase|listcmds|somcode|codsom)$/ },
     { id: '🎨 Temas', re: /^(change|tema|settheme|themes|temas|listtemas|listthemes|themechange|themeglobal|globaltheme|mudarstema)$/ },

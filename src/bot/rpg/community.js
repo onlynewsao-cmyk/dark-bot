@@ -978,6 +978,111 @@ async function generateDailyReport() {
 // ══════════════════════════════════════════════════════════════
 // EXPORTS
 // ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// v7.25 — SELECCIONAR UM GRUPO DA COMUNIDADE COMO GRUPO DO RPG
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Descobre a comunidade a que um grupo pertence (ou a guardada).
+ * Ordem: parent deste grupo → guardada no MongoDB → varrimento.
+ */
+async function discoverCommunityForGroup(sock, groupJid) {
+  await loadState();
+
+  // 1. o grupo já está ligado a uma comunidade?
+  if (groupJid) {
+    try {
+      const meta = await sock.groupMetadata(groupJid);
+      const parent = meta?.linkedParent || meta?.parentGroup;
+      if (parent) return { jid: parent, nome: 'esta comunidade' };
+    } catch {}
+  }
+
+  // 2. comunidade guardada (ainda viva?)
+  if (_communityJid) {
+    try {
+      const m = typeof sock.communityMetadata === 'function'
+        ? await sock.communityMetadata(_communityJid)
+        : await sock.groupMetadata(_communityJid);
+      if (m) return { jid: _communityJid, nome: m?.subject || 'DARK VILLE' };
+    } catch {}
+  }
+
+  // 3. varrimento (1 query)
+  const scan = await scanCommunities(sock);
+  if (scan.ok) {
+    const alvo = _escolherComunidade(scan.comunidades);
+    if (alvo) return { jid: alvo.id, nome: alvo.subject || 'comunidade' };
+  }
+
+  return {
+    jid: null,
+    erro: 'Não encontrei a comunidade. Cria-a no WhatsApp, adiciona-me como admin e corre *!darkrpg <nome>*.',
+  };
+}
+
+/**
+ * Adopta um grupo JÁ EXISTENTE como um dos grupos do RPG:
+ * registra no cache (persistido), renomeia, põe a descrição, liga à
+ * comunidade e promove o dono — tudo automaticamente.
+ */
+async function adoptGroupAs(sock, groupType, groupJid, ownerJid) {
+  const def = COMMUNITY_GROUPS[groupType];
+  if (!def) {
+    return { ok: false, error: 'Tipo inválido: ' + groupType + ' (arena, dungeons, trocas, cavernas, lazer, arsenal)' };
+  }
+  await loadState();
+
+  const comm = await discoverCommunityForGroup(sock, groupJid);
+  if (!comm.jid) return { ok: false, error: comm.erro };
+  if (_communityJid !== comm.jid) { _communityJid = comm.jid; await _persist(); }
+
+  // 1. registar o grupo como este tipo (o RPG passa a reconhecê-lo)
+  _groupCache.set(groupType, groupJid);
+  await _persist();
+
+  const acoes = [];
+
+  // 2. renomear para o nome canónico
+  try {
+    const meta = await sock.groupMetadata(groupJid);
+    if ((meta?.subject || '').trim() !== def.name) {
+      await sock.groupUpdateSubject(groupJid, def.name);
+      acoes.push('Renomeei para *' + def.name + '*');
+    } else {
+      acoes.push('O nome já era *' + def.name + '*');
+    }
+  } catch (e) {
+    acoes.push('Não consegui renomear: ' + String(e?.message || e).slice(0, 50));
+  }
+
+  // 3. descrição
+  try { await sock.groupUpdateDescription(groupJid, def.desc); acoes.push('Descrição actualizada'); } catch {}
+
+  // 4. ligar à comunidade (se ainda não estiver)
+  try {
+    const meta = await sock.groupMetadata(groupJid);
+    if (!meta?.linkedParent && typeof sock.communityLinkGroup === 'function') {
+      await sock.communityLinkGroup(groupJid, comm.jid);
+      acoes.push('Liguei o grupo à comunidade');
+    }
+  } catch {}
+
+  // 5. promover o dono
+  if (def.ownerAdm && ownerJid) {
+    try {
+      const meta = await sock.groupMetadata(groupJid);
+      const p = (meta?.participants || []).find(x => _num(x.id) === _num(ownerJid));
+      if (p && p.admin !== 'admin' && p.admin !== 'superadmin') {
+        await sock.groupParticipantsUpdate(groupJid, [ownerJid], 'promote');
+        acoes.push('Promovi-te a admin');
+      }
+    } catch {}
+  }
+
+  return { ok: true, jid: groupJid, nome: def.name, emoji: def.emoji, desc: def.desc, acoes };
+}
+
 module.exports = {
   COMMUNITY_GROUPS,
   COMMUNITY_RULES,
@@ -998,6 +1103,8 @@ module.exports = {
   createNamedGroup,
   linkExistingGroup,
   createGroupInCommunity,
+  discoverCommunityForGroup,
+  adoptGroupAs,
   createClanGroup,
   addAllUsersToMainGroup,
   initCommunity,

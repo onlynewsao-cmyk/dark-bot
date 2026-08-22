@@ -367,6 +367,33 @@ Auditoria aos submenus (`submenuData`) e ao `!change`:
   `src/bot/cases/dynamicSubmenus.js`, `src/bot/cases/downloads2.js`,
   `src/bot/changeThemes.js`. Testes: `npm run test:submenusorg` (40/40).
 
+## ✅ GRUPO DA COMUNIDADE + FIX AURA-comandos (feito — v7.25)
+
+**1. Seleccionar um grupo da comunidade como grupo do RPG.**
+O Dono cria a comunidade à mão, dá ADM ao bot, entra num dos grupos e usa
+um comando específico por grupo:
+
+- `!setarena` · `!setdungeons` · `!settrocas` · `!setcavernas` · `!setlazer` · `!setarsenal`
+- ou `!setgrupo <arena|dungeons|trocas|cavernas|lazer|arsenal>`
+
+O bot **automaticamente**: descobre a comunidade (parent do grupo → guardada
+→ varrimento), regista o grupo como esse tipo (persistido no `_groupCache`),
+**troca o nome** para o canónico ("Arena das Sombras"…), põe a descrição,
+liga o grupo à comunidade e promove o Dono a admin. O RPG fica a funcionar
+ali (`!rpgstart`, `!rg`, `!lutar`, `!explorar`…).
+
+**2. AURA já não responde a comandos de bots.**
+A AURA respondia quando alguém usava um **prefixo errado** (`$menu`, `#vip`,
+`.saldo`… quando o prefixo activo era outro): o `prefixEngine` devolvia null
+e o gate só cobria `! . /`. Agora `pareceComando()` deteta **qualquer** símbolo
+de prefixo (`! . / $ # ? * - …`) e o gate ignora — conversa normal ("oi",
+"toca shakira") continua a funcionar.
+
+- Ficheiros: `src/bot/rpg/community.js` (`discoverCommunityForGroup`,
+  `adoptGroupAs`), `src/bot/cases/rpgCommunity.js` (casos set*),
+  `src/bot/commandHandler.js` (`pareceComando`), `src/bot/submenuData.js`.
+  Testes: `npm run test:rpggrupo` (28/28).
+
 ## 🔒 Regras sempre válidas
 
 - Comandos destrutivos/de Dono **nunca** são executados por terceiros.
