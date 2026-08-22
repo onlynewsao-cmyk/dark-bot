@@ -1,0 +1,250 @@
+
+## test:syntax
+PASS
+
+## test:ejs
+PASS
+
+## test:commands
+PASS
+
+## test:smoke
+PASS
+
+## test:roles
+PASS
+
+## test:auramodes
+PASS
+
+## test:auraaudit
+PASS
+
+## test:perf
+PASS
+
+## test:e2e
+PASS
+
+## test:submenus
+PASS
+
+## test:menu18
+FAIL (exit 1)
+    
+    [Cases] 1847 cases carregados | 780 fontes extraídas
+    
+    ╔═══════════════════════════════════════════════════════════════════════╗
+    ║          DARK BOT — AUDITORIA DO SUBMENU  🔞 MENU18                   ║
+    ╚═══════════════════════════════════════════════════════════════════════╝
+    
+    [Cases] 1847 cases carregados | 780 fontes extraídas
+    ▸ Controlo de acesso
+      ✅ Free é BLOQUEADO → 💎 *Submenu exclusivo VIP.*  🆓 Cargo actual: FREE — VIP: INATIVO ❌ 
+      ✅ Free não recebe nada no PV
+      ✅ VIP tem acesso
+      ✅ Dono tem acesso
+    
+    ▸ Mostra o portal real (não a categoria "outros")
+      ✅ NÃO mostra "OUTROS COMANDOS"
+      ✅ NÃO mostra lixo interno
+      ✅ Mostra comandos 18+ reais
+    
+    ▸ Privacidade
+      ✅ Conteúdo vai para o PV, não para o grupo → PV 1938 chars
+      ✅ No grupo só fica o aviso → 🔞 *Menu 18+ enviado no teu PV!* 📬 Verifica as tuas mensagens priva
+    
+    ▸ Todo o comando anunciado EXISTE
+      ✅ Nenhum comando fantasma no menu → 30 verificados
+      ✅ Comandos inexistentes foram removidos
+    
+    ▸ O menu diz a verdade sobre quem pode usar
+      ✅ VIP é avisado do acesso limitado
+      ✅ Dono vê "acesso total"
+      ✅ Comandos só-dono estão marcados 👑
+      ✅ Comandos de VIP estão marcados 💎
+      ✅ Tem legenda a explicar os símbolos
+    
+    ▸ Segurança
+      ✅ Filtro de termos ilegais activo → 6/6
+      ✅ Portal desligado por omissão
+      ✅ Comandos verificam o dono
+    
+    ▸ Os comandos ENTREGAM mídia? (chamadas reais às APIs)
+      ✅ Pelo menos 3 fontes de imagem vivas → 4/4
+      ✅ A URL entrega mídia real (bytes) → yande.re: 1448753 bytes image/jpeg
+      ✅ Comandos novos registados → yande, kona, e621, nekos, adultstats
+      ✅ portal18 está importado
+      ✅ Módulo erome carrega
+    
+    ▸ Figurinhas 18+ e download (entrega real)
+      ✅ fig18/pack18/xvideodl registados → fig18, pack18, xvideodl
+      ❌ Cadeia imagem → figurinha WebP →  Something went wrong installing the "sharp" modul
+      ✅ Fonte de reserva (safebooru) viva → https://safebooru.org/images/4322/acfe3edbea6de6c0
+    
+    ▸ Busca por nome, GIFs e figurinhas animadas
+      ✅ 7 comandos novos registados → 7 ok
+      ✅ Busca por nome funciona → 4 de yande.re
+      ✅ GIF animado entrega bytes reais → 467970 bytes, GIF=true
+      ✅ Shorts/animados encontrados → 2 de e621.net
+      ❌ GIF → figurinha ANIMADA →  Something went wrong installing the "sharp" 
+    
+      30 OK / 2 FALHOU
+    
+
+## test:auracmds
+PASS
+
+## test:casehandler
+PASS
+
+## test:rpgcom
+PASS
+
+## test:comunidades
+PASS
+
+## test:ratelimit
+PASS
+
+## test:adopcao
+PASS
+
+## test:auracom
+PASS
+
+## test:auravoz
+PASS
+
+## test:chamadas
+PASS
+
+## test:auraviva
+PASS
+
+## test:sessao
+PASS
+
+## test:aurabrain
+PASS
+
+## test:auravozreal
+PASS
+
+## test:pack
+PASS
+
+## test:renomear
+PASS
+
+## test:callback
+PASS
+
+## test:rankativos
+PASS
+
+## test:downloads-audit
+PASS
+
+## test:downloads-real
+PASS
+
+## test:stickers-audit
+PASS
+
+## test:ia-audit
+PASS
+
+## test:jogos-audit
+PASS
+
+## test:interacoes-audit
+PASS
+
+## test:dono-audit
+PASS
+
+## test:zoeira-audit
+PASS
+
+## test:texto-audit
+PASS
+
+## test:search-audit
+PASS
+
+## test:audio-audit
+PASS
+
+## test:logos-audit
+PASS
+
+## test:admin-dono
+PASS
+
+## test:menu-routing
+PASS
+
+## test:economia-audit
+PASS
+
+## test:segregacao
+PASS
+
+## test:finalizacao
+PASS
+
+## test:auramidia
+PASS
+
+## test:auravozcompleta
+PASS
+
+## test:auraetapa3
+PASS
+
+## test:auraetapa4
+PASS
+
+## test:auraetapa5
+PASS
+
+## test:auraassistente
+PASS
+
+## test:auraetapa6
+PASS
+
+## test:auracriarcanal
+PASS
+
+## test:auraconvite
+PASS
+
+## test:aurafaltava
+PASS
+
+## test:paircode
+PASS
+
+## test:voipqr
+PASS
+
+## test:voipfechar
+PASS
+
+## test:musicacard
+PASS
+
+## test:temas
+PASS
+
+## test:submenusorg
+PASS
+
+## test:rpggrupo
+PASS
+
+# Resumo
+- Aprovados: 61
+- Falharam: 1
