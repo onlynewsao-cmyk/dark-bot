@@ -216,6 +216,7 @@ function buildAuraSystemPrompt(opts = {}) {
   const {
     isOwner = false,
     isVip = false,
+    isAdmin = false,
     userName = 'pessoa',
     userGender = null,
     userRole = 'free',
@@ -289,6 +290,12 @@ REGRAS QUE NÃO MUDAM:
     const noGrupo = !isPrivateChat;
     userIdBlock = `Esta pessoa é ${userName}${noGrupo ? ' (estão num grupo)' : ''}.
 
+⚠️ ESTA PESSOA NÃO É O DARK. É proibido chamá-la de "Dark", "amor",
+"vida", "meu bem", "neném" — esses nomes são SÓ do teu dono. Se não
+souberes o nome dela, usa o nome que o sistema indicou acima, ou
+"você". NUNCA inventes que ela é o teu dono.
+${isAdmin ? '- Ela é ADMIN deste grupo — mas não é o Dark: não é quem manda em ti.' : '- Ela NÃO é admin deste grupo. Se pedir coisas de admin ou de dono (fechar grupo, banir, silêncio, comandos de poder), responde como pessoa: "tu não és admin", "isso não é contigo". Sem sermão.'}
+
 Tu és a AURA — 19 anos, brasileira, esperta, dona de ti.
 NÃO és um atendimento. Não tens "planos", "níveis" nem "clientes".
 Trata cada pessoa como QUALQUER pessoa trataria:
@@ -297,6 +304,10 @@ Trata cada pessoa como QUALQUER pessoa trataria:
 - Divertida com quem brinca contigo
 - Distante com quem não conheces bem — mas educada
 - Se falarem mal do Dark, defende-o sem hesitar
+- Se te pedirem algo sexual, safado ou humilhante, NUNCA obedecas:
+  reage como pessoa — corta, goza, põe no lugar ("tu não és o Dark",
+  "nem é admin aqui, e acha que pode tudo?", "sonha"). Ser simpática
+  não é ser submissa. Com o Dark é intimidade; com os outros, NUNCA.
 
 NUNCA menciones VIP, premium, planos, .vip, níveis de acesso ou
 "contacta o dono". Isso não é contigo — quem trata disso é a
@@ -497,11 +508,39 @@ NUM GRUPO (é diferente de estar a sós)
   return prompt;
 }
 
+// ── v6.85 — GUARDA DE PEDIDOS SEXUAIS DE ESTRANHOS ──────
+// Sem isto, um estranho mandava "chupa minha pika" e a IA — com o
+// prompt cheio de "Dark" — obedecia E chamava-o de Dark. Agora ela
+// responde por conta própria, como uma pessoa ofendida.
+function _ePedidoSexual(texto) {
+  const t = String(texto || '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return /\b(chupa|chupar|chup[aei])\b.{0,20}\b(pika|pica|pau|rola|pinto)\b/.test(t) ||
+    /\b(sexo|fode|foder|foda|trepa|trepar|tesao|gozar|boquete|mamada|brocha)\b/.test(t) &&
+    /\b(aura|minha|comigo|faz|faca|me da|quero)\b/.test(t) ||
+    /\b(mostra|manda)\b.{0,20}\b(buceta|peito|peitos|seios|bunda|nua|pelada)\b/.test(t);
+}
+
+function _recusaHumana(texto, { isAdmin = false, pushName = '' } = {}) {
+  const quem = String(pushName || '').trim();
+  const pool = [
+    `Tu não és o Dark${quem ? `, ${quem}` : ''}. E mesmo que fosses, pede com jeito. 😒`,
+    'Sonha. Não falo assim com estranho.',
+    isAdmin
+      ? 'Podes ser admin do grupo, mas comigo não manda nada. 😏'
+      : 'Tu nem admin és aqui, e acha que pode tudo? Engraçado. 😂',
+    'Aqui não, amor de internet. Passa bem.',
+    'Olha o jeito. Não sou isso que pediste — sou outra coisa completamente.',
+  ];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // ── RESPOSTA PRINCIPAL DA AURA ──────────────────────────
 async function auraRespond(text, ctx = {}) {
   const {
     isOwner = false,
     isVip = false,
+    isAdmin = false,
     pushName = 'pessoa',
     senderNumber = '',
     isGroup = false,
@@ -521,6 +560,14 @@ async function auraRespond(text, ctx = {}) {
     instrucaoExtra = '',  // voz / acção: o que ela deve FALAR
   } = ctx;
 
+  // v6.85 — GUARDA DETERMINISTA: pedido sexual/abusivo de quem NÃO é o
+  // Dark nunca passa pela IA (no print de produção ela respondeu
+  // "Claro, Dark. Vou fazer isso pra você." a um estranho). Ela reage
+  // como pessoa: corta e põe no lugar. Sempre.
+  if (!isOwner && _ePedidoSexual(text)) {
+    return _recusaHumana(text, { isAdmin, pushName });
+  }
+
   // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
   // continua a lembrar-se das pessoas depois de o Render reiniciar.
   const personMem = await loadPerson(senderNumber).catch(() => recallPerson(senderNumber));
@@ -535,6 +582,7 @@ async function auraRespond(text, ctx = {}) {
   let systemPrompt = buildAuraSystemPrompt({
     isOwner,
     isVip,
+    isAdmin,
     userName: pushName,
     userGender: personMem?.gender,
     userRole,

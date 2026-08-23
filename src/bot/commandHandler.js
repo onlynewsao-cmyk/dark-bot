@@ -1918,6 +1918,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           answer = await aura.auraRespond(prompt, {
             isOwner,
             isVip,
+            isAdmin: ctx.isAdmin,   // v6.85: ela sabe o cargo de quem fala
             pushName: ctx.pushName,
             senderNumber: ctx.senderNumber,
             isGroup: ctx.isGroup,
@@ -2116,22 +2117,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       }
 
       // Pedido de foto ANTES da IA — "Aura mostra o Messi" não pode
-      // virar "_envia uma foto do Messi_".
-      try {
-        const imgSearch = require('./imageSearch');
-        const pedidoCedo = imgSearch.detectarPedidoImagem(cleanText || text);
-        if (pedidoCedo && !pedidoCedo.gerar) {
-          const imgs = await imgSearch.buscarImagens(pedidoCedo.termo, 1).catch(() => null);
-          if (imgs?.length) {
-            await sock.sendMessage(ctx.remoteJid, {
-              image: { url: imgs[0].url },
-              caption: pedidoCedo.termo,
-            }, { quoted: msg });
-            return true;
-          }
-        }
-      } catch (e) {
-        console.warn('[Aura imagem cedo]', e.message?.slice(0, 60));
+      // virar "_envia uma foto do Messi_". v6.85: nomes múltiplos,
+      // termos vagos pelo contexto, e resposta honesta se falhar.
+      {
+        const stFotos = await _fotosPedidas(sock, msg, ctx, cleanText || text);
+        if (stFotos === 'enviadas' || stFotos === 'falhou') return true;
       }
 
       // v6.54: PEDIDO DE IMAGEM — PROCURAR, não gerar.
@@ -2139,26 +2129,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Antes a AURA gerava com IA (ou respondia com uma piada, como
       // no "me de um cavalo" do diálogo real). Só gera quando o
       // pedido é explícito: "cria/desenha/imagina uma imagem de...".
-      try {
-        const imgSearch = require('./imageSearch');
-        const pedido = imgSearch.detectarPedidoImagem(cleanText);
-
-        if (pedido && !pedido.gerar) {
-          const imgs = await imgSearch.buscarImagens(pedido.termo, 1).catch(() => null);
-          if (imgs?.length) {
-            const legenda = finalAnswer && finalAnswer.length < 220
-              ? finalAnswer
-              : `Aqui tens: *${pedido.termo}* 🌹`;
-            await sock.sendMessage(ctx.remoteJid, {
-              image: { url: imgs[0].url },
-              caption: `${legenda}\n\n_via ${imgs[0].fonte}_`,
-            }, { quoted: msg });
-            return true;
-          }
-          // se não encontrou, segue e manda o texto normal
-        }
-      } catch (e) {
-        console.warn('[Aura imagem]', e.message?.slice(0, 60));
+      // v6.85: mesmo fluxo do pedido cedo (multi-nome/vago/honesto).
+      {
+        const stFotos2 = await _fotosPedidas(sock, msg, ctx, cleanText);
+        if (stFotos2 === 'enviadas' || stFotos2 === 'falhou') return true;
+        // null → não era pedido de foto explícito; segue o texto normal
       }
 
       // v6.53: PEDIDO DE ÁUDIO — ela dizia "não posso enviar áudios"
@@ -2771,6 +2746,61 @@ function chunkString(str, size) {
   const chunks = [];
   for (let i = 0; i < str.length; i += size) chunks.push(str.slice(i, i + size));
   return chunks;
+}
+
+/**
+ * v6.85 — pedidos de foto REAIS, como no print do Dark:
+ *   "Agora monstra o Drake e o Kendrick" → UMA pesquisa com dois nomes
+ *   não devolve nada → ela dizia "tá, vai aí os dois" SEM fotos.
+ *   "Mande a foto deles" → pesquisava "deles" → imagem preta "1º DELAS".
+ * Agora: termo vago resolve-se pelo contexto (último termo/nomes da
+ * frase), multi-nome envia uma foto por pessoa, e se não encontrar
+ * ela diz como pessoa — nunca finge, nunca manda lixo.
+ * @returns {'enviadas'|'falhou'|null}
+ */
+async function _fotosPedidas(sock, msg, ctx, cleanText) {
+  try {
+    const imgSearch = require('./imageSearch');
+    const pedido = imgSearch.detectarPedidoImagem(cleanText);
+    if (!pedido || pedido.gerar) return null;
+
+    const { termo, nomes } = imgSearch.resolverTermo({
+      jid: ctx.remoteJid, termo: pedido.termo, texto: cleanText,
+    });
+    const alvos = nomes.length ? nomes : [termo];
+
+    const enviadas = [];
+    for (const alvo of alvos) {
+      const imgs = await imgSearch.buscarImagens(alvo, 1).catch(() => null);
+      if (imgs?.length && /^https?:/i.test(String(imgs[0].url || ''))) {
+        await sock.sendMessage(ctx.remoteJid, {
+          image: { url: imgs[0].url },
+          ...(alvos.length > 1 ? { caption: alvo } : {}),
+        }, { quoted: msg });
+        enviadas.push(alvo);
+        try { imgSearch.lembrarTermo(ctx.remoteJid, alvo); } catch {}
+      }
+    }
+    if (enviadas.length) return 'enviadas';
+
+    // Sem foto explícita no pedido ("me dá um X") → deixa a IA conversar
+    if (!/\b(foto|imagem|fotografia|retrato|picture|photo)\b/i.test(cleanText || '')) {
+      return null;
+    }
+
+    // Não achou → responde como pessoa, não finge nem manda lixo
+    const linhas = [
+      `Não achei foto de ${alvos.join(' e ')} agora. Tenta pedir de outra forma.`,
+      `Hmm... ${alvos.join(' e ')}. Não me apareceu nenhuma foto boa aqui, desculpa.`,
+    ];
+    await sock.sendMessage(ctx.remoteJid, {
+      text: linhas[Math.floor(Math.random() * linhas.length)],
+    }, { quoted: msg });
+    return 'falhou';
+  } catch (e) {
+    console.warn('[Aura imagem]', String(e?.message || e).slice(0, 60));
+    return null;
+  }
 }
 
 async function incrementUserCommand(number, ctx = null, commandName = '') {

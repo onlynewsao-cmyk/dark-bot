@@ -260,9 +260,21 @@ async function falarCom(sock, ctx, texto, msg) {
 async function falarComTodos(sock, ctx, texto, msg) {
   const parts = await participantes(sock, ctx);
   const botNum = String(sock?.user?.id || '').split(':')[0].split('@')[0];
-  const alvos = parts
-    .map(p => p.id)
-    .filter(jid => String(jid).split('@')[0] !== botNum);
+  const botLid = String(sock?.user?.lid || '').split(':')[0].split('@')[0];
+
+  // v6.85 — HIDETAG A SÉRIO: o WhatsApp tem o grupo com jid + LID do
+  // mesmo participante; antes saía "@Dark @Dark" e até "@AurΔ" (o bot
+  // em LID). Deduplica por número e exclui o bot nas duas formas.
+  const vistos = new Set();
+  const alvos = [];
+  for (const p of parts) {
+    const jid = p.id;
+    const num = String(jid).split('@')[0].replace(/\D/g, '');
+    if (!num || vistos.has(num)) continue;
+    vistos.add(num);
+    if (num === botNum || (botLid && num === botLid)) continue; // o bot não se menciona
+    alvos.push(jid);
+  }
   if (!alvos.length) return { ok: true, msg: 'Não encontrei ninguém para mencionar.' };
 
   // o recado vem depois de "que" / "dizendo" / ":"
@@ -271,8 +283,15 @@ async function falarComTodos(sock, ctx, texto, msg) {
             String(texto || '').match(/:\s*(.+)$/);
   if (m) conteudo = m[1].trim();
 
-  const txt = (conteudo || '📢 Atenção, pessoal!') +
-    '\n\n' + alvos.map(j => '@' + String(j).split('@')[0]).join(' ');
+  // v6.85 — "as escondidas" / hidetag: o texto NÃO leva a lista de @
+  // (isso era o que aparecia como lista visível no print do Dark).
+  // Os mentions no array chegam a todos sem escrever os nomes.
+  const escondidas = /escondid|hidetag|sem marcar|n[ãa]o marca|ocult|invisivel/i.test(texto || '');
+
+  const txt = escondidas
+    ? (conteudo || '📢')
+    : (conteudo || '📢 Atenção, pessoal!') +
+      '\n\n' + alvos.map(j => '@' + String(j).split('@')[0]).join(' ');
   return { ok: true, msg: txt, mencionar: alvos };
 }
 

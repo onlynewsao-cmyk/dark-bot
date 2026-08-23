@@ -325,6 +325,53 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       return await hist.falarCom(sock, ctx, texto || arg || '', msg);
     }
 
+    // v6.85 — "quem é o X / marca ele": resolve a pessoa no grupo e
+    // marca-a de verdade. Se for o dono, ela apresenta-o como tal.
+    case 'marcar_pessoa': {
+      const hist = require('./auraHistorico');
+      const bruto = texto || arg || '';
+      let nome = '';
+      let m = bruto.match(/quem\s+[ée]\s+(?:o|a)\s+([a-z0-9_~|.\- ]{2,30}?)\s+(?:marca|mark|aponta|menciona)/i);
+      if (m) nome = m[1].trim();
+      if (!nome) {
+        m = bruto.match(/\b(?:marca|mark|aponta|menciona)\s+(?:o|a)\s+([a-z0-9_~|.\-]{2,30})/i);
+        if (m) nome = m[1].trim();
+      }
+      if (!nome) {
+        m = bruto.match(/quem\s+[ée]\s+(?:o|a)\s+([a-z0-9_~|.\-]{2,30})/i);
+        if (m) nome = m[1].trim();
+      }
+      if (!nome || /^(ele|ela|esse|essa|isso)$/.test(nome)) {
+        return { ok: false, msg: 'Quem? Diz o nome ou marca com @.' };
+      }
+
+      // "dark" / "dono" → o dono do bot, esteja ou não na lista
+      const cfg = require('../config');
+      const donoNum = String(cfg.owner.number || '').replace(/\D/g, '');
+      const eDono = /\b(dark|dono|chefe| patr[aã]o)\b/i.test(nome) ||
+        (donoNum && nome.replace(/\D/g, '') === donoNum);
+
+      let jid = null, mostra = nome;
+      if (eDono && donoNum) {
+        jid = donoNum + '@s.whatsapp.net';
+        mostra = cfg.owner.name || 'Dark';
+      } else {
+        const p = await hist.resolverPessoa(sock, ctx, nome).catch(() => null);
+        if (p) { jid = p.jid; mostra = p.nome; }
+      }
+      if (!jid) {
+        return { ok: true, msg: `Não vi ninguém com esse nome aqui no grupo. 🤔` };
+      }
+      const num = String(jid).split('@')[0];
+      return {
+        ok: true,
+        msg: eDono
+          ? `Esse é o meu Dark 👑 @${num}`
+          : `Esse é ${mostra} → @${num}`,
+        mencionar: [jid],
+      };
+    }
+
     case 'falar_com_todos': {
       const hist = require('./auraHistorico');
       return await hist.falarComTodos(sock, ctx, texto || arg || '', msg);
