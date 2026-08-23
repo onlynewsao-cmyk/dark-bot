@@ -55,6 +55,9 @@ function categorize(cmd) {
     abraco:'interacoes', beijo:'interacoes',
     ficha:'economia', explore:'economia',
     cantada:'texto', bible:'texto', versiculo:'texto', filosofo:'texto',
+    // v6.84: 'cor' (regex de texto, prefixo) roubava corno/corna para
+    // TEXTO — são medidores de zoeira. compress é utilidade de mídia.
+    corno:'zoeira', corna:'zoeira', compress:'texto',
     coin:'jogos', dice:'jogos', d6:'jogos',
     vip:'info', assinar:'info',
     cmdsocultos:'owner', portal18:'owner',
@@ -87,7 +90,7 @@ function categorize(cmd) {
     flip:'jogos', ship:'jogos', shipo:'jogos', bingo:'jogos', akinator:'jogos', chute:'jogos',
     caraoucoroa:'jogos', combate:'jogos', adivinha:'jogos', simular:'jogos', palavra:'jogos', velha:'jogos',
     music:'downloads', music2:'downloads', music3:'downloads', musica:'downloads', yt:'downloads', ig:'downloads',
-    fullhd:'downloads', hq:'downloads', ytfhd:'downloads', ythd:'downloads', sp:'downloads', vd:'downloads',
+    fullhd:'downloads', hq:'downloads', ytfhd:'downloads', ythd:'downloads', sp:'downloads', vd:'jogos',
     wiki:'search', movie:'search', procurar:'search', githubstalk:'search', ghstalk:'search',
     instastalk:'search', stalktk:'search', episodiosanime:'search', lives:'search', robloxcodes:'search',
     world:'search', mapa:'search', historia:'search', buscalivro:'search', buscar18:'owner',
@@ -200,7 +203,6 @@ function categorize(cmd) {
     'darkrpg-status':'owner',
     'rpgstatus':'owner',
     'menu-rpg':'owner',
-    'menurpg':'jogos',
     'rpgmenu':'owner',
     'comunicado':'owner',
     'arsenal':'owner',
@@ -260,7 +262,7 @@ function categorize(cmd) {
     // ── v7.24: 'outros' → sítio certo ──────────────────────────────
     // Música / cartão som → downloads
     som:'downloads', song:'downloads', faixa:'downloads', track:'downloads', musik:'downloads', disco:'downloads',
-    qualmusica:'downloads', identificar:'downloads', pinvideo:'downloads', letra:'downloads',
+    qualmusica:'downloads', identificar:'downloads', pinvideo:'downloads', letra:'jogos',
     // Tradução / frases → texto
     traduzir:'texto', trad:'texto', translate:'texto', frase:'texto',
     // Ajuda / horas / chamadas → info

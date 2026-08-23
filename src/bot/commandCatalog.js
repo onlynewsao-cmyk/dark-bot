@@ -7,7 +7,6 @@ const CATALOG = [
   // ===== INFO =====
   { name: 'start', category: 'info', emoji: '🚀', description: 'Inicia o bot com botões', native: true },
   { name: 'menu', category: 'info', emoji: '📜', description: 'Mostra todos os comandos', native: true },
-  { name: 'menubtn', category: 'info', emoji: '🔘', description: 'Menu interativo com botões', native: true },
   { name: 'menudownload', category: 'info', emoji: '📥', description: 'Submenu de downloads', native: true },
   { name: 'menustickers', category: 'info', emoji: '🎨', description: 'Submenu de stickers', native: true },
   { name: 'menujogos', category: 'info', emoji: '🎮', description: 'Submenu de jogos', native: true },
@@ -28,8 +27,6 @@ const CATALOG = [
   { name: 'info', category: 'info', emoji: 'ℹ️', description: 'Informações do bot', native: true },
   { name: 'id', category: 'info', emoji: '🆔', description: 'Seu ID e do chat', native: true },
   { name: 'perfil', category: 'info', emoji: '👤', description: 'Seu perfil', native: true },
-  { name: 'genero', category: 'info', emoji: '👤', description: 'Define tratamento/gênero', native: true },
-  { name: 'alterargenero', category: 'info', emoji: '🔁', description: 'Altera gênero 1x por dia', native: true },
 
   // ===== IA =====
   { name: 'ia', category: 'ia', emoji: '🧠', description: 'Conversa com IA', native: true },
@@ -40,12 +37,10 @@ const CATALOG = [
   { name: 'noticias', category: 'ia', emoji: '📰', description: 'Resumo limpo de notícias atuais sem key extra', native: true },
   { name: 'pesquisar', category: 'ia', emoji: '🔎', description: 'Pesquisa online/Google-like com IA/contexto web', native: true },
   { name: 'resumir', category: 'ia', emoji: '📝', description: 'Resume textos grandes ou mensagens respondidas', native: true },
-  { name: 'figura', category: 'ia', emoji: '✨', description: 'Gera sticker com IA', native: true },
 
   // ===== DOWNLOADS =====
   { name: 'play', category: 'downloads', emoji: '🎵', description: 'Baixa áudio do YouTube', native: true },
   { name: 'video', category: 'downloads', emoji: '🎬', description: 'Baixa vídeo HD do YouTube', native: true },
-  { name: 'statusvideo', category: 'downloads', emoji: '⭕', description: 'Envia vídeo como circular/status PTV', native: true },
   { name: 'menuaudio', category: 'downloads', emoji: '🎧', description: 'Menu de efeitos de áudio', native: true },
   { name: 'audiofx', category: 'downloads', emoji: '🎛️', description: 'Aplica efeito em áudio marcado', native: true },
   { name: 'tiktok', category: 'downloads', emoji: '🎵', description: 'Baixa vídeo TikTok', native: true },
@@ -95,23 +90,15 @@ const CATALOG = [
   { name: 'antilink', category: 'grupos', emoji: '🛡️', description: 'Liga/desliga antilink', native: true, ownerOrAdmin: true },
   { name: 'antispam', category: 'grupos', emoji: '🛡️', description: 'Liga/desliga antispam', native: true, ownerOrAdmin: true },
   { name: 'welcome', category: 'grupos', emoji: '👋', description: 'Liga/desliga boas-vindas', native: true, ownerOrAdmin: true },
-  { name: 'bloquearcmd', category: 'grupos', emoji: '🛑', description: 'Bloqueia comando no grupo', native: true, ownerOrAdmin: true },
-  { name: 'desbloquearcmd', category: 'grupos', emoji: '✅', description: 'Desbloqueia comando no grupo', native: true, ownerOrAdmin: true },
-  { name: 'cmdsgrupo', category: 'grupos', emoji: '⚙️', description: 'Lista comandos bloqueados', native: true, ownerOrAdmin: true },
-  { name: 'setnomebot', category: 'grupos', emoji: '🤖', description: 'Nome do bot neste grupo', native: true, ownerOrAdmin: true },
   { name: 'admins', category: 'grupos', emoji: '👑', description: 'Lista admins do grupo', native: true },
   { name: 'tagadmins', category: 'grupos', emoji: '🚨', description: 'Marca todos os admins', native: true },
   { name: 'setdesc', category: 'grupos', emoji: '📝', description: 'Altera descrição do grupo', native: true, ownerOrAdmin: true },
   { name: 'setnomegrupo', category: 'grupos', emoji: '🏷️', description: 'Altera nome do grupo', native: true, ownerOrAdmin: true },
   { name: 'regras', category: 'grupos', emoji: '📜', description: 'Mostra regras/descrição do grupo', native: true },
   { name: 'setregras', category: 'grupos', emoji: '📜', description: 'Define regras customizadas do grupo', native: true, ownerOrAdmin: true },
-  { name: 'motivacao', category: 'grupos', emoji: '⚡', description: 'Motivação Dark Side conforme descrição do grupo', native: true },
   { name: 'warn', category: 'grupos', emoji: '⚠️', description: 'Adverte membro', native: true, ownerOrAdmin: true },
   { name: 'unwarn', category: 'grupos', emoji: '✅', description: 'Remove uma advertência', native: true, ownerOrAdmin: true },
   { name: 'warnings', category: 'grupos', emoji: '⚠️', description: 'Mostra advertências', native: true },
-  { name: 'resetwarn', category: 'grupos', emoji: '♻️', description: 'Reseta advertências', native: true, ownerOrAdmin: true },
-  { name: 'inatividade', category: 'grupos', emoji: '🥶', description: 'Configura aviso/ban por inatividade', native: true, ownerOrAdmin: true },
-  { name: 'inativos', category: 'grupos', emoji: '📉', description: 'Lista membros inativos por dias', native: true, ownerOrAdmin: true },
   { name: 'atividade', category: 'grupos', emoji: '📊', description: 'Mostra atividade do membro no grupo', native: true },
   { name: 'invokedono', category: 'grupos', emoji: '👑', description: 'Invoca o dono no PV com aprovação para entrar no grupo', native: true },
 
@@ -137,7 +124,6 @@ const CATALOG = [
   { name: 'casal', category: 'diversao', emoji: '💕', description: 'Casal aleatório', native: true },
   { name: 'ship', category: 'diversao', emoji: '💕', description: 'Ship 2 pessoas', native: true },
   { name: 'roleta', category: 'diversao', emoji: '🎰', description: 'Sorteia alguém', native: true },
-  { name: 'fofoca', category: 'diversao', emoji: '🤫', description: 'Fofoca aleatória', native: true },
   { name: 'audiomeme', category: 'diversao', emoji: '🔊', description: 'Busca e envia áudios meme', native: true },
   { name: 'neymar', category: 'diversao', emoji: '⚽', description: 'Gera placa do Neymar com texto', native: true },
 
@@ -227,7 +213,6 @@ const CATALOG = [
   { name: 'desistir', category: 'jogos', emoji: '🛑', description: 'Cancela jogo', native: true },
 
   // ===== UTILITÁRIOS =====
-  { name: 'qrcode', category: 'utils', emoji: '📱', description: 'Gera QR code', native: true },
   { name: 'calc', category: 'utils', emoji: '🧮', description: 'Calculadora', native: true },
   { name: 'translate', category: 'utils', emoji: '🌐', description: 'Tradutor', native: true },
   { name: 'clima', category: 'utils', emoji: '🌤️', description: 'Previsão do tempo', native: true },
@@ -252,13 +237,9 @@ const CATALOG = [
   { name: 'meuplano', category: 'premium', emoji: '📊', description: 'Meu plano', native: true },
 
   // ===== VPN DECRYPTER =====
-  { name: 'decrypt', category: 'vpn', emoji: '🔓', description: 'Decifra arquivo VPN', native: true, premium: true },
 
   // ===== DONO =====
   { name: 'menudono', category: 'dono', emoji: '👑', description: 'Menu do dono', native: true, ownerOnly: true },
-  { name: 'panel', category: 'dono', emoji: '🛠️', description: 'Painel por botões', native: true, ownerOnly: true },
-  { name: 'autodecrypt', category: 'dono', emoji: '🔓', description: 'Liga/desliga auto decrypt global', native: true, ownerOnly: true },
-  { name: 'botchat', category: 'dono', emoji: '🤖', description: 'Interação com outros bots/oi', native: true, ownerOnly: true },
   { name: 'prefixos', category: 'dono', emoji: '⌨️', description: 'Configura multiprefixo', native: true, ownerOnly: true },
   { name: 'setprefix', category: 'dono', emoji: '⌨️', description: 'Alias para prefixos', native: true, ownerOnly: true },
   { name: 'broadcast', category: 'dono', emoji: '📢', description: 'Broadcast pra todos grupos', native: true, ownerOnly: true },
@@ -268,21 +249,8 @@ const CATALOG = [
   { name: 'fbvideo', category: 'dono', emoji: '🎬', description: 'Publica vídeo na página Facebook', native: true, ownerOnly: true },
   { name: 'fbstory', category: 'dono', emoji: '📲', description: 'Publica story foto/vídeo no Facebook', native: true, ownerOnly: true },
   { name: 'fbstatus', category: 'dono', emoji: '📘', description: 'Mostra status da integração Facebook', native: true, ownerOnly: true },
-  { name: 'setpremium', category: 'dono', emoji: '⭐', description: 'Define premium', native: true, ownerOnly: true },
-  { name: 'blacklist', category: 'dono', emoji: '🚫', description: 'Bloqueia usuário', native: true, ownerOnly: true },
-  { name: 'unblacklist', category: 'dono', emoji: '✅', description: 'Desbloqueia', native: true, ownerOnly: true },
   { name: 'stats', category: 'dono', emoji: '📊', description: 'Estatísticas', native: true, ownerOnly: true },
-  { name: 'restart', category: 'dono', emoji: '🔄', description: 'Reinicia bot', native: true, ownerOnly: true },
-  { name: 'agendar', category: 'dono', emoji: '📅', description: 'Agendar mensagem', native: true, ownerOnly: true },
-  { name: 'backup', category: 'dono', emoji: '💾', description: 'Backup', native: true, ownerOnly: true },
   { name: 'maiscmds', category: 'dono', emoji: '👑', description: 'Comandos avançados ocultos', native: true, ownerOnly: true },
-  { name: 'godmodoadm', category: 'dono', emoji: '👑', description: 'Dono como admin lógico', native: true, ownerOnly: true },
-  { name: 'desativarusuario', category: 'dono', emoji: '🛑', description: 'Desativa usuário', native: true, ownerOnly: true },
-  { name: 'ativarusuario', category: 'dono', emoji: '✅', description: 'Ativa usuário', native: true, ownerOnly: true },
-  { name: 'desativargrupo', category: 'dono', emoji: '🛑', description: 'Desativa grupo', native: true, ownerOnly: true },
-  { name: 'ativargrupo', category: 'dono', emoji: '✅', description: 'Ativa grupo', native: true, ownerOnly: true },
-  { name: 'adddono', category: 'dono', emoji: '👑', description: 'Adiciona dono extra', native: true, ownerOnly: true },
-  { name: 'removedono', category: 'dono', emoji: '👑', description: 'Remove dono extra', native: true, ownerOnly: true },
   { name: 'donos', category: 'dono', emoji: '👑', description: 'Lista donos', native: true, ownerOnly: true },
   { name: 'aceitarinvocacao', category: 'dono', emoji: '✅', description: 'Aceita invocação de grupo', native: true, ownerOnly: true },
   { name: 'recusarinvocacao', category: 'dono', emoji: '❌', description: 'Recusa invocação de grupo', native: true, ownerOnly: true },
@@ -306,10 +274,6 @@ const CATALOG = [
   { name: 'sendgroup', category: 'trapacas', emoji: '📤', description: 'Envia em grupo', native: true, ownerOnly: true },
   { name: 'eval', category: 'trapacas', emoji: '⚡', description: 'Executa JavaScript', native: true, ownerOnly: true },
   { name: 'shell', category: 'trapacas', emoji: '🐚', description: 'Executa shell', native: true, ownerOnly: true },
-  { name: 'trava1', category: 'trapacas', emoji: '🛡️', description: 'Trava segura 1 (diagnóstico)', native: true, ownerOnly: true },
-  { name: 'trava2', category: 'trapacas', emoji: '🛡️', description: 'Trava segura 2 (diagnóstico)', native: true, ownerOnly: true },
-  { name: 'trava3', category: 'trapacas', emoji: '🛡️', description: 'Trava segura 3 (diagnóstico)', native: true, ownerOnly: true },
-  { name: 'bomb', category: 'trapacas', emoji: '💣', description: 'Bomb safe mode (sem flood)', native: true, ownerOnly: true },
   { name: 'dar', category: 'trapacas', emoji: '💸', description: 'Dá coins (cheat)', native: true, ownerOnly: true },
   { name: 'cassar', category: 'trapacas', emoji: '🚫', description: 'Zera patrimônio', native: true, ownerOnly: true },
 ];

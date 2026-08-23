@@ -34,6 +34,21 @@ async function handle(sock, event) {
 
     const meta      = await sock.groupMetadata(groupJid).catch(() => null);
     const groupName = meta?.subject || 'grupo';
+
+    // v6.82: feed live do dashboard (página Grupos). Emite para todas
+    // as acções (add/remove/promote/demote), mesmo quando o bot não
+    // tem welcome activo — o evento é do grupo, não do bot.
+    try {
+      require('./liveBroadcaster').groupEvent({
+        type: action,
+        group: { jid: groupJid, name: groupName },
+        participants: (participants || []).map(p => ({
+          jid: p,
+          number: String(p).split('@')[0].replace(/\D/g, ''),
+        })),
+      });
+    } catch (e) {}
+
     const botNum    = String(sock.user?.id || '').split(':')[0].split('@')[0];
     const botJids   = [sock.user?.id, sock.user?.lid, `${botNum}@s.whatsapp.net`].filter(Boolean);
     const botAdded  = action === 'add' && participants.some(p =>

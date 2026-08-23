@@ -1751,19 +1751,25 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // reconhecer nada, cai para o caminho antigo intacto.
       try {
         const brain = require('../aura/auraBrain');
-        let achado = brain.detectarCapacidade(cleanText);
+        // v6.86 — MULTI-INTENÇÃO: "entra no canal e reage tudo"
+        // executa as duas coisas em sequência (máx. 2). Antes só a
+        // primeira capacidade corria e o resto ficava por fazer.
+        const achados = require('../aura/auraAvancada').detectarMulti(cleanText, brain);
 
         // A IA só entra se o catálogo falhou E a frase tem
         // mesmo cara de ordem — é isto que protege a
         // velocidade: conversa normal nunca chega aqui.
-        if (!achado && brain.pareceOrdem(cleanText)) {
-          achado = await brain.rotearComIA(cleanText, require('./ai'));
+        if (!achados.length && brain.pareceOrdem(cleanText)) {
+          const viaIA = await brain.rotearComIA(cleanText, require('./ai')).catch(() => null);
+          if (viaIA) achados.push(viaIA);
         }
 
-        if (achado) {
-          const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
-          if (perm.pode) {
-            const exec = require('../aura/auraExec');
+        if (achados.length) {
+          const exec = require('../aura/auraExec');
+          let executou = false;
+          for (const achado of achados.slice(0, 2)) {
+            const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
+            if (!perm.pode) continue;
             const r = await exec.executar(achado.id, achado.arg, {
               sock, msg, ctx, texto: cleanText, isOwner, isAdmin: ctx.isAdmin,
             }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 80)}` }));
@@ -1785,20 +1791,23 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                   text: String(gerado).trim(),
                   ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
                 }, { quoted: msg });
-                return true;
+                executou = true;
+                continue;
               }
             }
 
-            if (r?.silencioso) return true;
+            if (r?.silencioso) { executou = true; continue; }
             if (r?.msg) {
               await sock.sendMessage(ctx.remoteJid, {
                 text: r.msg,
                 ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
               }, { quoted: msg });
-              return true;
+              executou = true;
+              continue;
             }
-            if (r?.ok) return true;
+            if (r?.ok) executou = true;
           }
+          if (executou) return true;
         }
       } catch (e) {
         console.warn('[Aura brain]', e.message?.slice(0, 60));
@@ -1915,9 +1924,38 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Se não há imagem ou vision falhou → usa chat normal
       if (!answer) {
         if (auraAwake || isPv) {
+          // v6.86 — AURA AVANÇADA: consciência social (quem fala, tom,
+          // assunto), regras que aprendeu e anti-repetição entram no
+          // prompt. Ela sabe SEMPRE o que se passa e com quem fala.
+          let _consciencia = '';
+          try {
+            const av = require('../aura/auraAvancada');
+            const partes = [];
+            if (ctx.isGroup) {
+              const cs = av.contextoParaPrompt(ctx.remoteJid);
+              if (cs) partes.push(cs);
+            }
+            const regras = await av.regrasDe(ctx.remoteJid);
+            if (regras.length) {
+              partes.push('REGRAS QUE APRENDESTES NESTE CHAT (obedeces-lhes):\n- ' + regras.join('\n- '));
+            }
+            const minhas = av.ultimasFalas(ctx.remoteJid);
+            if (minhas.length) {
+              partes.push('AS TUAS ÚLTIMAS FALAS AQUI (não repitas — diz de outra forma):\n' +
+                minhas.map(f => '• ' + f.slice(0, 90)).join('\n'));
+            }
+            _consciencia = partes.join('\n\n');
+            // Aprende com correcções: "não faças isso" vira regra
+            if (/aura/i.test(cleanText) || isReplyToBot || !ctx.isGroup) {
+              const reg = await av.aprenderRegra(ctx.remoteJid, cleanText);
+              if (reg) _consciencia += `\n\n(ACABASTE DE APRENDER AGORA esta regra: "${reg}")`;
+            }
+          } catch {}
+
           answer = await aura.auraRespond(prompt, {
             isOwner,
             isVip,
+            isAdmin: ctx.isAdmin,   // v6.85: ela sabe o cargo de quem fala
             pushName: ctx.pushName,
             senderNumber: ctx.senderNumber,
             isGroup: ctx.isGroup,
@@ -1935,6 +1973,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,  // v6.58
             remoteJid: ctx.remoteJid,
             instrucaoExtra: _instrucaoVoz || '',
+            consciencia: _consciencia || '',
           });
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
@@ -2106,7 +2145,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             }
 
             if (correu) {
-              await incrementUserCommand(ctx.senderNumber, ctx).catch(() => {});
+              await incrementUserCommand(ctx.senderNumber, ctx, pedido.comando).catch(() => {});
               return true;
             }
           }
@@ -2116,22 +2155,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       }
 
       // Pedido de foto ANTES da IA — "Aura mostra o Messi" não pode
-      // virar "_envia uma foto do Messi_".
-      try {
-        const imgSearch = require('./imageSearch');
-        const pedidoCedo = imgSearch.detectarPedidoImagem(cleanText || text);
-        if (pedidoCedo && !pedidoCedo.gerar) {
-          const imgs = await imgSearch.buscarImagens(pedidoCedo.termo, 1).catch(() => null);
-          if (imgs?.length) {
-            await sock.sendMessage(ctx.remoteJid, {
-              image: { url: imgs[0].url },
-              caption: pedidoCedo.termo,
-            }, { quoted: msg });
-            return true;
-          }
-        }
-      } catch (e) {
-        console.warn('[Aura imagem cedo]', e.message?.slice(0, 60));
+      // virar "_envia uma foto do Messi_". v6.85: nomes múltiplos,
+      // termos vagos pelo contexto, e resposta honesta se falhar.
+      {
+        const stFotos = await _fotosPedidas(sock, msg, ctx, cleanText || text);
+        if (stFotos === 'enviadas' || stFotos === 'falhou') return true;
       }
 
       // v6.54: PEDIDO DE IMAGEM — PROCURAR, não gerar.
@@ -2139,26 +2167,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Antes a AURA gerava com IA (ou respondia com uma piada, como
       // no "me de um cavalo" do diálogo real). Só gera quando o
       // pedido é explícito: "cria/desenha/imagina uma imagem de...".
-      try {
-        const imgSearch = require('./imageSearch');
-        const pedido = imgSearch.detectarPedidoImagem(cleanText);
-
-        if (pedido && !pedido.gerar) {
-          const imgs = await imgSearch.buscarImagens(pedido.termo, 1).catch(() => null);
-          if (imgs?.length) {
-            const legenda = finalAnswer && finalAnswer.length < 220
-              ? finalAnswer
-              : `Aqui tens: *${pedido.termo}* 🌹`;
-            await sock.sendMessage(ctx.remoteJid, {
-              image: { url: imgs[0].url },
-              caption: `${legenda}\n\n_via ${imgs[0].fonte}_`,
-            }, { quoted: msg });
-            return true;
-          }
-          // se não encontrou, segue e manda o texto normal
-        }
-      } catch (e) {
-        console.warn('[Aura imagem]', e.message?.slice(0, 60));
+      // v6.85: mesmo fluxo do pedido cedo (multi-nome/vago/honesto).
+      {
+        const stFotos2 = await _fotosPedidas(sock, msg, ctx, cleanText);
+        if (stFotos2 === 'enviadas' || stFotos2 === 'falhou') return true;
+        // null → não era pedido de foto explícito; segue o texto normal
       }
 
       // v6.53: PEDIDO DE ÁUDIO — ela dizia "não posso enviar áudios"
@@ -2240,6 +2253,9 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Envia o texto (se houver)
       if (finalAnswer.length > 0) {
         await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg });
+        // v6.86 — anti-repetição: lembra o que ela própria acabou de
+        // dizer neste chat, para não se repetir como um bot.
+        try { require('../aura/auraAvancada').registarFala(ctx.remoteJid, finalAnswer); } catch {}
       }
       
       // Executa acções de mídia (sem bloquear se falhar)
@@ -2488,7 +2504,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       return true;
     }
   }
@@ -2502,7 +2518,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -2521,7 +2537,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -2641,7 +2657,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
     } else if (responseText) {
       await sock.sendMessage(ctx.remoteJid, { text: responseText }, { quoted: msg });
     }
-    await incrementUserCommand(ctx.senderNumber, ctx);
+    await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
     reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
     return true;
   } catch (err) {
@@ -2773,7 +2789,72 @@ function chunkString(str, size) {
   return chunks;
 }
 
-async function incrementUserCommand(number, ctx = null) {
+/**
+ * v6.85 — pedidos de foto REAIS, como no print do Dark:
+ *   "Agora monstra o Drake e o Kendrick" → UMA pesquisa com dois nomes
+ *   não devolve nada → ela dizia "tá, vai aí os dois" SEM fotos.
+ *   "Mande a foto deles" → pesquisava "deles" → imagem preta "1º DELAS".
+ * Agora: termo vago resolve-se pelo contexto (último termo/nomes da
+ * frase), multi-nome envia uma foto por pessoa, e se não encontrar
+ * ela diz como pessoa — nunca finge, nunca manda lixo.
+ * @returns {'enviadas'|'falhou'|null}
+ */
+async function _fotosPedidas(sock, msg, ctx, cleanText) {
+  try {
+    const imgSearch = require('./imageSearch');
+    const pedido = imgSearch.detectarPedidoImagem(cleanText);
+    if (!pedido || pedido.gerar) return null;
+
+    const { termo, nomes } = imgSearch.resolverTermo({
+      jid: ctx.remoteJid, termo: pedido.termo, texto: cleanText,
+    });
+    const alvos = nomes.length ? nomes : [termo];
+
+    const enviadas = [];
+    for (const alvo of alvos) {
+      const imgs = await imgSearch.buscarImagens(alvo, 1).catch(() => null);
+      if (imgs?.length && /^https?:/i.test(String(imgs[0].url || ''))) {
+        await sock.sendMessage(ctx.remoteJid, {
+          image: { url: imgs[0].url },
+          ...(alvos.length > 1 ? { caption: alvo } : {}),
+        }, { quoted: msg });
+        enviadas.push(alvo);
+        try { imgSearch.lembrarTermo(ctx.remoteJid, alvo); } catch {}
+      }
+    }
+    if (enviadas.length) return 'enviadas';
+
+    // Sem foto explícita no pedido ("me dá um X") → deixa a IA conversar
+    if (!/\b(foto|imagem|fotografia|retrato|picture|photo)\b/i.test(cleanText || '')) {
+      return null;
+    }
+
+    // Não achou → responde como pessoa, não finge nem manda lixo
+    const linhas = [
+      `Não achei foto de ${alvos.join(' e ')} agora. Tenta pedir de outra forma.`,
+      `Hmm... ${alvos.join(' e ')}. Não me apareceu nenhuma foto boa aqui, desculpa.`,
+    ];
+    await sock.sendMessage(ctx.remoteJid, {
+      text: linhas[Math.floor(Math.random() * linhas.length)],
+    }, { quoted: msg });
+    return 'falhou';
+  } catch (e) {
+    console.warn('[Aura imagem]', String(e?.message || e).slice(0, 60));
+    return null;
+  }
+}
+
+async function incrementUserCommand(number, ctx = null, commandName = '') {
+  // v6.82: alimenta o feed live do dashboard (página Grupos).
+  try {
+    require('./liveBroadcaster').userCommand({
+      command: commandName || '',
+      user: ctx?.pushName || '',
+      number: String(number || ''),
+      group: ctx?.isGroup ? ctx.remoteJid : null,
+      success: true,
+    });
+  } catch (e) {}
   try {
     const u = await User.findOne({ whatsappNumber: number });
     if (u) { u.commandsUsed = (u.commandsUsed || 0) + 1; u.lastSeenAt = new Date(); await u.save(); }
