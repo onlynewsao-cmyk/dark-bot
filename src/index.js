@@ -100,6 +100,11 @@ async function bootstrap() {
   const server = http.createServer(app);
   const io = new Server(server, { cors: { origin: '*' } });
 
+  // v6.82: liga o live broadcaster ao Socket.IO — o feed live do
+  // dashboard (Grupos) recebe user:command / group:event / antilink:action.
+  // Antes o módulo existia mas nunca era inicializado nem chamado.
+  require('./bot/liveBroadcaster').setIO(io);
+
   // Render fica atrás de proxy HTTPS. Sem isto, cookies seguros de sessão não persistem.
   app.set('trust proxy', 1);
 

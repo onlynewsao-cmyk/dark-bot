@@ -2106,7 +2106,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             }
 
             if (correu) {
-              await incrementUserCommand(ctx.senderNumber, ctx).catch(() => {});
+              await incrementUserCommand(ctx.senderNumber, ctx, pedido.comando).catch(() => {});
               return true;
             }
           }
@@ -2488,7 +2488,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       return true;
     }
   }
@@ -2502,7 +2502,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -2521,7 +2521,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx);
+      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -2641,7 +2641,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
     } else if (responseText) {
       await sock.sendMessage(ctx.remoteJid, { text: responseText }, { quoted: msg });
     }
-    await incrementUserCommand(ctx.senderNumber, ctx);
+    await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
     reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
     return true;
   } catch (err) {
@@ -2773,7 +2773,17 @@ function chunkString(str, size) {
   return chunks;
 }
 
-async function incrementUserCommand(number, ctx = null) {
+async function incrementUserCommand(number, ctx = null, commandName = '') {
+  // v6.82: alimenta o feed live do dashboard (página Grupos).
+  try {
+    require('./liveBroadcaster').userCommand({
+      command: commandName || '',
+      user: ctx?.pushName || '',
+      number: String(number || ''),
+      group: ctx?.isGroup ? ctx.remoteJid : null,
+      success: true,
+    });
+  } catch (e) {}
   try {
     const u = await User.findOne({ whatsappNumber: number });
     if (u) { u.commandsUsed = (u.commandsUsed || 0) + 1; u.lastSeenAt = new Date(); await u.save(); }

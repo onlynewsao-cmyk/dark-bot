@@ -313,7 +313,11 @@ async function check(sock, msg) {
     }
 
     // Acção: delete silencioso — só apaga, nada mais
-    if (action === 'delete') return true;
+    if (action === 'delete') {
+      // kindLabel ainda não existe neste ponto — usa o tipo cru da detecção
+      try { require('./liveBroadcaster').antilinkAction({ user: senderNum, action: 'delete', type: detection?.kind || 'link', group: remoteJid }); } catch (e) {}
+      return true;
+    }
 
     const w = addWarn(senderJid, remoteJid);
     const kindLabel = {
@@ -336,6 +340,7 @@ async function check(sock, msg) {
       try {
         await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove');
         await bumpStats(remoteJid, 'kicks');
+        try { require('./liveBroadcaster').antilinkAction({ user: senderNum, action: 'kick', type: kindLabel, group: remoteJid }); } catch (e) {}
       } catch (e) {
         console.warn('[DarkShield] Falha ao remover:', e.message);
       }
@@ -354,6 +359,7 @@ async function check(sock, msg) {
         mentions: [senderJid],
       }).catch(() => {});
       await bumpStats(remoteJid, 'warns');
+      try { require('./liveBroadcaster').antilinkAction({ user: senderNum, action: 'warn', type: kindLabel, group: remoteJid, warns: w }); } catch (e) {}
     }
 
     return true;
