@@ -141,11 +141,24 @@ const CAPACIDADES = [
   },
   {
     id: 'falar_com_todos', nivel: 'dono', arg: 'depois', risco: 'moderado',
-    desc: 'Falar com todos do grupo (menciona toda a gente)',
+    desc: 'Falar com todos do grupo (menciona toda a gente; "escondidas" = hidetag real)',
     gatilhos: [
-      /\b(diz|diga|avisa|anuncia|manda|chama)\b.{0,10}\b(a todos|a toda a gente|todos do grupo|ao grupo todo|todos aqui|todo mundo)\b/,
-      /\bchama todos\b/,
+      /\b(diz|diga|avisa|anuncia|manda|chama|menciona|marca)\b.{0,10}\b(a todos|a toda a gente|todos do grupo|ao grupo todo|todos aqui|todo mundo|todos)\b/,
+      /\b(chama|menciona|marca) todos\b/,
       /\bfala com todos\b.{0,12}\b(que|dizendo|e diz|:)\b/,
+      /\btodos\b.{0,14}\b(escondidas?|hidetag|sem marcar)\b/,
+      /\b(menciona|marca)\b.{0,20}\b(escondidas?|hidetag)\b/,
+    ],
+  },
+  {
+    // v6.85 — "Aura quem é o dark mark ele": identifica a pessoa no
+    // grupo e marca-a. Antes caía na IA e virava "Diz outra vez...".
+    id: 'marcar_pessoa', nivel: 'dono', arg: 'depois', risco: 'seguro',
+    desc: 'Dizer quem é uma pessoa do grupo e marcá-la',
+    gatilhos: [
+      /\bquem\s+[ée]\s.{0,30}\b(marca|mark|aponta|menciona)\b/,
+      /\b(marca|mark|aponta|menciona)\s+(o|a|ele|ela)\b/,
+      /\bquem\s+[ée]\s+(o|a)\s+[a-z0-9_~|.\-]{2,30}\b/i,
     ],
   },
 

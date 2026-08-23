@@ -100,6 +100,11 @@ async function bootstrap() {
   const server = http.createServer(app);
   const io = new Server(server, { cors: { origin: '*' } });
 
+  // v6.82: liga o live broadcaster ao Socket.IO — o feed live do
+  // dashboard (Grupos) recebe user:command / group:event / antilink:action.
+  // Antes o módulo existia mas nunca era inicializado nem chamado.
+  require('./bot/liveBroadcaster').setIO(io);
+
   // Render fica atrás de proxy HTTPS. Sem isto, cookies seguros de sessão não persistem.
   app.set('trust proxy', 1);
 
@@ -416,6 +421,12 @@ async function bootstrap() {
     try {
       require('./aura/auraAgenda').arrancar(() => bot.getSock?.() || bot.sock || null);
     } catch (e) { console.warn('[Agenda]', e.message); }
+
+    // v6.83 — AURA PROATIVA: ela fala quando quer (texto gerado por IA,
+    // só nos chats onde está acordada, com ritmo humano e limites).
+    try {
+      require('./aura/auraProativa').arrancar(() => bot.getSock?.() || bot.sock || null);
+    } catch (e) { console.warn('[Proativa]', e.message); }
   }
 
   server.listen(config.port, () => {

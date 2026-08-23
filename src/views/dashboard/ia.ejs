@@ -15,6 +15,9 @@
         <div class="form-group form-check">
           <label><input type="checkbox" id="aiAuto" <%= settings.ai_auto_enabled ? 'checked' : '' %> /> 🤖 Responder automaticamente quando mencionado (@bot) ou em PV</label>
         </div>
+        <div class="form-group form-check">
+          <label><input type="checkbox" id="auraProativa" <%= settings.aura_proactive_enabled !== false && settings.aura_proactive_enabled !== 'false' ? 'checked' : '' %> /> 💭 Aura proativa — fala espontaneamente quando quer (só onde está acordada, ritmo humano)</label>
+        </div>
         <div class="form-group">
           <label>Personalidade (system prompt)</label>
           <textarea id="aiSystem" rows="5" placeholder="Você é o DARK BOT, criado por Dark Net. Responda de forma..."><%= settings.ai_system_prompt || '' %></textarea>
@@ -57,6 +60,7 @@
     e.preventDefault();
     const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
       ai_auto_enabled: document.getElementById('aiAuto').checked,
+      aura_proactive_enabled: document.getElementById('auraProativa').checked,
       ai_system_prompt: document.getElementById('aiSystem').value,
     }) });
     if (r.ok) toast('Salvo!', 'success'); else toast('Erro', 'error');
