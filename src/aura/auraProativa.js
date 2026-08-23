@@ -139,7 +139,12 @@ async function _gerarTexto({ chat, modo, resumo }) {
   const aura = require('./auraHuman');
 
   let pedido;
-  if (chat.tipo === 'pv') {
+  if (modo === 'memoria') {
+    pedido =
+      `Acabaste de te lembrar de algo que o teu Dark te contou: "${resumo}". ` +
+      'Toca no assunto com naturalidade, 1-2 frases — como alguém que ' +
+      'prestou atenção, não como um alarme. Ex: "amanhã não era a tua prova?"';
+  } else if (chat.tipo === 'pv') {
     pedido =
       'O teu Dark não fala contigo há umas horas. Manda-lhe UMA mensagem ' +
       'espontânea e curta (1-2 frases) — carinho leve, sem cobrança, sem ' +
@@ -213,6 +218,18 @@ async function tick(opts = {}) {
         const ausente = _minutosSemDono(c.jid, agora);
         if (ausente != null && ausente >= DONO_AUSENTE_MIN && sorte < P_PV) {
           candidatos.push({ chat: c, modo: 'pv', resumo: '' });
+        } else if (sorte < P_PV * 0.6) {
+          // v6.86 — MEMÓRIA QUE VOLTA SOZINHA: ela traz à tona algo que
+          // o Dark lhe contou ("amanhã não era a tua prova?") — como
+          // alguém que prestou atenção, não como um alarme.
+          try {
+            const mem = require('./auraMemory');
+            const r = await mem.lembrar(config.owner.number);
+            const factos = [...(r?.importante || [])];
+            if (factos.length) {
+              candidatos.push({ chat: c, modo: 'memoria', resumo: factos[factos.length - 1] });
+            }
+          } catch {}
         }
       }
     }

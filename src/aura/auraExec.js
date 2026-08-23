@@ -553,6 +553,14 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
         // manda para o MongoDB em vez do cache de 1 hora.
         const mem = require('./auraMemory');
         await mem.guardar(ctx.senderNumber, facto, { importante: true });
+        // v6.86 — facto COM TEMPO: marca o QUANDO na memória para ela
+        // poder trazer à tona sozinha ("amanhã não era a tua prova?").
+        const ft = require('./auraAvancada').factoTemporal(facto);
+        if (ft) {
+          await mem.guardar(ctx.senderNumber,
+            `[${ft.tipo} · ${ft.quando}] ${facto}`, { importante: true });
+          return { ok: true, msg: `Guardado — e vou lembrar-te ${ft.quando}. 🖤` };
+        }
         return { ok: true, msg: 'Guardado. Não me esqueço. 🖤' };
       } catch {
         return { ok: false, msg: 'Não consegui guardar isso agora.' };

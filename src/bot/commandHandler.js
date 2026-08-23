@@ -1751,19 +1751,25 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       // reconhecer nada, cai para o caminho antigo intacto.
       try {
         const brain = require('../aura/auraBrain');
-        let achado = brain.detectarCapacidade(cleanText);
+        // v6.86 — MULTI-INTENÇÃO: "entra no canal e reage tudo"
+        // executa as duas coisas em sequência (máx. 2). Antes só a
+        // primeira capacidade corria e o resto ficava por fazer.
+        const achados = require('../aura/auraAvancada').detectarMulti(cleanText, brain);
 
         // A IA só entra se o catálogo falhou E a frase tem
         // mesmo cara de ordem — é isto que protege a
         // velocidade: conversa normal nunca chega aqui.
-        if (!achado && brain.pareceOrdem(cleanText)) {
-          achado = await brain.rotearComIA(cleanText, require('./ai'));
+        if (!achados.length && brain.pareceOrdem(cleanText)) {
+          const viaIA = await brain.rotearComIA(cleanText, require('./ai')).catch(() => null);
+          if (viaIA) achados.push(viaIA);
         }
 
-        if (achado) {
-          const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
-          if (perm.pode) {
-            const exec = require('../aura/auraExec');
+        if (achados.length) {
+          const exec = require('../aura/auraExec');
+          let executou = false;
+          for (const achado of achados.slice(0, 2)) {
+            const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
+            if (!perm.pode) continue;
             const r = await exec.executar(achado.id, achado.arg, {
               sock, msg, ctx, texto: cleanText, isOwner, isAdmin: ctx.isAdmin,
             }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 80)}` }));
@@ -1785,20 +1791,23 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                   text: String(gerado).trim(),
                   ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
                 }, { quoted: msg });
-                return true;
+                executou = true;
+                continue;
               }
             }
 
-            if (r?.silencioso) return true;
+            if (r?.silencioso) { executou = true; continue; }
             if (r?.msg) {
               await sock.sendMessage(ctx.remoteJid, {
                 text: r.msg,
                 ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
               }, { quoted: msg });
-              return true;
+              executou = true;
+              continue;
             }
-            if (r?.ok) return true;
+            if (r?.ok) executou = true;
           }
+          if (executou) return true;
         }
       } catch (e) {
         console.warn('[Aura brain]', e.message?.slice(0, 60));
@@ -1915,6 +1924,34 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Se não há imagem ou vision falhou → usa chat normal
       if (!answer) {
         if (auraAwake || isPv) {
+          // v6.86 — AURA AVANÇADA: consciência social (quem fala, tom,
+          // assunto), regras que aprendeu e anti-repetição entram no
+          // prompt. Ela sabe SEMPRE o que se passa e com quem fala.
+          let _consciencia = '';
+          try {
+            const av = require('../aura/auraAvancada');
+            const partes = [];
+            if (ctx.isGroup) {
+              const cs = av.contextoParaPrompt(ctx.remoteJid);
+              if (cs) partes.push(cs);
+            }
+            const regras = await av.regrasDe(ctx.remoteJid);
+            if (regras.length) {
+              partes.push('REGRAS QUE APRENDESTES NESTE CHAT (obedeces-lhes):\n- ' + regras.join('\n- '));
+            }
+            const minhas = av.ultimasFalas(ctx.remoteJid);
+            if (minhas.length) {
+              partes.push('AS TUAS ÚLTIMAS FALAS AQUI (não repitas — diz de outra forma):\n' +
+                minhas.map(f => '• ' + f.slice(0, 90)).join('\n'));
+            }
+            _consciencia = partes.join('\n\n');
+            // Aprende com correcções: "não faças isso" vira regra
+            if (/aura/i.test(cleanText) || isReplyToBot || !ctx.isGroup) {
+              const reg = await av.aprenderRegra(ctx.remoteJid, cleanText);
+              if (reg) _consciencia += `\n\n(ACABASTE DE APRENDER AGORA esta regra: "${reg}")`;
+            }
+          } catch {}
+
           answer = await aura.auraRespond(prompt, {
             isOwner,
             isVip,
@@ -1936,6 +1973,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,  // v6.58
             remoteJid: ctx.remoteJid,
             instrucaoExtra: _instrucaoVoz || '',
+            consciencia: _consciencia || '',
           });
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
@@ -2215,6 +2253,9 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Envia o texto (se houver)
       if (finalAnswer.length > 0) {
         await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg });
+        // v6.86 — anti-repetição: lembra o que ela própria acabou de
+        // dizer neste chat, para não se repetir como um bot.
+        try { require('../aura/auraAvancada').registarFala(ctx.remoteJid, finalAnswer); } catch {}
       }
       
       // Executa acções de mídia (sem bloquear se falhar)

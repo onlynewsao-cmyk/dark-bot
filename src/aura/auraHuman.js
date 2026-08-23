@@ -558,6 +558,7 @@ async function auraRespond(text, ctx = {}) {
     pessoasNoGrupo = 0,   // v6.58
     remoteJid = '',       // v6.80: humor é por conversa
     instrucaoExtra = '',  // voz / acção: o que ela deve FALAR
+    consciencia = '',     // v6.86: contexto social + regras + anti-repetição
   } = ctx;
 
   // v6.85 — GUARDA DETERMINISTA: pedido sexual/abusivo de quem NÃO é o
@@ -605,6 +606,12 @@ async function auraRespond(text, ctx = {}) {
 
   if (instrucaoExtra) {
     systemPrompt += '\n\nPEDIDO DESTA MENSAGEM:\n' + String(instrucaoExtra).slice(0, 900);
+  }
+
+  // v6.86 — consciência: quem fala agora, tom, assunto, regras que
+  // aprendeu e as próprias falas recentes (anti-repetição).
+  if (consciencia) {
+    systemPrompt += '\n\n' + String(consciencia).slice(0, 1600);
   }
 
   // Tentar IA sempre (gera respostas únicas)
