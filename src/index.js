@@ -80,6 +80,18 @@ async function seedDefaults(conn) {
   }
 }
 
+// ── v6.88: secret de cifra de sessão sempre válido para o kruptein ──────
+// O kruptein só aceita secrets "complexos" (≥8 chars, ≥2 maiúsculas,
+// ≥2 minúsculas, ≥2 números, ≥2 especiais) — senão lança erro ou TypeError
+// dentro do MongoStore e o login falha com "Erro ao guardar sessão".
+// Derivação determinística: o prefixo garante todas as classes exigidas
+// e o hash sha512 do SESSION_SECRET mantém a unicidade por deploy.
+function sessionCryptoSecret(raw) {
+  const crypto = require('crypto');
+  const hash = crypto.createHash('sha512').update(String(raw || '')).digest('base64');
+  return `!!AAzz99${hash}`;
+}
+
 async function bootstrap() {
   // Cloudinary
   if (config.cloudinary.cloud_name) {
@@ -133,7 +145,15 @@ async function bootstrap() {
       mongoUrl: config.mongodb.uri,
       collectionName: 'web_sessions',
       ttl: 60 * 60 * 24 * 7,
-      crypto: { secret: config.sessionSecret },
+      // v6.88 — fix crítico de login: o kruptein (cifra de sessões do
+      // connect-mongo) EXIGE secret com ≥2 maiúsculas, ≥2 minúsculas,
+      // ≥2 dígitos e ≥2 caracteres especiais. Um SESSION_SECRET normal
+      // (ex.: `openssl rand -hex 32` — só minúsculas/hex, como o render.yaml
+      // recomenda) fazia req.session.save() rebentar → "Erro ao guardar
+      // sessão" → ninguém conseguia entrar no dashboard. Derivamos um
+      // secret determinístico SEMPRE válido; a cifra continua a depender
+      // do SESSION_SECRET real do ambiente.
+      crypto: { secret: sessionCryptoSecret(config.sessionSecret) },
       touchAfter: 24 * 3600,
     });
   }
