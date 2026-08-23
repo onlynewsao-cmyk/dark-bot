@@ -118,15 +118,54 @@ sem vazamento de persona 2.
 
 ---
 
-## 4. Veredicto
+## 4. Consciência e espontaneidade (v6.83 — auditado e completado)
+
+O Dono pediu três coisas: **detectar sempre quem fala**, **saber tudo o que se
+passa onde ela está**, e **falar quando quiser**. Estado encontrado e dado:
+
+### 4.1 Quem fala — ✅ já ligado
+`messageListener.messageCache` guarda **todas** as mensagens (anel de 2000, com
+`key.participant` + `pushName`). `auraHistorico` resolve nome→jid, diz quem
+escreveu o quê e lista as mensagens de cada pessoa (40 verificações na etapa 5).
+
+### 4.2 O que se passa onde ela está — ✅ já ligado
+- `messageCache` = o que ela **ouviu/leu** no grupo (últimas ~2000 msgs).
+- `groupContext` entra no prompt a cada resposta (conversas recentes).
+- `auraMedia` = o que ela **viu** (Gemini Vision para imagem/vídeo, transcrição
+  de áudio, leitura de documentos e links).
+- `auraAssunto` segue o fio da conversa; `auraMemory` guarda factos por pessoa.
+
+### 4.3 Falar quando quiser — ❌ estava MORTO, agora ✅ ligado
+As funções proactivas do `auraHuman.js` (`auraProactive`, `auraThinkOutLoud`,
+`auraFunFact`, `auraIndirect`, `auraGroupEvent`) eram **código morto** (0
+chamadas) e listas de frases feitas — o próprio aviso v6.44 no código dizia
+para não as ligar assim. Foi criado o motor correcto:
+
+**`src/aura/auraProativa.js`** (arranca no `index.js`, avalia a cada 5 min):
+- Texto **gerado pela IA na persona da Aura** — nunca frases enlatadas;
+  sem chave de IA fica calada (melhor calada que robótica).
+- Fala **sobre o que viu/leu**: lê o messageCache e comenta o assunto real do
+  grupo, ou quebra o silêncio quando o grupo está quieto há ≥45 min.
+- PV do Dono: check-in carinhoso quando ele some ≥3 h.
+- Ritmo humano: noite (23h–7h) não fala; intervalo mínimo por chat (padrão
+  120 min); máx. 1 espontânea por tick; probabilidades baixas (35%/8%/25%);
+  respeita o modo `mudo` do cérebro e o interruptor `ai_auto_enabled`.
+- Territórios: só onde ELA existe — grupos acordados + PV do Dono.
+- Config no dashboard (página IA): `aura_proactive_enabled`,
+  `aura_proactive_min_minutes`.
+- Teste dedicado `scripts/test-aura-proativa.js`: **22 verificações, 0 falhas**.
+
+## 5. Veredicto
 
 | | Estado |
 |---|---|
 | 🌹 AURA — 55 capacidades + executor + comandos por conversa + comportamentos | ✅ tudo ligado e funcional |
 | 🤖 ASSISTENTE — persona + resposta + sanitização + fallback | ✅ tudo ligado e funcional |
 | Isolamento Aura↔Assistente | ✅ sem vazamento de persona |
-| Testes | ✅ **452 verificações, 0 falhas** |
+| Quem fala / consciência do ambiente | ✅ ligado (messageCache + visão + assunto) |
+| Falar quando quiser (proactividade) | ✅ **ligado agora** (v6.83, era código morto) |
+| Testes | ✅ **474 verificações Aura/Assistente, 0 falhas** |
 
-Nenhuma função morta encontrada nestes dois modos. A única correcção feita nesta
-auditoria (feed live do dashboard, commit `735af8b`) era do canal bot↔dashboard,
-não da Aura/Assistente — ambas já estavam 100% operacionais.
+Correcções desta auditoria: feed live do dashboard (`735af8b`), watermark.js,
+e a proactividade da Aura (v6.83) — as duas últimas capacidades pedidas pelo
+Dono que não existiam de verdade.

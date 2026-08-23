@@ -421,6 +421,12 @@ async function bootstrap() {
     try {
       require('./aura/auraAgenda').arrancar(() => bot.getSock?.() || bot.sock || null);
     } catch (e) { console.warn('[Agenda]', e.message); }
+
+    // v6.83 — AURA PROATIVA: ela fala quando quer (texto gerado por IA,
+    // só nos chats onde está acordada, com ritmo humano e limites).
+    try {
+      require('./aura/auraProativa').arrancar(() => bot.getSock?.() || bot.sock || null);
+    } catch (e) { console.warn('[Proativa]', e.message); }
   }
 
   server.listen(config.port, () => {
