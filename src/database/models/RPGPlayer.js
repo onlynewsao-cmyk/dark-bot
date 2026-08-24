@@ -66,6 +66,17 @@ const RPGPlayerSchema = new mongoose.Schema({
     completed: [{ type: String }],
   },
 
+  // ── v6.90: MUNDO ────────────────────────────────────────────
+  // O que o jogador já viu do mapa. Sem isto o !world era uma lista
+  // estática de biomas — igual para quem acabou de começar e para quem
+  // já tinha andado por todo o lado.
+  world: {
+    visited:     [{ type: String }],          // biomas já percorridos
+    discoveries: { type: Number, default: 0 }, // 1ª visita a cada bioma
+    lastTravel:  { type: Date, default: null },
+    bossDefeated: [{ type: String }],         // bosses de mundo abatidos
+  },
+
   // Skills desbloqueadas
   skills: [{ type: String }],
 

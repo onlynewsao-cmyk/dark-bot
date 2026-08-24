@@ -243,6 +243,13 @@ function categorize(cmd) {
     unbansticker:'admin', unbanfig:'admin', desbansticker:'admin',
     esquecersticker:'admin', esquecerfig:'admin', listabansticker:'admin',
     banstickers:'admin', stickerbans:'stickers',
+    // ── v6.90: mundo do RPG ──────────────────────────────────────
+    // 'mapa'/'biomas'/'world' já estavam cá, mas espalhados ('search') —
+    // são comandos do RPG e apareciam fora do submenu certo.
+    world:'economia', mapa:'economia', biomas:'economia', mundomap:'economia',
+    viajar:'economia', travel:'economia', irpara:'economia',
+    mundial:'economia', rankmundial:'economia', worldrank:'economia',
+    rankingmundial:'economia',
     gruposaura:'ia',
     regrasrpg:'economia', regrasville:'economia', bvrpg:'economia', welcomerpg:'economia',
     rent:'economia', trial:'economia', renovar:'economia', renew:'economia',
