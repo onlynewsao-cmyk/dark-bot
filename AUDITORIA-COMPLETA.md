@@ -150,8 +150,12 @@ finalização 72 ✅ · admin/dono 74 ✅ · … (todos os restantes ✅)
 **Fix:** o `src/index.js` agora deriva um secret de cifra determinístico e sempre válido (`sha512` do `SESSION_SECRET` + prefixo com todas as classes exigidas). A cifra continua a depender 100% do `SESSION_SECRET` do Render. **Não é preciso mudar nenhuma env var.**
 Commit `937a5cf` → pushed para `main` → o Render faz autoDeploy sozinho.
 
-### 5.4 ⚠️ v6.87 da sessão anterior — PERDIDO
-O commit `db40349` (sticker-ban, guarda de instruções, gerador de personagens RPG por seleção + testes `printbugs2` 14/14) **nunca chegou ao GitHub** (o push foi bloqueado quando o PR #1 fez merge) e o workspace dessa sessão não persistiu. Confirmei no repo: **não há** sticker-ban, não há guarda de instruções, e o `!rpgstart` continua só em modo texto (`!rpgstart Nome raça classe`). Se ainda quiseres essas 3 funcionalidades, tenho de as re-implementar de novo (o resumo do que foi feito está no teu texto, serve de especificação).
+### 5.4 ✅ v6.87 da sessão anterior — PERDIDO e RE-FEITO como v6.89
+O commit `db40349` original nunca chegou ao GitHub e perdeu-se. As 3 funcionalidades foram **re-implementadas de novo (v6.89)** e estão no `main`:
+1. **Sticker-ban** (`src/aura/stickerBan.js`): o Dono ensina por conversa ("Se eu responder alguém com este sticker de ban vc remove ele") → ela confirma como pessoa e guarda a regra + hash do sticker (persistida no BotConfig) → a partir daí, responder a alguém com o sticker remove a pessoa ("🩸 Removido por ordem do Dark"). Segurança: só o Dono, nunca remove o Dono nem o bot, cancelável por conversa.
+2. **Instruções ≠ comandos** (`auraCommands.eInstrucao`): frases condicionais ("se eu… vc remove…") já não são roubadas pelo interpretador; ordens directas ("aura bane o Zeca") continuam.
+3. **RPG por selecção** (`src/bot/rpg/createFlow.js`): `!rpgstart` abre lista clicável de RAÇAS → CLASSES → ficha pronta com bónus da origem; o caminho escrito `!rpgstart Nome raça classe` agora cria mesmo (antes só listava).
+Testes: `test:printbugs2` **21/21** (frase exacta do print, remoção via sticker, guardas, fluxo completo das listas) + suite completa 63 scripts verde.
 
 ---
 
