@@ -516,6 +516,22 @@ async function _handleInner(sock, msg) {
     }
   } catch (e) { console.warn('[StickerBan]', e.message?.slice(0, 60)); }
 
+  // ── v6.90: RULES ENGINE — ela aprende QUALQUER regra por conversa ──
+  // "quando eu disser pizza vc responde X" / "se alguém mandar link
+  // avisa a pessoa" / "que regras te ensinei?" / "cancela a regra do X"
+  // Ensino/gestão: só o Dono, texto livre sem prefixo. Execução: corre
+  // para qualquer mensagem livre (o gatilho soDono decide quem dispara).
+  try {
+    const rulesEngine = require('../aura/rulesEngine');
+    if (isOwner && text && !startsWithAnyPrefix(text, prefixes)) {
+      if (await rulesEngine.gerir({ sock, msg, ctx, texto: text, isOwner })) return true;
+      if (await rulesEngine.aprender({ sock, msg, ctx, texto: text, isOwner })) return true;
+    }
+    if (text && !startsWithAnyPrefix(text, prefixes)) {
+      if (await rulesEngine.aplicar({ sock, msg, ctx, texto: text, isOwner, isCommandLike: false })) return true;
+    }
+  } catch (e) { console.warn('[RulesEngine]', e.message?.slice(0, 60)); }
+
   // v6.37: Regras de resposta por tipo de grupo
   // Grupo COM aluguel activo → responde a TODOS
   // Grupo SEM aluguel → só dono, subdono, VIP

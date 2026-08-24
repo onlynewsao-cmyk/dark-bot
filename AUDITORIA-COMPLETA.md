@@ -168,7 +168,17 @@ Testes: `test:printbugs2` **21/21** (frase exacta do print, remoção via sticke
 
 ---
 
-## 7. CONCLUSÃO
+## 7. v6.90 — MOTOR DE REGRAS GENÉRICO (ela aprende o que tu quiseres)
+Para além dos factos que ela já memorizava, agora **ensinas regras com gatilho → acção por conversa** (`src/aura/rulesEngine.js`):
+- **Ensinar** (só o Dono): *"quando eu disser pizza vc responde UHUL PIZZA"* / *"se alguém mandar link avisa a pessoa"* / *"quando alguém disser bom dia reage com ☀️"* / *"quando eu mandar a palavra código envia o link do grupo"* → confirma sempre o que entendeu ("Tá. Quando TU disseres …")
+- **Gatilhos**: palavra/frase (com aspas ou não) · link · sticker (cita o sticker no ensino)
+- **Acções**: responder texto · reagir com emoji · remover do grupo · avisar com menção · enviar link do grupo · apagar mensagem
+- **Âmbito**: ensinada num grupo → vale nesse grupo; ensinada no PV → vale em todo o lado
+- **Gerir**: *"que regras te ensinei?"* (lista numerada) · *"cancela a regra do pizza"* / *"cancela a regra 2"* · *"esquece todas as regras"*
+- **Segurança**: só o Dono ensina/cancela · "remover" nunca atinge o Dono nem o bot · máx. 20 regras · cooldown 15 s por regra+chat (anti-spam) · comandos com prefixo nunca disparam regras · persistido em BotConfig (sobrevive a restarts)
+- Testes: `test:rules` **25/25** (ensino, execução, guardas, gestão, limite, fim-a-fim pelo handler sem a IA duplicar)
+
+## 8. CONCLUSÃO
 ✅ **Bot ↔ Dashboard ↔ MongoDB ↔ Socket.IO: tudo conectado e funcional** (provado ao vivo + 62 scripts de teste).
 🩫 **1 bug crítico encontrado e corrigido:** login do dashboard (v6.88, já no GitHub, deploy automático).
 📌 **Pendente:** re-implementar o v6.87 perdido (sticker-ban por aprendizagem, instruções ≠ comandos, RPG por seleção) se assim quiseres.
