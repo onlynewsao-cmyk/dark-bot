@@ -120,7 +120,7 @@
 
 ## 5. VERIFICAÇÃO — ESTADO DE CADA COISA
 
-### 5.1 Suite de testes (62 scripts, >1.300 verificações) — **TUDO VERDE**
+### 5.1 Suite de testes (63 scripts, >1.300 verificações) — **TUDO VERDE**
 ```
 syntax 193 ficheiros ✅ · EJS 30 templates ✅ · audit comandos ✅ · roles 12 ✅
 auramodes 26 ✅ · auraudit 85 ✅ · auracmds 22 ✅ · submenus 17+40 ✅ · menu18 32 ✅
@@ -132,6 +132,13 @@ etapas 3-6: 45+39+40+41 ✅ · assistente 33 ✅ · criar-canal 17 ✅ · convit
 paircode 15 ✅ · voip-qr 6 ✅ · voip-fechar 8 ✅ · economy 64 ✅ · segregação 92 ✅
 finalização 72 ✅ · admin/dono 74 ✅ · … (todos os restantes ✅)
 ```
+> ⚠️ **Nota de ambiente (v6.87):** os números acima são do teste ao vivo com MongoDB real.
+> Corridos num *sandbox* sem rede e sem MongoDB, **63/67 execuções passam**; as excepções são
+> ambientais, não de código: `test:menu18` (8 verificações que descarregam imagens de fontes
+> externas) e `test:casehandler` (1 verificação que chama o Pinterest) falham com
+> `Client network socket disconnected`, e `test:comunidades` / `test:ratelimit` / `test:adopcao`
+> ficam à espera de um MongoDB que não existe no sandbox. O `npm test` está encadeado com `&&`,
+> por isso pára no primeiro destes — para auditar tudo de uma vez, correr script a script.
 
 ### 5.2 Teste ao vivo (MongoDB real em memória + servidor real no sandbox)
 | Verificação | Resultado |
@@ -150,12 +157,71 @@ finalização 72 ✅ · admin/dono 74 ✅ · … (todos os restantes ✅)
 **Fix:** o `src/index.js` agora deriva um secret de cifra determinístico e sempre válido (`sha512` do `SESSION_SECRET` + prefixo com todas as classes exigidas). A cifra continua a depender 100% do `SESSION_SECRET` do Render. **Não é preciso mudar nenhuma env var.**
 Commit `937a5cf` → pushed para `main` → o Render faz autoDeploy sozinho.
 
-### 5.4 ✅ v6.87 da sessão anterior — PERDIDO e RE-FEITO como v6.89
-O commit `db40349` original nunca chegou ao GitHub e perdeu-se. As 3 funcionalidades foram **re-implementadas de novo (v6.89)** e estão no `main`:
-1. **Sticker-ban** (`src/aura/stickerBan.js`): o Dono ensina por conversa ("Se eu responder alguém com este sticker de ban vc remove ele") → ela confirma como pessoa e guarda a regra + hash do sticker (persistida no BotConfig) → a partir daí, responder a alguém com o sticker remove a pessoa ("🩸 Removido por ordem do Dark"). Segurança: só o Dono, nunca remove o Dono nem o bot, cancelável por conversa.
-2. **Instruções ≠ comandos** (`auraCommands.eInstrucao`): frases condicionais ("se eu… vc remove…") já não são roubadas pelo interpretador; ordens directas ("aura bane o Zeca") continuam.
-3. **RPG por selecção** (`src/bot/rpg/createFlow.js`): `!rpgstart` abre lista clicável de RAÇAS → CLASSES → ficha pronta com bónus da origem; o caminho escrito `!rpgstart Nome raça classe` agora cria mesmo (antes só listava).
-Testes: `test:printbugs2` **21/21** (frase exacta do print, remoção via sticker, guardas, fluxo completo das listas) + suite completa 63 scripts verde.
+### 5.4 ✅ v6.87 — PERDIDO e re-feito **duas vezes** (v6.89 no `main` + v6.90 nesta rama)
+O commit `db40349` original nunca chegou ao GitHub (o push foi bloqueado quando o PR #1 fez merge) e perdeu-se. Confirmado de três maneiras: `gh api .../commits/db40349` devolve `422 No commit found`, `git fsck --lost-found` não tem objectos pendurados, e a ponta de `arena/01a02f31-dark-bot` é `0bc14e1` = **v6.86** (PR #1 merged). As 3 funcionalidades foram re-implementadas **em paralelo, por duas sessões diferentes** — o que ficou no `main` como **v6.89** e o que está nesta rama como **v6.90**. Não são duplicados: são camadas diferentes, e ficam as duas.
+
+**O que veio no `main` (v6.89):**
+
+| Funcionalidade | Onde | O que faz |
+|---|---|---|
+| Sticker-ban do Dono | `src/aura/stickerBan.js` | O Dono ensina por conversa ("Se eu responder alguém com este sticker de ban vc remove ele") → ela guarda a regra + hash no `BotConfig` → a partir daí, **responder a alguém com o sticker remove a pessoa** ("🩸 Removido por ordem do Dark"). Só o Dono ensina e dispara; nunca remove o Dono nem o bot; cancelável por conversa. |
+| Instrução ≠ comando | `auraCommands.eInstrucao` | Frases condicionais ("se eu… vc remove…") deixam de ser roubadas pelo interpretador. |
+| RPG por selecção | `src/bot/rpg/createFlow.js` | `!rpgstart` abre lista clicável RAÇAS → CLASSES → ficha, com cliques `RPGPICK_R_*`/`RPGPICK_C_*` interceptados no `commandHandler` (mesmo mecanismo do `CHANGE_THEME_`). |
+
+**O que esta rama acrescenta (v6.90):**
+
+| Funcionalidade | Onde | O que faz |
+|---|---|---|
+| **Anti-figurinha por grupo** | `src/bot/antiSticker.js`, `src/bot/cases/stickerBan.js`, modelo `BannedSticker`, gancho em `messageListener.js` | Complemento do sticker-ban do Dono: qualquer **admin** responde a uma figurinha com `!bansticker` e o grupo aprende-a — de cada vez que alguém a mandar, é apagada. Identidade = `fileSha256` da metadata, **sem downloads**. `!antisticker on/off/status/notify` · `!unbansticker` · `!banstickers`. |
+| **Guarda de instruções alargada** | `src/aura/auraInstructionGuard.js` | A `eInstrucao` do v6.89 apanha condicionais. Esta cobre o resto: pergunta · negação · relato no passado · sujeito na 3ª pessoa · determinante (→ substantivo) · citação · referência ao próprio comando · verbo tarde de mais. Sem ela, `"o ban foi injusto"` corria `.ban`, `"ele marca golos"` corria `.tagall`, `"não bana o rapaz"` corria `.ban`. Só se aplica a comandos que mexem em terceiros — `"qual é o meu saldo?"` continua a responder. |
+| **Persistência de raça/classe** | campos `race`/`class`/`raceBonusApplied` no `RPGPlayer` | 🩸 **Bug crítico do v6.89 corrigido:** ver §5.5. |
+
+### 5.5 🩸 BUG CRÍTICO DO v6.89 — o RPG por selecção **não gravava nada**
+O `createFlow._finalizar()` faz `p.race = race; p.class = cls`, mas **os campos `race` e `class` não existem no schema do `RPGPlayer`**. Com o `strict: true` do Mongoose (o default), a atribuição é aceite em memória e **ignorada em silêncio na gravação**. Prova, corrida contra o `main`:
+
+```
+schema tem race?  false      em memória   : race=shinobi class=pirata
+schema tem class? false      no documento : race=undefined class=undefined
+```
+
+Ou seja: a ficha de confirmação mostrava a raça certa (lê da memória), mas o `.rg`, o combate e tudo o que voltasse a carregar o jogador do Mongo viam sempre o fallback **"humano guerreiro"**. Nenhum jogador na história do bot teve raça guardada — nem antes do v6.89, nem depois.
+
+**Fix (v6.90):** `race`, `class` e `raceBonusApplied` no schema + o bónus da origem passa a aplicar-se **uma única vez** (o `_finalizar` somava o bónus a cada `!rpgstart`, a inflar stats sem limite).
+
+### 5.6 🩸 AUDITORIA REAL DO RPG (v6.90) — 7 grupos de comandos estavam mortos
+O `test:rpgcom` só verifica se cada comando "devolve texto", por isso um comando que responde sempre a mesma mensagem de erro passa como verde. Foi criada uma auditoria que **corre** os comandos (`scripts/test-rpg-audit.js`, `npm run test:rpgaudit`) com um jogador realista e exige que façam o que dizem. Resultado da primeira passagem: **41 de 151 comandos rebentavam**.
+
+**a) 11 `if` sem chavetas no `cases/rpg2.js`.** Uma ferramenta qualquer tinha removido as chavetas e deixado o `return` solto:
+
+```js
+if (p.hp <= 0) await rpg.savePlayer(p);
+ return tReply(sock, msg, ctx, '💀 MORTO', [...]);   // ← corria SEMPRE
+```
+
+O `return` não pertencia ao `if` — corria em todas as chamadas, e tudo o que vinha a seguir era código morto. Comandos afectados: `.quest`/`.historia`/`.aventura` (respondiam sempre "⏳ COOLDOWN", com 0s), `.lutar`/`.fight`/`.combate` (sempre "💀 Estás morto"), `.explorar`/`.explore`, `.pocao`/`.potion` (sempre "❌ Sem poções"), `.reviver`, `.guilda criar` e `.nome`. **Todos corrigidos.**
+
+**b) `Cannot access 'p' before initialization`.** Em `.quest`, `.explorar` e `.nome` o `await rpg.savePlayer(p)` estava **antes** do `const p` — com o cooldown activo rebentava por temporal dead zone. O `p` foi movido para cima e o `savePlayer` espúrio (não havia nada gravado) removido.
+
+**c) O sistema de quests falava uma língua e o motor outra.** O case lia `q.title`, `q.chapter`, `q.story`, `q.choices[].text` e `choice.reward`; o engine tem `titulo`, `texto`, `escolhas[].txt`, `.next` e `.xp`. E começava no id `'prologo'`, que não existe (o primeiro é `'inicio'`) — ou seja, ficava em loop a "criar" a mesma quest. Reescrito contra os campos reais.
+
+**d) `rpg.ITEMS` nunca existiu.** `.eat`, `.vender` e `.loja`/`.shop`/`.mercador` liam um catálogo que não estava no motor (só havia `SHOP`, keyed por id curto e sem relação com os nomes que vão para o inventário). `.eat` rebentava com `Cannot read properties of undefined (reading 'peixe')` e `.loja` com `Cannot convert undefined or null to object`. Criado o catálogo com 31 itens, **keyed exactamente pelos nomes que os biomas e as quests põem no inventário** — sem isto o jogador apanhava loot que nunca conseguia vender.
+
+**e) NPCs sem falas.** `.npc`/`.falar`/`.talk` faziam `P(npc.dialogues)` sobre um campo que não existia (`fala` era uma string única) → `Cannot read properties of undefined (reading 'length')`. Cada NPC tem agora 3 falas.
+
+**f) `P(NPCS)` sobre um objecto.** `.explorar` fazia `P(NPCS).name` — `NPCS` é um objecto, `P()` devolvia `undefined` e o comando rebentava **ao construir a lista de eventos**, ou seja, sempre.
+
+### 5.7 🌍 MUNDO DO RPG (v6.90)
+O `!world` era uma lista estática de biomas — igual para quem acabou de começar e para quem já tinha atravessado o abismo. Não havia mundo, havia um menu. Agora (`src/bot/rpg/world.js` + `cases/rpgWorld.js` + campo `world` no `RPGPlayer`):
+
+| Comando | O que faz |
+|---|---|
+| `!world` / `!mapa` / `!biomas` | Mapa com **estado**: o que já viste (✅), o que está aberto (🔓) e o que ainda pede nível (🔒), barra de progresso, perigo e loot de cada sítio |
+| `!viajar <sítio>` | Desloca o jogador; a **1ª visita dá XP** e há encontro real (loot/inimigo/NPC) com os helpers do engine, não texto morto |
+| `!mundial` / `!rankmundial` | Ranking mundial de todos os jogadores por nível e reputação (degrada com honestidade sem MongoDB) |
+
+Os `nivel`/`danger` dos biomas já existiam no engine — ninguém os usava.
+
+**Depois das correcções: 151/151 comandos do RPG correm sem erro e `npm run test:rpgaudit` = 25/25.**
 
 ---
 
@@ -169,6 +235,7 @@ Testes: `test:printbugs2` **21/21** (frase exacta do print, remoção via sticke
 ---
 
 ## 7. CONCLUSÃO
-✅ **Bot ↔ Dashboard ↔ MongoDB ↔ Socket.IO: tudo conectado e funcional** (provado ao vivo + 62 scripts de teste).
+✅ **Bot ↔ Dashboard ↔ MongoDB ↔ Socket.IO: tudo conectado e funcional** (provado ao vivo + 63 scripts de teste).
 🩫 **1 bug crítico encontrado e corrigido:** login do dashboard (v6.88, já no GitHub, deploy automático).
-📌 **Pendente:** re-implementar o v6.87 perdido (sticker-ban por aprendizagem, instruções ≠ comandos, RPG por seleção) se assim quiseres.
+✅ **v6.87 re-implementado** (sticker-ban por aprendizagem, instruções ≠ comandos, RPG por selecção) — `npm run test:printbugs2` = **14/14**.
+🩫 **2 bugs de fundo encontrados ao re-implementar o v6.87:** `race`/`class` não existiam no schema do `RPGPlayer` (a raça nunca foi guardada) e o `!rpgstart` ignorava os próprios argumentos (o nome ficava "Kira elfo mago").

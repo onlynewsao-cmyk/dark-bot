@@ -146,9 +146,11 @@ async function _finalizar(sock, msg, ctx, name, race, cls) {
   p.race = race;
   p.class = cls;
 
-  // bónus da origem escolhida (se houver) — entra nas stats base
+  // bónus da origem escolhida (se houver) — entra nas stats base.
+  // v6.90: UMA vez só. Antes somava a cada !rpgstart, pelo que bastava
+  // repetir o comando para inflar stats e HP/MP sem limite.
   const origem = rpg.ORIGINS?.[race];
-  if (origem?.bonus) {
+  if (origem?.bonus && !p.raceBonusApplied) {
     p.stats = p.stats || { str: 6, dex: 6, int: 6, vit: 6, luk: 6 };
     for (const [k, v] of Object.entries(origem.bonus)) {
       p.stats[k] = (p.stats[k] || 0) + v;
@@ -157,6 +159,7 @@ async function _finalizar(sock, msg, ctx, name, race, cls) {
     p.hp = p.maxHp;
     p.maxMp = (p.maxMp || 80) + (origem.bonus.int || 0) * 5;
     p.mp = p.maxMp;
+    p.raceBonusApplied = true;
   }
   await _ficha(sock, msg, ctx, p);
 }

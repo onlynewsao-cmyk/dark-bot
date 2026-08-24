@@ -385,13 +385,81 @@ for (const b of Object.values(BIOMES)) {
 }
 
 // NPCS — usados por .npc / .falar
+// v6.90: `dialogues` acrescentado — o `.npc` fazia `P(npc.dialogues)` sobre
+// um campo que não existia e rebentava com "Cannot read properties of
+// undefined (reading 'length')". O `fala` mantém-se para quem já o usava.
 const NPCS = {
-  ferreiro:  { emoji: '🔨', name: 'Grom, o Ferreiro',   fala: 'Traz-me ferro e eu faço-te uma lâmina que corta a noite.' },
-  taverneira:{ emoji: '🍺', name: 'Mara da Taverna',    fala: 'Senta-te. Ouvi coisas sobre as cavernas a norte...' },
-  mago:      { emoji: '🧙', name: 'Velho Aldric',       fala: 'O poder tem preço. Estás pronto para pagar?' },
-  mercador:  { emoji: '💰', name: 'Zeno, o Mercador',   fala: 'Tudo tem preço, amigo. Até o silêncio.' },
-  curandeira:{ emoji: '💚', name: 'Irmã Elina',         fala: 'Deixa-me ver essas feridas. Não sejas teimoso.' },
-  guarda:    { emoji: '🛡️', name: 'Capitão Rurik',      fala: 'Mantém-te longe de sarilhos e ficamos bem.' },
+  ferreiro:  { emoji: '🔨', name: 'Grom, o Ferreiro',   fala: 'Traz-me ferro e eu faço-te uma lâmina que corta a noite.',
+    dialogues: ['Traz-me ferro e eu faço-te uma lâmina que corta a noite.',
+                'Já forjei armas para heróis. E para tolos. O aço não distingue.',
+                'Três ferros e uma madeira — é o que pede uma espada honesta.'] },
+  taverneira:{ emoji: '🍺', name: 'Mara da Taverna',    fala: 'Senta-te. Ouvi coisas sobre as cavernas a norte...',
+    dialogues: ['Senta-te. Ouvi coisas sobre as cavernas a norte...',
+                'A primeira rodada é por minha conta. A segunda paga-se.',
+                'O viajante de ontem voltou sem um braço. Bebe e vai-te embora.'] },
+  mago:      { emoji: '🧙', name: 'Velho Aldric',       fala: 'O poder tem preço. Estás pronto para pagar?',
+    dialogues: ['O poder tem preço. Estás pronto para pagar?',
+                'Li o teu destino esta manhã. Não gostei do fim.',
+                'A magia não é um dom — é um empréstimo. Cobra juros.'] },
+  mercador:  { emoji: '💰', name: 'Zeno, o Mercador',   fala: 'Tudo tem preço, amigo. Até o silêncio.',
+    dialogues: ['Tudo tem preço, amigo. Até o silêncio.',
+                'Compro, vendo e finjo que não sei de onde vem.',
+                'Para ti, um desconto. Para os outros, o dobro.'] },
+  curandeira:{ emoji: '💚', name: 'Irmã Elina',         fala: 'Deixa-me ver essas feridas. Não sejas teimoso.',
+    dialogues: ['Deixa-me ver essas feridas. Não sejas teimoso.',
+                'Bebe a poção ANTES de precisares dela. Depois é tarde.',
+                'Já enterrei heróis que achavam que descansavam mais tarde.'] },
+  guarda:    { emoji: '🛡️', name: 'Capitão Rurik',      fala: 'Mantém-te longe de sarilhos e ficamos bem.',
+    dialogues: ['Mantém-te longe de sarilhos e ficamos bem.',
+                'Vi coisas no abismo que não digo em voz alta.',
+                'Se ouvires o teu nome lá em baixo, não respondas.'] },
+};
+
+// ══════════════════════════════════════════════════════════
+// v6.90 — CATÁLOGO DE ITENS
+// O `.eat`, o `.vender` e a `.loja` liam `rpg.ITEMS[...]`, um catálogo que
+// nunca existiu no motor (só havia SHOP, keyed por id curto e sem relação
+// com os nomes que vão para o inventário). Resultado em produção:
+//   .eat   → "Cannot read properties of undefined (reading 'peixe')"
+//   .loja  → "Cannot convert undefined or null to object"
+// As chaves são EXACTAMENTE os nomes que os biomas e as quests metem no
+// inventário — senão o jogador apanha o loot e nunca o consegue vender.
+// ══════════════════════════════════════════════════════════
+const ITEMS = {
+  // consumíveis
+  'poção de vida':     { emoji: '🧪', price: 120, type: 'heal', effect: { hp: 60 } },
+  'poção de mana':     { emoji: '💙', price: 140, type: 'heal', effect: { mp: 50 } },
+  'erva medicinal':    { emoji: '🌿', price: 45,  type: 'food', effect: { hp: 20 } },
+  'erva':              { emoji: '🌿', price: 18,  type: 'food', effect: { hp: 8 } },
+  'peixe':             { emoji: '🐟', price: 35,  type: 'food', effect: { hp: 25 } },
+  'cogumelo':          { emoji: '🍄', price: 25,  type: 'food', effect: { hp: 12 } },
+  'pão':               { emoji: '🍞', price: 20,  type: 'food', effect: { hp: 15 } },
+  'carne':             { emoji: '🍖', price: 55,  type: 'food', effect: { hp: 40 } },
+  'concha':            { emoji: '🐚', price: 30,  type: 'food', effect: { hp: 10 } },
+  // materiais (loot dos biomas)
+  'madeira':           { emoji: '🪵', price: 15 },
+  'ferro':             { emoji: '⛓️', price: 60 },
+  'pedra':             { emoji: '🪨', price: 10 },
+  'carvão':            { emoji: '⚫', price: 25 },
+  'cristal':           { emoji: '💎', price: 180 },
+  'ouro':              { emoji: '🟡', price: 220 },
+  'osso':              { emoji: '🦴', price: 18 },
+  'areia':             { emoji: '🏜️', price: 8 },
+  'cacto':             { emoji: '🌵', price: 22 },
+  'veneno':            { emoji: '☠️', price: 90 },
+  'raiz':              { emoji: '🌱', price: 20 },
+  'sanguessuga':       { emoji: '🪱', price: 35 },
+  'obsidiana':         { emoji: '🌋', price: 300 },
+  'enxofre':           { emoji: '🧨', price: 120 },
+  'rubi':              { emoji: '🔴', price: 400 },
+  'pérola':            { emoji: '🫧', price: 260 },
+  'relíquia':          { emoji: '🏺', price: 500 },
+  'fragmento sombrio': { emoji: '🌑', price: 700 },
+  'alma':              { emoji: '👻', price: 900 },
+  // raros
+  'pedra preciosa':    { emoji: '💠', price: 350 },
+  'amuleto antigo':    { emoji: '📿', price: 480 },
+  'semente':           { emoji: '🌰', price: 12 },
 };
 
 // QUESTS — histórias curtas com escolhas
@@ -557,6 +625,7 @@ module.exports = {
     { rarity:'Raro', chance:100, emoji:'🔵' },
   ],
   SHOP, REFINEMENT, DAILY_REWARDS, ACHIEVEMENTS,
+  ITEMS,   // v6.90: o catálogo que faltava (eat/vender/loja)
   // v6.62: compatibilidade com cases/rpg2.js
   RACES, CLASSES, BIOMES, QUESTS, NPCS, RECIPES, generateEnemy, calcDamage, generateLoot,
   getRank, addXP, hpBar,

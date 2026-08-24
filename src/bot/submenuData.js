@@ -233,6 +233,23 @@ function categorize(cmd) {
     godmode:'owner', apagadas:'owner', grupos:'owner',
     godadm:'interacoes', empurrar:'interacoes',
     x9:'downloads', autosticker:'stickers',
+    // ── v6.87: anti-figurinha aprendida (!bansticker) ──────────────
+    // É moderação de grupo (só admin/dono), por isso fica em 'admin'
+    // ao lado do antilink/antispam. A lista fica em 'stickers', que é
+    // onde quem procura figurinhas a vai procurar.
+    antisticker:'admin', antifigban:'admin',
+    bansticker:'admin', banfig:'admin', banfigurinha:'admin',
+    aprendersticker:'admin', aprenderfig:'admin',
+    unbansticker:'admin', unbanfig:'admin', desbansticker:'admin',
+    esquecersticker:'admin', esquecerfig:'admin', listabansticker:'admin',
+    banstickers:'admin', stickerbans:'stickers',
+    // ── v6.90: mundo do RPG ──────────────────────────────────────
+    // 'mapa'/'biomas'/'world' já estavam cá, mas espalhados ('search') —
+    // são comandos do RPG e apareciam fora do submenu certo.
+    world:'economia', mapa:'economia', biomas:'economia', mundomap:'economia',
+    viajar:'economia', travel:'economia', irpara:'economia',
+    mundial:'economia', rankmundial:'economia', worldrank:'economia',
+    rankingmundial:'economia',
     gruposaura:'ia',
     regrasrpg:'economia', regrasville:'economia', bvrpg:'economia', welcomerpg:'economia',
     rent:'economia', trial:'economia', renovar:'economia', renew:'economia',

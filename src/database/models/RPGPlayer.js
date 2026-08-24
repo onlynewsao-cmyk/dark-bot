@@ -8,6 +8,19 @@ const RPGPlayerSchema = new mongoose.Schema({
   character: { type: String, default: null },  // naruto, luffy, gojo, etc.
   universe:  { type: String, default: null },  // naruto, onepiece, etc.
   title:     { type: String, default: '' },
+
+  // ── v6.87: raça e classe ────────────────────────────────────
+  // O !rpgstart e a ficha (.rg) liam p.race/p.class desde sempre, mas
+  // estes campos NÃO existiam no schema — com o `strict: true` do
+  // Mongoose a atribuição era ignorada em silêncio e NENHUM jogador
+  // chegou a ter raça ou classe guardada (a ficha caía sempre no
+  // fallback "humano guerreiro"). Sem isto o gerador por selecção não
+  // tem onde guardar a escolha.
+  race:      { type: String, default: 'humano' },
+  class:     { type: String, default: 'guerreiro' },
+  // O bónus da raça aplica-se UMA vez, na criação — sem esta marca,
+  // cada !rpgstart somava outra vez os mesmos pontos aos stats.
+  raceBonusApplied: { type: Boolean, default: false },
   faction:   { type: String, default: null },
   guild:     { type: String, default: null },
 
@@ -51,6 +64,17 @@ const RPGPlayerSchema = new mongoose.Schema({
     current:   { type: String, default: null },
     step:      { type: Number, default: 0 },
     completed: [{ type: String }],
+  },
+
+  // ── v6.90: MUNDO ────────────────────────────────────────────
+  // O que o jogador já viu do mapa. Sem isto o !world era uma lista
+  // estática de biomas — igual para quem acabou de começar e para quem
+  // já tinha andado por todo o lado.
+  world: {
+    visited:     [{ type: String }],          // biomas já percorridos
+    discoveries: { type: Number, default: 0 }, // 1ª visita a cada bioma
+    lastTravel:  { type: Date, default: null },
+    bossDefeated: [{ type: String }],         // bosses de mundo abatidos
   },
 
   // Skills desbloqueadas
