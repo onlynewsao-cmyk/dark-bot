@@ -41,17 +41,6 @@ setInterval(() => {
   }
 }, 600000);
 
-// ═══ v6.87: SESSÃO DO GERADOR DE PERSONAGEM ═══
-// Guarda a escolha em curso (raça → classe → confirmar) enquanto o
-// jogador toca nos botões. Expira aos 10 min, como os cooldowns.
-const _rpgSel = new Map(); // senderNumber → { nome, race, classe, ts }
-setInterval(() => {
-  const now = Date.now();
-  for (const [k, v] of _rpgSel) {
-    if (!v?.ts || now - v.ts > 600000) _rpgSel.delete(k);
-  }
-}, 600000).unref?.();
-
 
 async function tReply(sock, msg, ctx, title, lines) {
   const RE = require('../renderEngine');
@@ -61,223 +50,13 @@ async function tReply(sock, msg, ctx, title, lines) {
 
 module.exports = function registerRPG2(registerCase) {
 
-  // ═══ CRIAR PERSONAGEM — v6.87: POR SELECÇÃO ═══
-  //
-  // ANTES: o comando mostrava a lista e mandava o jogador escrever
-  // "!rpgstart Nome elfo mago" — mas os argumentos NUNCA eram lidos
-  // (o nome ficava "Kira elfo mago") e `race`/`class` nem existiam no
-  // schema do RPGPlayer, pelo que a ficha caía sempre no fallback
-  // "humano guerreiro". Não havia maneira de ter uma raça.
-  //
-  // AGORA: !rpgstart abre botões (raça → classe → confirmar) e grava a
-  // escolha. O modo de texto continua a funcionar para quem já o usava.
-  registerCase(['criarpersonagem', 'newchar', 'rpgstart'], async ({ sock, msg, ctx, args, prefix }) => {
-    const btn = require('../buttonHandler');
-    const PE = require('../prefixEngine');
-    const P = prefix || ctx.prefix || '!';
-    const quem = ctx.senderNumber;
-
-    // "caçador" (do jogador) == "cacador" (do motor)
-    const chave = (s) => String(s || '').toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
-    const procura = (mapa, valor) => {
-      const v = chave(valor);
-      if (!v) return null;
-      return Object.keys(mapa).find(k => chave(k) === v) || null;
-    };
-    const acaso = (mapa) => Object.keys(mapa)[Math.floor(Math.random() * Object.keys(mapa).length)];
-
-    const sel = _rpgSel.get(quem) || {};
-    const guardar = () => { sel.ts = Date.now(); _rpgSel.set(quem, sel); };
-    const idBtn = (sub, valor) => PE.makeButtonId('rpgstart', valor ? `${sub} ${valor}` : sub);
-
-    // ── GRAVAR ─────────────────────────────────────────────
-    async function criar({ nome, race, classe }) {
-      const p = await rpg.getPlayer(quem);
-      const primeiraVez = !p.raceBonusApplied;
-      if (nome) p.name = String(nome).slice(0, 24);
-      if (race) {
-        p.race = race;
-        // o bónus da raça entra UMA vez, na criação — repetir o
-        // comando muda a raça mas não volta a somar stats
-        if (primeiraVez) {
-          const b = rpg.RACES[race]?.bonus || {};
-          for (const s of ['str', 'dex', 'int', 'vit', 'luk']) {
-            p.stats[s] = (p.stats[s] || 6) + (b[s] || 0);
-          }
-          p.raceBonusApplied = true;
-        }
-      }
-      if (classe) p.class = classe;
-      await rpg.savePlayer(p);
-      return p;
-    }
-
-    async function ficha(p) {
-      const race = rpg.RACES[p.race] || rpg.RACES.humano;
-      const cls = rpg.CLASSES[p.class] || rpg.CLASSES.guerreiro;
-      return tReply(sock, msg, ctx, `${race.emoji} ${String(p.name).toUpperCase()}`, [
-        `🎭 *Personagem criado*`,
-        '',
-        `👤 Nome: *${p.name}*`,
-        `🧬 Raça: *${p.race}* ${race.emoji}`,
-        `⚔️ Classe: *${p.class}* ${cls.emoji}`,
-        '',
-        `⚔️ STR ${p.stats.str} · 🏃 DEX ${p.stats.dex} · 🔮 INT ${p.stats.int}`,
-        `🛡️ VIT ${p.stats.vit} · 🍀 LUK ${p.stats.luk}`,
-        '',
-        `${race.emoji} ${race.desc}`,
-        `${cls.emoji} ${cls.desc}`,
-        '',
-        `> Vê a ficha completa com *${P}rg*`,
-      ]);
-    }
-
-    // ── PASSO 1: RAÇA ──────────────────────────────────────
-    async function pedirRaca() {
-      guardar();
-      const linhas = Object.entries(rpg.RACES)
-        .map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`);
-      return btn.sendButtons(
-        sock, ctx.remoteJid,
-        `🎭 *CRIAR PERSONAGEM*\n\n👤 Nome: *${sel.nome || ctx.pushName || 'Aventureiro'}*\n\n🧬 *Escolhe a raça:*\n\n${linhas.join('\n')}`,
-        `${P}rpgstart · passo 1/3`,
-        [
-          ...Object.keys(rpg.RACES).map(k => ({ id: idBtn('raça', k), text: `${rpg.RACES[k].emoji} ${k}` })),
-          { id: idBtn('aleatorio'), text: '🎲 Aleatório' },
-        ],
-        msg,
-      ).catch(() => tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
-        '🧬 *RAÇAS:*', ...linhas, '', `> Usa: ${P}rpgstart <nome> <raça> <classe>`,
-      ]));
-    }
-
-    // ── PASSO 2: CLASSE ────────────────────────────────────
-    async function pedirClasse() {
-      guardar();
-      const race = rpg.RACES[sel.race];
-      const linhas = Object.entries(rpg.CLASSES)
-        .map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`);
-      return btn.sendButtons(
-        sock, ctx.remoteJid,
-        `🎭 *CRIAR PERSONAGEM*\n\n🧬 Raça: *${sel.race}* ${race?.emoji || ''}\n\n⚔️ *Escolhe a classe:*\n\n${linhas.join('\n')}`,
-        `${P}rpgstart · passo 2/3`,
-        [
-          ...Object.keys(rpg.CLASSES).map(k => ({ id: idBtn('classe', k), text: `${rpg.CLASSES[k].emoji} ${k}` })),
-          { id: idBtn('aleatorio'), text: '🎲 Aleatório' },
-        ],
-        msg,
-      ).catch(() => tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
-        `🧬 Raça: *${sel.race}*`, '', '⚔️ *CLASSES:*', ...linhas, '',
-        `> Usa: ${P}rpgstart classe <classe>`,
-      ]));
-    }
-
-    // ── PASSO 3: CONFIRMAR ─────────────────────────────────
-    async function pedirConfirmacao() {
-      guardar();
-      const race = rpg.RACES[sel.race];
-      const cls = rpg.CLASSES[sel.classe];
-      return btn.sendButtons(
-        sock, ctx.remoteJid,
-        `🎭 *CRIAR PERSONAGEM*\n\n👤 Nome: *${sel.nome || ctx.pushName || 'Aventureiro'}*\n` +
-        `🧬 Raça: *${sel.race}* ${race?.emoji || ''}\n⚔️ Classe: *${sel.classe}* ${cls?.emoji || ''}\n\n` +
-        `${race?.desc || ''}\n${cls?.desc || ''}`,
-        `${P}rpgstart · passo 3/3`,
-        [
-          { id: idBtn('confirmar'), text: '✅ Criar' },
-          { id: idBtn('raça'), text: '🧬 Outra raça' },
-          { id: idBtn('cancelar'), text: '❌ Cancelar' },
-        ],
-        msg,
-      ).catch(() => tReply(sock, msg, ctx, '🎭 CONFIRMAR', [
-        `👤 ${sel.nome || ctx.pushName} · 🧬 ${sel.race} · ⚔️ ${sel.classe}`, '',
-        `> Usa: ${P}rpgstart confirmar`,
-      ]));
-    }
-
-    // ── MODO DE TEXTO (como era antes) ─────────────────────
-    // "!rpgstart Kira elfo mago" continua a funcionar; o que mudou é
-    // que agora a raça e a classe são mesmo guardadas.
-    async function modoTexto() {
-      let race = null, classe = null;
-      const nomeParts = [];
-      for (const parte of args) {
-        const r = procura(rpg.RACES, parte);
-        const c = procura(rpg.CLASSES, parte);
-        if (r && !race) race = r;
-        else if (c && !classe) classe = c;
-        else nomeParts.push(parte);
-      }
-      const nome = nomeParts.join(' ').trim();
-
-      // não reconheceu raça nenhuma → abre a selecção com o nome dado
-      if (!race && !classe) {
-        sel.nome = nome || sel.nome || ctx.pushName || 'Aventureiro';
-        return pedirRaca();
-      }
-      sel.nome = nome || sel.nome || ctx.pushName || 'Aventureiro';
-      sel.race = race || sel.race || 'humano';
-      sel.classe = classe || sel.classe || 'guerreiro';
-      guardar();
-      const p = await criar({ nome: sel.nome, race: sel.race, classe: sel.classe });
-      _rpgSel.delete(quem);
-      return ficha(p);
-    }
-
-    // ── ROUTER ─────────────────────────────────────────────
-    const sub = String(args[0] || '').toLowerCase();
-    const ehSub = /^(ra[çc]a|classe|confirmar|confirm|cancelar|nome|aleat[óo]rio)$/.test(sub);
-
-    // sem argumentos → começa a selecção
-    if (!args.length) {
-      sel.nome = sel.nome || ctx.pushName || 'Aventureiro';
-      return pedirRaca();
-    }
-    // não é um passo da selecção → modo de texto
-    if (!ehSub) return modoTexto();
-
-    if (/^ra[çc]a$/.test(sub)) {
-      const race = procura(rpg.RACES, args[1]);
-      if (!race) return pedirRaca();          // "outra raça" ou inválida
-      sel.race = race;
-      return pedirClasse();
-    }
-
-    if (/^classe$/.test(sub)) {
-      const classe = procura(rpg.CLASSES, args[1]);
-      if (!classe) return pedirClasse();
-      sel.classe = classe;
-      return pedirConfirmacao();
-    }
-
-    if (/^nome$/.test(sub)) {
-      const nome = args.slice(1).join(' ').trim().slice(0, 24);
-      if (nome) sel.nome = nome;
-      return pedirConfirmacao();
-    }
-
-    if (/^aleat/.test(sub)) {
-      sel.race = sel.race || acaso(rpg.RACES);
-      sel.classe = acaso(rpg.CLASSES);
-      guardar();
-      return pedirConfirmacao();
-    }
-
-    if (/^cancelar$/.test(sub)) {
-      _rpgSel.delete(quem);
-      return tReply(sock, msg, ctx, '❌ CRIAÇÃO CANCELADA', [
-        'Nada foi alterado.', '', `> Quando quiseres: *${P}rpgstart*`,
-      ]);
-    }
-
-    // confirmar
-    sel.nome = sel.nome || ctx.pushName || 'Aventureiro';
-    sel.race = sel.race || 'humano';
-    sel.classe = sel.classe || 'guerreiro';
-    const p = await criar({ nome: sel.nome, race: sel.race, classe: sel.classe });
-    _rpgSel.delete(quem);
-    return ficha(p);
+  // ═══ CRIAR PERSONAGEM ═══
+  // v6.89: por SELECÇÃO — !rpgstart abre lista clicável de RAÇAS →
+  // CLASSES → ficha pronta. O caminho escrito continua a funcionar:
+  // !rpgstart Nome raça classe (agora cria mesmo, antes só listava).
+  registerCase(['criarpersonagem', 'newchar', 'rpgstart'], async ({ sock, msg, ctx, args }) => {
+    const createFlow = require('../rpg/createFlow');
+    return createFlow.start({ sock, msg, ctx, args });
   }, true);
 
   // ═══ PERFIL RPG COMPLETO ═══
@@ -315,88 +94,90 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ QUEST NARRATIVA ═══
   registerCase(['quest', 'historia', 'aventura'], async ({ sock, msg, ctx, args }) => {
-    const cd = checkCooldown(ctx.senderNumber, 'quest', 60);
-    if (cd.blocked) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('quest', cd.remaining)]);
+    // v6.90: este `if` tinha perdido as chavetas — o `return` corria SEMPRE
+    // e todo o sistema de quests era código morto (respondia "COOLDOWN" a
+    // toda a gente, com 0s). Pior: o `savePlayer(p)` estava ANTES do
+    // `const p`, pelo que com o cooldown activo rebentava com
+    // "Cannot access 'p' before initialization".
     const p = await rpg.getPlayer(ctx.senderNumber);
-    const questId = p.quest?.current || 'prologo';
-    const quest = rpg.QUESTS.find(q => q.id === questId);
-
-    if (!quest) {
-      // Sem quest activa — dar nova
-      p.quest = { current: 'prologo', step: 0, completed: p.quest?.completed || [] };
-      const q = rpg.QUESTS[0];
-      await rpg.savePlayer(p);
-
-      return tReply(sock, msg, ctx, q.title, [
-        `📖 Capítulo ${q.chapter}`,
-        '',
-        q.story,
-        '',
-        ...q.choices.map((c, i) => `${i + 1}️⃣ ${c.text}`),
-        '',
-        `> Escolhe: !quest 1 ou !quest 2`,
-      ]);
+    const cd = checkCooldown(ctx.senderNumber, 'quest', 60);
+    if (cd.blocked) {
+      return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('quest', cd.remaining)]);
     }
+    // v6.90: os campos reais do motor são titulo/texto/escolhas/txt/next/xp.
+    // Este código lia title/chapter/story/choices/text/reward — campos que
+    // NÃO existem no engine, pelo que mesmo sem o bug das chavetas o
+    // .quest rebentava em `q.choices.map`. E começava em 'prologo', um id
+    // que não existe (o primeiro é 'inicio'), o que o punha em loop.
+    const quest = rpg.QUESTS.find(q => q.id === (p.quest?.current || 'inicio'))
+      || rpg.QUESTS[0];
+    const capitulo = (q) => Math.max(1, rpg.QUESTS.indexOf(q) + 1);
 
-    // Se tem argumento, processar escolha
-    const choiceIdx = parseInt(args[0]) - 1;
-    if (choiceIdx >= 0 && quest.choices[choiceIdx]) {
-      const choice = quest.choices[choiceIdx];
-      const reward = choice.reward || {};
-      let rewardText = [];
-      if (reward.xp) { const leveled = rpg.addXP(p, reward.xp); rewardText.push(`⭐ +${reward.xp} XP${leveled ? ' → NÍVEL ' + p.level + '!' : ''}`); }
-      if (reward.coins) { p.coins += reward.coins; rewardText.push(`💰 ${reward.coins > 0 ? '+' : ''}${reward.coins} coins`); }
-      if (reward.item) { p.inventory.push(reward.item); rewardText.push(`🎒 +${reward.item}`); }
-      if (reward.hp_cost) { p.hp = Math.max(1, p.hp - reward.hp_cost); rewardText.push(`❤️ -${reward.hp_cost} HP`); }
-      if (reward.hp_restore) { p.hp = Math.min(p.maxHp, p.hp + reward.hp_restore); rewardText.push(`❤️ +${reward.hp_restore} HP`); }
-      if (reward.title) { p.title = reward.title; rewardText.push(`🏅 Título: ${reward.title}`); }
-      if (reward.faction) { p.faction = reward.faction; rewardText.push(`⚔️ Facção: ${reward.faction}`); }
-
-      // Avançar para próxima quest
-      p.quest.current = choice.next;
-      const nextQuest = rpg.QUESTS.find(q => q.id === choice.next);
-
-      const lines = [
-        `✅ Escolha: *${choice.text}*`,
-        ...rewardText,
-      ];
-
-      if (nextQuest) {
-        lines.push('', '─'.repeat(20), '', nextQuest.story, '');
-        lines.push(...nextQuest.choices.map((c, i) => `${i + 1}️⃣ ${c.text}`));
-        lines.push('', `> Escolhe: !quest 1 ou !quest 2`);
-      } else {
-        lines.push('', '🎉 *Fim do capítulo!* Mais em breve...');
-      }
-
-      await rpg.savePlayer(p);
-
-
-      return tReply(sock, msg, ctx, quest.title + ' → ' + (nextQuest?.title || 'FIM'), lines);
-    }
-
-    // Mostrar quest actual
-    await rpg.savePlayer(p);
-
-    return tReply(sock, msg, ctx, quest.title, [
-      `📖 Capítulo ${quest.chapter}`,
+    const mostrar = (q) => tReply(sock, msg, ctx, q.titulo, [
+      `📖 Capítulo ${capitulo(q)} de ${rpg.QUESTS.length}`,
       '',
-      quest.story,
+      q.texto,
       '',
-      ...quest.choices.map((c, i) => `${i + 1}️⃣ ${c.text}`),
+      ...q.escolhas.map((c, i) => `${i + 1}️⃣ ${c.txt}${c.xp ? `  _(+${c.xp} XP)_` : ''}`),
       '',
       `> Escolhe: !quest <número>`,
     ]);
+
+    // Sem quest activa → começa a primeira
+    if (!p.quest?.current) {
+      p.quest = { current: quest.id, step: 0, completed: p.quest?.completed || [] };
+      await rpg.savePlayer(p);
+      return mostrar(quest);
+    }
+
+    // Sem número (ou número inválido) → mostra a quest em que está
+    const choiceIdx = parseInt(args[0]) - 1;
+    if (Number.isNaN(choiceIdx) || choiceIdx < 0 || !quest.escolhas?.[choiceIdx]) {
+      return mostrar(quest);
+    }
+
+    const choice = quest.escolhas[choiceIdx];
+    const rewardText = [];
+    if (choice.xp) {
+      const leveled = rpg.addXP(p, choice.xp);
+      rewardText.push(`⭐ +${choice.xp} XP${leveled ? ' → NÍVEL ' + p.level + '!' : ''}`);
+    }
+    if (choice.coins) { p.coins += choice.coins; rewardText.push(`💰 +${choice.coins} coins`); }
+    if (choice.item) { p.inventory.push(choice.item); rewardText.push(`🎒 +${choice.item}`); }
+    if (choice.title) { p.title = choice.title; rewardText.push(`🏅 Título: ${choice.title}`); }
+
+    p.quest.completed = [...(p.quest.completed || []), quest.id];
+    p.quest.current = choice.next || null;
+    p.quest.step = (p.quest.step || 0) + 1;
+    await rpg.savePlayer(p);
+
+    const next = choice.next ? rpg.QUESTS.find(q => q.id === choice.next) : null;
+    const linhas = [`✅ Escolha: *${choice.txt}*`, ...rewardText];
+
+    if (next) {
+      linhas.push('', '─'.repeat(20), '', next.texto, '',
+        ...next.escolhas.map((c, i) => `${i + 1}️⃣ ${c.txt}`),
+        '', `> Escolhe: !quest <número>`);
+      return tReply(sock, msg, ctx, `${quest.titulo} → ${next.titulo}`, linhas);
+    }
+
+    linhas.push('', '🎉 *Capítulo terminado!* Usa !quest para uma nova história.');
+    return tReply(sock, msg, ctx, quest.titulo, linhas);
   }, true);
 
   // ═══ COMBATE NARRATIVO ═══
   registerCase(['lutar', 'fight', 'combate'], async ({ sock, msg, ctx, args }) => {
     const p = await rpg.getPlayer(ctx.senderNumber);
-    if (p.hp <= 0) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '💀 MORTO', ['💀 Estás morto! Usa !descansar ou !poção']);
-    if (p.lives <= 0) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '💀 SEM VIDAS', ['💀 Sem vidas! Espera respawn ou usa !reviver']);
+    // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+    // respondia sempre esta mensagem e nunca fazia nada.
+    if (p.hp <= 0) {
+      return tReply(sock, msg, ctx, '💀 MORTO', ['💀 Estás morto! Usa !descansar ou !poção']);
+    }
+    // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+    // respondia sempre esta mensagem e nunca fazia nada.
+    if (p.lives <= 0) {
+      return tReply(sock, msg, ctx, '💀 SEM VIDAS', ['💀 Sem vidas! Espera respawn ou usa !reviver']);
+    }
 
     const enemyType = args[0] === 'boss' ? 'boss' : args[0] === 'elite' ? 'elite' : 'normal';
     const enemy = rpg.generateEnemy(p.level + R(-1, 2), enemyType);
@@ -468,17 +249,21 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ EXPLORAÇÃO NARRATIVA ═══
   registerCase(['explorar', 'explore'], async ({ sock, msg, ctx, args }) => {
-    const cd = checkCooldown(ctx.senderNumber, 'explore', 45);
-    if (cd.blocked) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('explore', cd.remaining)]);
+    // v6.90: mesmo bug do .quest — return sem chavetas + `p` antes de existir.
     const p = await rpg.getPlayer(ctx.senderNumber);
+    const cd = checkCooldown(ctx.senderNumber, 'explore', 45);
+    if (cd.blocked) {
+      return tReply(sock, msg, ctx, '⏳ COOLDOWN', [cooldownMsg('explore', cd.remaining)]);
+    }
     const biomeKey = args[0]?.toLowerCase() || P(Object.keys(rpg.BIOMES));
     const biome = rpg.BIOMES[biomeKey] || rpg.BIOMES.floresta;
 
     const events = [
       { text: `Encontras um ${P(['baú antigo', 'cofre escondido', 'saco de coins'])}!`, coins: R(10, 50) * biome.danger, xp: R(5, 20) },
       { text: `Um ${P(['lobo', 'goblin', 'esqueleto', 'bandido'])} aparece!`, combat: true },
-      { text: `Encontras ${P(NPCS).name.split(',')[0]}!`, npc: true },
+      // v6.90: NPCS é um OBJECTO — P(NPCS) devolvia undefined e o .explorar
+      // rebentava ao construir a lista de eventos.
+      { text: `Encontras ${P(Object.values(rpg.NPCS)).name.split(',')[0]}!`, npc: true },
       { text: `Descobres uma ${P(['erva rara', 'pedra preciosa', 'relíquia antiga'])}!`, item: P(['erva medicinal', 'pedra preciosa', 'amuleto antigo']), xp: R(10, 30) },
       { text: `Paisagem deslumbrante. ${biome.desc}`, xp: R(5, 15), hp_restore: R(5, 15) },
       { text: `Cais numa armadilha!`, hp_cost: R(5, 15) * biome.danger, xp: R(5, 10) },
@@ -519,8 +304,11 @@ module.exports = function registerRPG2(registerCase) {
   registerCase(['pocao', 'potion'], async ({ sock, msg, ctx, args }) => {
     const p = await rpg.getPlayer(ctx.senderNumber);
     const idx = p.inventory.indexOf('poção de vida');
-    if (idx === -1) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🧪 POÇÃO', ['❌ Sem poções! Compra no mercador.']);
+    // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+    // respondia sempre esta mensagem e nunca fazia nada.
+    if (idx === -1) {
+      return tReply(sock, msg, ctx, '🧪 POÇÃO', ['❌ Sem poções! Compra no mercador.']);
+    }
     p.inventory.splice(idx, 1);
     p.hp = Math.min(p.maxHp, p.hp + 50);
     await rpg.savePlayer(p);
@@ -531,10 +319,16 @@ module.exports = function registerRPG2(registerCase) {
   // ═══ REVIVER ═══
   registerCase(['reviver', 'revive'], async ({ sock, msg, ctx }) => {
     const p = await rpg.getPlayer(ctx.senderNumber);
-    if (p.lives > 0) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Ainda tens vidas!']);
-    if (p.coins < 500) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Precisas de 500 coins para reviver']);
+    // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+    // respondia sempre esta mensagem e nunca fazia nada.
+    if (p.lives > 0) {
+      return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Ainda tens vidas!']);
+    }
+    // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+    // respondia sempre esta mensagem e nunca fazia nada.
+    if (p.coins < 500) {
+      return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Precisas de 500 coins para reviver']);
+    }
     p.coins -= 500;
     p.lives = 3;
     p.hp = p.maxHp;
@@ -548,12 +342,21 @@ module.exports = function registerRPG2(registerCase) {
     const p = await rpg.getPlayer(ctx.senderNumber);
     if (args[0] === 'criar') {
       const name = args.slice(1).join(' ');
-      if (!name || name.length > 20) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🏰 GUILDA', ['Uso: !guilda criar <nome>']);
-      if (p.guild) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Já estás na guilda ${p.guild}`]);
-      if (p.coins < 1000) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '🏰 GUILDA', ['❌ Precisas de 1000 coins']);
+      // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+      // respondia sempre esta mensagem e nunca fazia nada.
+      if (!name || name.length > 20) {
+        return tReply(sock, msg, ctx, '🏰 GUILDA', ['Uso: !guilda criar <nome>']);
+      }
+      // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+      // respondia sempre esta mensagem e nunca fazia nada.
+      if (p.guild) {
+        return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Já estás na guilda ${p.guild}`]);
+      }
+      // v6.90: o `return` estava fora do `if` (chavetas perdidas) — o comando
+      // respondia sempre esta mensagem e nunca fazia nada.
+      if (p.coins < 1000) {
+        return tReply(sock, msg, ctx, '🏰 GUILDA', ['❌ Precisas de 1000 coins']);
+      }
       p.coins -= 1000;
       p.guild = name;
       p.title = 'Fundador';
@@ -639,14 +442,9 @@ module.exports = function registerRPG2(registerCase) {
   }, true);
 
   // ═══ BIOMAS (ver mapa) ═══
-  registerCase(['mapa', 'biomas', 'world'], async ({ sock, msg, ctx }) => {
-    const lines = Object.entries(rpg.BIOMES).map(([k, v]) =>
-      `${v.emoji} *${k}* — ${'⚠️'.repeat(v.danger)} ${v.desc}`
-    );
-    // v6.62: savePlayer(p) com `p` inexistente — este comando só mostra.
-
-    return tReply(sock, msg, ctx, '🗺️ MAPA DO MUNDO', lines);
-  }, true);
+  // v6.90: o mapa passou para cases/rpgWorld.js — era uma lista estática
+  // de biomas, agora o mundo tem estado (sítios visitados, viagens,
+  // ranking mundial). Os comandos são os mesmos: !mapa / !biomas / !world.
 
   // ═══ STATUS / VIDAS ═══
   registerCase(['vidas', 'lives', 'status'], async ({ sock, msg, ctx }) => {
@@ -675,8 +473,10 @@ module.exports = function registerRPG2(registerCase) {
   // ═══ NOME RPG ═══
   registerCase(['nome', 'rename'], async ({ sock, msg, ctx, args }) => {
     const name = args.join(' ').trim();
-    if (!name || name.length > 20) await rpg.savePlayer(p);
- return tReply(sock, msg, ctx, '📝 NOME', ['Uso: !nome <nome>']);
+    // v6.90: chavetas repostas + `savePlayer(p)` com `p` ainda por definir.
+    if (!name || name.length > 20) {
+      return tReply(sock, msg, ctx, '📝 NOME', ['Uso: !nome <nome>']);
+    }
     const p = await rpg.getPlayer(ctx.senderNumber);
     p.name = name;
     await rpg.savePlayer(p);
@@ -684,3 +484,8 @@ module.exports = function registerRPG2(registerCase) {
     return tReply(sock, msg, ctx, '📝 NOME', [`✅ Nome: *${name}*`]);
   }, true);
 };
+
+// v6.90: gancho para a auditoria (scripts/test-rpg-audit.js). Os cooldowns
+// vivem num Map do módulo; sem forma de os limpar, a auditoria apanha os
+// cooldowns deixados pela passagem anterior e reporta "COOLDOWN" como bug.
+module.exports._resetCooldowns = () => _rpgCooldowns.clear();

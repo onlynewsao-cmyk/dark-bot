@@ -165,17 +165,16 @@ function msgSticker(hashBase64, opts = {}) {
 
   console.log('\n═══ 3. GERADOR DE PERSONAGENS RPG POR SELECÇÃO ═══');
 
-  // 12 — o botão vai e volta como comando (namespace DB_ do prefixEngine)
-  const PE = require('../src/bot/prefixEngine');
-  const idRaca = PE.makeButtonId('rpgstart', 'raça shinobi');
-  const volta = await PE.detect(idRaca, GRUPO);
-  t('o botão de raça volta como comando+argumentos',
-    idRaca === 'DB_rpgstart_raça shinobi'
-    && volta?.source === 'button_ns' && volta.rest === 'rpgstart raça shinobi',
-    `${idRaca} → ${volta?.rest}`);
+  // 12 — o clique da lista volta como id reconhecível e está interceptado
+  //      no commandHandler (mecanismo RPGPICK_ do v6.89, o mesmo do
+  //      CHANGE_THEME_ — já provado em produção).
+  const chSrc = require('fs').readFileSync(
+    path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
+  t('os cliques RPGPICK_ estão interceptados no commandHandler',
+    /RPGPICK_\[RC\]/.test(chSrc) && /createFlow/.test(chSrc));
 
-  // jogador falso — o motor de RPG é substituído para não precisar de Mongo,
-  // mas o CASE corre a sério (router, botões e gravação).
+  // jogador falso — o motor é substituído para não precisar de Mongo,
+  // mas o createFlow corre a sério.
   const rpg = require('../src/bot/rpg/engine');
   const jogador = {
     whatsappNumber: '244945280380', name: 'Aventureiro',
@@ -187,44 +186,47 @@ function msgSticker(hashBase64, opts = {}) {
   rpg.getPlayer = async () => jogador;
   rpg.savePlayer = async () => {};
 
-  const ch = require('../src/bot/caseHandler');
-  try { ch.loadCases(); } catch (e) { console.log('  (loadCases:', e.message?.slice(0, 50), ')'); }
-
-  const ctxBase = () => ({
+  const flow = require('../src/bot/rpg/createFlow');
+  const s2 = sockFalso();
+  const ctxFluxo = {
     remoteJid: GRUPO, isGroup: true, senderJid: '244945280380@s.whatsapp.net',
     senderNumber: '244945280380', pushName: 'Dark', isOwner: true, prefix: '!',
-  });
-  const msgCmd = () => ({
-    key: { remoteJid: GRUPO, fromMe: false, id: 'CMD1', participant: '244945280380@s.whatsapp.net' },
-    message: { conversation: '!rpgstart' },
-  });
-  const correr = async (sock, args) => ch.runCase('rpgstart', {
-    sock, msg: msgCmd(), ctx: ctxBase(), args,
-    text: args.join(' '), prefix: '!', isOwner: true,
-  });
+  };
+  const msgFluxo = { key: { remoteJid: GRUPO, fromMe: false, id: 'C1' }, message: {} };
 
-  // 13 — o fluxo manda botões de raça e depois de classe
-  const s2 = sockFalso();
-  await correr(s2, []);                              // passo 1 → raças
-  const temRacas = /DB_rpgstart_raça/.test(dump(s2));
+  // Nota: com um sock de teste o `relayMessage` interactivo não está
+  // disponível e o createFlow cai no fallback de texto (é a cascata
+  // prevista). O que se afirma aqui é o comportamento que é igual nos
+  // dois caminhos: as opções são apresentadas e a escolha fica pendente.
+  flow.pendentes().clear();
+  await flow.start({ sock: s2, msg: msgFluxo, ctx: ctxFluxo, args: ['Kira'] });
+  const saidaRacas = dump(s2);
+  const pend1 = flow.pendentes().get('244945280380');
   s2.enviados.length = 0;
-  await correr(s2, ['raça', 'shinobi']);             // passo 2 → classes
-  const temClasses = /DB_rpgstart_classe/.test(dump(s2));
-  s2.enviados.length = 0;
-  await correr(s2, ['classe', 'pirata']);            // passo 3 → confirmar
-  const temConfirmar = /DB_rpgstart_confirmar/.test(dump(s2));
-  t('!rpgstart abre a selecção: raça → classe → confirmar',
-    temRacas && temClasses && temConfirmar,
-    `raças=${temRacas} classes=${temClasses} confirmar=${temConfirmar}`);
+  await flow.pick({ sock: s2, msg: msgFluxo, ctx: ctxFluxo, token: 'RPGPICK_R_shinobi' });
+  const saidaClasses = dump(s2);
+  const pend2 = flow.pendentes().get('244945280380');
+  t('!rpgstart apresenta as raças e depois as classes',
+    /shinobi/i.test(saidaRacas) && /pirata/i.test(saidaRacas) && pend1?.name === 'Kira'
+    && /classe/i.test(saidaClasses) && pend2?.race === 'shinobi',
+    `pendente1=${JSON.stringify(pend1)} pendente2=${JSON.stringify(pend2)}`);
 
-  // 14 — confirmar GRAVA a raça e a classe (antes nem existiam no schema)
-  const s3 = sockFalso();
-  await correr(s3, ['confirmar']);
-  const RPGPlayer = require('../src/database/models/RPGPlayer');
-  t('confirmar grava raça E classe no jogador (campos existem no schema)',
-    jogador.race === 'shinobi' && jogador.class === 'pirata'
-    && !!RPGPlayer.schema.path('race') && !!RPGPlayer.schema.path('class'),
+  // 13 — escolher a classe cria mesmo o personagem
+  s2.enviados.length = 0;
+  await flow.pick({ sock: s2, msg: msgFluxo, ctx: ctxFluxo, token: 'RPGPICK_C_pirata' });
+  t('escolher a classe cria o personagem',
+    jogador.race === 'shinobi' && jogador.class === 'pirata',
     `race=${jogador.race} class=${jogador.class}`);
+
+  // 14 — e sobrevive no documento (o schema tinha de ter os campos)
+  const RPGPlayer = require('../src/database/models/RPGPlayer');
+  const doc = new RPGPlayer({ whatsappNumber: '244945280380' });
+  doc.race = jogador.race; doc.class = jogador.class;
+  const gravado = doc.toObject();
+  t('raça e classe sobrevivem no documento (schema)',
+    gravado.race === 'shinobi' && gravado.class === 'pirata'
+    && !!RPGPlayer.schema.path('race') && !!RPGPlayer.schema.path('class'),
+    `documento: race=${gravado.race} class=${gravado.class}`);
 
   console.log(`\n  ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
