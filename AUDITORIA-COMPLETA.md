@@ -120,7 +120,7 @@
 
 ## 5. VERIFICAÇÃO — ESTADO DE CADA COISA
 
-### 5.1 Suite de testes (62 scripts, >1.300 verificações) — **TUDO VERDE**
+### 5.1 Suite de testes (63 scripts, >1.300 verificações) — **TUDO VERDE**
 ```
 syntax 193 ficheiros ✅ · EJS 30 templates ✅ · audit comandos ✅ · roles 12 ✅
 auramodes 26 ✅ · auraudit 85 ✅ · auracmds 22 ✅ · submenus 17+40 ✅ · menu18 32 ✅
@@ -132,6 +132,13 @@ etapas 3-6: 45+39+40+41 ✅ · assistente 33 ✅ · criar-canal 17 ✅ · convit
 paircode 15 ✅ · voip-qr 6 ✅ · voip-fechar 8 ✅ · economy 64 ✅ · segregação 92 ✅
 finalização 72 ✅ · admin/dono 74 ✅ · … (todos os restantes ✅)
 ```
+> ⚠️ **Nota de ambiente (v6.87):** os números acima são do teste ao vivo com MongoDB real.
+> Corridos num *sandbox* sem rede e sem MongoDB, **63/67 execuções passam**; as excepções são
+> ambientais, não de código: `test:menu18` (8 verificações que descarregam imagens de fontes
+> externas) e `test:casehandler` (1 verificação que chama o Pinterest) falham com
+> `Client network socket disconnected`, e `test:comunidades` / `test:ratelimit` / `test:adopcao`
+> ficam à espera de um MongoDB que não existe no sandbox. O `npm test` está encadeado com `&&`,
+> por isso pára no primeiro destes — para auditar tudo de uma vez, correr script a script.
 
 ### 5.2 Teste ao vivo (MongoDB real em memória + servidor real no sandbox)
 | Verificação | Resultado |
@@ -150,8 +157,16 @@ finalização 72 ✅ · admin/dono 74 ✅ · … (todos os restantes ✅)
 **Fix:** o `src/index.js` agora deriva um secret de cifra determinístico e sempre válido (`sha512` do `SESSION_SECRET` + prefixo com todas as classes exigidas). A cifra continua a depender 100% do `SESSION_SECRET` do Render. **Não é preciso mudar nenhuma env var.**
 Commit `937a5cf` → pushed para `main` → o Render faz autoDeploy sozinho.
 
-### 5.4 ⚠️ v6.87 da sessão anterior — PERDIDO
-O commit `db40349` (sticker-ban, guarda de instruções, gerador de personagens RPG por seleção + testes `printbugs2` 14/14) **nunca chegou ao GitHub** (o push foi bloqueado quando o PR #1 fez merge) e o workspace dessa sessão não persistiu. Confirmei no repo: **não há** sticker-ban, não há guarda de instruções, e o `!rpgstart` continua só em modo texto (`!rpgstart Nome raça classe`). Se ainda quiseres essas 3 funcionalidades, tenho de as re-implementar de novo (o resumo do que foi feito está no teu texto, serve de especificação).
+### 5.4 ✅ v6.87 — PERDIDO na sessão anterior, RE-IMPLEMENTADO nesta
+O commit `db40349` (sticker-ban, guarda de instruções, gerador de personagens RPG por seleção + testes `printbugs2` 14/14) **nunca chegou ao GitHub** (o push foi bloqueado quando o PR #1 fez merge) e o workspace dessa sessão não persistiu. Confirmado outra vez agora, de três maneiras: o SHA `db40349` devolve `422 No commit found` na API do GitHub, não há objectos pendurados no clone (`git fsck --lost-found` vazio) e a ponta de `arena/01a02f31-dark-bot` é `0bc14e1` = **v6.86**, cujo PR #1 já está merged. **Não havia nada para fazer push** — o trabalho teve de ser refeito do zero a partir desta especificação.
+
+**Re-implementado (testes `printbugs2` 14/14 ✅):**
+
+| Funcionalidade | Onde | Como |
+|---|---|---|
+| **Sticker ban por aprendizagem** | `src/bot/antiSticker.js`, `src/bot/cases/stickerBan.js`, modelo `BannedSticker`, gancho em `messageListener.js` | `!bansticker` respondendo à figurinha → o bot guarda a identidade dela e passa a apagá-la. A identidade é o `fileSha256` que **o WhatsApp já traz na metadata** — aprender e reconhecer **não descarregam nada**. `!antisticker on/off/status/notify`, `!unbansticker`, `!banstickers`. |
+| **Guarda de instruções** ("instruções ≠ comandos") | `src/aura/auraInstructionGuard.js`, ligado em `auraCommands.detectarComando()` | Conversa que só *menciona* a acção deixava a AURA executá-la: `"o ban foi injusto"` corria `.ban`, `"ele marca golos"` corria `.tagall`, `"não bana o rapaz"` corria `.ban`. A guarda olha só para o que está **antes do verbo**: pergunta · negação · relato no passado · sujeito na 3ª pessoa · determinante (→ substantivo) · condicional · citação · referência ao próprio comando · verbo tarde de mais. Aplica-se **só** aos comandos que mexem em terceiros — `"qual é o meu saldo?"` continua a responder. |
+| **Gerador de personagens RPG por selecção** | `src/bot/cases/rpg2.js`, campos `race`/`class`/`raceBonusApplied` no `RPGPlayer` | `!rpgstart` abre botões (raça → classe → confirmar). O modo de texto antigo continua a funcionar. **Bug de fundo corrigido:** `race` e `class` **não existiam no schema** do `RPGPlayer` — com o `strict: true` do Mongoose a atribuição era ignorada em silêncio e **nenhum jogador chegou a ter raça ou classe guardada** (a ficha caía sempre no fallback "humano guerreiro"). O bónus da raça aplica-se uma vez, na criação. |
 
 ---
 
@@ -165,6 +180,7 @@ O commit `db40349` (sticker-ban, guarda de instruções, gerador de personagens 
 ---
 
 ## 7. CONCLUSÃO
-✅ **Bot ↔ Dashboard ↔ MongoDB ↔ Socket.IO: tudo conectado e funcional** (provado ao vivo + 62 scripts de teste).
+✅ **Bot ↔ Dashboard ↔ MongoDB ↔ Socket.IO: tudo conectado e funcional** (provado ao vivo + 63 scripts de teste).
 🩫 **1 bug crítico encontrado e corrigido:** login do dashboard (v6.88, já no GitHub, deploy automático).
-📌 **Pendente:** re-implementar o v6.87 perdido (sticker-ban por aprendizagem, instruções ≠ comandos, RPG por seleção) se assim quiseres.
+✅ **v6.87 re-implementado** (sticker-ban por aprendizagem, instruções ≠ comandos, RPG por selecção) — `npm run test:printbugs2` = **14/14**.
+🩫 **2 bugs de fundo encontrados ao re-implementar o v6.87:** `race`/`class` não existiam no schema do `RPGPlayer` (a raça nunca foi guardada) e o `!rpgstart` ignorava os próprios argumentos (o nome ficava "Kira elfo mago").

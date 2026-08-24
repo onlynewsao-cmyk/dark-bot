@@ -23,6 +23,10 @@
 
 'use strict';
 
+// v6.87 — GUARDA DE INSTRUÇÕES: conversa que só MENCIONA uma acção
+// não pode ser executada como ordem. Ver auraInstructionGuard.js.
+const guarda = require('./auraInstructionGuard');
+
 // ── 1. NUNCA por conversa, nem para o Dono ──────────────────
 // Critério: destrutivo, irreversível, ou afecta terceiros em massa.
 // v6.80 — O DONO PEDE, ELA FAZ.
@@ -126,7 +130,11 @@ const MAPA = [
   [/\b(fecha|fechar|tranca|trancar|silencia)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'fechar', 'nenhum'],
   [/\b(abre|abrir|destranca|destrancar|liberta)\b[^.?!]{0,15}\b(o grupo|grupo|aqui|chat)\b/i, 'abrir', 'nenhum'],
   [/\b(marca|marcar|chama|menciona|mencionar)\b[^.?!]{0,15}\b(todos|toda a gente|geral|pessoal)\b/i, 'tagall', 'nenhum'],
-  [/\b(tagall|todos|marcatodos)\b/i, 'tagall', 'nenhum'],
+  // v6.87: "todos" sozinho era catastrófico — "somos todos irmãos"
+  // punha o bot a marcar o grupo inteiro. Ficam só as formas
+  // inequívocas; a ordem a sério ("marca todos") já está no padrão
+  // logo acima.
+  [/\b(tagall|marcatodos|marca todos|chama todos)\b/i, 'tagall', 'nenhum'],
   [/\b(link|convite)\b[^.?!]{0,15}\b(do grupo|grupo|daqui|deste grupo)\b/i, 'link', 'nenhum'],
   [/\b(manda|mostra|d[aá]|envia|qual)\b[^.?!]{0,15}\b(o link|link)\b/i, 'link', 'nenhum'],
   [/\b(avisa|avisar|adverte|warn)\b/i, 'warn', 'nenhum'],
@@ -223,6 +231,13 @@ function detectarComando(texto) {
   for (const [re, cmd, modo] of MAPA) {
     if (!re.test(semNome)) continue;
     if (estaBloqueado(cmd)) return null;
+
+    // v6.87: a frase é MESMO uma ordem, ou só fala da acção?
+    // "o ban foi injusto" / "ele marca golos" / "não bana o rapaz"
+    // casam com os padrões do MAPA mas não são instruções.
+    // `continue` (e não `return null`) para um padrão seguinte ainda
+    // poder casar com uma ordem verdadeira noutra parte da frase.
+    if (!guarda.classificar(semNome, { comando: cmd, regex: re }).ordem) continue;
 
     // v6.80: 'on'/'off' são argumentos fixos — comandos que ligam ou
     // desligam algo (adultmode) precisam do valor explícito, e é o
