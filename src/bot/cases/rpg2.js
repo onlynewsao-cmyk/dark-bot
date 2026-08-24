@@ -51,26 +51,12 @@ async function tReply(sock, msg, ctx, title, lines) {
 module.exports = function registerRPG2(registerCase) {
 
   // ═══ CRIAR PERSONAGEM ═══
+  // v6.89: por SELECÇÃO — !rpgstart abre lista clicável de RAÇAS →
+  // CLASSES → ficha pronta. O caminho escrito continua a funcionar:
+  // !rpgstart Nome raça classe (agora cria mesmo, antes só listava).
   registerCase(['criarpersonagem', 'newchar', 'rpgstart'], async ({ sock, msg, ctx, args }) => {
-    const name = args.join(' ').trim() || ctx.pushName;
-    const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
-    const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
-    // v6.62: usava `p` sem o carregar → "p is not defined".
-    const p = await rpg.getPlayer(ctx.senderNumber);
-    if (p) { p.name = name; await rpg.savePlayer(p); }
-
-    return tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
-      `👤 Nome: *${name}*`,
-      '',
-      '🧬 *RAÇAS:*',
-      races,
-      '',
-      '⚔️ *CLASSES:*',
-      classes,
-      '',
-      `> Usa: !rpgstart ${name} <raça> <classe>`,
-      `> Ex: !rpgstart ${name} elfo mago`,
-    ]);
+    const createFlow = require('../rpg/createFlow');
+    return createFlow.start({ sock, msg, ctx, args });
   }, true);
 
   // ═══ PERFIL RPG COMPLETO ═══

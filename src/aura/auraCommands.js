@@ -202,6 +202,23 @@ function extrairDepois(texto, regex) {
   return resto;
 }
 
+// ── v6.89: INSTRUÇÃO ≠ COMANDO ─────────────────────────────
+// "Se eu responder alguém com este sticker de ban vc remove ele tá"
+// tem verbos de comando (ban, remove) mas é uma REGRA para o futuro,
+// não uma ordem para AGORA. Sem esta guarda, o interpretador roubava
+// a frase e respondia com o uso do `.ban` (bug do print).
+// Ordens directas ("aura bane o Zeca") continuam a funcionar.
+const RE_INSTRUCAO_INICIO = /^\s*(se|quando|caso)\s+/i;
+const RE_INSTRUCAO_CONDICIONAL =
+  /\b(se|quando|caso)\s+(eu\s+|tu\s+|v[oó]c[eê]\s+|vc\s+)?(responder|responde|responderem|falar|mandar|enviar|envio|puser|p[oó]r|colocar|usar|clicar|reagir)\b[^.?!]{0,100}\b(v[oó]c[eê]|vc|voc[eê]|tu|bote?|bot|ela)\b[^.?!]{0,60}\b(remov|ban|expuls|kick|chuta|apag|delet|mut|silenc|promov|rebaix|avisa|responde|fala)\b/i;
+
+/** True se a frase é uma INSTRUÇÃO condicional (regra), não uma ordem. */
+function eInstrucao(texto) {
+  const t = String(texto || '').trim();
+  if (!t) return false;
+  return RE_INSTRUCAO_INICIO.test(t) || RE_INSTRUCAO_CONDICIONAL.test(t);
+}
+
 /**
  * Detecta se a frase é um pedido de comando.
  * @returns {{comando:string, args:string}|null}
@@ -213,6 +230,10 @@ function detectarComando(texto) {
   // tira o nome dela do início — "aura toca X" → "toca X"
   const semNome = t.replace(/^\s*(aura|dark bot|bot)\s*[,:]?\s*/i, '').trim();
   if (!semNome) return null;
+
+  // v6.89: "se eu responder com o sticker X vc remove" não é ordem —
+  // é uma regra que ela deve APRENDER (ver src/aura/stickerBan.js).
+  if (eInstrucao(semNome)) return null;
 
   // v6.55: se a frase menciona um comando bloqueado, não executa NADA.
   // Rede de segurança contra interpretações criativas — "manda
@@ -311,4 +332,4 @@ function podeExecutar(cmd, quem = {}) {
   return { pode: false, precisa: 'permissão' };
 }
 
-module.exports = { detectarComando, estaBloqueado, podeExecutar, porqueNaoFaco, BLOQUEADOS, MAPA, LIVRES, SO_VIP, SO_ADMIN, SO_DONO };
+module.exports = { detectarComando, eInstrucao, estaBloqueado, podeExecutar, porqueNaoFaco, BLOQUEADOS, MAPA, LIVRES, SO_VIP, SO_ADMIN, SO_DONO };

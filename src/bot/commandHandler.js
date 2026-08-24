@@ -341,6 +341,16 @@ async function _handleInner(sock, msg) {
 
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
 
+  // ── v6.89: RPG — cliques das listas de criação de personagem ───────
+  // Chegam como selectedRowId (RPGPICK_R_<raça> / RPGPICK_C_<classe>),
+  // mesmo mecanismo do CHANGE_THEME_ — já provado em produção.
+  if (/^RPGPICK_[RC]_[a-z]+$/i.test(text.split(/\s+/)[0] || '')) {
+    try {
+      const flow = require('./rpg/createFlow');
+      if (await flow.pick({ sock, msg, ctx, token: text.split(/\s+/)[0] })) return true;
+    } catch (e) { console.warn('[RPG pick]', e.message?.slice(0, 60)); }
+  }
+
   // ── Interceptar cliques do change theme (lista interativa) ──────────
   if (text.startsWith('CHANGE_THEME_')) {
     const themeName = text.replace('CHANGE_THEME_', '').toLowerCase().trim();
@@ -487,6 +497,24 @@ async function _handleInner(sock, msg) {
   // v6.40: expõe o sock no ctx — o roleResolver/submenus precisam dele
   // para obter os admins do grupo (groupMetadata) sem o receber por parâmetro.
   ctx.sock = sock;
+
+  // ── v6.89: STICKER-BAN — o Dono ensina, ela executa ─────────────
+  // Topo do handler (antes do interpretador de comandos e da IA) para
+  // que a instrução do print ("Se eu responder alguém com este sticker
+  // de ban vc remove ele") seja APRENDIDA e não roubada pelo regex do
+  // `.ban`, e para que o sticker-resposta execute mesmo sem texto.
+  try {
+    const stickerBan = require('../aura/stickerBan');
+    // execução: Dono respondeu a alguém com o sticker de ban → remove
+    if (await stickerBan.executar({ sock, msg, ctx, isOwner })) return true;
+    // regra pendente: o próximo sticker do Dono fica registado
+    if (await stickerBan.capturarPendente({ sock, msg, ctx, isOwner })) return true;
+    // aprendizagem/cancelamento por conversa (só texto livre, sem prefixo)
+    if (isOwner && text && !startsWithAnyPrefix(text, prefixes)) {
+      if (await stickerBan.cancelar({ sock, msg, ctx, texto: text, isOwner })) return true;
+      if (await stickerBan.aprender({ sock, msg, ctx, texto: text })) return true;
+    }
+  } catch (e) { console.warn('[StickerBan]', e.message?.slice(0, 60)); }
 
   // v6.37: Regras de resposta por tipo de grupo
   // Grupo COM aluguel activo → responde a TODOS
