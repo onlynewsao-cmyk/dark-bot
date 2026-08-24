@@ -1,4 +1,10 @@
 const express = require('express');
+// v6.91: erros async nas rotas (await que lança) matavam o PROCESSO
+// inteiro — Express 4 não os passa ao error handler. Este shim faz
+// next(err) automaticamente. Sem isto, uma falha async em qualquer
+// página do dashboard derrubava bot + site até o Render reiniciar
+// ("erro do servidor interno").
+require('express-async-errors');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const http = require('http');
@@ -385,6 +391,35 @@ async function bootstrap() {
   app.use('/dashboard', dashboardRoutes);
   app.use('/api', apiRoutes(io));
 
+  // ── v6.91: ERROR HANDLER — 500 deixa de ser uma caixa-preta ────────
+  // Regra 1: nada de matar o processo por um erro de request.
+  // Regra 2: o Dono vê a CAUSA no ecrã (e no painel Consola via
+  // bot:log); outros vêem página genérica. /api devolve JSON.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, _next) => {
+    const causa = String(err?.message || err || 'erro desconhecido');
+    const stack = String(err?.stack || '').split('\n').slice(0, 4).join('\n');
+    console.error(`💥 500 ${req.method} ${req.originalUrl}: ${causa}\n${stack}`);
+    try {
+      require('./bot/liveBroadcaster').emit('bot:log', {
+        level: 'error',
+        message: `💥 500 ${req.method} ${req.originalUrl}: ${causa}`,
+      });
+    } catch (_) {}
+    const dono = req.session?.user?.role === 'owner';
+    if (req.path.startsWith('/api/')) {
+      return res.status(500).json({
+        error: 'Erro interno do servidor',
+        rota: req.originalUrl,
+        ...(dono ? { causa } : {}),
+      });
+    }
+    res.status(500).render('500', {
+      title: 'Erro interno',
+      detalhe: dono ? `${causa}\n${stack}` : '',
+    });
+  });
+
   app.use((req, res) => res.status(404).render('404', { title: '404' }));
 
   io.on('connection', (socket) => {
@@ -470,4 +505,18 @@ async function bootstrap() {
 bootstrap().catch(err => {
   console.error('Erro fatal:', err);
   process.exit(1);
+});
+
+// ── v6.91: rede de segurança do processo ──────────────────────
+// Uma promise rejeitada fora de rota (timer, scheduler, agenda) não
+// pode derrubar bot + dashboard. Node 20 mata o processo por defeito
+// — no Render Free isto era "site вниз" até reiniciar.
+process.on('unhandledRejection', (reason) => {
+  const msg = `🩹 [unhandledRejection] ${String(reason?.message || reason).slice(0, 200)}`;
+  console.error(msg);
+  try { require('./bot/liveBroadcaster').emit('bot:log', { level: 'error', message: msg }); } catch (_) {}
+});
+process.on('uncaughtException', (err) => {
+  console.error(`🩹 [uncaughtException] ${String(err?.message || err).slice(0, 200)}\n${String(err?.stack || '').split('\n').slice(1, 3).join('\n')}`);
+  try { require('./bot/liveBroadcaster').emit('bot:log', { level: 'error', message: `🩹 uncaughtException: ${String(err?.message || err).slice(0, 120)}` }); } catch (_) {}
 });
