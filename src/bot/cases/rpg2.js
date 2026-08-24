@@ -41,6 +41,17 @@ setInterval(() => {
   }
 }, 600000);
 
+// ═══ v6.87: SESSÃO DO GERADOR DE PERSONAGEM ═══
+// Guarda a escolha em curso (raça → classe → confirmar) enquanto o
+// jogador toca nos botões. Expira aos 10 min, como os cooldowns.
+const _rpgSel = new Map(); // senderNumber → { nome, race, classe, ts }
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of _rpgSel) {
+    if (!v?.ts || now - v.ts > 600000) _rpgSel.delete(k);
+  }
+}, 600000).unref?.();
+
 
 async function tReply(sock, msg, ctx, title, lines) {
   const RE = require('../renderEngine');
@@ -50,27 +61,223 @@ async function tReply(sock, msg, ctx, title, lines) {
 
 module.exports = function registerRPG2(registerCase) {
 
-  // ═══ CRIAR PERSONAGEM ═══
-  registerCase(['criarpersonagem', 'newchar', 'rpgstart'], async ({ sock, msg, ctx, args }) => {
-    const name = args.join(' ').trim() || ctx.pushName;
-    const races = Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
-    const classes = Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`).join('\n');
-    // v6.62: usava `p` sem o carregar → "p is not defined".
-    const p = await rpg.getPlayer(ctx.senderNumber);
-    if (p) { p.name = name; await rpg.savePlayer(p); }
+  // ═══ CRIAR PERSONAGEM — v6.87: POR SELECÇÃO ═══
+  //
+  // ANTES: o comando mostrava a lista e mandava o jogador escrever
+  // "!rpgstart Nome elfo mago" — mas os argumentos NUNCA eram lidos
+  // (o nome ficava "Kira elfo mago") e `race`/`class` nem existiam no
+  // schema do RPGPlayer, pelo que a ficha caía sempre no fallback
+  // "humano guerreiro". Não havia maneira de ter uma raça.
+  //
+  // AGORA: !rpgstart abre botões (raça → classe → confirmar) e grava a
+  // escolha. O modo de texto continua a funcionar para quem já o usava.
+  registerCase(['criarpersonagem', 'newchar', 'rpgstart'], async ({ sock, msg, ctx, args, prefix }) => {
+    const btn = require('../buttonHandler');
+    const PE = require('../prefixEngine');
+    const P = prefix || ctx.prefix || '!';
+    const quem = ctx.senderNumber;
 
-    return tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
-      `👤 Nome: *${name}*`,
-      '',
-      '🧬 *RAÇAS:*',
-      races,
-      '',
-      '⚔️ *CLASSES:*',
-      classes,
-      '',
-      `> Usa: !rpgstart ${name} <raça> <classe>`,
-      `> Ex: !rpgstart ${name} elfo mago`,
-    ]);
+    // "caçador" (do jogador) == "cacador" (do motor)
+    const chave = (s) => String(s || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const procura = (mapa, valor) => {
+      const v = chave(valor);
+      if (!v) return null;
+      return Object.keys(mapa).find(k => chave(k) === v) || null;
+    };
+    const acaso = (mapa) => Object.keys(mapa)[Math.floor(Math.random() * Object.keys(mapa).length)];
+
+    const sel = _rpgSel.get(quem) || {};
+    const guardar = () => { sel.ts = Date.now(); _rpgSel.set(quem, sel); };
+    const idBtn = (sub, valor) => PE.makeButtonId('rpgstart', valor ? `${sub} ${valor}` : sub);
+
+    // ── GRAVAR ─────────────────────────────────────────────
+    async function criar({ nome, race, classe }) {
+      const p = await rpg.getPlayer(quem);
+      const primeiraVez = !p.raceBonusApplied;
+      if (nome) p.name = String(nome).slice(0, 24);
+      if (race) {
+        p.race = race;
+        // o bónus da raça entra UMA vez, na criação — repetir o
+        // comando muda a raça mas não volta a somar stats
+        if (primeiraVez) {
+          const b = rpg.RACES[race]?.bonus || {};
+          for (const s of ['str', 'dex', 'int', 'vit', 'luk']) {
+            p.stats[s] = (p.stats[s] || 6) + (b[s] || 0);
+          }
+          p.raceBonusApplied = true;
+        }
+      }
+      if (classe) p.class = classe;
+      await rpg.savePlayer(p);
+      return p;
+    }
+
+    async function ficha(p) {
+      const race = rpg.RACES[p.race] || rpg.RACES.humano;
+      const cls = rpg.CLASSES[p.class] || rpg.CLASSES.guerreiro;
+      return tReply(sock, msg, ctx, `${race.emoji} ${String(p.name).toUpperCase()}`, [
+        `🎭 *Personagem criado*`,
+        '',
+        `👤 Nome: *${p.name}*`,
+        `🧬 Raça: *${p.race}* ${race.emoji}`,
+        `⚔️ Classe: *${p.class}* ${cls.emoji}`,
+        '',
+        `⚔️ STR ${p.stats.str} · 🏃 DEX ${p.stats.dex} · 🔮 INT ${p.stats.int}`,
+        `🛡️ VIT ${p.stats.vit} · 🍀 LUK ${p.stats.luk}`,
+        '',
+        `${race.emoji} ${race.desc}`,
+        `${cls.emoji} ${cls.desc}`,
+        '',
+        `> Vê a ficha completa com *${P}rg*`,
+      ]);
+    }
+
+    // ── PASSO 1: RAÇA ──────────────────────────────────────
+    async function pedirRaca() {
+      guardar();
+      const linhas = Object.entries(rpg.RACES)
+        .map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`);
+      return btn.sendButtons(
+        sock, ctx.remoteJid,
+        `🎭 *CRIAR PERSONAGEM*\n\n👤 Nome: *${sel.nome || ctx.pushName || 'Aventureiro'}*\n\n🧬 *Escolhe a raça:*\n\n${linhas.join('\n')}`,
+        `${P}rpgstart · passo 1/3`,
+        [
+          ...Object.keys(rpg.RACES).map(k => ({ id: idBtn('raça', k), text: `${rpg.RACES[k].emoji} ${k}` })),
+          { id: idBtn('aleatorio'), text: '🎲 Aleatório' },
+        ],
+        msg,
+      ).catch(() => tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
+        '🧬 *RAÇAS:*', ...linhas, '', `> Usa: ${P}rpgstart <nome> <raça> <classe>`,
+      ]));
+    }
+
+    // ── PASSO 2: CLASSE ────────────────────────────────────
+    async function pedirClasse() {
+      guardar();
+      const race = rpg.RACES[sel.race];
+      const linhas = Object.entries(rpg.CLASSES)
+        .map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`);
+      return btn.sendButtons(
+        sock, ctx.remoteJid,
+        `🎭 *CRIAR PERSONAGEM*\n\n🧬 Raça: *${sel.race}* ${race?.emoji || ''}\n\n⚔️ *Escolhe a classe:*\n\n${linhas.join('\n')}`,
+        `${P}rpgstart · passo 2/3`,
+        [
+          ...Object.keys(rpg.CLASSES).map(k => ({ id: idBtn('classe', k), text: `${rpg.CLASSES[k].emoji} ${k}` })),
+          { id: idBtn('aleatorio'), text: '🎲 Aleatório' },
+        ],
+        msg,
+      ).catch(() => tReply(sock, msg, ctx, '🎭 CRIAR PERSONAGEM', [
+        `🧬 Raça: *${sel.race}*`, '', '⚔️ *CLASSES:*', ...linhas, '',
+        `> Usa: ${P}rpgstart classe <classe>`,
+      ]));
+    }
+
+    // ── PASSO 3: CONFIRMAR ─────────────────────────────────
+    async function pedirConfirmacao() {
+      guardar();
+      const race = rpg.RACES[sel.race];
+      const cls = rpg.CLASSES[sel.classe];
+      return btn.sendButtons(
+        sock, ctx.remoteJid,
+        `🎭 *CRIAR PERSONAGEM*\n\n👤 Nome: *${sel.nome || ctx.pushName || 'Aventureiro'}*\n` +
+        `🧬 Raça: *${sel.race}* ${race?.emoji || ''}\n⚔️ Classe: *${sel.classe}* ${cls?.emoji || ''}\n\n` +
+        `${race?.desc || ''}\n${cls?.desc || ''}`,
+        `${P}rpgstart · passo 3/3`,
+        [
+          { id: idBtn('confirmar'), text: '✅ Criar' },
+          { id: idBtn('raça'), text: '🧬 Outra raça' },
+          { id: idBtn('cancelar'), text: '❌ Cancelar' },
+        ],
+        msg,
+      ).catch(() => tReply(sock, msg, ctx, '🎭 CONFIRMAR', [
+        `👤 ${sel.nome || ctx.pushName} · 🧬 ${sel.race} · ⚔️ ${sel.classe}`, '',
+        `> Usa: ${P}rpgstart confirmar`,
+      ]));
+    }
+
+    // ── MODO DE TEXTO (como era antes) ─────────────────────
+    // "!rpgstart Kira elfo mago" continua a funcionar; o que mudou é
+    // que agora a raça e a classe são mesmo guardadas.
+    async function modoTexto() {
+      let race = null, classe = null;
+      const nomeParts = [];
+      for (const parte of args) {
+        const r = procura(rpg.RACES, parte);
+        const c = procura(rpg.CLASSES, parte);
+        if (r && !race) race = r;
+        else if (c && !classe) classe = c;
+        else nomeParts.push(parte);
+      }
+      const nome = nomeParts.join(' ').trim();
+
+      // não reconheceu raça nenhuma → abre a selecção com o nome dado
+      if (!race && !classe) {
+        sel.nome = nome || sel.nome || ctx.pushName || 'Aventureiro';
+        return pedirRaca();
+      }
+      sel.nome = nome || sel.nome || ctx.pushName || 'Aventureiro';
+      sel.race = race || sel.race || 'humano';
+      sel.classe = classe || sel.classe || 'guerreiro';
+      guardar();
+      const p = await criar({ nome: sel.nome, race: sel.race, classe: sel.classe });
+      _rpgSel.delete(quem);
+      return ficha(p);
+    }
+
+    // ── ROUTER ─────────────────────────────────────────────
+    const sub = String(args[0] || '').toLowerCase();
+    const ehSub = /^(ra[çc]a|classe|confirmar|confirm|cancelar|nome|aleat[óo]rio)$/.test(sub);
+
+    // sem argumentos → começa a selecção
+    if (!args.length) {
+      sel.nome = sel.nome || ctx.pushName || 'Aventureiro';
+      return pedirRaca();
+    }
+    // não é um passo da selecção → modo de texto
+    if (!ehSub) return modoTexto();
+
+    if (/^ra[çc]a$/.test(sub)) {
+      const race = procura(rpg.RACES, args[1]);
+      if (!race) return pedirRaca();          // "outra raça" ou inválida
+      sel.race = race;
+      return pedirClasse();
+    }
+
+    if (/^classe$/.test(sub)) {
+      const classe = procura(rpg.CLASSES, args[1]);
+      if (!classe) return pedirClasse();
+      sel.classe = classe;
+      return pedirConfirmacao();
+    }
+
+    if (/^nome$/.test(sub)) {
+      const nome = args.slice(1).join(' ').trim().slice(0, 24);
+      if (nome) sel.nome = nome;
+      return pedirConfirmacao();
+    }
+
+    if (/^aleat/.test(sub)) {
+      sel.race = sel.race || acaso(rpg.RACES);
+      sel.classe = acaso(rpg.CLASSES);
+      guardar();
+      return pedirConfirmacao();
+    }
+
+    if (/^cancelar$/.test(sub)) {
+      _rpgSel.delete(quem);
+      return tReply(sock, msg, ctx, '❌ CRIAÇÃO CANCELADA', [
+        'Nada foi alterado.', '', `> Quando quiseres: *${P}rpgstart*`,
+      ]);
+    }
+
+    // confirmar
+    sel.nome = sel.nome || ctx.pushName || 'Aventureiro';
+    sel.race = sel.race || 'humano';
+    sel.classe = sel.classe || 'guerreiro';
+    const p = await criar({ nome: sel.nome, race: sel.race, classe: sel.classe });
+    _rpgSel.delete(quem);
+    return ficha(p);
   }, true);
 
   // ═══ PERFIL RPG COMPLETO ═══

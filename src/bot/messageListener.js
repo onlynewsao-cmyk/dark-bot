@@ -66,6 +66,17 @@ async function onUpsert(sock, m, io) {
       }
     }
 
+    // --- v6.87: ANTI-FIGURINHA APRENDIDA ---
+    // Figurinha ensinada com !bansticker → apagada na hora.
+    // A comparação é pela metadata (fileSha256): não se descarrega nada.
+    if (isGroup && msg.message?.stickerMessage) {
+      try {
+        const antiSticker = require('./antiSticker');
+        const r = await antiSticker.filtrar(sock, msg);
+        if (r.apagada) return;
+      } catch (e) {}
+    }
+
     // Cache em memória
     if (messageCache.size > MAX_CACHE) {
       const firstKey = messageCache.keys().next().value;

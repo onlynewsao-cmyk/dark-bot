@@ -87,7 +87,16 @@ const check = (nome, cond, extra = '') => {
       if (c?.image) OUT.push('[IMG]');
       return { key: { id: 'm' } };
     },
-    relayMessage: async () => ({}),
+    // v6.87: os botões/listas interactivas vão por relayMessage — a sonda
+    // só olhava para o sendMessage, por isso um comando que respondia com
+    // botões contava como "vazio". O texto do corpo interactivo é conteúdo
+    // como qualquer outro, e é isso que se regista aqui.
+    relayMessage: async (j, message) => {
+      const corpo = message?.viewOnceMessage?.message?.interactiveMessage?.body?.text
+        || message?.interactiveMessage?.body?.text || '';
+      OUT.push(corpo || '[INTERACTIVO]');
+      return {};
+    },
     groupMetadata: async () => ({ id: G, subject: 'T', participants: [{ id: OWNER + '@s.whatsapp.net', admin: 'admin' }] }),
     sendPresenceUpdate: async () => {}, readMessages: async () => {}, waUploadToServer: async () => ({}),
   };
