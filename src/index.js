@@ -207,7 +207,7 @@ async function bootstrap() {
       messages: botStatus.messageCount || 0,
       commands: botStatus.commandCount || 0,
       ts: Date.now(),
-      version: '6.73.0',
+      version: '6.92.0',
     });
   });
 
@@ -336,17 +336,15 @@ async function bootstrap() {
 
   // ── v6.71: /test-pv — diagnostico de PV em producao ──────────
   // Simula uma mensagem no PV e diz se a AURA a ve ou nao.
-
-  // Log de debug
-  const _ch = require('./bot/commandHandler');
-  console.log('[DEBUG] commandHandler.handle:', typeof _ch.handle);
-  console.log('[DEBUG] commandHandler keys:', Object.keys(_ch).slice(0, 5));
-
+  // v6.92: o commandHandler é carregado aqui (sob demanda) em vez de
+  // no topo do bootstrap — evita logs de debug e inicialização pesada
+  // durante o arranque do servidor.
   app.get('/test-pv', async (req, res) => {
     const out = { ok: false };
     try {
       // Faz require directo (funciona no Render)
       const _cmdH = require('./bot/commandHandler');
+      console.log('[DEBUG] commandHandler.handle:', typeof _cmdH.handle);
       const _cH = require('./bot/caseHandler');
       try { _cH.loadCases(); } catch {}
 
@@ -431,28 +429,74 @@ async function bootstrap() {
   // Bot - tenta auto-conectar se já tem sessão (MongoDB ou local)
   const bot = getBot(io);
   const callBot = getCallBot(io);
+
+  // v6.92 — o auto-start anterior usava countDocuments({ fileName: { $not: /^call:/ } })
+  // com um try/catch vazio. No Render Free, a MongoDB pode ainda estar a
+  // aquecer (bufferTimeoutMS de 2 s) e o contador falhava em silêncio —
+  // resultado: o processo acordava, o dashboard abria (200), mas o bot
+  // ficava "disconnected" para sempre sem QR nem erros. Agora:
+  //   1. procuramos o documento EXACTO `creds` (sinal de sessão autenticada);
+  //   2. fazemos retry com backoff curto (3 s, 6 s, 12 s) para cold start;
+  //   3. todo o erro é logado na consola e no feed bot:log do dashboard.
+  async function tentarAutoStart() {
+    try {
+      if (!conn) return false;
+      const Session = require('./database/models/Session');
+      // "creds" é o ficheiro que o useMongoAuthState escreve quando a sessão
+      // principal está autenticada. As chaves de sinal têm nomes com hífen
+      // (app-state-sync-key-…), por isso um filtro genérico $not:/^call:/
+      // também as apanhava e mascarava a ausência do creds real.
+      const creds = await Session.findOne({ fileName: 'creds' })
+        .maxTimeMS(8000)
+        .lean();
+      if (!creds) {
+        console.log('ℹ️  Nenhuma sessão WhatsApp autenticada no Mongo (sem doc "creds"). Use /dashboard/connect.');
+        return false;
+      }
+      console.log('🔄 Sessão WhatsApp encontrada no MongoDB — reconectando...');
+      await bot.start({ mode: 'qr' });
+      return true;
+    } catch (e) {
+      console.error('[AutoStart]', e.message);
+      try { require('./bot/liveBroadcaster').emit('bot:log', { level: 'error', message: `[AutoStart] ${e.message}` }); } catch (_) {}
+      return false;
+    }
+  }
+
   if (conn) {
-    // Verifica sessão no Mongo
+    // Primeira tentativa imediata. Se a MongoDB ainda não estiver pronta
+    // (Render Free / cold start), reagendamos com backoff.
+    let tentou = await tentarAutoStart();
+    let atraso = 3000;
+    for (let i = 0; i < 3 && !tentou; i++) {
+      await new Promise(r => setTimeout(r, atraso));
+      console.log(`[AutoStart] nova tentativa em ${atraso / 1000}s...`);
+      tentou = await tentarAutoStart();
+      atraso *= 2;
+    }
+
+    // Baileys secundário de chamadas — sessão isolada sob prefixo "call:".
     try {
       const Session = require('./database/models/Session');
-      const hasMain = await Session.countDocuments({ fileName: { $not: /^call:/ } });
-      if (hasMain > 0) {
-        console.log('🔄 Sessão WhatsApp encontrada no MongoDB - reconectando...');
-        bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
-      }
-      const hasCall = await Session.countDocuments({ fileName: /^call:/ });
+      const hasCall = await Session.countDocuments({ fileName: /^call:/ }).maxTimeMS(8000);
       if (hasCall > 0) {
         console.log('🔄 Sessão de CHAMADAS encontrada — a ligar Baileys secundário...');
         callBot.start({ mode: 'qr' }).catch(e => console.error('CallBot auto-start:', e.message));
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('[AutoStart/call]', e.message);
+    }
   } else {
-    // Fallback: arquivos locais
-    const fs = require('fs');
-    const authFolder = path.join(__dirname, '..', 'data', 'auth');
-    if (fs.existsSync(authFolder) && fs.readdirSync(authFolder).length > 0) {
-      console.log('🔄 Sessão local encontrada - reconectando...');
-      bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+    // Fallback: arquivos locais (desenvolvimento / sem Mongo)
+    try {
+      const fs = require('fs');
+      const authFolder = path.join(__dirname, '..', 'data', 'auth');
+      if (fs.existsSync(path.join(authFolder, 'creds.json'))) {
+        console.log('🔄 Sessão local encontrada - reconectando...');
+        bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+      }
+    } catch (e) {
+      console.error('[AutoStart/local]', e.message);
     }
   }
 
