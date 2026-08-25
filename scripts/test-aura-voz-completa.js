@@ -26,7 +26,8 @@ const t = (n, c, e) => { e = e || ''; c ? ok++ : fail++; console.log('  ' + (c ?
 /** O gate real: o que o commandHandler usa para decidir se a
  *  transcrição vira comando. */
 function gateVoz(transcricao) {
-  return brain.pareceOrdem(transcricao) || !!cmds.detectarComando(transcricao);
+  // v7.26: pergunta-capacidade ("quem escreveu isso?") também passa
+  return brain.pareceOrdem(transcricao) || !!cmds.detectarComando(transcricao) || !!brain.detectarCapacidade(transcricao);
 }
 
 (async () => {

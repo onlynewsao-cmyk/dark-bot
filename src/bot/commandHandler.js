@@ -1645,12 +1645,13 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
               // `pareceOrdem` é uma regex barata (0 ms, sem IA).
               if (isPtt && !cleanText) {
                 try {
-                  // gate barato (regex, 0 ms): ordem OU comando conhecido.
-                  // "toca shakira" e "qual o meu saldo" não têm verbo de
-                  // ordem mas SÃO comandos — têm de passar.
+                  // gate barato (regex, 0 ms): ordem OU comando conhecido
+                  // OU capacidade do cérebro (v7.26: perguntas por voz —
+                  // "quem escreveu isso?", "qual é o meu recado?" — são
+                  // capacidades, não ordens, e também têm de passar).
                   const brainVoz = require('../aura/auraBrain');
                   const cmdsVoz = require('../aura/auraCommands');
-                  if (brainVoz.pareceOrdem(transcribed) || cmdsVoz.detectarComando(transcribed)) {
+                  if (brainVoz.pareceOrdem(transcribed) || cmdsVoz.detectarComando(transcribed) || brainVoz.detectarCapacidade(transcribed)) {
                     cleanText = transcribed;
                   }
                 } catch {}
