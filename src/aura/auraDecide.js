@@ -37,6 +37,9 @@ const PERGUNTA_DIRECTA = /\b(tu |voce |você |vc )?(achas|acha|pensas|pensa|sabe
 const ORDEM = /\b(faz|fazer|manda|mande|envia|envie|toca|põe|poe|cria|criar|procura|busca|traz|mostra|diz|conta|explica|traduz|baixa|calcula)\b/i;
 const SAUDACAO_DIRECTA = /^(oi|ola|olá|hey|bom dia|boa tarde|boa noite|e ai|eae)\b/i;
 const AGRADECE = /\b(obrigad|valeu|brigad|thanks|tmj)\b/i;
+// v6.93: saudação AO GRUPO ("bom dia malta") não é saudação A ELA —
+// acordada por defeito não significa meter-se onde não é chamada.
+const SAUDACAO_AO_GRUPO = /\b(malta|pessoal|gente|todos|toda a gente|galera|rapazes|raparigas|fam[ií]lia|mi[uú]dos|cambada)\b/i;
 const DESPEDIDA = /\b(tchau|adeus|ate logo|até logo|ate amanha|boa noite|xau|falou)\b/i;
 
 // ── Conversa entre OUTROS (não é com ela) ───────────────────
@@ -74,6 +77,14 @@ function deveResponder(o = {}) {
   // PV é conversa a dois — responde sempre
   if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
 
+  // v6.93: saudação AO GRUPO ("bom dia malta") nunca a puxa — nem no meio
+  // de uma conversa com ela (a janela auraTalk não conta como menção).
+  // Não é com ela que estão a falar.
+  if (SAUDACAO_DIRECTA.test(t) && SAUDACAO_AO_GRUPO.test(t) &&
+      !CHAMA_NOME.test(t) && !mencionada && !respostaAoBot) {
+    return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0.2 };
+  }
+
   // Grupo acordado: se a pessoa está na conversa com ela, continua
   try {
     const talk = require('./auraTalk');
@@ -89,6 +100,10 @@ function deveResponder(o = {}) {
       return { responde: true, motivo: 'pergunta/ordem do Dark', chance: 1 };
     }
     if (SAUDACAO_DIRECTA.test(t) || AGRADECE.test(t) || DESPEDIDA.test(t)) {
+      // "bom dia malta" é para o grupo, não para ela — não se mete.
+      if (SAUDACAO_AO_GRUPO.test(t) && !CHAMA_NOME.test(t)) {
+        return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0.2 };
+      }
       return { responde: true, motivo: 'saudação do Dark', chance: 1 };
     }
     if (temMedia) return { responde: true, motivo: 'Dark mandou média', chance: 0.9 };

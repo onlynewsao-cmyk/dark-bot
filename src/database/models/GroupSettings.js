@@ -64,7 +64,7 @@ const GroupSettingsSchema = new mongoose.Schema({
   // ── Modo da AURA por grupo (v6.43) ───────────────────────────
   // 'assistant' → assistente profissional neutro (padrão, estilo Meta AI)
   // 'aura'      → AURA original, só onde o Dono Supremo a invocou
-  auraMode:      { type: String, enum: ['assistant', 'aura'], default: 'assistant', index: true },
+  auraMode:      { type: String, enum: ['assistant', 'aura', 'sleep'], default: 'assistant', index: true },
   auraInvokedBy: { type: String, default: '' },   // número do dono que a invocou
   auraInvokedAt: { type: Date,   default: null },
 

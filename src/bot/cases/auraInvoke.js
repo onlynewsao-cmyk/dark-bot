@@ -104,7 +104,7 @@ module.exports = function registerAuraInvoke(registerCase) {
     if (!podeVer) return;
 
     const modo = await auraModes.getMode(ctx.remoteJid, { isGroup: ctx.isGroup });
-    const acordada = modo === auraModes.MODE_AURA;
+    const acordada = modo !== auraModes.MODE_SLEEP; // v6.93: acordada por defeito
 
     return reply(
       `${acordada ? '🌹' : '🤖'} *MODO ACTIVO AQUI*\n\n` +

@@ -65,8 +65,9 @@ const check = (nome, cond, extra = '') => {
   console.log('╚═══════════════════════════════════════════════════════════════════╝\n');
 
   console.log('▸ Estado inicial (nenhuma invocação)');
-  check('Grupo novo começa em ASSISTENTE',
+  check('Grupo novo começa em ASSISTENTE (modo base)',
     (await modes.getMode(G1, { isGroup: true })) === modes.MODE_ASSISTANT);
+  check('v6.93: mas está ACORDADA por defeito', await modes.isAuraAwake(G1, { isGroup: true }));
   check('Segundo grupo também ASSISTENTE',
     (await modes.getMode(G2, { isGroup: true })) === modes.MODE_ASSISTANT);
   check('PV do Dark é sempre AURA',
@@ -78,7 +79,9 @@ const check = (nome, cond, extra = '') => {
   check('Grupo 1 agora é AURA', await modes.isAuraAwake(G1, { isGroup: true }));
 
   console.log('\n▸ ISOLAMENTO (o ponto crítico)');
-  check('Grupo 2 CONTINUA assistente', !(await modes.isAuraAwake(G2, { isGroup: true })),
+  // v6.93: acordada POR DEFEITO — mas o estado INVOCADA é por grupo
+  check('Grupo 2 está acordada por defeito mas NÃO invocada',
+    (await modes.isAuraAwake(G2, { isGroup: true })) && !(await modes.isAuraInvoked(G2, { isGroup: true })),
     'invocar num grupo não afecta outro');
 
   console.log('\n▸ Invocar duas vezes');
@@ -92,7 +95,9 @@ const check = (nome, cond, extra = '') => {
   console.log('\n▸ Pôr a dormir');
   const r3 = await modes.dismissAura(G1);
   check('Dismiss com sucesso', r3.ok);
-  check('Grupo 1 voltou a ASSISTENTE', !(await modes.isAuraAwake(G1, { isGroup: true })));
+  // v6.93: "aura dorme" → MODE_SLEEP (acordada por defeito continua nos outros)
+  check('Grupo 1 ficou DORMIDA (sleep)', !(await modes.isAuraAwake(G1, { isGroup: true })));
+  check('Grupo 2 (intocado) continua acordada por defeito', await modes.isAuraAwake(G2, { isGroup: true }));
   check('PV continua AURA (não é afectado)',
     (await modes.getMode(PV, { isGroup: false })) === modes.MODE_AURA);
 

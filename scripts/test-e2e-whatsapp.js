@@ -183,15 +183,16 @@ const check = (nome, cond, extra = '') => {
 
   // ── 3. AURA por linguagem natural ─────────────────────────
   console.log('\n▸ AURA entende (sem comandos)');
-  check('G1 começa como assistente', !(await auraModes.isAuraAwake(G1, { isGroup: true })));
+  // v6.93: acordada POR DEFEITO nos grupos (decisão do Dono)
+  check('G1 está acordada por defeito (v6.93)', (await auraModes.isAuraAwake(G1, { isGroup: true })));
 
   const acorda = await enviar('aura, acorda', OWNER, G1);
   check('"aura, acorda" invoca', await auraModes.isAuraAwake(G1, { isGroup: true }), acorda);
 
-  check('ISOLAMENTO: G2 continua assistente', !(await auraModes.isAuraAwake(G2, { isGroup: true })));
+  check('ISOLAMENTO: G2 não foi INVOCADA por G1', !(await auraModes.isAuraInvoked(G2, { isGroup: true })));
 
   const membro = await enviar('aura, acorda', FREE, G2);
-  check('Membro NÃO controla a AURA', !(await auraModes.isAuraAwake(G2, { isGroup: true })), membro);
+  check('Membro NÃO controla a AURA (não fica INVOCADA por ele)', !(await auraModes.isAuraInvoked(G2, { isGroup: true })), membro);
 
   const dorme = await enviar('aura, dorme', OWNER, G1);
   check('"aura, dorme" faz dormir', !(await auraModes.isAuraAwake(G1, { isGroup: true })), dorme);

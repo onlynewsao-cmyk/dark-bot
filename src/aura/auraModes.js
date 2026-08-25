@@ -25,6 +25,10 @@
 
 const MODE_AURA      = 'aura';
 const MODE_ASSISTANT = 'assistant';
+// v6.93: estado explícito de "aura dorme" — sem isto, o modo 'assistant'
+// significava ao mesmo tempo "nunca acordada" (padrão) e "dormida", e não
+// dava para ter acordada-por-defeito sem perder o "dorme".
+const MODE_SLEEP = 'sleep';
 
 // Cache em memória: groupJid → { mode, ts }
 // Evita ir ao MongoDB a cada mensagem (o handler corre em TODAS).
@@ -73,6 +77,10 @@ async function getMode(remoteJid, { isGroup = true } = {}) {
     }
 
     if (gs?.auraMode === MODE_AURA) mode = MODE_AURA;
+    // v6.93: o sleep tem de passar — sem isto, "aura dorme" era colapsado
+    // para 'assistant' e como o default passou a ser acordada, ela nunca
+    // dormia de verdade.
+    else if (gs?.auraMode === MODE_SLEEP) mode = MODE_SLEEP;
   } catch {
     // MongoDB em baixo → mantém o modo seguro (assistente)
     if (hit) return hit.mode; // usa cache expirado como fallback
@@ -82,8 +90,21 @@ async function getMode(remoteJid, { isGroup = true } = {}) {
   return mode;
 }
 
-/** True se a AURA original está acordada neste chat. */
+/** True se a AURA original está acordada neste chat.
+ *
+ * v6.93 — ACORDADA POR DEFEITO (decisão do Dark): a Aura já não precisa
+ * de "aura acorda" para estar presente — num grupo novo/normal ela está
+ * acordada. Só está DORMIDA onde o Dark explicitamente disse "aura dorme"
+ * (MODE_SLEEP). O MODE_AURA continua a existir para marcar grupos onde
+ * ela foi INVOCADA (a proactividade e o listAwakeGroups continuam a usar
+ * apenas esses — assim ela não passa a falar sozinha em todo o lado).
+ */
 async function isAuraAwake(remoteJid, opts) {
+  return (await getMode(remoteJid, opts)) !== MODE_SLEEP;
+}
+
+/** True se foi explicitamente INVOCADA ("aura acorda") neste chat. */
+async function isAuraInvoked(remoteJid, opts) {
   return (await getMode(remoteJid, opts)) === MODE_AURA;
 }
 
@@ -132,11 +153,11 @@ async function dismissAura(remoteJid) {
   try {
     const GroupSettings = require('../database/models/GroupSettings');
     const gs = await GroupSettings.findOne({ groupJid: jid }).select('auraMode').lean().catch(() => null);
-    const already = !gs || gs.auraMode !== MODE_AURA;
+    const already = gs?.auraMode === MODE_SLEEP;
 
     await GroupSettings.updateOne(
       { groupJid: jid },
-      { $set: { auraMode: MODE_ASSISTANT, auraInvokedBy: '', auraInvokedAt: null } },
+      { $set: { auraMode: MODE_SLEEP, auraInvokedBy: '', auraInvokedAt: null } },
       { upsert: true }
     );
 
@@ -491,6 +512,8 @@ function assistantFallback(text, opts = {}) {
 module.exports = {
   MODE_AURA,
   MODE_ASSISTANT,
+  MODE_SLEEP,
+  isAuraInvoked,
   getMode,
   isAuraAwake,
   invokeAura,
