@@ -287,6 +287,8 @@ async function bootstrap() {
       const _b = getBot(io);
       const st = _b.getStatus();
       out.whatsapp = { estado: st.status, mensagens: st.messageCount, comandos: st.commandCount, uptime: st.uptime };
+      // v6.95: caixa de entrada mascarada — ver /diag para diagnosticar PV
+      out.caixa_entrada = Array.isArray(_b.recentInbox) ? _b.recentInbox.slice(-20) : [];
 
       // Conflito de sessão: duas instâncias com as mesmas credenciais.
       // É a causa nº1 de "online mas não responde a nada".

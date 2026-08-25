@@ -90,6 +90,7 @@ class WhatsAppBot {
     this.startedAt = null;
     this.msgCount = 0;
     this.cmdCount = 0;
+    this.recentInbox = []; // v6.95: últimas 20 mensagens (mascaradas) p/ /diag
     this.starting = false;
     this.logs = [];
     this.mongoAuth = null;
@@ -416,6 +417,24 @@ class WhatsAppBot {
             msg = commandHandler.normalizeIncomingMsg(msg);
           }
           this.msgCount++;
+          // v6.95 — CAIXA DE ENTRADA DIAGNÓSTICA (mascarada, sem conteúdo):
+          // /diag mostra as últimas 20 (quando, que chat, tipo, se foi
+          // tratada). É o que permite ver AO VIVO se as mensagens de
+          // alguém chegam e o que o handler decidiu com elas.
+          try {
+            const _types = Object.keys(msg.message);
+            const _mt = _types.find(t => !/contextInfo|messageContextInfo/.test(t)) || _types[0] || '?';
+            this.recentInbox.push({
+              ts: new Date().toISOString().slice(11, 19),
+              chat: msg.key.remoteJid === 'status@broadcast' ? 'status'
+                : (msg.key.remoteJid || '').endsWith('@g.us') ? 'grupo·' + String(msg.key.remoteJid).slice(-6)
+                : 'pv·' + String(msg.key.remoteJid || '').replace(/\D/g, '').slice(-6),
+              de: String(msg.key.participant || msg.key.remoteJid || '').replace(/\D/g, '').slice(-6),
+              tipo: _mt.slice(0, 22),
+              tratada: null,
+            });
+            if (this.recentInbox.length > 20) this.recentInbox.shift();
+          } catch (_) {}
           messageListener.onUpsert(this.sock, { ...m, messages: [msg] }, this.io).catch(() => {});
           if (msg.key.fromMe) return;
           // DarkShield Anti-Link v2 corre em paralelo com comandos + anti-spam
@@ -425,6 +444,10 @@ class WhatsAppBot {
             antispam.check(this.sock, msg).catch(() => {}),
           ]);
           if (handled) this.cmdCount++;
+          try {
+            const _last = this.recentInbox[this.recentInbox.length - 1];
+            if (_last) _last.tratada = !!handled;
+          } catch (_) {}
         } catch (e) { console.error('[MSG]', e.message); }
       });
 
