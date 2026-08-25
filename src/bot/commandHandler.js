@@ -176,6 +176,10 @@ async function isGroupAdminForHandler(sock, ctx) {
 // Serve para ela não responder a tudo seguido — quem acabou de falar
 // tende a deixar os outros falarem.
 const _msgCount = new Map();
+// Proteção global contra rajadas da AURA. O modo PV continua ativo, mas
+// mensagens repetidas/concorrentes não podem gerar spam no WhatsApp.
+const _auraReplyTs = new Map();
+const AURA_REPLY_COOLDOWN_MS = 8000;
 function _contaMsg(jid) {
   _msgCount.set(jid, (_msgCount.get(jid) || 0) + 1);
 }
@@ -1365,7 +1369,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   const mentionedWithMedia = isBotMentioned && !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage);
 
   const aiAutoOn = aiAutoOnValue;  // v6.45: já lido no Promise.all acima
-  const aiActive = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
+  // O PV deve continuar a responder mesmo que o toggle de IA de grupos
+  // esteja desligado. Antes um ai_auto_enabled=false silenciava a AURA
+  // também no privado, embora o PV fosse anunciado como sempre ativo.
+  const aiActive = !ctx.isGroup || aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
   // ── v6.43: modo do chat (AURA acordada vs assistente profissional) ──
   const _auraModes = require('../aura/auraModes');
@@ -1461,7 +1468,19 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     }
     if (isAuraTrigger || isReplyToBot || isBotMentioned) talk.marcarFala(ctx.remoteJid, ctx.senderNumber);
   } catch {}
-  if (aiActive && (isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar)) {
+  const _auraMayReply = isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar;
+  // Debounce por chat: evita duas respostas simultâneas quando o WhatsApp
+  // entrega eventos duplicados ou quando a AURA recebe várias mensagens
+  // seguidas. Não interfere com comandos prefixados.
+  if (aiActive && _auraMayReply) {
+    const _auraKey = ctx.remoteJid || 'unknown';
+    const _nowAura = Date.now();
+    const _lastAura = _auraReplyTs.get(_auraKey) || 0;
+    if (_nowAura - _lastAura < AURA_REPLY_COOLDOWN_MS) return false;
+    _auraReplyTs.set(_auraKey, _nowAura);
+    if (_auraReplyTs.size > 2000) {
+      for (const [k, ts] of _auraReplyTs) if (_nowAura - ts > 3600000) _auraReplyTs.delete(k);
+    }
     try {
       let cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
       try {
