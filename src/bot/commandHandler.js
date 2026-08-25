@@ -317,6 +317,28 @@ async function userIsPremiumOrOwner(number, isOwner) {
   return checkIsPremium(u);
 }
 
+// ── v6.94: aviso de grupo sem aluguel (a assistente ajuda, não se cala) ──
+const _avisoAluguelTs = new Map(); // "grupo:sender" → ts do último aviso
+const AVISO_ALUGUEL_MS = 6 * 60 * 60 * 1000;
+async function _avisoSemAluguel(sock, msg, ctx) {
+  try {
+    if (!ctx?.isGroup || !ctx?.remoteJid) return;
+    const k = ctx.remoteJid + ':' + ctx.senderNumber;
+    const agora = Date.now();
+    if (_avisoAluguelTs.size > 500) _avisoAluguelTs.clear(); // fuga de memória
+    if (agora - (_avisoAluguelTs.get(k) || 0) < AVISO_ALUGUEL_MS) return;
+    _avisoAluguelTs.set(k, agora);
+    const donoNum = String(config.owner?.number || '').replace(/\D/g, '');
+    await sock.sendMessage(ctx.remoteJid, {
+      text:
+        '🤖 *Assistente DARK*\n' +
+        'Este grupo não tem aluguel activo, por isso os comandos completos ficam bloqueados.\n\n' +
+        (donoNum ? `📲 Para activar fala com o Dono: wa.me/${donoNum}\n` : '') +
+        '💬 No privado do bot respondo a qualquer pessoa, sempre.',
+    }, { quoted: msg }).catch(() => {});
+  } catch (_) {}
+}
+
 async function _handleInner(sock, msg) {
   let text = extractText(msg).trim();
   const hasIncomingMedia = hasMediaPayload(msg.message);
@@ -564,7 +586,15 @@ async function _handleInner(sock, msg) {
       // objecto simples SEM métodos do schema — a condição era sempre
       // falsa e TODO o VIP era silenciado como se fosse Free.
       // checkIsPremium() já trata documentos lean correctamente.
-      if (!checkIsPremium(uCheck)) return false; // silêncio para free
+      // v6.94 — A ASSISTENTE NÃO FICA CALADA. O silêncio total para free
+      // em grupo sem aluguel parecia bot morto; agora o bot AVISA que o
+      // grupo não tem aluguel activo e como resolver (1x/6h por
+      // grupo+pessoa, para não virar spam). Os comandos continuam
+      // bloqueados — o aviso É a ajuda da assistente.
+      if (!checkIsPremium(uCheck)) {
+        await _avisoSemAluguel(sock, msg, ctx);
+        return false;
+      }
     }
     // Trial activo → verifica limite de 500 cmds
     if (hasTrial && !hasRental) {
