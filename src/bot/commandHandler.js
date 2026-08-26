@@ -61,8 +61,21 @@ function unwrapWhatsAppMessage(message) {
 function normalizeIncomingMsg(msg) {
   if (!msg?.message) return msg;
   const inner = unwrapWhatsAppMessage(msg.message);
-  if (inner === msg.message) return msg;
-  return { ...msg, message: inner };
+  const key = msg.key || {};
+
+  // WhatsApp moderno pode entregar o PV com `remoteJid` em @lid.
+  // O LID identifica a conta, mas algumas versões do Baileys aceitam
+  // melhor o PN (@s.whatsapp.net) no sendMessage. Quando o WhatsApp
+  // fornece o JID alternativo, normalizamos SOMENTE o PV para o PN.
+  // Sem alternativa, preservamos o LID original.
+  const isPrivateLid = /@lid$/i.test(String(key.remoteJid || ''));
+  const alternateJid = key.remoteJidAlt || key.remoteJidPn || '';
+  const normalizedKey = isPrivateLid && /@(s\.whatsapp\.net|c\.us)$/i.test(String(alternateJid))
+    ? { ...key, remoteJid: alternateJid }
+    : key;
+
+  if (inner === msg.message && normalizedKey === key) return msg;
+  return { ...msg, key: normalizedKey, message: inner };
 }
 
 function hasMediaPayload(message) {

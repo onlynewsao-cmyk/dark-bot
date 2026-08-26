@@ -73,6 +73,7 @@ O primeiro `npm test` falhou em duas verificações do `test:menu18` porque a in
 7. **Diagnóstico de mensagens:** `src/bot/whatsapp.js` agora regista o stack real quando `commandHandler` falha, em vez de esconder silenciosamente a rejeição. `src/config.js` também expõe `isProduction` como alias compatível de `isProd`, corrigindo o gate de produção do bootstrap.
 8. **Play:** `src/bot/cases/downloads.js` e `src/bot/systemZeroPlay.js` receberam um card exclusivo Dark Tóxico apenas para `play`; os IDs continuam a disparar `ytd`/`gyt`. O fluxo de `play3` não foi alterado.
 9. **Qualidade/performance de mídia:** `mediaQuality.js` centraliza perfis baixa/média/alta; `systemZeroPlay.ytAudio` e `ytVideo` agora encaminham bitrate/resolução para a API e para os fallbacks locais. O botão `ytd` passa corretamente a qualidade escolhida, evitando que todas as opções caiam em 128k.
+10. **PV com LID:** mensagens privadas entregues como `remoteJid` `@lid` agora usam `remoteJidAlt`/`remoteJidPn` (`@s.whatsapp.net`) para o caminho de resposta quando disponível. Isso evita o caso em que o handler trata a mensagem, mas a entrega volta para um JID LID não aceite pela versão Baileys em produção.
 
 ## Procedimento padrão para futuras tarefas
 
