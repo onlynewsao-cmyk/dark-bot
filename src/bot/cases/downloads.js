@@ -113,6 +113,13 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
       : resultIndex === 1 ? '✦ ݁˖ Resultado alternativo (#2) ✦ ݁˖\n\n'
       : `✦ ݁˖ Resultado #${resultIndex + 1} ✦ ݁˖\n\n`;
 
+    // ── PLAY: novo card Dark Tóxico (play3 permanece intacto) ──
+    if (quality.toxic) {
+      await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg);
+      sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+      return true;
+    }
+
     // ── ButtonV2 (código de referência) ──
     let sent = false;
     try {
@@ -163,7 +170,7 @@ module.exports = function registerDownloadCases(registerCase) {
   // case 'play' — busca + ButtonV2 (resultado #1)
   // ════════════════════════════════════════════════
   registerCase(['play', 'music', 'musica', 'yt', 'ytmp3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Standard' }));
+    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Standard', toxic: true }));
 
   // ════════════════════════════════════════════════
   // case 'play2' — resultado alternativo (#2)
@@ -212,7 +219,7 @@ module.exports = function registerDownloadCases(registerCase) {
     try {
       let r;
       try {
-        r = await systemZeroPlay.ytAudio(url);
+        r = await systemZeroPlay.ytAudio(url, quality);
       } catch {
         r = await ytdl.getAudio(url, quality);
       }

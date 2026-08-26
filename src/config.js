@@ -26,7 +26,10 @@ const nodeEnv = env('NODE_ENV', 'development');
 module.exports = {
   port,
   nodeEnv,
+  // Mantém os dois nomes por compatibilidade: o bootstrap usa isProduction,
+  // enquanto módulos antigos usam isProd.
   isProd: nodeEnv === 'production',
+  isProduction: nodeEnv === 'production',
 
   sessionSecret: env('SESSION_SECRET', 'dark-secret-change-me-2025'),
   appUrl:        env('APP_URL', `http://localhost:${port}`),

@@ -19,6 +19,7 @@
 
 const mediaHandler = require('./mediaHandler');
 const config = require('../config');
+const { profile } = require('../../mediaQuality');
 
 const SYSTEMZONE_API_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
 const SYSTEMZONE_API_KEY = process.env.SYSTEMZONE_API_KEY || 'freekey';
@@ -96,10 +97,12 @@ async function ytsearch(query) {
 // ─────────────────────────────────────────────
 // API: DOWNLOAD ÁUDIO
 // ─────────────────────────────────────────────
-async function ytAudio(urlOrQuery) {
-  // 1º — SystemZone API
+async function ytAudio(urlOrQuery, quality = '128k') {
+  const q = profile(quality, '720');
+  // 1º — SystemZone API. Se a API suportar quality/bitrate, a conversão
+  // já sai no tamanho pedido; se ignorar, o fallback local respeita q.audio.
   try {
-    const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp3?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
+    const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp3?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}&quality=${encodeURIComponent(q.apiAudio)}&bitrate=${encodeURIComponent(q.audio)}`;
     const data = await mediaHandler.fetchJson(endpoint, 65000);
     const r = data?.result || data?.data || data;
     const u = r?.download || r?.download_url || r?.url || data?.download_url;
@@ -110,6 +113,7 @@ async function ytAudio(urlOrQuery) {
         author: r?.author || data?.artist || '',
         duration: r?.duration || data?.duration || '',
         thumbnail: r?.thumbnail || data?.thumbnail || '',
+        quality: q.audio,
         source: 'SystemZone-ytmp3',
       };
     }
@@ -120,7 +124,7 @@ async function ytAudio(urlOrQuery) {
   // 2º — ytdl.js (yt-dlp, ytdl-core, youtubei, Loader.to)
   try {
     const ytdl = require('./ytdl');
-    const r = await ytdl.getAudio(urlOrQuery, '128k');
+    const r = await ytdl.getAudio(urlOrQuery, q.audio);
     return {
       buffer: r.buffer,
       title: r.title || 'Áudio',
@@ -141,9 +145,11 @@ async function ytAudio(urlOrQuery) {
 // API: DOWNLOAD VÍDEO
 // ─────────────────────────────────────────────
 async function ytVideo(urlOrQuery, quality = '720') {
-  // 1º — SystemZone API
+  const q = profile('128k', quality);
+  // 1º — API recebe a resolução pedida para acelerar a entrega e reduzir
+  // o tamanho do ficheiro. O fallback local também recebe q.video.
   try {
-    const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp4?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
+    const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp4?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}&quality=${encodeURIComponent(q.apiVideo)}&resolution=${encodeURIComponent(q.video)}`;
     const data = await mediaHandler.fetchJson(endpoint, 65000);
     const r = data?.result || data?.data || data;
     const u = r?.download || r?.download_url || r?.url;
@@ -152,7 +158,7 @@ async function ytVideo(urlOrQuery, quality = '720') {
         url: String(u).replace(/^http:\/\//i, 'https://'),
         title: r?.title || 'Vídeo',
         duration: r?.duration || '',
-        quality: r?.quality || quality + 'p',
+        quality: r?.quality || q.apiVideo,
         thumbnail: r?.thumbnail || '',
         source: 'SystemZone-ytmp4',
       };
@@ -164,7 +170,7 @@ async function ytVideo(urlOrQuery, quality = '720') {
   // 2º — ytdl.js (yt-dlp, youtubei, Loader.to)
   try {
     const ytdl = require('./ytdl');
-    const r = await ytdl.getVideo(urlOrQuery, quality);
+    const r = await ytdl.getVideo(urlOrQuery, q.video);
     return {
       buffer: r.buffer,
       title: r.title || 'Vídeo',
@@ -196,6 +202,49 @@ function playFallbackText(video, prefix) {
     `┃ 🎬 Vídeo → \`${videoCmd}\`\n\n` +
     `💡 Copia o comando e envia, ou espera os botões carregarem.`
   );
+}
+
+// ─────────────────────────────────────────────
+// CARD PLAY — estilo DARK TÓXICO (apenas play)
+// ─────────────────────────────────────────────
+// Mantém os IDs dos botões compatíveis com ytd/gyt. O play3 continua
+// a usar o card normal e não passa por este fluxo.
+async function sendToxicPlayCard(sock, jid, video, prefix, quoted = null) {
+  const audioCmd = `${prefix}ytd ${video.youtube_url}`;
+  const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | 480`;
+  const title = String(video.title || 'Música').slice(0, 70);
+  const author = String(video.author || 'Canal desconhecido').slice(0, 60);
+  const duration = video.duration || '—';
+  const views = Number(video.views || 0).toLocaleString('pt-BR');
+  const body =
+    `╭━━━〔 ☠️ 𖤐 ᴅᴀʀᴋ ᴛᴏxɪᴄ ᴘʟᴀʏ 𖤐 ☠️ 〕━━━╮\n` +
+    `┃ 🩸 *${title}*\n` +
+    `┃\n` +
+    `┃ 👤 𝙲𝚊𝚗𝚊𝚕: *${author}*\n` +
+    `┃ ⏱️ 𝙳𝚞𝚛𝚊𝚌̧𝚊̃𝚘: *${duration}*\n` +
+    `┃ 👁️ 𝚅𝚒𝚜𝚞𝚊𝚕𝚒𝚣𝚊𝚌̧𝚘̃𝚎𝚜: *${views}*\n` +
+    `┃\n` +
+    `┃ ⚠️ 𓆩 𝙴𝚜𝚌𝚘𝚕𝚑𝚊 𝚘 𝚊𝚝𝚊𝚚𝚞𝚎 𓆪 ⚠️\n` +
+    `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n` +
+    `☠️ 𝙰𝚄́𝙳𝙸𝙾 𝚘𝚞 𝚅𝙸́𝙳𝙴𝙾? 𝙲𝚕𝚒𝚚𝚞𝚎 𝚎 𝚍𝚎𝚒𝚡𝚊 𝚘 𝚖𝚘𝚝𝚘𝚛 𝚝𝚛𝚊𝚋𝚊𝚕𝚑𝚊𝚛. 🩸`;
+  const footer = '☠️ DARK BOT 𖤐 Dark Net Engine 𖤐 ☠️';
+  const ButtonV2 = getButtonV2();
+  if (ButtonV2) {
+    try {
+      const card = new ButtonV2(sock);
+      card.setTitle(`☠️ ${title}`.slice(0, 60));
+      card.setBody(body);
+      card.setFooter(footer);
+      if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
+      card.addButton('🩸 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝙰́𝚄𝙳𝙸𝙾 𖤐', audioCmd);
+      card.addButton('☠️ 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝚅𝙸́𝙳𝙴𝙾 𖤐', videoCmd);
+      await card.send(jid, { quoted });
+      return 'toxic-buttonv2';
+    } catch (e) { console.warn('[ToxicPlay] ButtonV2 falhou:', e.message?.slice(0, 80)); }
+  }
+  // Se a implementação de botões não existir, entrega o mesmo visual em texto.
+  await sock.sendMessage(jid, { text: `☠️ *${title}*\n\n${body}\n\n🩸 Áudio: \`${audioCmd}\`\n☠️ Vídeo: \`${videoCmd}\`\n\n${footer}` }, { quoted });
+  return 'toxic-text';
 }
 
 // ─────────────────────────────────────────────
@@ -265,6 +314,7 @@ module.exports = {
   ytAudio,
   ytVideo,
   sendPlayCard,
+  sendToxicPlayCard,
   playFallbackText,
   localYtSearch,
   SYSTEMZONE_API_URL,

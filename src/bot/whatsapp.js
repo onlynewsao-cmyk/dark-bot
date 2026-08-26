@@ -439,7 +439,13 @@ class WhatsAppBot {
           if (msg.key.fromMe) return;
           // DarkShield Anti-Link v2 corre em paralelo com comandos + anti-spam
           const [handled] = await Promise.all([
-            commandHandler.handle(this.sock, msg).catch(() => false),
+            commandHandler.handle(this.sock, msg).catch((err) => {
+              // Nunca esconder a causa de uma mensagem sem resposta.
+              // O erro continua sem ser enviado ao WhatsApp, mas fica
+              // disponível no log/diagnóstico do processo.
+              console.error('[COMMAND] handler:', err?.stack || err?.message || err);
+              return false;
+            }),
             antiLink.check(this.sock, msg).catch(() => {}),
             antispam.check(this.sock, msg).catch(() => {}),
           ]);
