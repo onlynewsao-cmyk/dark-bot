@@ -236,8 +236,10 @@ async function sendToxicPlayCard(sock, jid, video, prefix, quoted = null) {
       card.setBody(body);
       card.setFooter(footer);
       if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
-      card.addButton('🩸 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝙰́𝚄𝙳𝙸𝙾 𖤐', audioCmd);
-      card.addButton('☠️ 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝚅𝙸́𝙳𝙴𝙾 𖤐', videoCmd);
+      // Rótulos curtos: o ButtonV2 coloca os dois botões na mesma linha.
+      // Texto comprido força quebra no WhatsApp e deixa o card vertical.
+      card.addButton('🩸 ÁUDIO', audioCmd);
+      card.addButton('☠️ VÍDEO', videoCmd);
       await card.send(jid, { quoted });
       return 'toxic-buttonv2';
     } catch (e) { console.warn('[ToxicPlay] ButtonV2 falhou:', e.message?.slice(0, 80)); }
