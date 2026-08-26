@@ -11,8 +11,8 @@
  * ficar a martelar o servidor de 5 em 5 minutos para sempre.
  *
  * Controlo:
- *   AUTO_CALL=on|off         (env, por omissão ON)
- *   AUTO_CALL_MIN=5          (env, minutos entre chamadas)
+ *   AUTO_CALL=on|off         (env, por omissão OFF)
+ *   AUTO_CALL_MIN=30         (env, minutos entre chamadas)
  *   autoCall.parar()/arrancar()  em código
  */
 'use strict';
@@ -168,7 +168,9 @@ function parar(porque = 'manual') {
  * @param {function|object} getSock função que devolve o socket vivo
  */
 function arrancar(getSock) {
-  if (String(process.env.AUTO_CALL || 'on').toLowerCase() === 'off') {
+  // Proteção: chamadas automáticas ficam DESLIGADAS por omissão.
+  // Só são activadas com AUTO_CALL=on de forma deliberada.
+  if (String(process.env.AUTO_CALL || 'off').toLowerCase() === 'off') {
     console.log('[autoCall] desligado por AUTO_CALL=off');
     return { ok: false, motivo: 'desligado_por_env' };
   }
