@@ -1,97 +1,317 @@
-# 🕸️ DARK BOT — Bot WhatsApp profissional com Dashboard
+<div align="center">
 
-**Bot WhatsApp completo** (Baileys) com **AURA** (assistente IA com personalidade viva), dashboard web, RPG multi-jogador, chamadas VoIP, decrypter de configs e muito mais. Feito para correr no **Render Free** com **MongoDB Atlas** e **UptimeRobot**.
+# 🕸️ DARK BOT
+## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
+<img src="src/public/img/logo.jpg" alt="DARK BOT" width="220" />
+
+### ✦ 𝙸𝙰 𝚅𝙸𝚅𝙰 · 𝙴𝙵𝙴𝙸𝚃𝙾𝚂 𝙽𝙴𝙾𝙽 · 𝙼Í𝙳𝙸𝙰 𝚁𝙴𝙰𝙻 · 𝙲𝙾𝙼𝙰𝙽𝙳𝙾 𝙳𝙰 𝚂𝚄𝙰 𝚁𝙴𝙳𝙴 ✦
+
+[![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/dark-bot)
+[![Node](https://img.shields.io/badge/NODE.JS-18%2B-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/LICENSE-MIT-b14aed?style=for-the-badge)](LICENSE)
+[![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/dark-bot)
+
+> **Não é só um bot. É uma presença.**
+> Conversa, reage, cria, modera, joga, pesquisa, baixa e transforma o teu WhatsApp numa central viva.
+
+</div>
+
+---
+
+## 🩸 ENTRA NO DARK SIDE
+
+Imagina abrir o WhatsApp e encontrar uma entidade digital com identidade própria:
+
+- menus que parecem painéis de comando;
+- textos com símbolos, molduras e tipografia neon;
+- respostas que mudam conforme a pessoa e o ambiente;
+- cards com capas, botões e efeitos de interface;
+- uma AURA que conversa como alguém real;
+- um dashboard cyberpunk para controlar tudo;
+- mídia verdadeira, convertida e entregue sem truques.
+
+**Esse é o DARK BOT.**
+
+<div align="center">
+
+```text
+╔══════════════════════════════════════════════════════╗
+║  ☠️  DARK BOT — NÃO É UM BOT COMUM                  ║
+║                                                      ║
+║  🧠 PENSA     🎨 BRILHA     🛡️ PROTEGE              ║
+║  🎵 TOCA      🎮 JOGA       🌑 DOMINA               ║
+╚══════════════════════════════════════════════════════╝
 ```
-WhatsApp ⇄ Baileys ──► commandHandler ──► 1.870 cases
-                        │        └──────► AURA (26 módulos: memória, humores,
-                        │                   proactividade, voz, regras aprendidas)
-        Express + EJS ──┤  Dashboard (21 páginas) + Socket.IO ao vivo
-                        └──► MongoDB (16 modelos: sessões, users, RPG, economia…)
-UptimeRobot ──/ping (5 min)──► mantém o Render Free acordado
+
+</div>
+
+---
+
+## ⚡ UMA EXPERIÊNCIA VISUAL COMPLETA
+
+### 🌌 Identidade neon viva
+
+O DARK BOT foi pensado para ter uma identidade visual reconhecível em cada detalhe:
+
+- roxo elétrico, ciano, rosa tóxico e vermelho de alerta;
+- fundos com grid cyberpunk e pulsação neon;
+- efeito glassmorphism nos cards;
+- bordas luminosas e sombras coloridas;
+- títulos em small caps e fontes monoespaçadas;
+- separadores, símbolos Unicode e molduras exclusivas;
+- respostas que parecem uma interface, não texto solto;
+- temas de menu para mudar a atmosfera da rede.
+
+### ☠️ Card DARK TÓXICO
+
+O comando `play` apresenta a música com capa, informações e botões numa experiência visual exagerada:
+
+```text
+╭━━━〔 ☠️ 𖤐 ᴅᴀʀᴋ ᴛᴏxɪᴄ ᴘʟᴀʏ 𖤐 ☠️ 〕━━━╮
+┃ 🩸 Título da música
+┃
+┃ 👤 𝙲𝚊𝚗𝚊𝚕: artista ou canal
+┃ ⏱️ 𝙳𝚞𝚛𝚊𝚌̧𝚊̃𝚘: 04:20
+┃ 👁️ 𝚅𝚒𝚜𝚞𝚊𝚕𝚒𝚣𝚊𝚌̧𝚘̃𝚎𝚜: 1.234.567
+┃
+┃ ⚠️ 𓆩 𝙴𝚜𝚌𝚘𝚕𝚑𝚊 𝚘 𝚊𝚝𝚊𝚚𝚞𝚎 𓆪 ⚠️
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+🩸 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝙰́𝚄𝙳𝙸𝙾 𖤐
+☠️ 𖤐 𝙱𝙰𝙸𝚇𝙰𝚁 𝚅𝙸́𝙳𝙴𝙾 𖤐
+```
+
+### ✨ Cada resposta tem personalidade
+
+O bot pode responder com:
+
+```text
+▸ texto estilizado
+▸ reação contextual
+▸ imagem real
+▸ sticker estático ou animado
+▸ áudio e nota de voz
+▸ card com thumbnail
+▸ botão interativo
+▸ lista de seleção
+▸ painel formatado
 ```
 
 ---
 
-## ✨ O que ele faz
+## 🧠 AURA — A ALMA DO DARK BOT
 
-### 🖤 AURA — a assistente (uma pessoa, não um menu)
-- **Conversa como gente**: memória de longo prazo (factos por pessoa), humor próprio, reage com emojis, manda áudio com voz própria (ElevenLabs)
-- **Acordada por defeito nos grupos** — fala à vontade com o Dono; qualquer pessoa pode chamá-la ("aura…", menção ou respondendo-lhe); `aura dorme` / `aura acorda` por grupo
-- **Executa por conversa**: ~100 comandos por linguagem natural ("aura bane o Zeca", "toca shakira", "fecha o grupo")
-- **🎨 ENSINA-SE por conversa (v6.90 Rules Engine)**:
-  - `"quando eu disser pizza vc responde UHUL PIZZA"` → responde sempre
-  - `"se alguém mandar link avisa a pessoa"` · `"quando alguém disser bom dia reage com ☀️"`
-  - `"quando eu mandar a palavra código envia o link do grupo"`
-  - `"que regras te ensinei?"` lista · `"cancela a regra do pizza"` apaga
-  - Gatilhos: palavra/frase · link · sticker · quem disse (tu ou alguém). Acções: responder · reagir · remover · avisar · link do grupo · apagar. Máx. 20 regras, persistidas no MongoDB
-- **🩸 Sticker-ban (v6.89)**: ensina com o sticker citado — *"se eu responder alguém com este sticker de ban vc remove ele"* → a partir daí, responder com o sticker remove a pessoa citada (só o Dono; nunca remove o Dono nem o bot)
-- **Proactiva** (onde foi invocada): fala quando quer — conselhos, orações, daily (agenda)
-- **Voz**: ouve áudios (AssemblyAI) e fala; entende perguntas por voz
-- **Assistente vs AURA**: em modo assistente é profissional e sóbria; acordada é ela própria. A assistente **nunca fica calada**: em grupo sem aluguel avisa como activar (1x/6h por pessoa)
+A AURA não aparece apenas quando alguém digita um comando. Ela entende contexto, ambiente e intenção.
 
-### 📊 Dashboard (`/dashboard`)
-Login com sessão cifrada em MongoDB · 21 páginas: estado/QR/pair-code do bot e do VoIP, consola ao vivo (logs/spy por Socket.IO), CRUD de comandos + overrides, broadcast com progresso, agendamentos, utilizadores (premium/free/ban), pagamentos com aprovação, grupos (settings/membros/ban/sair), mídia (Cloudinary), backup export/import, decrypter web, estatísticas, board ao vivo
+### Ela pode:
 
-### 🎮 RPG completo
-Criação de personagem **por listas clicáveis** (`!rpgstart` → raças → classes → ficha com bónus) ou escrita (`!rpgstart Nome raça classe`) · combate narrativo · guildas · quests · economia/banco · loja · mundo com estado · comunidades RPG (arena, dungeons, trocas… classified)
+- conversar no privado;
+- reconhecer o Dono, VIPs, admins e utilizadores;
+- memorizar factos importantes;
+- mudar de humor;
+- acordar ou dormir num grupo;
+- responder com personalidade diferente em PV e grupo;
+- ouvir áudios e responder por voz;
+- interpretar imagens e stickers;
+- procurar fotos reais;
+- aprender regras por conversa;
+- executar ações autorizadas;
+- controlar grupos através de linguagem natural;
+- falar de forma mais íntima, séria, irónica ou profissional.
 
-### 📦 Mais
-1.870 comandos: downloads (YouTube/Redes sociais com fallbacks), stickers (packs, marca de água, rename), música com cartão e capa, jogos, medidores, logos, anti-link/anti-spam/anti-delete, anti-sticker por grupo, decrypter de 15 formatos (EHI, HAT, WireGuard, SSH…), chamadas VoIP com QR/pair próprio, temas do menu, prefixos por grupo…
+<div align="center">
 
----
+```text
+                 ✦ A U R A ✦
+        ┌──────────────────────────┐
+        │  memória   humor   voz   │
+        │  visão     regras  alma  │
+        └──────────────────────────┘
+              “Estou aqui, meu Dark.”
+```
 
-## 🚀 Deploy (Render Free + MongoDB + UptimeRobot)
-
-1. **Fork do repo** → Render: *New → Web Service* → liga ao fork
-2. Build: `npm ci --omit=dev` · Start: `node src/index.js` (ou usa o `render.yaml` como Blueprint)
-3. **MongoDB Atlas** grátis (M0) → copia a URI para `MONGODB_URI`
-4. Variáveis essenciais:
-
-| Var | O quê |
-|---|---|
-| `MONGODB_URI` | `mongodb+srv://…` (obrigatória em produção) |
-| `APP_URL` | `https://teu-servico.onrender.com` |
-| `OWNER_USERNAME` / `OWNER_PASSWORD` | login do dono no dashboard (sincroniza no arranque) |
-| `OWNER_NUMBER` / `BOT_NUMBER` | números WhatsApp (só dígitos) |
-| `SESSION_SECRET` | string aleatória (qualquer formato) |
-| `GROQ_API_KEY` e/ou `GEMINI_API_KEY` | activam a Aura com IA (grátis) |
-| opcionais | `ELEVENLABS_API_KEY` (voz), `ASSEMBLYAI_API_KEY` (ouvir), `CLOUDINARY_*` (mídia), `TENOR_API_KEY` (gifs) |
-
-5. **UptimeRobot**: monitor HTTP → `https://teu-servico.onrender.com/ping` a cada 5 min (o bot também se auto-pinga a cada 14 min)
-6. Abre `/dashboard/connect` → liga o WhatsApp por **QR** ou **código de par**. A sessão fica no MongoDB e **religa sozinha** após cada deploy (auto-start com retry)
-
-### Rotas de saúde
-`/ping` (UptimeRobot) · `/health` (liveness) · `/status` (página pública) · `/diag` (diagnóstico real: commit, chaves, conflitos de sessão) · `/test-pv` (testa o PV dentro do processo)
+</div>
 
 ---
 
-## 🧪 Testes
+## 🎵 MÍDIA DE VERDADE
+
+Nada de respostas que prometem um ficheiro e entregam apenas um link quebrado.
+
+O DARK BOT trabalha com uma cadeia real de pesquisa, download, conversão e entrega:
+
+- YouTube;
+- TikTok;
+- Instagram;
+- Facebook;
+- X/Twitter;
+- Spotify;
+- SoundCloud;
+- Pinterest;
+- GIFs e imagens;
+- stickers animados.
+
+### Velocidade escolhida para cada situação
+
+| ⚡ Perfil | Áudio | Vídeo | Sensação |
+|---|---:|---:|---|
+| 🩸 Rápido | 96 kbps | 360p | chega primeiro |
+| ☠️ Balanceado | 192 kbps | 720p | qualidade e velocidade |
+| 💀 Supremo | 320 kbps | 1080p | máxima qualidade |
+
+O motor usa conversão real com FFmpeg e fallbacks de download. O resultado é validado antes de chegar ao WhatsApp.
+
+---
+
+## 🎮 UM UNIVERSO DENTRO DO CHAT
+
+### DARK RPG
+
+Cria uma personagem, escolhe raça e classe, luta, evolui, entra em guildas, explora comunidades e constrói uma história.
+
+### DARK BANK
+
+Economia, carteira, banco, loja, recompensas, rankings e sistemas de progressão.
+
+### JOGOS E INTERAÇÕES
+
+Quiz, batalhas, roleta, anagramas, campo minado, rankings, família, desafios e dezenas de brincadeiras sociais.
+
+### DARKSHIELD
+
+Proteção e autoridade para grupos:
+
+```text
+🛡️ anti-link       🛡️ anti-spam       🛡️ anti-raid
+🛡️ anti-sticker    🛡️ anti-delete     🛡️ advertências
+🛡️ whitelist       🛡️ bloqueios       🛡️ moderação
+```
+
+---
+
+## 📡 DASHBOARD — O CENTRO DE COMANDO
+
+Uma interface web para administrar o ecossistema inteiro:
+
+- painel de estado do bot;
+- QR code e pair-code;
+- console de logs ao vivo;
+- eventos em tempo real;
+- controlo de grupos;
+- utilizadores, cargos e premium;
+- comandos e overrides;
+- broadcasts com progresso;
+- agenda e tarefas automáticas;
+- pagamentos;
+- mídia e Cloudinary;
+- backup e importação;
+- estatísticas;
+- Dark Net Decrypter;
+- CallBot e VoIP.
+
+<div align="center">
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  🕸️ DARK CONTROL CENTER                                │
+├──────────────┬──────────────────────────────────────────┤
+│  BOT ONLINE  │  AURA AWAKENED                          │
+│  1870 CASES  │  SOCKET.IO LIVE                        │
+│  DB READY    │  MEDIA ENGINE READY                    │
+└──────────────┴──────────────────────────────────────────┘
+```
+
+</div>
+
+---
+
+## 🔐 DARK NET DECRYPTER
+
+Uma área especializada para leitura e análise de configurações em vários formatos:
+
+```text
+EHI · HAT · NPV · SSH · OVPN · WIREGUARD · NETMOD
+DARKTUNNEL · ANYTUNNEL · APNALITE · TLSTUNNEL · WYRVPN
+JSON · TXT · BDNET
+```
+
+Com acesso controlado, logs e separação por permissões.
+
+---
+
+## 💎 PERSONALIDADE VISUAL
+
+O DARK BOT não depende de uma única aparência. Os menus e respostas podem assumir vários estilos:
+
+```text
+☠️ DARK TOXIC       — exagerado, agressivo, cheio de símbolos
+🌌 CYBER NEON       — tecnológico, brilhante, futurista
+🩸 BLOOD MOON       — sombrio, vermelho, intenso
+💜 AURA             — elegante, místico, emocional
+⚡ SYSTEM ZERO      — técnico, limpo, poderoso
+👑 SUPREME          — premium, dourado, dominante
+```
+
+Cada tema pode alterar molduras, ícones, separadores, títulos e atmosfera.
+
+---
+
+## 🧬 NÚMEROS DO ECOSSISTEMA
+
+<div align="center">
+
+| 🧠 | 🎵 | 🎮 | 🛡️ | 📡 |
+|---|---|---|---|---|
+| AURA viva | mídia real | RPG e jogos | DarkShield | dashboard |
+| memória | conversão | economia | moderação | eventos live |
+
+### 1.870 cases · 93 comandos de download · 19 modelos de dados · 31 páginas visuais
+
+</div>
+
+---
+
+## 🚀 COMEÇA A EXPERIÊNCIA
 
 ```bash
-npm test          # 64 scripts, >1.400 verificações (tudo tem de passar)
-npm run sim       # simulador de WhatsApp local (sem rede)
-npm run diag      # diagnóstico em produção
+git clone https://github.com/onlynewsao-cmyk/dark-bot.git
+cd dark-bot
+npm ci
+cp .env.example .env
+npm start
 ```
 
-## 🗂️ Estrutura
+Configura o teu ambiente com MongoDB, prefixo, número do Dono e pelo menos um provider de IA. Em produção, usa o Render com:
 
-```
-src/index.js            arranque: Express, Socket.IO, rotas, auto-start
-src/bot/whatsapp.js     motor Baileys (QR/pair, backoff, sessão no Mongo)
-src/bot/commandHandler  o cérebro (fluxo, permissões, Aura, regras)
-src/bot/caseHandler     1.870 cases + cases dinâmicos (!addcase)
-src/aura/               26 módulos da AURA (rulesEngine, stickerBan, brain…)
-src/bot/rpg/            motor RPG + mundo + criação por seleção
-src/routes | views      dashboard (21 páginas) + API (~70 endpoints)
-src/database/models     16 modelos Mongoose
-src/decrypter/          Dark Net Engine (15 formatos)
-scripts/                64 scripts de teste + simulador
+```env
+APP_URL=https://teu-servico.onrender.com
 ```
 
-## 🔒 Notas de segurança
-- Comandos destrutivos (`eval`, `broadcast`, `restart`…) **nunca** executam por conversa — só com prefixo escrito
-- Regras/sticker-ban: só o Dono ensina e cancela; remoção nunca atinge o Dono nem o bot
-- Rate-limits: login, API, regras (cooldown 15s), avisos (6h)
+> O `APP_URL` deve ser a raiz do domínio, sem `/dashboard` ou `/control`.
 
-— feito com 🖤 por Dark Net
+---
+
+## 🧪 QUALIDADE
+
+```bash
+npm run test:syntax
+npm run test:ejs
+npm run test:smoke
+npm run test:e2e
+npm test
+```
+
+O projeto mantém testes para sintaxe, menus, permissões, AURA, RPG, downloads, conversão de mídia e fluxo end-to-end.
+
+---
+
+<div align="center">
+
+# ☠️ DARK BOT
+## 𝙽𝙰̃𝙾 𝙴́ 𝚂𝙾́ 𝙰𝚄𝚃𝙾𝙼𝙰𝙲̧𝙰̃𝙾.
+## 𝙴́ 𝙿𝚁𝙴𝚂𝙴𝙽𝙲̧𝙰. 🕸️
+
+### Feito para dominar o caos com estilo.
+
+</div>
