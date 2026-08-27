@@ -515,9 +515,14 @@ class WhatsAppBot {
           // (não espera a conexão completa — essa só vem após emparelhar)
           await this._esperarWsAberto(30000);
 
-          // v7.18: espera o SERVIDOR aceitar o login (evento qr/pair-device).
-          // Sem isto o companion_hello cai e a notificação não chega.
-          await this._esperarProntoParaPair(30000);
+          // O servidor pode não emitir o evento `qr` no modo pair. Não
+          // podemos ficar bloqueados 30s à espera dele: o pair code é
+          // solicitado pelo próprio requestPairingCode assim que o WS abre.
+          // Usamos o evento quando existir, mas seguimos após 5s para
+          // evitar o estado "disconnected" sem código no Render.
+          await this._esperarProntoParaPair(5000).catch((e) => {
+            this.log('warn', `Servidor não enviou sinal pair-device; vou pedir o código: ${e.message}`);
+          });
 
           // Pede o código imediatamente (como na documentação Baileys)
           const code = await Promise.race([

@@ -19,7 +19,7 @@
 
 const config = require('../config');
 
-const MIN_PADRAO = Number(process.env.AUTO_CALL_MIN || 5);
+const MIN_PADRAO = Number(process.env.AUTO_CALL_MIN || 30);
 const MAX_FALHAS = 3;          // falhas seguidas antes de desistir
 const ATRASO_ARRANQUE_MS = 8000; // deixa a sessão assentar antes da 1ª chamada
 
