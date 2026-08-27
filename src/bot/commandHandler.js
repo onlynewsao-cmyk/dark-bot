@@ -206,7 +206,7 @@ function _resetMsgs(jid) {
 function getSenderInfo(msg) {
   const remoteJid = msg.key.remoteJid;
   const isGroup = remoteJid?.endsWith('@g.us');
-  const senderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
+  const rawSenderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
 
   // v6.53: o WhatsApp moderno identifica contas por LID (`…@lid`) em vez
   // do número. No PV, senderNumber saía como '189234567890123' em vez de
@@ -218,11 +218,16 @@ function getSenderInfo(msg) {
     ? (msg.key.participantAlt || msg.key.participantPn || '')
     : (msg.key.remoteJidAlt || msg.key.remoteJidPn || '');
 
-  const ehLid = /@lid$/i.test(senderJid || '');
-  const base = (ehLid && alt) ? alt : senderJid;
+  const ehLid = /@lid$/i.test(rawSenderJid || '');
+  const altValido = /@(s\.whatsapp\.net|c\.us)$/i.test(String(alt || ''));
+  // Usa o PN também nas ações que precisam falar com o remetente,
+  // como "AURA, chama-me no PV". Mantemos o LID separado para
+  // identificação/menções quando o PN não existe.
+  const senderJid = ehLid && altValido ? String(alt) : rawSenderJid;
+  const base = (ehLid && alt) ? alt : rawSenderJid;
 
   const senderNumber = (base || '').split(':')[0].split('@')[0] || '';
-  const senderLid = ehLid ? String(senderJid).split('@')[0] : '';
+  const senderLid = ehLid ? String(rawSenderJid).split('@')[0] : '';
   const pushName = msg.pushName || 'Usuário';
 
   return { remoteJid, isGroup, senderJid, senderNumber, senderLid, pushName };
@@ -1214,8 +1219,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         }
       }
       // ── PUXAR NO OFF / PV ──
-      else if (/(puxa|chama|manda|fala|vem|quero).*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv|no pv|me pv)/i.test(auraClean) ||
-               /(puxa|chama|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
+      else if (/(puxa|chama|chama-me|manda|fala|vem|quero).*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv|no pv|me pv)/i.test(auraClean) ||
+               /\bme\s+(chama|puxa|manda|fala)\b.*\b(pv|privado|off)\b/i.test(auraClean) ||
+               /(puxa|chama|chama-me|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
         auraAction = async () => {
           const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
           const pvMsg = isOwner
