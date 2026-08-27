@@ -75,6 +75,7 @@ O primeiro `npm test` falhou em duas verificações do `test:menu18` porque a in
 9. **Qualidade/performance de mídia:** `mediaQuality.js` centraliza perfis baixa/média/alta; `systemZeroPlay.ytAudio` e `ytVideo` agora encaminham bitrate/resolução para a API e para os fallbacks locais. O botão `ytd` passa corretamente a qualidade escolhida, evitando que todas as opções caiam em 128k.
 10. **PV com LID:** mensagens privadas entregues como `remoteJid` `@lid` agora usam `remoteJidAlt`/`remoteJidPn` (`@s.whatsapp.net`) para o caminho de resposta quando disponível. Isso evita o caso em que o handler trata a mensagem, mas a entrega volta para um JID LID não aceite pela versão Baileys em produção.
 11. **AURA sem resposta em mensagens seguidas:** o cooldown global de 8 segundos por chat silenciava mensagens legítimas consecutivas, incluindo PV LID, menções e respostas. Foi substituído por deduplicação apenas pelo par `chat + messageId`; mensagens diferentes respondem normalmente e eventos duplicados continuam protegidos. Auditoria AURA: 16/16 OK.
+12. **Modo assistente e admins:** a persona assistente passa pelos mesmos gates de contexto, mas ações naturais de grupo só são executadas com Dono/admin. A detecção administrativa agora compara `id`, `jid`, `lid`, `pn`, `phoneNumber`, `senderJid`, `senderLid` e número normalizado, aceitando `admin`, `superadmin` e `isAdmin`. Testes assistente 33/33, cargos 12/12, cérebro 21/21 e E2E 16/16 OK.
 
 ## Procedimento padrão para futuras tarefas
 

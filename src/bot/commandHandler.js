@@ -177,10 +177,19 @@ async function isGroupAdminForHandler(sock, ctx) {
   if (!ctx.isGroup) return false;
   try {
     const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-    const senderBase = (ctx.senderJid || '').split(':')[0].split('@')[0];
-    return meta.participants?.some(p => {
-      const pBase = (p.id || '').split(':')[0].split('@')[0];
-      return pBase === senderBase && (p.admin === 'admin' || p.admin === 'superadmin');
+    const ids = (v) => {
+      const raw = String(v || '').split(':')[0].trim().toLowerCase();
+      if (!raw) return [];
+      return [raw, raw.split('@')[0]];
+    };
+    const senderIds = new Set([
+      ...ids(ctx.senderJid), ...ids(ctx.senderLid), ...ids(ctx.senderNumber),
+    ]);
+    return !!meta?.participants?.some((p) => {
+      const participantIds = [p?.id, p?.jid, p?.lid, p?.pn, p?.phoneNumber]
+        .flatMap(ids);
+      const admin = p?.admin === 'admin' || p?.admin === 'superadmin' || p?.isAdmin === true;
+      return admin && participantIds.some(id => senderIds.has(id));
     });
   } catch { return false; }
 }

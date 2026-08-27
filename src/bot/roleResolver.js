@@ -139,8 +139,10 @@ async function resolveRole({ ctx = {}, msg = null, sock = null, user = undefined
     try {
       const meta = ctx.groupMeta || (sock ? await sock.groupMetadata(ctx.remoteJid) : null);
       isAdmin = !!meta?.participants?.some(p => {
-        const pNum = norm(p.id || p.jid || '');
-        return pNum && pNum === senderNum && (p.admin === 'admin' || p.admin === 'superadmin');
+        const participantIds = [p?.id, p?.jid, p?.lid, p?.pn, p?.phoneNumber]
+          .map(norm).filter(Boolean);
+        return participantIds.includes(senderNum) &&
+          (p?.admin === 'admin' || p?.admin === 'superadmin' || p?.isAdmin === true);
       });
       if (meta && !ctx.groupMeta) ctx.groupMeta = meta; // cacheia para o resto do fluxo
     } catch { isAdmin = false; }
