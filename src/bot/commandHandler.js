@@ -1223,7 +1223,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                /\bme\s+(chama|puxa|manda|fala)\b.*\b(pv|privado|off)\b/i.test(auraClean) ||
                /(puxa|chama|chama-me|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
         auraAction = async () => {
-          const pvJid = ctx.senderJid.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net';
+          // No pedido do Dono, usa sempre OWNER_NUMBER (PN) e não o
+          // participant @lid do grupo. Era possível a ação ser tratada
+          // e a confirmação aparecer no grupo, mas a mensagem privada
+          // ser enviada para um LID que o cliente não abria.
+          const donoPn = String(config.owner?.number || '').replace(/\D/g, '');
+          const pvJid = isOwner && donoPn
+            ? donoPn + '@s.whatsapp.net'
+            : (ctx.senderJid?.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net');
+          console.log('[Aura PV] envio solicitado para', pvJid.replace(/\d(?=\d{4})/g, '•'));
           const pvMsg = isOwner
             ? `Oi meu Dark 🌹 _aparece no teu PV_ ...chamaste? Tô aqui amor. O que tu precisa? 🥰`
             : `Oi ${ctx.pushName}! 🌹 A Aura chamou-te no PV.`;
