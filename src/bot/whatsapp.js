@@ -25,6 +25,7 @@ const mongoose = require('mongoose');
 const config          = require('../config');
 const messageListener = require('./messageListener');
 const commandHandler  = require('./commandHandler');
+const messageRouter   = require('./messageRouter');
 const antispam        = require('./antiSpam');
 const antiLink        = require('./antiLink');
 const groupEvents     = require('./groupEvents');
@@ -408,53 +409,11 @@ class WhatsAppBot {
         }
       });
 
-      // Mensagens
-      this.sock.ev.on('messages.upsert', async (m) => {
-        try {
-          let msg = m.messages?.[0];
-          if (!msg?.message) return;
-          if (typeof commandHandler.normalizeIncomingMsg === 'function') {
-            msg = commandHandler.normalizeIncomingMsg(msg);
-          }
-          this.msgCount++;
-          // v6.95 — CAIXA DE ENTRADA DIAGNÓSTICA (mascarada, sem conteúdo):
-          // /diag mostra as últimas 20 (quando, que chat, tipo, se foi
-          // tratada). É o que permite ver AO VIVO se as mensagens de
-          // alguém chegam e o que o handler decidiu com elas.
-          try {
-            const _types = Object.keys(msg.message);
-            const _mt = _types.find(t => !/contextInfo|messageContextInfo/.test(t)) || _types[0] || '?';
-            this.recentInbox.push({
-              ts: new Date().toISOString().slice(11, 19),
-              chat: msg.key.remoteJid === 'status@broadcast' ? 'status'
-                : (msg.key.remoteJid || '').endsWith('@g.us') ? 'grupo·' + String(msg.key.remoteJid).slice(-6)
-                : 'pv·' + String(msg.key.remoteJid || '').replace(/\D/g, '').slice(-6),
-              de: String(msg.key.participant || msg.key.remoteJid || '').replace(/\D/g, '').slice(-6),
-              tipo: _mt.slice(0, 22),
-              tratada: null,
-            });
-            if (this.recentInbox.length > 20) this.recentInbox.shift();
-          } catch (_) {}
-          messageListener.onUpsert(this.sock, { ...m, messages: [msg] }, this.io).catch(() => {});
-          if (msg.key.fromMe) return;
-          // DarkShield Anti-Link v2 corre em paralelo com comandos + anti-spam
-          const [handled] = await Promise.all([
-            commandHandler.handle(this.sock, msg).catch((err) => {
-              // Nunca esconder a causa de uma mensagem sem resposta.
-              // O erro continua sem ser enviado ao WhatsApp, mas fica
-              // disponível no log/diagnóstico do processo.
-              console.error('[COMMAND] handler:', err?.stack || err?.message || err);
-              return false;
-            }),
-            antiLink.check(this.sock, msg).catch(() => {}),
-            antispam.check(this.sock, msg).catch(() => {}),
-          ]);
-          if (handled) this.cmdCount++;
-          try {
-            const _last = this.recentInbox[this.recentInbox.length - 1];
-            if (_last) _last.tratada = !!handled;
-          } catch (_) {}
-        } catch (e) { console.error('[MSG]', e.message); }
+      // Mensagens: router único, suporta lotes e todos os tipos de payload.
+      this.sock.ev.on('messages.upsert', (batch) => {
+        messageRouter.process(this, batch).catch((err) => {
+          console.error('[MESSAGE_ROUTER]', err?.stack || err?.message || err);
+        });
       });
 
       // Anti-delete

@@ -191,8 +191,10 @@ async function isGroupAdminForHandler(sock, ctx) {
 const _msgCount = new Map();
 // Proteção global contra rajadas da AURA. O modo PV continua ativo, mas
 // mensagens repetidas/concorrentes não podem gerar spam no WhatsApp.
-const _auraReplyTs = new Map();
-const AURA_REPLY_COOLDOWN_MS = 8000;
+// Deduplica somente o mesmo evento/mensagem. Um cooldown por chat de 8s
+// silenciava mensagens legítimas seguidas, sobretudo no PV.
+const _auraReplySeen = new Map();
+const AURA_SEEN_TTL_MS = 10 * 60 * 1000;
 function _contaMsg(jid) {
   _msgCount.set(jid, (_msgCount.get(jid) || 0) + 1);
 }
@@ -1500,13 +1502,14 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // entrega eventos duplicados ou quando a AURA recebe várias mensagens
   // seguidas. Não interfere com comandos prefixados.
   if (aiActive && _auraMayReply) {
-    const _auraKey = ctx.remoteJid || 'unknown';
+    const _auraKey = `${ctx.remoteJid || 'unknown'}:${msg.key?.id || ''}`;
     const _nowAura = Date.now();
-    const _lastAura = _auraReplyTs.get(_auraKey) || 0;
-    if (_nowAura - _lastAura < AURA_REPLY_COOLDOWN_MS) return false;
-    _auraReplyTs.set(_auraKey, _nowAura);
-    if (_auraReplyTs.size > 2000) {
-      for (const [k, ts] of _auraReplyTs) if (_nowAura - ts > 3600000) _auraReplyTs.delete(k);
+    // O mesmo evento pode ser emitido duas vezes pelo WhatsApp; mensagens
+    // diferentes no mesmo PV/grupo nunca devem bloquear-se entre si.
+    if (_auraReplySeen.has(_auraKey)) return false;
+    _auraReplySeen.set(_auraKey, _nowAura);
+    if (_auraReplySeen.size > 3000) {
+      for (const [k, ts] of _auraReplySeen) if (_nowAura - ts > AURA_SEEN_TTL_MS) _auraReplySeen.delete(k);
     }
     try {
       let cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
