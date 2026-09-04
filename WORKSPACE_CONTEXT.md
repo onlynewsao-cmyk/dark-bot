@@ -267,6 +267,20 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.39 — `!downcase` universal: qualquer comando sai como `case 'x': { … break; }` pronto para `!addcase`
+- Antes só os cases dinâmicos saíam nesse formato; ficheiros mandavam o `registerCase([...], async …)` cru e nativos/pacotes o `fn.toString()`.
+- Novo exportador em `caseHandler.js` (`buildCaseExport`, `exportFileCase`, `exportNativeCase`, `_topLevelDecls`, `_helpersUsedBy`, `_bodyOf`):
+  cabeçalho `// ╔…╗` (origem, ficheiro:linha, aliases, variáveis disponíveis) + `case 'cmd': {` + **helpers do ficheiro original usados pelo corpo inlinados** (fecho transitivo; `require('../x')` → `./x`) + corpo + `break; }`.
+  Nativos: `reply(sock,msg,ctx,txt)`/`react(sock,msg,e)` viram adaptadores `replyN/reactN`; `module.exports.x(` → `require('./nativeCommands').x(`.
+- 5 fontes cobertas: dinâmico, ficheiro de cases, nativo, pacotes (interactions/family/economy/games/cheats) e gestão (addcase/downcase/… do próprio caseHandler, só consulta).
+- Correcções de parsing que afectavam também o `!addcase`:
+  - `extractCaseCode` aceita comentários antes do `case`.
+  - Scanner `_matchClose` ciente de strings/templates/regex/comentários, partilhado por `extractBalancedBlock`, `extractSourceFromFile` e `_topLevelDecls` (um `)` numa string cortava o bloco — cap.js, downloads2.js).
+  - `adaptCaseCode` só remove o **último** `break;` (removia o 1.º de um loop → "Unexpected token 'const'").
+  - `extractSourceFromFile` já não perde o `)` em `async (c) => runPin(c), true)`.
+  - Wrapper RAW_CODE avalia o código dentro de um bloco `{ }` → o case pode redeclarar `quoted`/`config`/`url`… sem "already declared".
+- Verificação: round-trip downcase→extract→validate em **383/383 cases de ficheiro** e **173/173 nativos** (excepto os 2 `['rank'+cmd]` gerados em loop, que não têm nome estático); e2e real downcase→addcase→run para ping/ban/mediadown/beijar/play. `npm run test:cases` 19/19.
+
 ## v7.38 — addcase/downcase/listcases + mup/mdown verificados e corrigidos
 - Harness `scripts/test-cases-media.js` (`npm run test:cases`, 19 checks) corre os comandos reais com sock/DB/Cloudinary mockados.
 - **Bugs corrigidos em `caseHandler.js`**:

@@ -27,7 +27,7 @@ async function run(full, quoted){ const rest=full.replace(/^!/,''); const args=r
   r=await run('!mod a b'); C('!mod a b executa', r.out.some(t=>/mod ok a b/.test(t)), JSON.stringify(r.out));
   r=await run('!listcases'); C('listcases mostra 3', /ola/.test(r.out[0])&&/teste2/.test(r.out[0])&&/mod/.test(r.out[0]), JSON.stringify(r.out));
   r=await run('!downcase ola'); C('downcase ola → documento', r.out.some(t=>/Case Dinâmico/.test(t)), JSON.stringify(r.out));
-  r=await run('!downcase ping'); C('downcase ping (ficheiro/nativo)', r.out.some(t=>/Case File|Nativo/.test(t)), JSON.stringify(r.out));
+  r=await run('!downcase ping'); C('downcase ping (ficheiro/nativo)', r.out.some(t=>/Case \(ficheiro\)|Case \(nativo\)|Pronto para/.test(t)), JSON.stringify(r.out));
   r=await run('!testcase ola'); C('testcase ola válido', r.out.some(t=>/Válido: SIM/.test(t)), JSON.stringify(r.out));
   r=await run('!runcase ola'); C('runcase ola', r.out.some(t=>/Olá do case/.test(t)), JSON.stringify(r.out));
   r=await run('!delcase ola'); C('delcase ola', r.out.some(t=>/removido/.test(t)), JSON.stringify(r.out));

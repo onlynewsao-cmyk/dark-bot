@@ -337,7 +337,9 @@ function adaptCaseCode(code) {
   // ═══ Remove break; no final ═══
   // NOTA: NÃO remover '}' solto — extractCaseCode já trata disso.
   // Remover aqui quebrava o código quando havia if/else/try/catch.
-  c = c.replace(/\bbreak\s*;?\s*$/m, '');
+  // v7.39: só o ÚLTIMO break (fim do código). Com /m apanhava o primeiro
+  // `break;` de um loop (ex: `if (hp <= 0) break;`) e partia o case.
+  c = c.replace(/\bbreak\s*;?\s*(?:\/\/[^\n]*)?\s*$/, '');
 
   // ═══ Adiciona axios se usado mas não importado ═══
   // Usa 'var' para permitir redeclaração caso o wrapper já o declare
@@ -454,7 +456,10 @@ function compileCase(code, cmdName) {
           var conn = sock;
           var lofi = sock;
           var client = sock;
+          // v7.39: bloco interno - o codigo colado pode redeclarar quoted/config/text (shadow)
+          {
           ${adapted}
+          }
         })
       `;
       return eval(wrapped);
@@ -497,17 +502,19 @@ function extractSourceFromFile(filePath, fileName) {
         if (cmdsRaw.startsWith("[")) cmds = JSON.parse(cmdsRaw.replace(/'/g, "\""));
         else cmds = [cmdsRaw.replace(/["']/g, "")];
       } catch { cmds = [cmdsRaw]; }
-      let depth = 0, started = false, endPos = startPos;
-      for (let j = startPos; j < Math.min(content.length, startPos + 50000); j++) {
-        if (content[j] === "(") { depth++; started = true; }
-        if (content[j] === ")") { depth--; }
-        if (started && depth === 0) { endPos = j + 1; break; }
-      }
+      // v7.39: scanner ciente de strings/comentários — um ')' dentro de
+      // uma string cortava o bloco a meio (ex: cap.js).
+      const openIdx = content.indexOf('(', startPos);
+      const closeIdx = _matchClose(content, openIdx, '(', ')');
+      const endPos = closeIdx > 0 ? closeIdx + 1 : Math.min(content.length, startPos + 50000);
       let blockCode = content.slice(startPos, endPos);
+      // v7.39: tira `registerCase(<cmds>,` e o `)` final UMA vez; depois o
+      // 3º argumento opcional (true/false/{…}). Antes, `runPin(c), true)`
+      // perdia o `)` de runPin.
       let handlerCode = blockCode
         .replace(/^registerCase\s*\(\s*(?:\[[^\]]+\]|["'`][^"'`]+["'`])\s*,\s*/, "")
-        .replace(/\s*,\s*(?:true|false|\{[^}]*\})\s*\)\s*;?\s*$/, "")
         .replace(/\)\s*;?\s*$/, "")
+        .replace(/\s*,\s*(?:true|false|\{[^{}]*\})\s*$/, "")
         .trim();
       const beforeMatch = content.slice(0, startPos);
       const lineNum = (beforeMatch.match(/\n/g) || []).length + 1;
@@ -768,53 +775,18 @@ function stripCodeFences(s) {
  */
 function extractBalancedBlock(src) {
   if (!src || src[0] !== '{') return null;
-  let mode = 'code';
-  const braces = [];
-  let i = 0;
-  while (i < src.length) {
-    const ch = src[i];
-    const nx = src[i + 1];
-    if (mode === 'line') { if (ch === '\n') mode = 'code'; i++; continue; }
-    if (mode === 'block') {
-      if (ch === '*' && nx === '/') { mode = 'code'; i += 2; continue; }
-      i++; continue;
-    }
-    if (mode === 's') {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === "'") mode = 'code';
-      i++; continue;
-    }
-    if (mode === 'd') {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === '"') mode = 'code';
-      i++; continue;
-    }
-    if (mode === 't') {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === '`') { mode = 'code'; i++; continue; }
-      if (ch === '$' && nx === '{') { braces.push('interp'); mode = 'code'; i += 2; continue; }
-      i++; continue;
-    }
-    if (ch === '/' && nx === '/') { mode = 'line'; i += 2; continue; }
-    if (ch === '/' && nx === '*') { mode = 'block'; i += 2; continue; }
-    if (ch === "'") { mode = 's'; i++; continue; }
-    if (ch === '"') { mode = 'd'; i++; continue; }
-    if (ch === '`') { mode = 't'; i++; continue; }
-    if (ch === '{') { braces.push('block'); i++; continue; }
-    if (ch === '}') {
-      const kind = braces.pop();
-      if (kind === 'interp') mode = 't';
-      if (braces.length === 0) return src.slice(1, i);
-      i++; continue;
-    }
-    i++;
-  }
-  return null;
+  const end = _matchClose(src, 0, '{', '}');   // v7.39: scanner partilhado (strings, templates, regex, comentários)
+  if (end < 0) return null;
+  return src.slice(1, end);
 }
 
 function extractCaseCode(rawText) {
   let code = stripCodeFences(decodeHtmlEntities(String(rawText || '').trim()));
   code = code.replace(/^---\s*/m, '').trim();
+  // v7.39: comentários/cabeçalho ANTES do `case` (o !downcase exporta com
+  // cabeçalho) não podem impedir a detecção do formato switch/case.
+  const semCab = code.replace(/^(?:\s*(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)+/, '');
+  if (/^case\s+['"`]/i.test(semCab)) code = semCab;
 
   const head = code.match(/^case\s+['"`][^'"`]+['"`]\s*:/i);
   if (head) {
@@ -849,6 +821,223 @@ function wrapSockForCases(sock, msg) {
       return typeof val === 'function' ? val.bind(target) : val;
     },
   });
+}
+
+
+// ─────────────────────────────────────────────────────
+// v7.39 — EXPORTADOR UNIVERSAL DE CÓDIGO (!downcase)
+// Todas as fontes (dinâmico, ficheiro, nativo, pacote) saem no MESMO
+// formato dos cases dinâmicos:   case 'x': { …corpo… break; }
+// e o corpo vem PRONTO a colar com !addcase: helpers do ficheiro que o
+// corpo usa são inlinados; funções nativas ganham um adaptador para as
+// variáveis do wrapper (sock, msg, ctx, args, text, reply, react…).
+// ─────────────────────────────────────────────────────
+
+/** v7.39 — percorre código ignorando strings, templates, regex simples e comentários; devolve índice de fecho do bloco que abre em `openIdx`. */
+function _matchClose(content, openIdx, open, close) {
+  let depth = 0, i = openIdx;
+  const n = content.length;
+  const prevSig = (k) => { let j = k - 1; while (j >= 0 && /\s/.test(content[j])) j--; return j >= 0 ? content[j] : '('; };
+  while (i < n) {
+    const ch = content[i];
+    if (ch === '/' && content[i + 1] === '/') { i = content.indexOf('\n', i); if (i < 0) return -1; continue; }
+    if (ch === '/' && content[i + 1] === '*') { i = content.indexOf('*/', i + 2); if (i < 0) return -1; i += 2; continue; }
+    if (ch === "'" || ch === '"') { const q = ch; i++; while (i < n && content[i] !== q) { if (content[i] === '\\') i++; if (content[i] === '\n') break; i++; } i++; continue; }
+    if (ch === '`') { i++; while (i < n && content[i] !== '`') { if (content[i] === '\\') i++; else if (content[i] === '$' && content[i + 1] === '{') { const e = _matchClose(content, i + 1, '{', '}'); if (e < 0) return -1; i = e; } i++; } i++; continue; }
+    if (ch === '/' && /[=(,:;!&|?{}\[\n+\-*%<>~^]/.test(prevSig(i)) || (ch === '/' && /\b(return|typeof|case|in|of|new|delete|void|throw)\s*$/.test(content.slice(Math.max(0, i - 8), i)))) {
+      // literal regex
+      i++;
+      while (i < n && content[i] !== '/' && content[i] !== '\n') {
+        if (content[i] === '\\') { i += 2; continue; }
+        if (content[i] === '[') { i++; while (i < n && content[i] !== ']' && content[i] !== '\n') { if (content[i] === '\\') i++; i++; } }
+        i++;
+      }
+      i++; continue;
+    }
+    if (ch === open) depth++;
+    else if (ch === close) { depth--; if (depth === 0) return i; }
+    i++;
+  }
+  return -1;
+}
+
+const _fileHelperCache = new Map(); // file → [{name, code, isConst}]
+
+/**
+ * Extrai declarações de topo (function / const / let) do ficheiro de cases.
+ * v7.39: estrutural — só declarações à profundidade 0 (topo do ficheiro)
+ * ou 1 (dentro de `module.exports = function (registerCase) { … }`), e
+ * NUNCA dentro de um registerCase(...) ou de outra função. Usa o scanner
+ * ciente de strings/regex/comentários, por isso `)` em strings não parte.
+ */
+function _topLevelDecls(content) {
+  const out = [];
+  const n = content.length;
+  let depth = 0, i = 0;
+  const skipStr = (q) => { i++; while (i < n && content[i] !== q) { if (content[i] === '\\') i++; if (content[i] === '\n' && q !== '`') break; if (q === '`' && content[i] === '$' && content[i + 1] === '{') { const e = _matchClose(content, i + 1, '{', '}'); if (e < 0) { i = n; return; } i = e; } i++; } i++; };
+  const prevSig = (k) => { let j = k - 1; while (j >= 0 && /\s/.test(content[j])) j--; return content[j] || ''; };
+  while (i < n) {
+    const ch = content[i], nx = content[i + 1];
+    if (ch === '/' && nx === '/') { i = content.indexOf('\n', i); if (i < 0) break; continue; }
+    if (ch === '/' && nx === '*') { i = content.indexOf('*/', i + 2); if (i < 0) break; i += 2; continue; }
+    if (ch === "'" || ch === '"' || ch === '`') { skipStr(ch); continue; }
+    if ((ch === '/' && /[=(,:;!&|?{}\[\n+\-*%<>~^]/.test(prevSig(i))) || (ch === '/' && /\b(return|typeof|case|in|of|new|delete|void|throw)\s*$/.test(content.slice(Math.max(0, i - 8), i)))) { // regex literal
+      i++; while (i < n && content[i] !== '/' && content[i] !== '\n') { if (content[i] === '\\') i++; else if (content[i] === '[') { while (i < n && content[i] !== ']' && content[i] !== '\n') { if (content[i] === '\\') i++; i++; } } i++; } i++; continue;
+    }
+    if (ch === '(' || ch === '[') { const e = _matchClose(content, i, ch, ch === '(' ? ')' : ']'); i = e > 0 ? e + 1 : i + 1; continue; }
+    if (ch === '{') {
+      if (depth >= 1) { const e = _matchClose(content, i, '{', '}'); i = e > 0 ? e + 1 : i + 1; continue; }
+      depth++; i++; continue;
+    }
+    if (ch === '}') { depth--; i++; continue; }
+    // início de linha?
+    const atLineStart = i === 0 || content[i - 1] === '\n' || /^[ \t]*$/.test(content.slice(content.lastIndexOf('\n', i - 1) + 1, i));
+    if (atLineStart && depth <= 1) {
+      const rest = content.slice(i, i + 200);
+      let m;
+      if ((m = rest.match(/^(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(/))) {
+        const parenOpen = i + m[0].length - 1;
+        const parenClose = _matchClose(content, parenOpen, '(', ')');
+        const bodyOpen = parenClose > 0 ? content.indexOf('{', parenClose) : -1;
+        const bodyClose = bodyOpen > 0 ? _matchClose(content, bodyOpen, '{', '}') : -1;
+        if (bodyClose > 0) { out.push({ name: m[1], code: _dedent(content.slice(i, bodyClose + 1)), kind: 'function' }); i = bodyClose + 1; continue; }
+      } else if ((m = rest.match(/^(const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/))) {
+        // vai até ao ';' ao mesmo nível (ou fim de linha se não houver)
+        let k = i + m[0].length, d = 0, end = -1;
+        while (k < n) {
+          const c = content[k], c2 = content[k + 1];
+          if (c === '/' && c2 === '/') { k = content.indexOf('\n', k); if (k < 0) k = n; continue; }
+          if (c === '/' && c2 === '*') { k = content.indexOf('*/', k + 2); if (k < 0) k = n; else k += 2; continue; }
+          if (c === "'" || c === '"' || c === '`') { const save = i; i = k; skipStr(c); k = i; i = save; continue; }
+          if ('({['.includes(c)) d++;
+          else if (')}]'.includes(c)) d--;
+          else if (c === ';' && d === 0) { end = k + 1; break; }
+          else if (c === '\n' && d === 0) { end = k; break; }
+          k++;
+        }
+        if (end > 0) {
+          let code = content.slice(i, end).trim();
+          const kind = /require\(['"]\.\.?\/\.\.?\/database|require\(['"](?:\.\.\/)+config['"]\)/.test(code) ? 'require' : 'const';
+          code = code.replace(/require\(\s*(['"])\.\.\/\.\.\//g, 'require($1../').replace(/require\(\s*(['"])\.\.\/(?!\.\.)/g, 'require($1./');
+          out.push({ name: m[2], code, kind }); i = end; continue;
+        }
+      }
+    }
+    i++;
+  }
+  return out;
+}
+
+/** Helpers do ficheiro que este corpo usa (fecho transitivo). */
+function _helpersUsedBy(body, decls) {
+  const byName = new Map(decls.map(d => [d.name, d]));
+  const need = new Set(); const queue = [body];
+  while (queue.length) {
+    const code = queue.pop();
+    for (const d of decls) {
+      if (need.has(d.name)) continue;
+      if (new RegExp('\\b' + d.name.replace(/\$/g, '\\$') + '\\b').test(code)) { need.add(d.name); queue.push(d.code); }
+    }
+  }
+  // mantém a ordem original do ficheiro; nomes que JÁ existem no wrapper
+  // do addcase (config, quoted, reply, react, axios…) não são redeclarados.
+  const WRAPPER = new Set(['m', 'sock', 'msg', 'ctx', 'text', 'args', 'prefix', 'command', 'isOwner', 'config', 'reply', 'react', 'q', 'from', 'info', 'quoted', 'axios', 'systemZR', 'conn', 'lofi', 'client', 'module', 'exports']);
+  return decls.filter(d => need.has(d.name) && !(WRAPPER.has(d.name) && d.kind !== 'function'));
+}
+
+/** Corpo da arrow/função: tira `async ({…}) => {` e o `}` final. */
+function _bodyOf(handlerCode) {
+  const s = String(handlerCode || '').trim();
+  // params entre parênteses (pode ter destructuring com chavetas)
+  const pm = s.match(/^(?:async\s*)?(?:function\s*\w*\s*)?\(/);
+  if (!pm) return { params: '', body: s };
+  let depth = 0, i = pm[0].length - 1, end = -1;
+  for (; i < s.length; i++) { if (s[i] === '(') depth++; else if (s[i] === ')') { depth--; if (!depth) { end = i; break; } } }
+  if (end < 0) return { params: '', body: s };
+  const params = s.slice(pm[0].length, end).trim();
+  let rest = s.slice(end + 1).replace(/^\s*=>\s*/, '').trim();
+  if (rest.startsWith('{')) {
+    const inner = extractBalancedBlock(rest);
+    if (inner != null) return { params, body: inner.replace(/^\n/, '').replace(/\n\s*$/, ''), param0: params.split(/[,{\s]/)[0] };
+  }
+  // arrow de expressão: `(caseCtx) => runPlaySearch(caseCtx, …)`
+  const p0 = params.replace(/[{}]/g, '').split(',')[0].trim();
+  const body = (p0 && !/[{:=]/.test(params) ? `const ${p0} = { m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, quoted };\n` : '') + 'return ' + rest.replace(/;\s*$/, '') + ';';
+  return { params, body };
+}
+
+/** Dedent uniforme. */
+function _dedent(code) {
+  const lines = String(code).split('\n');
+  const ind = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^ */)[0].length));
+  return lines.map(l => l.slice(Number.isFinite(ind) ? ind : 0)).join('\n');
+}
+
+/**
+ * Monta o ficheiro final no formato case.
+ * @param {string} cmd
+ * @param {string} body   corpo pronto (usa sock,msg,ctx,args,text,reply,react…)
+ * @param {object} info   { origem, ficheiro, linha, aliases, helpers:[{name,code}], nota, params }
+ */
+function buildCaseExport(cmd, body, info = {}) {
+  const aliases = (info.aliases || []).filter(a => a !== cmd);
+  const W = 60;
+  const row = (t) => '// ║ ' + String(t).slice(0, W - 2).padEnd(W - 2) + ' ║';
+  const cab = [
+    '// ╔' + '═'.repeat(W) + '╗',
+    row(`DARK BOT — case '${cmd}'`),
+    row(`origem: ${info.origem || '?'}${info.ficheiro ? ' · ' + info.ficheiro + (info.linha ? ':' + info.linha : '') : ''}`),
+    aliases.length ? row(`aliases: ${aliases.join(', ')}`) : null,
+    row(`colar: envia este ficheiro e responde com  !addcase ${cmd}`),
+    row('variáveis: sock, msg, ctx, args, text, prefix, reply, react,'),
+    row('           quoted, isOwner, config, m, axios'),
+    '// ╚' + '═'.repeat(W) + '╝',
+  ].filter(Boolean).join('\n');
+  const helpers = (info.helpers || []).length
+    ? '\n  // ── helpers do ficheiro original (inlinados) ──\n' + info.helpers.map(h => _dedent(h.code).split('\n').map(l => (l.trim() ? '  ' + l : l)).join('\n')).join('\n\n') + '\n'
+    : '';
+  const nota = info.nota ? '\n  // ' + info.nota.replace(/\n/g, '\n  // ') + '\n' : '';
+  const corpo = _dedent(body).split('\n').map(l => (l.trim() ? '  ' + l : l)).join('\n');
+  return `${cab}\ncase '${cmd}': {${nota}${helpers}\n${corpo}\n  break;\n}\n`;
+}
+
+/** Exporta um case vindo de src/bot/cases/*.js */
+function exportFileCase(cmd, fileSrc) {
+  const { params, body } = _bodyOf(fileSrc.code);
+  let decls = _fileHelperCache.get(fileSrc.file);
+  if (!decls) {
+    try { decls = _topLevelDecls(fs.readFileSync(path.join(__dirname, 'cases', fileSrc.file), 'utf8')); } catch { decls = []; }
+    _fileHelperCache.set(fileSrc.file, decls);
+  }
+  const fixPath = (c) => c.replace(/require\(\s*(['"])\.\.\/\.\.\//g, 'require($1../').replace(/require\(\s*(['"])\.\.\/(?!\.\.)/g, 'require($1./');
+  const helpers = _helpersUsedBy(body, decls).map(h => ({ ...h, code: fixPath(h.code) }));
+  const nota = params ? `parâmetros originais do handler: ${params} — todos já existem no wrapper do !addcase.` : '';
+  return buildCaseExport(cmd, fixPath(body), { origem: 'ficheiro de cases', ficheiro: fileSrc.file, linha: fileSrc.line, aliases: fileSrc.aliases, helpers, nota });
+}
+
+/** Exporta uma função nativa (nativeCommands / packages). Assinatura: ({ sock, msg, ctx, args, isOwner, config }) */
+function exportNativeCase(cmd, fn, origem, extraHelpers = []) {
+  const src = fn.toString();
+  // método de objecto: `async ping({ … }) { … }`  ou  arrow / function
+  const m = src.match(/^(?:async\s+)?(?:function\s*)?[\w$]*\s*\(([^)]*)\)\s*(?:=>)?\s*\{([\s\S]*)\}\s*$/);
+  const params = m ? m[1].trim() : '';
+  let body = m ? m[2] : src;
+  // nativos usam reply(sock, msg, ctx, texto) e react(sock, msg, emoji) — adapta para o wrapper
+  const usaReply4 = /\breply\(\s*sock\s*,\s*msg\s*,\s*ctx\s*,/.test(body);
+  const usaReact3 = /\breact\(\s*sock\s*,\s*msg\s*,/.test(body);
+  const helpers = [];
+  if (usaReply4) helpers.push({ name: 'reply', code: 'const replyN = async (_s, _m, _c, texto) => reply(texto); // nativo: reply(sock,msg,ctx,txt)' });
+  if (usaReact3) helpers.push({ name: 'react', code: 'const reactN = (_s, _m, emoji) => react(emoji);          // nativo: react(sock,msg,emoji)' });
+  if (usaReply4) body = body.replace(/\breply\(\s*sock\s*,\s*msg\s*,\s*ctx\s*,/g, 'replyN(sock, msg, ctx,');
+  if (usaReact3) body = body.replace(/\breact\(\s*sock\s*,\s*msg\s*,/g, 'reactN(sock, msg,');
+  // `module.exports.outro(a)` → só faz sentido no ficheiro nativo
+  const nota = [
+    params ? `assinatura original: (${params})` : '',
+    /module\.exports\./.test(body) ? 'ATENÇÃO: chama outros comandos nativos via module.exports.* — cola esses também ou substitui.' : '',
+    /\bcfg\b/.test(body) && !/\bcfg\s*=/.test(body) ? 'cfg = config (alias)' : '',
+  ].filter(Boolean).join('\n');
+  const pre = /\bcfg\b/.test(body) && !/const\s+\{[^}]*cfg|cfg\s*=/.test(body) ? 'const cfg = config;\n' : '';
+  return buildCaseExport(cmd, pre + body, { origem, helpers: [...extraHelpers, ...helpers], nota });
 }
 
 // ─────────────────────────────────────────────────────
@@ -1027,7 +1216,7 @@ function registerManagementCases() {
     const dynSrc = await getDynamicCaseSource(cmd);
     if (dynSrc) {
       const meta = CASES_META.get(cmd) || {};
-      const fullCode = "case '" + cmd + "': {\n" + dynSrc + "\nbreak;\n}";
+      const fullCode = buildCaseExport(cmd, dynSrc, { origem: 'case dinâmico (addcase)', nota: 'formato guardado: ' + (meta.format || detectFormat(dynSrc)) });
       await sock.sendMessage(ctx.remoteJid, {
         document: Buffer.from(fullCode, 'utf8'),
         fileName: cmd + '_dynamic.js',
@@ -1043,12 +1232,13 @@ function registerManagementCases() {
     if (fileSrc) {
       const aliases = fileSrc.aliases.filter(a => a !== cmd);
       const aliasLine = aliases.length ? '\n📎 Aliases: ' + aliases.map(a => prefix + a).join(', ') : '';
-      const fileCode = fileSrc.fullBlock || fileSrc.code;
+      // v7.39: sai como case completo (helpers do ficheiro inlinados), pronto para !addcase
+      const fileCode = exportFileCase(cmd, fileSrc);
       await sock.sendMessage(ctx.remoteJid, {
         document: Buffer.from(fileCode, 'utf8'),
-        fileName: cmd + '_' + fileSrc.file,
+        fileName: cmd + '_case.js',
         mimetype: 'application/javascript',
-        caption: '📄 *' + prefix + cmd + '* — Case File\n📁 Ficheiro: ' + fileSrc.file + ':' + fileSrc.line + '\n📊 Linhas: ' + fileCode.split('\n').length + aliasLine,
+        caption: '📄 *' + prefix + cmd + '* — Case (ficheiro)\n📁 Origem: ' + fileSrc.file + ':' + fileSrc.line + '\n📊 Linhas: ' + fileCode.split('\n').length + aliasLine + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*',
       }, { quoted: msg });
       await m.react('✅');
       return;
@@ -1058,12 +1248,12 @@ function registerManagementCases() {
     try {
       const nc = require('./nativeCommands');
       if (nc[cmd] && typeof nc[cmd] === 'function') {
-        const fnStr = nc[cmd].toString();
+        const fnStr = exportNativeCase(cmd, nc[cmd], 'nativo (nativeCommands.js)');
         await sock.sendMessage(ctx.remoteJid, {
           document: Buffer.from(fnStr, 'utf8'),
-          fileName: 'native_' + cmd + '.js',
+          fileName: cmd + '_case.js',
           mimetype: 'application/javascript',
-          caption: '📄 *' + prefix + cmd + '* — Comando Nativo\n📊 Tamanho: ' + fnStr.length + ' chars\n⚠️ Código interno — edita com cuidado.',
+          caption: '📄 *' + prefix + cmd + '* — Case (nativo)\n📊 Linhas: ' + fnStr.split('\n').length + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*\n⚠️ Pode depender de módulos internos (ver notas no topo).',
         }, { quoted: msg });
         await m.react('✅');
         return;
@@ -1076,18 +1266,29 @@ function registerManagementCases() {
       try {
         const pkg = require(pkgPath);
         if (pkg[cmd] && typeof pkg[cmd] === 'function') {
-          const fnStr = pkg[cmd].toString();
+          const fnStr = exportNativeCase(cmd, pkg[cmd], 'pacote ' + pkgName);
           await sock.sendMessage(ctx.remoteJid, {
             document: Buffer.from(fnStr, 'utf8'),
-            fileName: pkgName + '_' + cmd + '.js',
+            fileName: cmd + '_case.js',
             mimetype: 'application/javascript',
-            caption: '📄 *' + prefix + cmd + '* — Pacote: ' + pkgName + '\n📊 Tamanho: ' + fnStr.length + ' chars',
+            caption: '📄 *' + prefix + cmd + '* — Case (pacote ' + pkgName + ')\n📊 Linhas: ' + fnStr.split('\n').length + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*',
           }, { quoted: msg });
           await m.react('✅');
           return;
         }
       } catch {}
     }
+
+    // ═══ 4b. v7.39: cases registados DENTRO do caseHandler (addcase, downcase, listcases…) ═══
+    try {
+      const self = extractSourceFromFile(__filename, 'caseHandler.js').find(r => r.commands.includes(cmd));
+      if (self) {
+        const code = buildCaseExport(cmd, _bodyOf(self.code).body, { origem: 'gestão (caseHandler.js)', ficheiro: 'caseHandler.js', linha: self.line, aliases: self.commands, nota: 'usa funções internas do caseHandler (addDynamicCase, validateCase…) — só para consulta.' });
+        await sock.sendMessage(ctx.remoteJid, { document: Buffer.from(code, 'utf8'), fileName: cmd + '_case.js', mimetype: 'application/javascript', caption: '📄 *' + prefix + cmd + '* — Case (gestão)\n📁 caseHandler.js:' + self.line + '\n📊 Linhas: ' + code.split('\n').length }, { quoted: msg });
+        await m.react('✅');
+        return;
+      }
+    } catch {}
 
     // ═══ 5. NÃO ENCONTRADO ═══
     if (CASES.has(cmd)) {
@@ -1261,6 +1462,7 @@ module.exports = {
   FILE_SOURCES,
   COMMAND_REGISTRY,
   extractSourceFromFile,
+  buildCaseExport, exportFileCase, exportNativeCase,
   init,
   FORMAT,
 };
