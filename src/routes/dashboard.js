@@ -78,6 +78,12 @@ router.get('/schedule', requireOwner, async (req, res) => {
   res.render('dashboard/schedule', { title: 'Agendamentos', schedules, medias });
 });
 
+// v7.34: C∆P — capturas de redes sociais (sessões IG + alvos)
+router.get('/cap', requireOwner, async (req, res) => {
+  const cap = require('../cap/capEngine'); cap.load();
+  res.render('dashboard/cap', { title: 'C∆P Capture', sessoes: cap.listSessoes(), alvos: cap.listTargets(), log: cap.state.log.slice(0, 30) });
+});
+
 router.get('/settings', requireOwner, async (req, res) => {
   const all = await BotConfig.find().catch(() => []);
   const settings = {};

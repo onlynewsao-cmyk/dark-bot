@@ -83,6 +83,8 @@ module.exports = function registerCap(registerCase) {
       const mm = sid.match(/sessionid=([^;\s]+)/i); if (mm) sid = mm[1];
       if (!sid) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
         `Uso: ${p}cap login <sessionid>`,
+        `Ou:  ${p}cap login <utilizador> <senha>  (só no PV; a senha não é guardada)`,
+        `Ou pelo painel web: /dashboard/cap`,
         '',
         '*Como obter o sessionid:*',
         '1️⃣ Cria uma conta Instagram secundária (não a principal).',
@@ -94,6 +96,14 @@ module.exports = function registerCap(registerCase) {
         '> Fica guardado só na base de dados do bot; a mensagem é apagada.',
       ]);
       try { await sock.sendMessage(ctx.remoteJid, { delete: msg.key }); } catch {}
+      // "cap login utilizador senha" → login real; senão trata como sessionid
+      if (args.length >= 3 && !/%3A|:/.test(args[1]) && args[1].length < 31) {
+        if (ctx.isGroup) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', ['❌ Login com senha só no PV do bot (a mensagem foi apagada).']);
+        await sock.sendMessage(ctx.remoteJid, { text: `🔐 A entrar como @${args[1]}…` }).catch(() => {});
+        const lg = await require('../../cap/igLogin').loginComSenha(args[1], args.slice(2).join(' '));
+        if (!lg.ok) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`❌ ${lg.erro}`, '', `> Alternativa segura: ${p}cap login <sessionid> (guia: ${p}cap login)`]);
+        sid = lg.sid;
+      }
       await sock.sendMessage(ctx.remoteJid, { text: '🔐 A validar sessão…' }).catch(() => {});
       const r = await cap.addSessao(sid);
       if (!r.ok) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`❌ ${r.erro}`, '> Copia o cookie de novo (sem espaços) e tenta outra vez.']);

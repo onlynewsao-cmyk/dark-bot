@@ -953,5 +953,46 @@ module.exports = function (io) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+  // ═══ v7.34: C∆P API (dono) ═══
+  const capE = () => { const c = require('../cap/capEngine'); c.load(); return c; };
+  router.get('/cap/state', requireApiOwner, (req, res) => { const c = capE(); res.json({ sessoes: c.listSessoes(), alvos: c.listTargets(), log: c.state.log.slice(0, 50) }); });
+  router.post('/cap/login', requireApiOwner, async (req, res) => {
+    const c = capE();
+    try {
+      let sid = String(req.body.sessionid || '').trim();
+      const mm = sid.match(/sessionid=([^;\s]+)/i); if (mm) sid = mm[1];
+      if (!sid && req.body.username && req.body.password) {
+        const lg = await require('../cap/igLogin').loginComSenha(req.body.username, req.body.password);
+        if (!lg.ok) return res.status(400).json({ error: lg.erro, checkpoint: !!lg.checkpoint, twoFactor: !!lg.twoFactor });
+        sid = lg.sid;
+      }
+      if (!sid) return res.status(400).json({ error: 'Envia sessionid ou username+password' });
+      const r = await c.addSessao(sid);
+      if (!r.ok) return res.status(400).json({ error: r.erro });
+      res.json({ ok: true, user: r.user, validado: r.validado, aviso: r.aviso, sessoes: c.listSessoes() });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+  router.post('/cap/logout', requireApiOwner, (req, res) => { const c = capE(); res.json({ removidas: c.delSessao(req.body.user || 'all'), sessoes: c.listSessoes() }); });
+  router.post('/cap/testar', requireApiOwner, async (req, res) => {
+    const c = capE(); const out = [];
+    for (const x of c.sessionsAtivas()) { const v = await c.validarSessao(x.sid); out.push({ user: x.user || v.user, ok: v.ok, erro: v.erro || '' }); if (!v.ok && !v.temporario) c.marcarSessaoInvalida(x.sid, v.erro); }
+    res.json({ resultados: out });
+  });
+  router.post('/cap/alvo', requireApiOwner, async (req, res) => {
+    const c = capE();
+    try {
+      const { alvo, destino, acao } = req.body;
+      if (acao === 'del') return res.json({ ok: c.delTarget(alvo), alvos: c.listTargets() });
+      const r = c.addTarget(alvo, { destino: destino || undefined, addedBy: 'dashboard' });
+      res.json({ ok: true, novo: r.novo, alvos: c.listTargets() });
+    } catch (e) { res.status(400).json({ error: e.message }); }
+  });
+  router.post('/cap/check', requireApiOwner, async (req, res) => {
+    const c = capE(); const bot = getBot(io); const sock = bot.getSock?.() || bot.sock || null;
+    const t = c.getTarget(req.body.alvo); if (!t) return res.status(404).json({ error: 'alvo não encontrado' });
+    const r = await c.verificarAlvo(sock, t, { forcar: false }).catch(e => ({ erro: e.message }));
+    res.json(r);
+  });
+
   return router;
 };
