@@ -156,7 +156,8 @@ async function igProfile(username) {
   const edges = d.edge_owner_to_timeline_media?.edges || [];
   return {
     id: d.id, username: u, nome: d.full_name, bio: d.biography || '', privado: !!d.is_private,
-    seguidores: d.edge_followed_by?.count || 0, posts: d.edge_owner_to_timeline_media?.count || 0,
+    seguidores: d.edge_followed_by?.count || 0, seguindo: d.edge_follow?.count || 0, posts: d.edge_owner_to_timeline_media?.count || 0,
+    highlights: d.highlight_reel_count || 0, temReels: !!d.has_clips,
     foto: d.profile_pic_url_hd || d.profile_pic_url || '',
     items: edges.map(e => nodeToItem(e.node, u)).sort((a, b) => a.ts - b.ts),
     hasMore: !!d.edge_owner_to_timeline_media?.page_info?.has_next_page,
@@ -196,8 +197,30 @@ async function igStories(userId, username) {
   return { items, needsLogin: false };
 }
 
+async function igHighlights(userId, username) {
+  if (!state.session?.ig) return { items: [], needsLogin: true };
+  const r = await httpGet(`https://www.instagram.com/api/v1/highlights/${userId}/highlights_tray/`, { headers: igHeaders() });
+  if (r.status !== 200) return { items: [], needsLogin: r.status === 401 || r.status === 403 || r.status === 302, error: `HTTP ${r.status}` };
+  let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { items: [], error: 'JSON' }; }
+  const trays = j.tray || [];
+  const items = [];
+  for (const tr of trays.slice(0, 20)) {
+    const rid = String(tr.id || '').replace('highlight:', '');
+    const rr = await httpGet(`https://www.instagram.com/api/v1/feed/reels_media/?reel_ids=highlight%3A${rid}`, { headers: igHeaders() }).catch(() => null);
+    if (!rr || rr.status !== 200) continue;
+    let jj; try { jj = JSON.parse(rr.body.toString('utf8')); } catch { continue; }
+    const reel = jj.reels?.[`highlight:${rid}`] || jj.reels_media?.[0];
+    for (const s of reel?.items || []) {
+      const v = s.video_versions?.[0]?.url; const i = s.image_versions2?.candidates?.[0]?.url;
+      if (v || i) items.push({ id: `h_${s.pk || s.id}`, shortcode: String(s.pk || s.id), tipo: 'highlight', ts: (s.taken_at || 0) * 1000, caption: tr.title || '', link: `https://www.instagram.com/stories/highlights/${rid}/`, medias: [{ url: v || i, isVideo: !!v }], username });
+    }
+    await new Promise(r => setTimeout(r, 600));
+  }
+  return { items, needsLogin: false, albuns: trays.map(t => t.title) };
+}
+
 const PROVIDERS = {
-  ig: { nome: 'Instagram', profile: igProfile, feedAll: igFeedAll, stories: igStories, normUser },
+  ig: { nome: 'Instagram', profile: igProfile, feedAll: igFeedAll, stories: igStories, highlights: igHighlights, normUser },
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -306,7 +329,7 @@ function hasSession(platform = 'ig') { load(); return !!state.session[platform];
 // ─────────────────────────────────────────────────────────────
 function legenda(t, item, idx, total) {
   const prov = PROVIDERS[t.platform]?.nome || t.platform;
-  const tipo = { reel: '🎬 Reel', video: '🎬 Vídeo', carrossel: '🖼️ Carrossel', post: '📸 Post', story: '⏳ Story' }[item.tipo] || '📎';
+  const tipo = { reel: '🎬 Reel', video: '🎬 Vídeo', carrossel: '🖼️ Carrossel', post: '📸 Post', story: '⏳ Story', highlight: '⭐ Highlight' }[item.tipo] || '📎';
   const data = item.ts ? new Date(item.ts).toLocaleString('pt-PT', { timeZone: 'Africa/Luanda' }) : '';
   const parte = total > 1 ? ` (${idx + 1}/${total})` : '';
   const cap = item.caption ? `\n\n${item.caption.slice(0, 900)}${item.caption.length > 900 ? '…' : ''}` : '';
@@ -477,7 +500,7 @@ module.exports = {
   PROVIDERS, DATA_DIR, DEFAULT_INTERVAL_MIN,
   load, save, arrancar, _reset, state,
   parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
-  igProfile, igFeedAll, igStories, nodeToItem, sniffMime, baixarMedia,
+  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
   start, stop, tick,

@@ -54,6 +54,7 @@ const AJUDA = (p) => [
   `▸ ${p}cap check [@veigh] — verificar agora (só novos)`,
   `▸ ${p}cap all @veigh [aqui|jid] [limite] — *capture all*: baixa tudo e manda no grupo`,
   `▸ ${p}cap ultimo @veigh — baixa e envia o post mais recente`,
+  `▸ ${p}cap reels|highlights|storys @veigh [n] — só esse separador (como no sssinstagram)`,
   `▸ ${p}cap destino @veigh aqui|<jid>|remover — para onde enviar`,
   `▸ ${p}cap guardar @veigh on|off — guardar na galeria do servidor`,
   `▸ ${p}cap auto @veigh on|off · ${p}cap intervalo @veigh <min>`,
@@ -148,14 +149,21 @@ module.exports = function registerCap(registerCase) {
       try {
         const perfil = await cap.PROVIDERS[platform].profile(username);
         const ult = perfil.items.slice(-6).reverse();
+        const reels = perfil.items.filter(i => i.tipo === 'reel');
+        const posts = perfil.items.filter(i => i.tipo !== 'reel');
+        const fmtN = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
+        const sess = cap.hasSession('ig');
         const lines = [
           `👤 *${perfil.nome || '@' + username}* · @${username}${perfil.privado ? ' 🔒' : ''}`,
-          `👥 ${perfil.seguidores.toLocaleString('pt-PT')} seguidores · 📸 ${perfil.posts} posts`,
+          `📸 ${perfil.posts} posts · 👥 ${fmtN(perfil.seguidores)} followers · ➡️ ${fmtN(perfil.seguindo || 0)} following`,
           perfil.bio ? `📝 ${perfil.bio.slice(0, 160).replace(/\n+/g, ' ')}` : null,
+          '',
+          `📸 POSTS (${posts.length}) · 🎬 REELS (${reels.length}) · ⏳ STORIES (${sess ? 'on' : 'login'}) · ⭐ HIGHLIGHTS (${perfil.highlights || 0}${sess ? '' : ' · login'})`,
           '',
           `🕒 *Últimos ${ult.length}:*`,
           ...ult.map(it => `• ${new Date(it.ts).toLocaleDateString('pt-PT')} ${{ reel: '🎬', video: '🎬', carrossel: '🖼️', post: '📸' }[it.tipo]} ${it.tipo}${it.medias.length > 1 ? ` (${it.medias.length})` : ''} — ${it.caption.slice(0, 40).replace(/\n+/g, ' ') || it.link}`),
           '',
+          `▸ ${p}cap reels @${username} · ${p}cap highlights @${username} · ${p}cap all @${username}`,
           cap.getTarget(alvoArg) ? '📡 Este perfil já está a ser monitorizado.' : `> ${p}cap add @${username} para monitorizar`,
         ];
         if (perfil.foto) { try { const f = await cap.baixarMedia({ url: perfil.foto, isVideo: false }); const RE = require('../renderEngine'); const th = await RE.getTheme(ctx.remoteJid); return sock.sendMessage(ctx.remoteJid, { image: f.buffer, caption: RE.renderBlock(th, '📡 C∆P — PERFIL', lines.filter(Boolean), { botName: config.bot.name }) }, { quoted: msg }); } catch {} }
@@ -218,6 +226,30 @@ module.exports = function registerCap(registerCase) {
         r.completo ? '📚 Perfil completo capturado.' : `⚠️ Só os posts visíveis sem login (${r.total}). Para tudo: ${p}cap login <sessionid>`,
         `> Falhas detalhadas em ${p}cap log`,
       ]);
+    }
+
+    // ── reels / highlights / stories (baixar só esse separador, como no sssinstagram) ──
+    if (['reels', 'highlights', 'destaques', 'storiesnow', 'storys'].includes(sub)) {
+      if (!alvoArg) return tReply(sock, msg, ctx, '📡 C∆P', [`Uso: ${p}cap ${sub} @veigh [limite]`]);
+      const { platform, username } = cap.parseTargetArg(alvoArg);
+      const prov = cap.PROVIDERS[platform];
+      if (!prov) return tReply(sock, msg, ctx, '📡 C∆P', ['❌ Plataforma não suportada.']);
+      const limite = Math.min(parseInt(args[2]) || 12, 60);
+      const t = cap.getTarget(alvoArg) || { key: cap.keyOf(platform, username), platform, username, destinos: [], guardar: false, stats: {} };
+      try {
+        const perfil = await prov.profile(username);
+        let items = []; let aviso = '';
+        if (sub === 'reels') items = perfil.items.filter(i => i.tipo === 'reel');
+        else if (sub === 'highlights' || sub === 'destaques') { const h = await prov.highlights(perfil.id, username); items = h.items; if (h.needsLogin) aviso = `⭐ Highlights exigem sessão: ${p}cap login <sessionid>`; }
+        else { const st = await prov.stories(perfil.id, username); items = st.items; if (st.needsLogin) aviso = `⏳ Stories exigem sessão: ${p}cap login <sessionid>`; }
+        if (aviso) return tReply(sock, msg, ctx, '📡 C∆P', [aviso]);
+        if (!items.length) return tReply(sock, msg, ctx, '📡 C∆P', [`Nada em ${sub} para @${username}${sub === 'reels' && perfil.hasMore && !cap.hasSession('ig') ? ' (nos últimos 12 posts públicos)' : ''}.`]);
+        items = items.slice(-limite);
+        await sock.sendMessage(ctx.remoteJid, { react: { text: '⬇️', key: msg.key } }).catch(() => {});
+        let okN = 0, failN = 0;
+        for (const it of items) { const r = await cap.processarItem(sock, t, it, { destinos: [ctx.remoteJid], forcar: true, guardar: !!cap.getTarget(alvoArg)?.guardar }); if (r.files) okN++; else failN++; }
+        return tReply(sock, msg, ctx, `✅ C∆P — ${sub.toUpperCase()} @${username}`, [`✅ ${okN} baixado(s) · ❌ ${failN} falhado(s)`, failN ? `> Detalhes: ${p}cap log` : null]);
+      } catch (e) { return tReply(sock, msg, ctx, '📡 C∆P', [`❌ ${e.message}`]); }
     }
 
     // ── destino ──
