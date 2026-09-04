@@ -266,3 +266,13 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `src/aura/auraCerebro.js`: a IA recebe a lista de ferramentas reais (capacidades do `auraBrain` + `CMDS_IA` do `auraCommands`, filtradas por cargo) e pede-as com `[FAZ:<id> <arg>]`; execução via `auraExec`/`caseHandler.runCase`/`nativeCommands` com as MESMAS permissões (`podeFazer`/`podeExecutar`, `BLOQUEADOS`); máx. 2 por resposta. Aprende com `[APRENDI:facto]` (pessoa → `auraMemory` importante) e `[APRENDI_GRUPO:facto]` (→ BotConfig `aura_saber_<jid>`, máx 20), reinjectado no prompt seguinte via `saberParaPrompt`.
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
+
+## v7.38 — addcase/downcase/listcases + mup/mdown verificados e corrigidos
+- Harness `scripts/test-cases-media.js` (`npm run test:cases`, 19 checks) corre os comandos reais com sock/DB/Cloudinary mockados.
+- **Bugs corrigidos em `caseHandler.js`**:
+  1. `addcase` recebia `text` com quebras de linha colapsadas → um `// comentário` na 1ª linha engolia o código; gravava "com sucesso" mas o comando não fazia nada. Agora lê o texto original da mensagem (`ctx.fullText`).
+  2. Formato `module.exports` falhava SEMPRE ("Unexpected token '.'"): o adaptador trocava `from`→`ctx.remoteJid` também nos PARÂMETROS de `execute(sock, from, …)`. Listas de parâmetros protegidas; e o módulo agora é avaliado dentro do wrapper (tinha "ctx is not defined" em runtime). Aceita `execute/run/handler/start` ou `module.exports = fn`.
+  3. Formato `function`: usava o nome do COMANDO como nome da função (`!addcase ola` + `function meuCmd` → "ola is not defined"). Agora detecta o nome no código e a assinatura (m-first ou sock-first).
+  4. "5️⃣ Texto simples" só funcionava com aspas; texto plano sem JS agora vira `string`.
+- `mup/mdown/mlist/mdel` (aliases de mediaup/mediadown/medialist/mediadel): funcionam; upload Cloudinary + modelo Media, regex por prefixo de nome, só dono para up/del. Nada a corrigir.
+- 1876 cases em disco continuam a compilar (antes = depois).

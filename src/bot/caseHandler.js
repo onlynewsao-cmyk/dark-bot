@@ -231,6 +231,12 @@ function detectFormat(code) {
     return FORMAT.STRING;
   }
 
+  // 1b. v7.38: texto simples SEM aspas ("Olá! só texto", "Regras: 1) …")
+  // — o !addcase prometia "5️⃣ Texto simples" mas só aceitava com aspas.
+  if (trimmed.length < 1500 && !/[;{}]|=>|\b(require|function|return|await|const|let|var|reply|sock|sendMessage|console)\b|\w+\s*\(/.test(trimmed)) {
+    return FORMAT.STRING;
+  }
+
   // 2. Module.exports pattern
   if (/module\.exports\s*=/.test(trimmed) || /exports\.\w+\s*=/.test(trimmed)) {
     return FORMAT.MODULE_EXPORTS;
@@ -301,12 +307,23 @@ function adaptCaseCode(code) {
   c = c.replace(/\bm\.msg\b/g, 'msg');
 
   // ═══ Variáveis clássicas de outros bots ═══
+  // v7.38: NÃO substituir quando são PARÂMETROS de função — em
+  // `execute(sock, from, msg, args)` virava `execute(sock, ctx.remoteJid, …)`
+  // = "Unexpected token '.'" e TODO o formato module.exports falhava.
+  // Protegemos as listas de parâmetros com placeholders antes de trocar.
+  const _params = [];
+  c = c.replace(/(\bfunction\b[^(]*\(|\basync\s+function\b[^(]*\(|\b(?:execute|run|handler|start|exec|main)\s*\(|=>\s*|\(\s*(?=[^()]*\)\s*=>))([^()]*)\)/g, (all, head, params) => {
+    if (!/\b(from|info|q)\b/.test(params)) return all;
+    _params.push(params);
+    return head + '__CASE_PARAMS_' + (_params.length - 1) + '__)';
+  });
   // from → ctx.remoteJid (MAS não dentro de strings ou como parte de outra palavra)
   c = c.replace(/\bfrom\b(?!\s*['"`\w])/g, 'ctx.remoteJid');
   // info → msg (mensagem raw)
   c = c.replace(/\binfo\b(?!\s*['"`\w])/g, 'msg');
   // q → text (argumentos)
   c = c.replace(/\b(?<!\.)q\b(?!\s*['"`\w])/g, 'text');
+  c = c.replace(/__CASE_PARAMS_(\d+)__/g, (_, i) => _params[Number(i)]);
 
   // ═══ Rich Response helpers ═══
   c = c.replace(/sock\.makeCode\s*\(/g, 'm.makeCode(');
@@ -360,27 +377,26 @@ function compileCase(code, cmdName) {
     case FORMAT.MODULE_EXPORTS: {
       // module.exports = { execute(sock, from, msg, args, command, config) }
       // → adapta para o wrapper do DARK BOT
+      // v7.38: o código adaptado usa `ctx.remoteJid`, `reply`, `text`…
+      // mas era avaliado FORA do wrapper (sem essas variáveis) →
+      // "ctx is not defined" em runtime. Agora o módulo é avaliado
+      // dentro de cada execução, com o mesmo escopo do RAW_CODE.
       const adapted = adaptCaseCode(codeForAdapt);
       const wrapped = `
-        (function() {
+        (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted }) {
+          var axios = require('./caseAxios').createCaseAxios();
+          var systemZR = sock, conn = sock, lofi = sock, client = sock;
+          var module = { exports: {} }; var exports = module.exports;
           ${adapted}
-          const _exp = module.exports;
-          // Se tem execute → usa execute com adaptação
-          if (_exp && typeof _exp.execute === 'function') {
-            return async function caseRun(ctx) {
-              const { m, sock, msg, ctx: ctxObj, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted } = ctx;
-              return _exp.execute(sock, ctxObj.remoteJid, msg, args, command, config);
-            };
-          }
-          // Se tem handleMangaButton → regista como handler de botão
-          if (_exp && typeof _exp.handleMangaButton === 'function') {
-            return async function caseRun(ctx) {
-              const { sock, msg } = ctx;
-              return _exp.handleMangaButton(sock, msg);
-            };
-          }
-          return async () => {};
-        })()
+          const _exp = module.exports && typeof module.exports === 'object' ? module.exports : {};
+          const _run = typeof _exp.execute === 'function' ? _exp.execute
+                     : typeof _exp.run === 'function' ? _exp.run
+                     : typeof _exp.handler === 'function' ? _exp.handler
+                     : typeof _exp.start === 'function' ? _exp.start
+                     : typeof module.exports === 'function' ? module.exports : null;
+          if (_run) return _run(sock, ctx.remoteJid, msg, args, command, config, { m, ctx, text, prefix, isOwner, reply, react, quoted });
+          if (typeof _exp.handleMangaButton === 'function') return _exp.handleMangaButton(sock, msg);
+        })
       `;
       return eval(wrapped);
     }
@@ -403,16 +419,26 @@ function compileCase(code, cmdName) {
 
     case FORMAT.FUNCTION: {
       // async function nome(sock, msg, text) { ... }
+      // v7.38: o nome da função vem do CÓDIGO, não do comando —
+      // `!addcase ola` com `async function meuCmd(...)` dava
+      // "ola is not defined". E o escopo agora tem ctx/reply/etc.
       const adapted = adaptCaseCode(codeForAdapt);
+      const _fnName = (adapted.match(/\b(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(/) || [])[1]
+        || (adapted.match(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:function|\()/) || [])[1]
+        || cmdName || 'meuComando';
+      // assinatura: detecta se o 1º parâmetro é a mensagem/m (estilo m-first) ou sock
+      const _sig = (adapted.match(new RegExp('function\\s*\\*?\\s*' + _fnName + '\\s*\\(([^)]*)\\)')) || [])[1] || '';
+      const _mFirst = /^\s*(m|message|msg)\b/.test(_sig);
       const wrapped = `
-        (function() {
+        (async function caseRun({ m, sock, msg, ctx, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted }) {
+          var axios = require('./caseAxios').createCaseAxios();
+          var systemZR = sock, conn = sock, lofi = sock, client = sock;
+          var module = { exports: {} }; var exports = module.exports;
           ${adapted}
-          var _fn = ${cmdName || 'meuComando'};
-          return async function caseRun(ctx) {
-            var { m, sock, msg, ctx: ctxObj, text, args, prefix, command, isOwner, config, reply, react, q, from, info, quoted } = ctx;
-            return _fn(sock, msg, text, args, ctxObj, config);
-          };
-        })()
+          var _fn = typeof ${_fnName} === 'function' ? ${_fnName} : (typeof module.exports === 'function' ? module.exports : null);
+          if (!_fn) throw new Error('função "${_fnName}" não encontrada no case');
+          return ${_mFirst ? '_fn(m, sock, msg, text, args, ctx, config)' : '_fn(sock, msg, text, args, ctx, config)'};
+        })
       `;
       return eval(wrapped);
     }
@@ -849,11 +875,24 @@ function registerManagementCases() {
     );
 
     // Obtém o código: pode vir na mesma mensagem ou na mensagem citada
-    let code = args.slice(1).join(' ').trim();
+    // v7.38: `text`/`args` chegam com as QUEBRAS DE LINHA colapsadas
+    // (args = split(/\s+/)) → "// comentário" engolia o código todo e
+    // o case gravava "com sucesso" mas não fazia nada. Usa o texto
+    // ORIGINAL da mensagem para preservar as linhas.
+    const rawMsgText = String(
+      ctx?.fullText || msg?.message?.conversation || msg?.message?.extendedTextMessage?.text || ''
+    );
+    let code = '';
+    if (rawMsgText) {
+      // tira "!addcase nome" da primeira linha, mantém o resto tal como veio
+      const m1 = rawMsgText.match(/^\s*\S+\s+\S+[ \t]*([\s\S]*)$/);
+      code = (m1 ? m1[1] : '').trim();
+    }
+    if (!code) code = args.slice(1).join(' ').trim();
 
     // Se há um --- separador, o código vem depois
-    if (text.includes('\n---\n') || text.includes('\n---')) {
-      const parts = text.replace(/^[^\n]+\n/, '').split(/^---\s*$/m);
+    if (/^---\s*$/m.test(code)) {
+      const parts = code.split(/^---\s*$/m);
       code = parts.slice(-1)[0]?.trim() || code;
     }
 
