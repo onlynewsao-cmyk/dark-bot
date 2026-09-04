@@ -495,9 +495,10 @@ module.exports = function registerGroupCases(registerCase) {
       { $setOnInsert: { groupJid: ctx.remoteJid } },
       { upsert: true, new: true }
     );
-    const sub = (args[0]||'status').toLowerCase();
+    const sub = (args[0]||'toggle').toLowerCase();
     if (['on','ativar'].includes(sub)) { gs.antispam = true; await gs.save(); }
     else if (['off','desativar'].includes(sub)) { gs.antispam = false; await gs.save(); }
+    else if (sub === 'toggle') { gs.antispam = !gs.antispam; await gs.save(); } // v7.29: clique no menu alterna
     await reply(`🛡️ *ANTI-SPAM*\n${gs.antispam ? '🟢 ON  ━━━●' : '🔴 OFF ●━━━━'}\n\n> Usa ${prefix}antispam on/off para alternar`);
   });
 

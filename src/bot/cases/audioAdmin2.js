@@ -211,9 +211,9 @@ module.exports = function registerAudioAdmin2(registerCase) {
     registerCase([cmd], async ({ sock, msg, ctx, args, isOwner }) => {
       if (!isOwner && !ctx.isGroup) return tReply(sock, msg, ctx, '🛡️ ADMIN', ['❌ Só em grupos']);
       const action = args[0]?.toLowerCase();
-      const isOn = action === 'on' || action === '1' || action === 'ativar';
+      let isOn = action === 'on' || action === '1' || action === 'ativar';
       const isOff = action === 'off' || action === '0' || action === 'desativar';
-      if (!isOn && !isOff) {
+      if (action === 'status' || action === 'help' || action === 'ajuda') {
         return tReply(sock, msg, ctx, `🛡️ ${cmd.toUpperCase()}`, [
           `Uso: !${cmd} on|off`,
           `> Activa/desactiva ${cmd.replace('anti', 'anti-').replace(/([A-Z])/g, ' $1').toLowerCase()}`,
@@ -221,6 +221,11 @@ module.exports = function registerAudioAdmin2(registerCase) {
       }
       try {
         const GroupSettings = require('../../database/models/GroupSettings');
+        // v7.29: sem argumento (clique no menu de seleção) → ALTERNA o estado actual
+        if (!isOn && !isOff) {
+          const cur = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
+          isOn = !(cur && cur[cmd]);
+        }
         await GroupSettings.findOneAndUpdate(
           { groupJid: ctx.remoteJid },
           { [cmd]: isOn },

@@ -237,3 +237,8 @@ npm test
 ```
 
 Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor bloco possível, executar sintaxe/EJS/auditorias relevantes e por fim a suíte completa. Para mudanças de MongoDB, WhatsApp, IA, Cloudinary ou VoIP, testar também com variáveis reais isoladas e nunca salvá-las no workspace.
+
+## Alterações locais v7.29 — comandos por seleção (clique em lista/botão)
+- Fluxo verificado: row id `${prefix}${cmd}` → `extractText` (listResponseMessage / interactiveResponseMessage.paramsJson / buttonsResponse / templateButtonReply) → `prefixEngine.detect` → handler. 61 itens `sel` em 15 categorias, 0 sem handler.
+- Bug corrigido: 16 toggles (`adminToggles` em `cases/audioAdmin2.js` + `antispam` em `cases/grupos.js`) respondiam só "Uso: on|off" quando clicados sem args. Agora sem argumento **alternam** o estado (on↔off); `status|help|ajuda` mostra a ajuda.
+- Novo teste `scripts/test-selecao-cmds.js` (`npm run test:selecao`, no `npm test`): executa cada comando `sel` com args vazios e falha se a resposta for apenas texto de uso.
