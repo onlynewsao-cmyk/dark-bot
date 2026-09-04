@@ -54,6 +54,7 @@ const AJUDA = (p) => [
   `▸ ${p}cap check [@veigh] — verificar agora (só novos)`,
   `▸ ${p}cap all @veigh [aqui|jid] [limite] — *capture all*: baixa tudo e manda no grupo`,
   `▸ ${p}cap ultimo @veigh — baixa e envia o post mais recente`,
+  `▸ ${p}cap link <url> — baixa um post/reel pelo link (funciona mesmo com 429 no perfil)`,
   `▸ ${p}cap reels|highlights|storys @veigh [n] — só esse separador (como no sssinstagram)`,
   `▸ ${p}cap destino @veigh aqui|<jid>|remover — para onde enviar`,
   `▸ ${p}cap guardar @veigh on|off — guardar na galeria do servidor`,
@@ -220,6 +221,23 @@ module.exports = function registerCap(registerCase) {
         else out.push(`${r.novos ? '🆕' : '✅'} @${t.username}: ${r.novos} novo(s) · ✅ ${r.baixados} baixado(s) · ❌ ${r.falhados} falhado(s) · 📤 ${r.enviados} enviado(s)${r.stories ? ` · ⏳ ${r.stories} story` : ''}${r.storiesNeedLogin ? ' · stories: sem login' : ''}`);
       }
       return tReply(sock, msg, ctx, '🔎 C∆P — VERIFICAÇÃO', out);
+    }
+
+    // ── link: baixa um post/reel pelo URL (funciona mesmo com o perfil em 429) ──
+    if (sub === 'link' || sub === 'url' || /^https?:\/\//i.test(sub)) {
+      const url = /^https?:\/\//i.test(sub) ? sub : (args[1] || '');
+      const m = url.match(/instagram\.com\/(?:[^/]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+      if (!m) return tReply(sock, msg, ctx, '📡 C∆P', [`Uso: ${p}cap link https://www.instagram.com/p/XXXX/`]);
+      const shortcode = m[2];
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '⬇️', key: msg.key } }).catch(() => {});
+      try {
+        const alt = await cap.ytdlpItem(`https://www.instagram.com/p/${shortcode}/`);
+        const t = { key: 'ig:_links', platform: 'ig', username: alt.uploader || 'instagram', destinos: [], guardar: false, stats: {} };
+        const item = { id: `p_${shortcode}`, shortcode, tipo: alt.isVideo ? 'reel' : 'post', ts: alt.ts || Date.now(), caption: alt.caption, link: `https://www.instagram.com/p/${shortcode}/`, medias: [{ url: alt.url, isVideo: alt.isVideo }], username: t.username };
+        const r = await cap.processarItem(sock, t, item, { destinos: [ctx.remoteJid], forcar: true, guardar: false });
+        if (!r.files) return tReply(sock, msg, ctx, '📡 C∆P', [`❌ Não consegui baixar: ${r.erros.join('; ')}`]);
+        return sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+      } catch (e) { return tReply(sock, msg, ctx, '📡 C∆P', [`❌ ${e.message}`]); }
     }
 
     // ── ultimo ──

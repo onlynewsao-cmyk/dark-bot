@@ -132,6 +132,8 @@ fs.rmSync(TMP, { recursive: true, force: true });
   check('cap log', /LOG/.test(await run('cap', ['log'])));
   check('cap del', /removido/.test(await run('cap', ['del', '@veigh'])) && cap.listTargets().length === 0);
   check('cap plataforma não suportada', /não suportada/.test(await run('cap', ['add', 'tiktok:veigh'])));
+  check('cap link sem url → uso', /Uso:.*cap link/.test(await run('cap', ['link'])));
+  check('ytdlpItem exportado', typeof cap.ytdlpItem === 'function');
   check('cap login sem args → guia', /Como obter o sessionid/.test(await run('cap', ['login'])));
   check('cap login curto → erro', /demasiado curto/.test(await run('cap', ['login', 'abc'])));
   check('cap sessoes vazio', /Nenhuma sessão/.test(await run('cap', ['sessoes'])));

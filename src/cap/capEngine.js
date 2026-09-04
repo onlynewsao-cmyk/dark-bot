@@ -90,9 +90,20 @@ function _reset() {
 // ─────────────────────────────────────────────────────────────
 // HTTP
 // ─────────────────────────────────────────────────────────────
-function httpGet(url, { headers = {}, timeout = 25000, redirects = 5 } = {}) {
+// Proxy opcional: CAP_PROXY=http://user:pass@host:port (ou HTTPS_PROXY). Usado só para o Instagram.
+let _proxyAgent = null; let _proxyTried = false;
+function proxyAgent() {
+  if (_proxyTried) return _proxyAgent; _proxyTried = true;
+  const p = process.env.CAP_PROXY || process.env.HTTPS_PROXY || process.env.https_proxy || '';
+  if (!p) return null;
+  try { const { HttpsProxyAgent } = require('https-proxy-agent'); _proxyAgent = new HttpsProxyAgent(p); console.log('[CAP] proxy activo'); }
+  catch { console.warn('[CAP] CAP_PROXY definido mas pacote https-proxy-agent não instalado (npm i https-proxy-agent)'); }
+  return _proxyAgent;
+}
+function httpGet(url, { headers = {}, timeout = 25000, redirects = 5, proxy = true } = {}) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: { 'User-Agent': UA, ...headers }, timeout }, (res) => {
+    const ag = proxy && /instagram\.com/.test(url) ? proxyAgent() : null;
+    const req = https.get(url, { headers: { 'User-Agent': UA, ...headers }, timeout, ...(ag ? { agent: ag } : {}) }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location && redirects > 0) {
         const next = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
         res.resume();
@@ -236,7 +247,7 @@ async function igProfile(username) {
   const u = normUser(username);
   const r = await igGet(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
   if (r.status === 404) throw new Error(`Perfil @${u} não existe`);
-  if (r.status === 429) throw new Error(`Instagram respondeu HTTP 429 (limite do IP${sessionsAtivas().length ? '' : ' — sem sessão o limite é baixo; usa cap login'})`);
+  if (r.status === 429) throw new Error(`Instagram respondeu HTTP 429 — IP do servidor limitado${sessionsAtivas().length ? ' (mesmo com sessão; define CAP_PROXY no .env ou espera 30-60 min)' : '. Faz cap login <sessionid> (limite muito maior) ou define CAP_PROXY no .env'}`);
   if (r.status !== 200) throw new Error(`Instagram respondeu HTTP ${r.status}${r.status === 401 || r.status === 403 ? ' (rate-limit/login)' : ''}`);
   let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { throw new Error('Resposta do Instagram não é JSON (bloqueio temporário?)'); }
   const d = j?.data?.user;
@@ -321,6 +332,19 @@ function sniffMime(buf, fallbackVideo) {
   if (buf.slice(0, 4).toString() === 'RIFF' && buf.slice(8, 12).toString() === 'WEBP') return 'image/webp';
   if (buf.slice(0, 3).toString() === 'GIF') return 'image/gif';
   return fallbackVideo ? 'video/mp4' : '';
+}
+
+// Fallback: yt-dlp resolve um post/reel pelo link mesmo quando o IP está em 429 na API web
+async function ytdlpItem(link) {
+  const { execFile } = require('child_process');
+  const run = (bin, args) => new Promise((res, rej) => execFile(bin, args, { timeout: 60000, maxBuffer: 20 * 1024 * 1024 }, (e, out, err) => e ? rej(new Error((err || e.message).split('\n')[0].slice(0, 120))) : res(out)));
+  const args = ['-j', '--no-warnings', '--no-playlist', link];
+  let out;
+  try { out = await run('yt-dlp', args); } catch (e1) { try { out = await run('python3', ['-m', 'yt_dlp', ...args]); } catch (e2) { throw new Error('yt-dlp: ' + e2.message); } }
+  const j = JSON.parse(out.trim().split('\n')[0]);
+  const url = j.url || (j.formats || []).filter(f => f.url && (f.vcodec !== 'none' || f.ext === 'mp4')).sort((a, b) => (b.height || 0) - (a.height || 0))[0]?.url || j.thumbnail;
+  if (!url) throw new Error('yt-dlp sem URL');
+  return { url, isVideo: !/\.(jpe?g|png|webp)(\?|$)/i.test(url) && j.ext !== 'jpg', caption: j.description || '', ts: (j.timestamp || 0) * 1000, uploader: j.channel || j.uploader_id || '' };
 }
 
 async function baixarMedia(m) {
@@ -454,7 +478,16 @@ async function processarItem(sock, t, item, { destinos, guardar = t.guardar, for
   const files = []; const erros = [];
   for (let i = 0; i < item.medias.length; i++) {
     try {
-      const f = await baixarMedia(item.medias[i]);
+      let f;
+      try { f = await baixarMedia(item.medias[i]); }
+      catch (e0) {
+        // fallback yt-dlp (só faz sentido para a 1.ª media / reels; carrosséis só devolvem 1 item)
+        if (i === 0 && item.link && /instagram\.com\/(p|reel|tv)\//.test(item.link)) {
+          const alt = await ytdlpItem(item.link);
+          f = await baixarMedia({ url: alt.url, isVideo: alt.isVideo });
+          f.viaYtdlp = true;
+        } else throw e0;
+      }
       files.push(f);
       if (guardar) { try { f.path = guardarNoDisco(t.key, item, i, f); } catch (e) { erros.push(`disco: ${e.message}`); } }
     } catch (e) { erros.push(`media ${i + 1}: ${e.message}`); }
@@ -597,7 +630,7 @@ module.exports = {
   load, save, arrancar, _reset, state,
   parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
   validarSessao, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv,
-  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, sniffMime, baixarMedia,
+  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
   start, stop, tick,
