@@ -37,9 +37,19 @@ module.exports = function registerRental2(registerCase) {
     const p = localConfig.bot.prefix;
     const ownerNum = String(localConfig.owner.number || '').replace(/\D/g, '');
 
-    // Se tem argumento numérico → activar directamente (dono/subdono/VIP)
-    const dias = parseInt(args[0]);
-    if (dias >= 1 && dias <= 3650) {
+    // v7.30 ALUGUEL AVANÇADO — aceita:
+    //   !alugar 30      → soma 30 dias ao tempo restante (ou activa 30 se não houver)
+    //   !alugar +7      → soma 7 dias
+    //   !alugar -3      → subtrai 3 dias (nunca abaixo de hoje)
+    //   !alugar =30     → define exactamente 30 dias a partir de agora
+    //   !alugar <jid> 30 / +7 / -3 / =30 → o mesmo, para outro grupo (dono/subdono)
+    let targetJid = ctx.isGroup ? ctx.remoteJid : '';
+    let opArg = args[0] || '';
+    if (/@g\.us$/.test(opArg) || /^\d{15,}(-\d+)?$/.test(opArg)) { targetJid = opArg.includes('@') ? opArg : opArg + '@g.us'; opArg = args[1] || ''; }
+    const opM = String(opArg).match(/^([+\-=]?)(\d{1,4})$/);
+    const dias = opM ? parseInt(opM[2], 10) : NaN;
+    const op = opM ? (opM[1] || '+') : '';
+    if (opM && dias >= 1 && dias <= 3650) {
       const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
       const isVip = u && u.isPremium && u.isPremium();
       const extraOwners = await botConfigCache.get('owner_numbers', []).catch(() => []);
@@ -55,30 +65,58 @@ module.exports = function registerRental2(registerCase) {
         ]);
       }
 
-      if (!ctx.isGroup) return tReply(sock, msg, ctx, '🏠 ALUGUEL', [`❌ Usa num grupo ou: ${p}alugar <jid> <dias>`]);
+      if (!targetJid) return tReply(sock, msg, ctx, '🏠 ALUGUEL', [`❌ Usa num grupo ou: ${p}alugar <jid> <dias>`]);
+      if (targetJid !== ctx.remoteJid && !isSubDono) return tReply(sock, msg, ctx, '🏠 ALUGUEL', ['❌ Só dono/subdono podem alugar para outro grupo.']);
+      if (op === '-' && !isSubDono) return tReply(sock, msg, ctx, '🏠 ALUGUEL', ['❌ Só dono/subdono podem subtrair dias.']);
 
-      // Verificar limite VIP
-      if (!isSubDono && isVip) {
+      const atual = await GroupSettings.findOne({ groupJid: targetJid }).lean().catch(() => null);
+      const agora = Date.now();
+      const fimAtual = atual?.isHosted && atual.hostedUntil ? new Date(atual.hostedUntil).getTime() : 0;
+      const restanteMs = Math.max(0, fimAtual - agora);
+      const tinhaAtivo = restanteMs > 0;
+
+      // Verificar limite VIP (só conta quando activa um grupo novo)
+      if (!isSubDono && isVip && !tinhaAtivo) {
         const limit = u.vipGroupLimit || 3;
         const added = u.vipGroupsAdded || 0;
         if (added >= limit) return tReply(sock, msg, ctx, '🏠 ALUGUEL', [`❌ Limite VIP: ${added}/${limit} grupos`]);
         await User.findOneAndUpdate({ whatsappNumber: ctx.senderNumber }, { $inc: { vipGroupsAdded: 1 } }).catch(() => {});
       }
 
-      const until = new Date(Date.now() + dias * 86400000);
+      let novoFimMs;
+      if (op === '=') novoFimMs = agora + dias * 86400000;
+      else if (op === '-') novoFimMs = Math.max(agora, (tinhaAtivo ? fimAtual : agora) - dias * 86400000);
+      else novoFimMs = (tinhaAtivo ? fimAtual : agora) + dias * 86400000;
+
+      const until = new Date(novoFimMs);
+      const diasRestantes = Math.max(0, Math.ceil((novoFimMs - agora) / 86400000));
+      const diasAntes = Math.ceil(restanteMs / 86400000);
+      const continuaAtivo = novoFimMs > agora + 60000;
+      const gName = targetJid === ctx.remoteJid ? (ctx.groupName || targetJid) : (atual?.groupName || targetJid);
+
       await GroupSettings.findOneAndUpdate(
-        { groupJid: ctx.remoteJid },
-        { isHosted: true, hostedUntil: until, trialExpiresAt: new Date(0), rentedBy: ctx.senderNumber, rentedAt: new Date(), groupName: ctx.groupName || '' },
+        { groupJid: targetJid },
+        {
+          isHosted: continuaAtivo, hostedUntil: until, trialExpiresAt: new Date(0),
+          rentedBy: atual?.rentedBy && tinhaAtivo ? atual.rentedBy : ctx.senderNumber,
+          rentedAt: tinhaAtivo && atual?.rentedAt ? atual.rentedAt : new Date(),
+          ...(targetJid === ctx.remoteJid ? { groupName: ctx.groupName || '' } : {}),
+        },
         { upsert: true, new: true }
       );
 
-      return tReply(sock, msg, ctx, '✅ ALUGUEL ACTIVADO', [
-        `📋 Grupo: *${ctx.groupName || ctx.remoteJid}*`,
-        `⏰ Duração: *${dias} dias*`,
-        `📅 Expira: *${until.toLocaleDateString('pt-PT')}*`,
+      const opTxt = op === '=' ? `📐 Definido: *${dias} dias* a partir de agora`
+        : op === '-' ? `➖ Subtraídos: *${dias} dias* (tinha ${diasAntes})`
+        : tinhaAtivo ? `➕ Somados: *${dias} dias* aos ${diasAntes} que restavam` : `⏰ Duração: *${dias} dias*`;
+
+      return tReply(sock, msg, ctx, continuaAtivo ? (tinhaAtivo ? '🔄 ALUGUEL ACTUALIZADO' : '✅ ALUGUEL ACTIVADO') : '🚫 ALUGUEL ENCERRADO', [
+        `📋 Grupo: *${gName}*`,
+        opTxt,
+        `🧮 Total restante: *${diasRestantes} dias*`,
+        `📅 Expira: *${until.toLocaleDateString('pt-PT')} ${until.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}*`,
         `👤 Por: *${ctx.pushName}*`,
         '',
-        '🚀 Comandos *ILIMITADOS* activados!',
+        continuaAtivo ? '🚀 Comandos *ILIMITADOS* activados!' : `> Usa ${p}alugar <dias> para reactivar`,
       ]);
     }
 
@@ -146,6 +184,67 @@ module.exports = function registerRental2(registerCase) {
       ].flat());
     }
   }, true);
+
+  // ═══ v7.30 SUBMENU PLANOS — junta Premium (VIP) + Aluguel num só menu ═══
+  registerCase(['planos', 'menuplanos', 'submenuplanos', 'plans'], async ({ sock, msg, ctx, isOwner, config: cfg }) => {
+    const localConfig = cfg || config;
+    const p = localConfig.bot.prefix;
+    const ownerNum = String(localConfig.owner.number || '').replace(/\D/g, '');
+    const RE = require('../renderEngine');
+    const t = await RE.getTheme(ctx.remoteJid);
+
+    // Estado do utilizador (VIP) e do grupo (aluguel)
+    const u = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
+    const vipAtivo = !!(u && u.role === 'premium' && (!u.premiumUntil || new Date(u.premiumUntil) > new Date()));
+    const vipTxt = isOwner ? '👑 DONO — acesso total' : vipAtivo ? `💎 VIP activo${u.premiumUntil ? ' até ' + new Date(u.premiumUntil).toLocaleDateString('pt-PT') : ''}` : '🆓 FREE';
+    let alugTxt = '— (só em grupos)';
+    if (ctx.isGroup) {
+      const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
+      if (gs?.isHosted && gs.hostedUntil && new Date(gs.hostedUntil) > new Date()) alugTxt = `🟢 Activo — ${Math.ceil((new Date(gs.hostedUntil) - Date.now()) / 86400000)} dias restantes`;
+      else if (gs?.trialExpiresAt && new Date(gs.trialExpiresAt) > new Date()) alugTxt = `🆓 Trial — ${Math.ceil((new Date(gs.trialExpiresAt) - Date.now()) / 86400000)} dias restantes`;
+      else alugTxt = '🔴 Sem aluguel';
+    }
+
+    const rows = [
+      { title: '⭐ Planos Premium (VIP)', description: 'Carrossel: 7 / 30 / 90 dias', id: `${p}vip` },
+      { title: '🏠 Planos de Aluguel', description: 'Trial, semanal, mensal, trimestral, anual', id: `${p}alugar` },
+      { title: '🆓 Activar Trial (3 dias)', description: 'Grátis, 500 cmds/dia', id: `${p}trial` },
+      { title: '📊 Estado do Aluguel', description: 'Dias restantes, quem activou', id: `${p}statusalugar` },
+      { title: '👤 Meu Perfil / VIP', description: 'Cargo, VIP e limites', id: `${p}perfil` },
+      { title: '📲 Falar com o Dono', description: `wa.me/${ownerNum}`, id: `${p}dono` },
+    ];
+    const body = RE.renderBlock(t, '💎 PLANOS', [
+      `👤 Tu: *${vipTxt}*`,
+      `🏠 Este grupo: *${alugTxt}*`,
+      '',
+      '*⭐ PREMIUM (pessoa)* — cmds ilimitados, downloads HD, IA com memória, menu+18, alugar grupos.',
+      '*🏠 ALUGUEL (grupo)* — bot activo no grupo para todos.',
+      '',
+      `▸ ${p}vip — ver planos premium`,
+      `▸ ${p}alugar — ver planos de aluguel`,
+      `▸ ${p}alugar 30 · +7 · -3 · =30 — somar/subtrair/definir dias`,
+      `▸ ${p}trial — 3 dias grátis`,
+      `▸ ${p}statusalugar — estado do aluguel`,
+      '',
+      `📲 Dono: wa.me/${ownerNum}`,
+    ], { botName: localConfig.bot.name });
+
+    try {
+      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      const m = generateWAMessageFromContent(ctx.remoteJid, {
+        viewOnceMessage: { message: { interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          body: proto.Message.InteractiveMessage.Body.fromObject({ text: body }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `${t.icon || '🕸️'} ${localConfig.bot.name}` }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify({ title: '💎 Escolher', sections: [{ title: 'PLANOS', rows }] }) }],
+          }),
+        }) } },
+      }, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+    } catch (e) {
+      await sock.sendMessage(ctx.remoteJid, { text: body }, { quoted: msg });
+    }
+  });
 
   // ═══ TRIAL GRÁTIS ═══
   registerCase(['trial', 'teste', 'experimentar'], async ({ sock, msg, ctx, config: cfg }) => {
@@ -223,7 +322,7 @@ module.exports = function registerRental2(registerCase) {
   registerCase(['estender', 'renew', 'renovar'], async ({ sock, msg, ctx, args, isOwner, config: cfg }) => {
     if (!ctx.isGroup) return tReply(sock, msg, ctx, '🔄 ESTENDER', ['❌ Só em grupos']);
     const dias = parseInt(args[0]);
-    if (!dias || dias < 1) return tReply(sock, msg, ctx, '🔄 ESTENDER', ['Uso: !estender <dias>']);
+    if (!dias || dias < 1) return tReply(sock, msg, ctx, '🔄 ESTENDER', ['Uso: !estender <dias>', '> Ou: !alugar +7 / -3 / =30']);
 
     const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
     if (!gs?.isHosted || !gs.hostedUntil) return tReply(sock, msg, ctx, '🔄 ESTENDER', ['❌ Sem aluguel activo para estender']);

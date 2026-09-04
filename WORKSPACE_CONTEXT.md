@@ -242,3 +242,11 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - Fluxo verificado: row id `${prefix}${cmd}` → `extractText` (listResponseMessage / interactiveResponseMessage.paramsJson / buttonsResponse / templateButtonReply) → `prefixEngine.detect` → handler. 61 itens `sel` em 15 categorias, 0 sem handler.
 - Bug corrigido: 16 toggles (`adminToggles` em `cases/audioAdmin2.js` + `antispam` em `cases/grupos.js`) respondiam só "Uso: on|off" quando clicados sem args. Agora sem argumento **alternam** o estado (on↔off); `status|help|ajuda` mostra a ajuda.
 - Novo teste `scripts/test-selecao-cmds.js` (`npm run test:selecao`, no `npm test`): executa cada comando `sel` com args vazios e falha se a resposta for apenas texto de uso.
+
+## Alterações locais v7.30 — C∆P (Capture) + submenu planos + aluguel avançado
+- **`src/cap/capEngine.js`** — motor C∆P: alvos (`ig:user`), verificação periódica (padrão 30 min, backoff em 429), download com verificação (bytes/mime sniff), galeria em `data/cap/<alvo>/` (+ .txt com legenda), envio para destinos WA com legenda C∆P, log (`baixado|parcial|falhou|enviado|erro`), `capturarTudo` (capture all), stories/feed completo só com `sessionid` (guardado em `data/cap/cap.json` + espelho `BotConfig cap_state`, nunca versionado). Fase 1: Instagram via `web_profile_info` (12 posts públicos sem login). 1.ª verificação apenas marca histórico como visto (sem spam).
+- **`src/bot/cases/cap.js`** — `!cap add|del|lista|ver|check|all|ultimo|destino|guardar|auto|stories|intervalo|galeria|log|login|logout` (dono/subdono). `cap login` apaga a mensagem com o cookie.
+- `src/index.js` — `capEngine.arrancar()` + `start(getSock)` no arranque.
+- **`planos`** deixou de ser alias de `vip`: submenu próprio em `rental2.js` (estado VIP + aluguel do grupo, lista `single_select` → vip/alugar/trial/statusalugar/perfil/dono).
+- **Aluguel avançado** (`!alugar`): `30`/`+7` soma ao tempo restante, `-3` subtrai (só dono/subdono), `=30` define exacto, `<jid> op` para outro grupo; encerra quando chega a 0; limite VIP só conta em activação nova.
+- `scripts/test-cap-planos.js` (`npm run test:cap`, no `npm test`) — 37 checks (rede IG tolerante a 429).

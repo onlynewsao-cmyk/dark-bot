@@ -15,7 +15,7 @@ module.exports = function registerPremiumCases(registerCase) {
   // case 'vip' / 'assinar' / 'planos'
   // Carousel com os planos de assinatura + botão para contactar
   // ══════════════════════════════════════════════════════════
-  registerCase(['vip', 'assinar', 'planos', 'premium', 'meuplano'], async ({
+  registerCase(['vip', 'assinar', 'premium', 'meuplano'], async ({   // v7.30: 'planos' tem submenu próprio (rental2.js)
     sock, msg, ctx, prefix, reply, react,
   }) => {
     const ownerNum   = String(config.owner.number || '').replace(/\D/g, '');

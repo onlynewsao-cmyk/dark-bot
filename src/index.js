@@ -529,6 +529,8 @@ async function bootstrap() {
       require('./aura/auraProativa').arrancar(() => bot.getSock?.() || bot.sock || null);
       // v7.28: persistência dos perfis de identidade (quem fala em cada grupo)
       try { require('./aura/auraIdentidade').arrancar(); } catch (_) {}
+      // v7.30: C∆P — capturas automáticas de redes sociais
+      try { const capE = require('./cap/capEngine'); capE.arrancar().then(() => capE.start(() => bot.getSock?.() || bot.sock || null)).catch(e => console.warn('[CAP]', e.message)); } catch (_) {}
     } catch (e) { console.warn('[Proativa]', e.message); }
   }
 

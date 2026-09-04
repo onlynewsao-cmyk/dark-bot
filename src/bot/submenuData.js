@@ -137,6 +137,8 @@ function categorize(cmd) {
     fullsticker:'stickers', renamesticker:'stickers',
     'novo-link':'admin', rpginfo:'economia', teste:'info', termo:'jogos',
     aura:'ia', dormiraura:'ia', modoaura:'ia',
+    cap:'owner', capture:'owner', captura:'owner', 'c∆p':'owner',   // v7.30 C∆P
+    planos:'info', menuplanos:'info', submenuplanos:'info', plans:'info',
     'microsoft-ai':'ia', rest:'info', pais:'info', getcasecode:'owner', listcase:'owner',
 
  baixarvideo:'downloads',
@@ -442,7 +444,7 @@ const SUBCATEGORIES = {
   ],
   info: [
     { id: '🤖 Bot', re: /^(ping|info|status|statusbot|statusgp|system|stats|uptime|tempoonline|aiapis|totalcmd|topcmd|likeff|infoff|dono|criador|donos|suporte|bug|zipbot|gitbot|start)$/ },
-    { id: '👤 Perfil', re: /^(perfil|me|dados|meustatus|lid|myid|msgid|msginfo|perfilpic|getprefix|prefixo|avaliar|roles|mention|afk|voltei|equipe|subdono|staff|planos|vip|assinar|premium|myvip)$/ },
+    { id: '👤 Perfil', re: /^(perfil|me|dados|meustatus|lid|myid|msgid|msginfo|perfilpic|getprefix|prefixo|avaliar|roles|mention|afk|voltei|equipe|subdono|staff|planos|menuplanos|submenuplanos|plans|vip|assinar|premium|myvip|alugar|trial|statusalugar|estender)$/ },
     { id: '📞 Chamadas', re: /^(ligar|liga|desligar|desliga|encerrar|call|calls|chamada|chamadas|chamada-video|vcall|videocall)$/ },
     { id: '🕐 Utilidades', re: /^(hora|horas|data|date|agora|help|ajuda|cmds|comandos|menu|diag|diagnostico|diagnóstico|tempo|clima)$/ },
   ],
@@ -472,6 +474,7 @@ const SUBCATEGORIES = {
   ],
   owner: [
     { id: '🏰 RPG / Comunidade', re: /^(darkrpg|rpginit|iniciar-rpg|setgrupo|setarena|setdungeons|settrocas|setcavernas|setlazer|setarsenal|criaclan|criaclã|newclan|menu-rpg|menurpg|rpgmenu|rpgmenu2|comunicado|arsenal|ranking-update|addglb|addglobal|darkrpg-status|rpgstatus|darkrpg-test|rpgtest)$/ },
+    { id: '📡 C∆P Capture', re: /^(cap|capture|captura|c∆p)$/ },
     { id: '👑 Sistema', re: /^(broadcast|send|eval|exec|shell|restart|shutdown|panel|autodecrypt|prefixos|buttonmode|menustyle)$/ },
     { id: '🧩 Cases', re: /^(addcase|removicase|downcase|listcases|runcase|reloadcases|execcase|testcase|testcasecode|viewcase|getcasecode|listcase|mycases|validarcase|verificarcmds|cmdcheck|vercode|audit|auditcmds|recarregarcases|refreshcases|removecase|remcase|showcase|newcase|listcmds|somcode|codsom)$/ },
     { id: '🎨 Temas', re: /^(change|tema|settheme|themes|temas|listtemas|listthemes|themechange|themeglobal|globaltheme|mudarstema)$/ },
