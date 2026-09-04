@@ -1620,6 +1620,23 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           });
           if (d.responde) {
             try { require('../aura/auraTalk').marcarFala(ctx.remoteJid, ctx.senderNumber); } catch {}
+            // v7.37: VONTADE PRÓPRIA — as regras dizem "podes responder";
+            // ela decide se QUER (saturação da pessoa + humor). Nunca no
+            // PV do Dark com pergunta directa.
+            try {
+              const vont = require('../aura/auraVontade');
+              vont.registar(ctx.remoteJid, ctx.senderNumber, text);
+              const q = vont.querResponder({
+                jid: ctx.remoteJid, num: ctx.senderNumber, texto: text, isOwner, isGroup: ctx.isGroup,
+                mood: require('../aura/auraHuman').getMood(ctx.remoteJid).mood,
+                perguntaDirecta: /\?/.test(text) || isBotMentioned || isReplyToBot,
+              });
+              if (!q.responde) {
+                if (q.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: q.reagir, key: msg.key } }).catch(() => {});
+                _contaMsg(ctx.remoteJid);
+                return false;
+              }
+            } catch {}
           }
 
           if (!d.responde) {
@@ -2134,6 +2151,23 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
                 if (idb) partes.unshift(idb);
               }
             } catch {}
+            // v7.37: CÉREBRO — ferramentas reais (por cargo), o que já
+            // aprendeu (pessoa + grupo), e licença para calar/aprender.
+            try {
+              const cer = require('../aura/auraCerebro');
+              const vont = require('../aura/auraVontade');
+              const _isVipC = !!(ctx.userData?.isPremium && ctx.userData.isPremium());
+              const saber = await cer.saberParaPrompt({ senderNumber: ctx.senderNumber, remoteJid: ctx.remoteJid, isGroup: ctx.isGroup });
+              if (saber) partes.push(saber);
+              const ferr = cer.ferramentasParaPrompt({ isOwner, isAdmin: ctx.isAdmin, isVip: _isVipC, isGroup: ctx.isGroup });
+              if (ferr) partes.push(ferr);
+              partes.push(cer.instrucaoAprendizagem({ isOwner }));
+              partes.push(vont.instrucao({
+                isOwner, isGroup: ctx.isGroup,
+                sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber),
+                mood: require('../aura/auraHuman').getMood(ctx.remoteJid).mood,
+              }));
+            } catch (e) { console.warn('[Aura cerebro]', e.message?.slice(0, 60)); }
             _consciencia = partes.join('\n\n');
             // Aprende com correcções: "não faças isso" vira regra
             if (/aura/i.test(cleanText) || isReplyToBot || !ctx.isGroup) {
@@ -2206,6 +2240,49 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // Responde como pessoa real — sem emojis de bot
       // ⚡ Parser de acções da Aura: [STICKER:xxx], [IMAGE:xxx], [CMD:xxx]
       let finalAnswer = answer;
+      // v7.37: a IA pode escolher calar-se / só reagir, pedir acções reais
+      // e anotar o que aprendeu. Tudo com as permissões de sempre.
+      let _acoesIA = [];
+      try {
+        const vont = require('../aura/auraVontade');
+        const cer = require('../aura/auraCerebro');
+        const v = vont.interpretarResposta(finalAnswer);
+        if (v.silencio) {
+          if (v.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
+          console.log('[Aura] escolheu não responder');
+          return true;
+        }
+        if (v.reagir && v.texto.length < 2) {
+          await sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
+          return true;
+        }
+        finalAnswer = v.texto;
+        const c = cer.interpretar(finalAnswer);
+        finalAnswer = c.texto;
+        _acoesIA = c.acoes;
+        if (c.factos.length || c.factosGrupo.length) {
+          cer.aprender({ factos: c.factos, factosGrupo: c.factosGrupo, senderNumber: ctx.senderNumber, remoteJid: ctx.remoteJid, isGroup: ctx.isGroup })
+            .then(n => n && console.log(`[Aura] aprendeu ${n} facto(s)`)).catch(() => {});
+        }
+        if (_acoesIA.length) {
+          const _isVipA = !!(ctx.userData?.isPremium && ctx.userData.isPremium());
+          let _adm = ctx.isAdmin;
+          if (ctx.isGroup && _adm == null) { try { _adm = await isGroupAdminForHandler(sock, ctx); } catch {} }
+          if (finalAnswer.length > 0) { await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg }); finalAnswer = ''; }
+          const r = await cer.executarAcoes(_acoesIA, {
+            sock, msg, ctx, texto: cleanText, isOwner, isAdmin: !!_adm, isVip: _isVipA, caseHandler, config: commandConfig,
+            runNativo: async (nome, { ctx: cmdCtx, args }) => {
+              const fn = nativeCommands[nome] || packageCommands[nome];
+              if (typeof fn !== 'function') return false;
+              await fn({ sock, msg, ctx: cmdCtx, args, isOwner, fillVars, config: commandConfig });
+              await incrementUserCommand(ctx.senderNumber, ctx, nome).catch(() => {});
+              return true;
+            },
+          });
+          for (const t of r.respostas) await sock.sendMessage(ctx.remoteJid, { text: t }, { quoted: msg }).catch(() => {});
+          if (r.executadas || r.respostas.length) return true;
+        }
+      } catch (e) { console.warn('[Aura cerebro/vontade]', e.message?.slice(0, 60)); }
       try {
         const san = require('../aura/auraSanitizer');
         const interpret = require('../aura/auraInterpret');

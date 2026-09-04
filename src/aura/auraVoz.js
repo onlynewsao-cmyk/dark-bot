@@ -57,6 +57,7 @@ function limparParaTts(texto) {
     .replace(/\[STICKER:[^\]]+\]/gi, ' ')
     .replace(/\[IMAGE:[^\]]+\]/gi, ' ')
     .replace(/\[CMD:[^\]]+\]/gi, ' ')
+    .replace(/\[(?:FAZ|APRENDI|APRENDI_GRUPO|REAGIR|SILENCIO|SILÊNCIO|IGNORAR)[^\]]*\]/gi, ' ') // v7.37
     .replace(/claro[, ]+(dark[, ]+)?faz(er)? uma grava[cç][aã]o[^.!?]*/gi, ' ')
     .replace(/aqui est[aá][,.]?\s*(ou[cç]a|ouve)?/gi, ' ')
     .replace(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu, ' ')

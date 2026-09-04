@@ -626,7 +626,7 @@ async function auraRespond(text, ctx = {}) {
   // v6.86 — consciência: quem fala agora, tom, assunto, regras que
   // aprendeu e as próprias falas recentes (anti-repetição).
   if (consciencia) {
-    systemPrompt += '\n\n' + String(consciencia).slice(0, 3200);
+    systemPrompt += '\n\n' + String(consciencia).slice(0, 6500); // v7.37: cabe o cérebro (ferramentas + saber)
   }
 
   // Tentar IA sempre (gera respostas únicas)

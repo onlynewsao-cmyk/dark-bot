@@ -260,3 +260,9 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - **Áudio truncado**: `auraVoz.textoParaFalar` cortava em 500 chars, o handler cortava outra vez em 500 e recusava respostas >900 chars; ElevenLabs tinha timeout de 15s. Agora: até 1800 chars falados, `ai.splitForTts` parte por frases (≤900) e concatena os MP3, timeout 60s, e novo fallback grátis `ai.speakGoogleTts` (gTTS, pedaços de 190 chars) antes do espeak.
 - **Spam do aviso sem aluguel**: `_avisoSemAluguel` disparava em QUALQUER mensagem de cada membro (cooldown por grupo+pessoa). Agora só dispara quando a mensagem parece comando (`prefixInfo || pareceComando`) e 1×/6h por grupo.
 - Teste: `npm run test:auravozspam` (10 checks). Arsenal AURA auditado: 56 acções no `auraExec` (modos, canais, grupo, memória, agenda), identidade por número/LID mantida; `pushName` só para exibição.
+
+## v7.37 — AURA: vontade própria + cérebro ligado às funções + aprendizagem
+- `src/aura/auraVontade.js`: saturação por pessoa (msgs/2min, repetição, monossílabos), humor do chat pesa; `querResponder()` corre DEPOIS do `deveResponder` (Dark em PV com pergunta nunca é ignorado); a IA pode responder `[SILENCIO]` ou `[REAGIR:emoji]` e o handler respeita.
+- `src/aura/auraCerebro.js`: a IA recebe a lista de ferramentas reais (capacidades do `auraBrain` + `CMDS_IA` do `auraCommands`, filtradas por cargo) e pede-as com `[FAZ:<id> <arg>]`; execução via `auraExec`/`caseHandler.runCase`/`nativeCommands` com as MESMAS permissões (`podeFazer`/`podeExecutar`, `BLOQUEADOS`); máx. 2 por resposta. Aprende com `[APRENDI:facto]` (pessoa → `auraMemory` importante) e `[APRENDI_GRUPO:facto]` (→ BotConfig `aura_saber_<jid>`, máx 20), reinjectado no prompt seguinte via `saberParaPrompt`.
+- `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
+- Teste: `npm run test:auravontade` (30 checks).
