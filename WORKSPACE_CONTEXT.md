@@ -106,7 +106,7 @@ Ordem real dentro de `_handleInner(sock, msg)`:
 |---|---|
 | `downloads.js`, `downloads2.js`, `musica.js` | play/play2/play3/playhq, ytd/gyt (botões), video/video2, TikTok/IG/FB/Twitter/Spotify via `dl/*`, card DARK TÓXICO |
 | `stickers.js`, `stickers2.js`, `stickerly.js`, `pack.js`, `figcategorias.js`, `stickerBan.js` | figurinhas, packs, renomear, watermark, categorias, sticker.ly, ban por hash |
-| `ia.js`, `ia2.js`, `auraInvoke.js` | comandos de IA (gpt, imagine, transcrever, tts), invocar/acordar AURA |
+| `ia.js`, `ia2.js` | comandos de IA (gpt, imagine, transcrever, tts) — acordar/dormir AURA é por conversa (v7.40) |
 | `grupos.js`, `audioAdmin2.js`, `online.js`, `medidores.js` | administração de grupos, anti-*, welcome, marcar todos, medidores/brincadeiras |
 | `economia2.js`, `jogos2.js`, `interacoes2.js`, `random.js` | economia extra, jogos, interações, aleatórios |
 | `rpg2.js`, `rpgSetup.js`, `rpgWorld.js`, `rpgCommunity.js` | RPG completo (usa `src/bot/rpg/*`) |
@@ -266,6 +266,19 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `src/aura/auraCerebro.js`: a IA recebe a lista de ferramentas reais (capacidades do `auraBrain` + `CMDS_IA` do `auraCommands`, filtradas por cargo) e pede-as com `[FAZ:<id> <arg>]`; execução via `auraExec`/`caseHandler.runCase`/`nativeCommands` com as MESMAS permissões (`podeFazer`/`podeExecutar`, `BLOQUEADOS`); máx. 2 por resposta. Aprende com `[APRENDI:facto]` (pessoa → `auraMemory` importante) e `[APRENDI_GRUPO:facto]` (→ BotConfig `aura_saber_<jid>`, máx 20), reinjectado no prompt seguinte via `saberParaPrompt`.
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
+
+## v7.40 — AURA universal: sem comandos próprios, executa QUALQUER comando por conversa, sabe a data, stickers só com ela
+- **Removidos** `src/bot/cases/auraInvoke.js` (`.aura/.aurasai/.auramodo/.auragrupos`) e entradas no `submenuData.js`. O `.aura` de brincadeira (GIF ⚡, packages/interactions) mantém-se. Acordar/dormir/estado agora por conversa (só dono): "aura acorda aqui", "aura dorme", "aura estás acordada?", "aura em que grupos estás acordada?" → `auraUniversal.gerirPresenca` (commandHandler, logo após `_auraAwakeHere`).
+- **Novo `src/aura/auraUniversal.js`**:
+  - `catalogo()` — mapa real de ~2090 comandos (FILE_SOURCES + CASES + nativos + pacotes) com descrição (`commandDescriptions`/`commandCatalog`), cache 5 min.
+  - `escolherComando(texto, ai)` — pré-filtro léxico + SINONIMOS (toca→play, bane sticker→bansticker, liga→anti*…) → ~140 candidatos → IA devolve `{cmd,args}`; nomes fora do catálogo rejeitados.
+  - `permissao()` — BLOQUEADOS de auraCommands (eval/broadcast/restart/addcase…) nunca; `ownerOnly` só dono; ADMIN_RE (ban/promote/anti*/bansticker…) admin ou VIP; VIP_RE (downloads/IA) VIP; resto livre.
+  - `executarComando()` — `caseHandler.runCase` → nativo → pacote, com `isOwner` real de quem pediu.
+  - Ligado no commandHandler DEPOIS do `auraCommands.detectarComando` e antes de `_fotosPedidas`: só se `brain.pareceOrdem` && !`eInstrucao`; comandos SENSIVEIS passam ainda por `auraInstructionGuard.eOrdem`. Sem permissão (não-dono) → "Isso é *!cmd* — precisas de X".
+  - `blocoTemporal()` (data/hora Luanda + regra "diz a data se for coisa antiga / não inventes") e `blocoTamanho(texto)` (1 linha / 1–4 frases / completa até ~2500) injectados no prompt da AURA (`auraHuman.auraRespond`) e do assistente (`auraModes.assistantRespond`). `quandoFoi(ts)` usado no `auraHistorico` ("hoje às 14:03", "há 3 dias").
+  - `politicaSticker()` — sticker solto em grupo: não responde (dono: 30% reage com emoji); reply/menção a ela ou PV: responde, ~35–40% com sticker dela (`responderComSticker`: gifHelper → stickerMaker). Ligado no deveResponder e antes do envio do texto.
+- `ai.js`: `max_tokens` 1000→2000 (Groq/OpenRouter/Gemini) para respostas longas não cortarem.
+- Testes: test:cases 19/19, vontade-cerebro 30/30, comandos 22/22, brain 21/21, modes 28/28.
 
 ## v7.39 — `!downcase` universal: qualquer comando sai como `case 'x': { … break; }` pronto para `!addcase`
 - Antes só os cases dinâmicos saíam nesse formato; ficheiros mandavam o `registerCase([...], async …)` cru e nativos/pacotes o `fn.toString()`.

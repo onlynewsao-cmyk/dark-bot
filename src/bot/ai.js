@@ -320,7 +320,7 @@ async function chatGroq(messages, system) {
         model,
         messages: [{ role: 'system', content: system }, ...messages],
         temperature: 0.75,
-        max_tokens:  1000,
+        max_tokens:  2000,   // v7.40: respostas longas sem corte
         stream:      false,
       }, { Authorization: `Bearer ${config.ai.groqApiKey}` });
       const out = data.choices?.[0]?.message?.content;
@@ -414,7 +414,7 @@ async function chatGemini(messages, system) {
     try {
       const data = await post(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
-        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 1000 }, safetySettings: GEMINI_SAFETY }
+        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 2000 }, safetySettings: GEMINI_SAFETY }
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
       if (out) return stripThinking(out);
@@ -435,7 +435,7 @@ async function chatRouter(messages, system) {
   const data = await post('https://openrouter.ai/api/v1/chat/completions', {
     model,
     messages: [{ role: 'system', content: system }, ...messages],
-    temperature: 0.75, max_tokens: 1000,
+    temperature: 0.75, max_tokens: 2000,
   }, {
     Authorization: `Bearer ${config.ai.openrouterApiKey}`,
     'HTTP-Referer': config.appUrl || 'https://render.com',

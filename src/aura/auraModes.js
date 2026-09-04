@@ -314,6 +314,8 @@ async function assistantRespond(text, opts = {}) {
   let systemPrompt = buildAssistantPrompt({ ...opts, memoria });
   // v7.28: identidade por número (quem fala / a quem responde / quem está no grupo)
   if (opts.identidade) systemPrompt += '\n\n' + String(opts.identidade).slice(0, 1800);
+  // v7.40: consciência temporal + tamanho da resposta
+  try { const uni = require('./auraUniversal'); systemPrompt += '\n\n' + uni.blocoTemporal() + '\n' + uni.blocoTamanho(text); } catch {}
 
   try {
     const reply = await ai.chat(text, systemPrompt, {

@@ -1,6 +1,6 @@
 {
   "name": "dark-bot",
-  "version": "7.39.0",
+  "version": "7.40.0",
   "description": "DARK BOT - Bot WhatsApp profissional | @systemzero/baileys | Dark Net Engine | DarkShield Anti-Link v2",
   "main": "src/index.js",
   "scripts": {

@@ -76,7 +76,6 @@ function categorize(cmd) {
     baixaraudio:'downloads',
     // v7.0 — Comandos que caíam em 'outros'
     acordar:'ia', mymemory:'ia', resetia:'ia', imagine:'ia', img:'ia', pergunta:'ia', news:'ia', jornal:'ia',
-    acordaaura:'ia', auraon:'ia', auraoff:'ia', auramodo:'ia', aurastatus:'ia', auradorme:'ia', aurasai:'ia', auragrupos:'ia', auralist:'ia',
     amaldicoar:'interacoes', bencao:'interacoes', bullying:'interacoes', chutar:'interacoes', cuspir:'interacoes',
     declarar:'interacoes', envenenar:'interacoes', espancar:'interacoes', facada:'interacoes', flertar:'interacoes',
     highfive:'interacoes', lutar:'interacoes', mimimi:'interacoes', pontape:'interacoes', rir:'interacoes',
@@ -458,7 +457,7 @@ const SUBCATEGORIES = {
     { id: '💬 Conversa', re: /^(ia|gpt|chat|ask|pergunta|chatgpt|gpt4|gpt5|copiloto|copilot|claude|pplx|llama|llama3|gemma|gemma2|qwen|qwen2|qwen3|kimi|mistral|magistral|explicar|ideias|debater|recomendar|aventura)$/ },
     { id: '🖼️ Imagem', re: /^(imagem|img|imagine|gerar|gimage|sys-img|deepai)$/ },
     { id: '🧠 Memória', re: /^(aimemoria|mymemory|airesetar|resetia|clearmemory|addai|addmetaai)$/ },
-    { id: '🌹 AURA', re: /^(aura|acordar|acordaaura|dormiraura|auradorme|aurasai|auramodo|modoaura|aurastatus|auragrupos|auralist|auraon|auraoff|invocaraura|gruposaura|auramod|aurarpg|moderar)$/ },
+    { id: '🌹 AURA', re: /^(auramod|aurarpg|moderar)$/ },
   ],
   jogos: [
     { id: '🎯 Clássicos', re: /^(quiz|forca|adivinha|charada|enigma|eununca|cacapalavras|batalhanaval|genio|wordle|memoria|stop|anagrama|digitar|jogodavelha|tictactoe|velha)$/ },

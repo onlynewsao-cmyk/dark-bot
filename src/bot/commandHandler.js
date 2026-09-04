@@ -1455,6 +1455,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   const _auraAwakeHere = await _auraModes.isAuraAwake(ctx.remoteJid, { isGroup: ctx.isGroup })
     .catch(() => false);
 
+  // v7.40: acordar/dormir/estado da AURA por CONVERSA ("aura acorda aqui",
+  // "aura dorme", "aura estás acordada?"). Substitui os cases .aura/.aurasai/
+  // .auramodo/.auragrupos, removidos. Só o dono; os outros seguem normal.
+  if (isOwner && text && !startsWithAnyPrefix(text, prefixes)) {
+    try {
+      if (await require('../aura/auraUniversal').gerirPresenca({ sock, msg, ctx, texto: text, isOwner })) return true;
+    } catch (e) { console.warn('[Aura presença]', e.message?.slice(0, 60)); }
+  }
+
   // Num grupo em modo assistente o nome "Aura" não significa nada — ela
   // não está ali. Só menção ao bot / resposta directa é que chamam o
   // assistente. Senão o bot saltava a cada vez que alguém dissesse "aura"
@@ -1618,6 +1627,16 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             senderNumber: ctx.senderNumber,
             remoteJid: ctx.remoteJid,
           });
+          // v7.40: STICKER solto em grupo não puxa resposta (nem do Dark) —
+          // só se for resposta a ela ou menção. No PV responde normal.
+          if (d.responde && ctx.isGroup && msg.message?.stickerMessage && !isBotMentioned && !isReplyToBot) {
+            const pol = require('../aura/auraUniversal').politicaSticker({ isGroup: true, isReplyToBot, mencionada: isBotMentioned, isOwner });
+            if (!pol.responde) {
+              if (pol.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: decide.escolherReacao('sticker'), key: msg.key } }).catch(() => {});
+              _contaMsg(ctx.remoteJid);
+              return false;
+            }
+          }
           if (d.responde) {
             try { require('../aura/auraTalk').marcarFala(ctx.remoteJid, ctx.senderNumber); } catch {}
             // v7.37: VONTADE PRÓPRIA — as regras dizem "podes responder";
@@ -2426,6 +2445,43 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         }
       }
 
+      // v7.40: ROUTER UNIVERSAL — qualquer comando do bot por conversa.
+      // Só quando os mapas fixos falharam E a frase parece ordem/pedido.
+      // A IA vê o catálogo REAL (cases+nativos+pacotes) e escolhe; nomes
+      // inventados são rejeitados; cargo e BLOQUEADOS respeitados.
+      {
+        try {
+          const uni = require('../aura/auraUniversal');
+          const brainU = require('../aura/auraBrain');
+          const t0 = String(cleanText || '').trim();
+          // guarda de instruções: "se alguém mandar link, bane" é regra, não ordem
+          const eOrdem = t0.length >= 4 && t0.length <= 220 && brainU.pareceOrdem(t0) && !require('../aura/auraCommands').eInstrucao(t0);
+          if (eOrdem) {
+            const guardaU = require('../aura/auraInstructionGuard');
+            let escolha = await uni.escolherComando(t0, require('./ai'));
+            if (escolha && guardaU.eSensivel(escolha.cmd) && !guardaU.eOrdem(t0, { comando: escolha.cmd })) escolha = null;
+            if (escolha) {
+              let _ehAdminU = false;
+              if (ctx.isGroup) { try { _ehAdminU = await isGroupAdminForHandler(sock, ctx); } catch {} }
+              const permU = uni.permissao(escolha.cmd, escolha.info, { isOwner, isVip, isAdmin: _ehAdminU });
+              if (permU.pode) {
+                console.log('[Aura universal]', JSON.stringify(t0.slice(0, 60)), '→', prefix + escolha.cmd, escolha.args);
+                const ok = await uni.executarComando(escolha, { sock, msg, ctx, prefix, isOwner, config: commandConfig, nativeCommands, packageCommands, fillVars });
+                if (ok) {
+                  await incrementUserCommand(ctx.senderNumber, ctx, escolha.cmd).catch(() => {});
+                  return true;
+                }
+              } else if (!isOwner) {
+                await sock.sendMessage(ctx.remoteJid, { text: `Isso é *${prefix}${escolha.cmd}* — precisas de ${permU.precisa}. 😌` }, { quoted: msg });
+                return true;
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('[Aura universal]', e.message?.slice(0, 60));
+        }
+      }
+
       // Pedido de foto ANTES da IA — "Aura mostra o Messi" não pode
       // virar "_envia uma foto do Messi_". v6.85: nomes múltiplos,
       // termos vagos pelo contexto, e resposta honesta se falhar.
@@ -2520,6 +2576,22 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           console.warn('[Aura voz]', e.message?.slice(0, 60));
           // se a voz falhar, continua e manda o texto
         }
+      }
+
+      // v7.40: quando lhe mandam um sticker, às vezes ela responde com
+      // um sticker dela (tema tirado da própria resposta) em vez de texto.
+      if (isSticker && finalAnswer.length > 0 && finalAnswer.length < 200) {
+        try {
+          const uni = require('../aura/auraUniversal');
+          const pol = uni.politicaSticker({ isGroup: ctx.isGroup, isReplyToBot, mencionada: isBotMentioned, isOwner });
+          if (pol.comSticker) {
+            const tema = /\b(kk+|haha|rir|engra[cç]ad)/i.test(finalAnswer) ? 'anime laugh' : /\b(amo|amor|beijo|saudade|🖤|❤)/i.test(finalAnswer) ? 'anime blush' : /\b(triste|chor)/i.test(finalAnswer) ? 'anime cry' : /\b(bravo|raiva|irrita)/i.test(finalAnswer) ? 'anime angry' : 'anime smile';
+            if (await uni.responderComSticker(sock, msg, ctx, tema)) {
+              try { require('../aura/auraAvancada').registarFala(ctx.remoteJid, finalAnswer); } catch {}
+              return true;
+            }
+          }
+        } catch {}
       }
 
       // Envia o texto (se houver)

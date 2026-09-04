@@ -167,8 +167,11 @@ async function quemEscreveu(sock, ctx, texto, msg) {
       msg: `Varri as últimas ${msgs.length} mensagens deste grupo e *ninguém* escreveu algo com "${q}".`,
     };
   }
+  // v7.40: cada achado diz QUANDO foi ("hoje às 14:03", "há 3 dias")
+  let quando = () => '';
+  try { quando = require('./auraUniversal').quandoFoi; } catch {}
   const linhas = achadas.map(x =>
-    `▸ @${String(x.jid).split('@')[0]} (*${x.nome || x.jid.split('@')[0]}*): "${x.texto.slice(0, 120)}"`);
+    `▸ @${String(x.jid).split('@')[0]} (*${x.nome || x.jid.split('@')[0]}*)${x.ts ? ' — ' + quando(x.ts) : ''}: "${x.texto.slice(0, 120)}"`);
   return {
     ok: true,
     msg: `Quem escreveu "${q}":\n\n${linhas.join('\n')}`,
@@ -202,7 +205,9 @@ async function oQueEscreveu(sock, ctx, texto, msg) {
   if (!msgs.length) {
     return { ok: true, msg: `*${pessoa.nome}* não escreveu nada nas últimas mensagens deste grupo.` };
   }
-  const linhas = msgs.map(x => `▸ "${x.texto.slice(0, 120)}"`);
+  let quando = () => '';
+  try { quando = require('./auraUniversal').quandoFoi; } catch {}
+  const linhas = msgs.map(x => `▸ ${x.ts ? '(' + quando(x.ts) + ') ' : ''}"${x.texto.slice(0, 120)}"`);
   return {
     ok: true,
     msg: `As últimas mensagens de *${pessoa.nome}* aqui:\n\n${linhas.join('\n')}`,
