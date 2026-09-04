@@ -527,6 +527,8 @@ async function bootstrap() {
     // só nos chats onde está acordada, com ritmo humano e limites).
     try {
       require('./aura/auraProativa').arrancar(() => bot.getSock?.() || bot.sock || null);
+      // v7.28: persistência dos perfis de identidade (quem fala em cada grupo)
+      try { require('./aura/auraIdentidade').arrancar(); } catch (_) {}
     } catch (e) { console.warn('[Proativa]', e.message); }
   }
 

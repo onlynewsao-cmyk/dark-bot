@@ -568,6 +568,19 @@ async function _handleInner(sock, msg) {
   ctx.isBotSelf = isBotSelf;
   ctx.isSubOwner = isOwner && !(ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum));
   ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
+
+  // ── v7.28: IDENTIDADE — quem fala, pelo NÚMERO/LID (nunca pelo nome) ──
+  // Regista TODAS as mensagens (com ou sem comando) no perfil da pessoa
+  // neste chat: histórico, palavras, a quem respondeu. A AURA/IA recebe
+  // isto no prompt e sabe distinguir cada membro do grupo.
+  try {
+    const identidade = require('../aura/auraIdentidade');
+    ctx.identidade = await identidade.identificar(sock, msg, ctx);
+    if (ctx.identidade.numero && !ctx.senderNumber) ctx.senderNumber = ctx.identidade.numero;
+    const _cit = identidade.autorCitado(msg);
+    ctx.citado = _cit;
+    if (text) identidade.registar(ctx.remoteJid, ctx.identidade, text, { respondeuANumero: _cit?.numero || null, ts: Date.now() });
+  } catch (e) { console.warn('[Identidade]', e.message?.slice(0, 60)); }
   // v6.40: expõe o sock no ctx — o roleResolver/submenus precisam dele
   // para obter os admins do grupo (groupMetadata) sem o receber por parâmetro.
   ctx.sock = sock;
@@ -722,6 +735,7 @@ async function _handleInner(sock, msg) {
         ctx.groupName = meta.subject;
         ctx.groupMeta = meta;
         groupMetaCache.set(ctx.remoteJid, { meta, ts: now });
+        try { require('../aura/auraIdentidade').aprenderDoGrupo(meta); } catch {}
       }
 
       ctx.blockedCommands = groupConfig.blockedCommands || [];
@@ -1671,9 +1685,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
               }
             }
           }
-          // v7.11: mais contexto (10 mensagens) para a AURA saber quem disse o quê
+          // v7.28: cada linha leva o NÚMERO do autor ([+244…|Nome]) — pessoas
+          // com o mesmo nome deixam de se misturar. Cai no formato antigo só
+          // se o módulo de identidade ainda não tiver nada deste grupo.
+          let linhasId = [];
+          try { linhasId = require('../aura/auraIdentidade').contextoGrupoComNumeros(ctx.remoteJid, 10); } catch {}
           const last5 = recentGroupMsgs.slice(-10);
-          if (last5.length) {
+          if (linhasId.length) {
+            groupContext = `Grupo "${ctx.groupName || 'grupo'}" (formato [número|nome exibido]: texto):\n` + linhasId.join('\n') + '\n';
+          } else if (last5.length) {
             groupContext = `Grupo "${ctx.groupName || 'grupo'}":\n` +
               last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n';
           }
@@ -1681,7 +1701,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
           if (qtxt) groupContext += `Respondendo a: "${qtxt.slice(0, 150)}"\n`;
         } else {
-          groupContext = `PV com ${ctx.pushName || 'utilizador'}`;
+          groupContext = `PV com ${ctx.identidade?.rotulo || ctx.pushName || 'utilizador'}`;
         }
       } catch {}
 
@@ -1690,7 +1710,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       try {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
         historyArray = mem.getContextWindow(16);
-        mem.addMessage('user', `[${ctx.pushName}]: ${prompt}`);
+        // v7.28: linha do histórico com número+nome ("[+244…|Nome]: …")
+        mem.addMessage('user', ctx.identidade
+          ? require('../aura/auraIdentidade').linhaHistorico(ctx.identidade, prompt)
+          : `[${ctx.pushName}]: ${prompt}`);
         await mem.save().catch(() => {});
       } catch {}
 
@@ -2096,6 +2119,16 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               partes.push('AS TUAS ÚLTIMAS FALAS AQUI (não repitas — diz de outra forma):\n' +
                 minhas.map(f => '• ' + f.slice(0, 90)).join('\n'));
             }
+            // v7.28: identidade por número — quem fala, a quem responde,
+            // quem são os outros do grupo (cada um com o seu histórico).
+            try {
+              if (ctx.identidade) {
+                const idb = require('../aura/auraIdentidade').blocoParaPrompt(ctx.remoteJid, ctx.identidade, {
+                  citado: ctx.citado, ownerNumber: config.owner.number,
+                });
+                if (idb) partes.unshift(idb);
+              }
+            } catch {}
             _consciencia = partes.join('\n\n');
             // Aprende com correcções: "não faças isso" vira regra
             if (/aura/i.test(cleanText) || isReplyToBot || !ctx.isGroup) {
@@ -2106,6 +2139,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
 
           answer = await aura.auraRespond(prompt, {
             isOwner,
+            isSubOwner: !!ctx.isSubOwner,   // v7.28: número do bot / owner_numbers
             isVip,
             isAdmin: ctx.isAdmin,   // v6.85: ela sabe o cargo de quem fala
             pushName: ctx.pushName,
@@ -2129,8 +2163,12 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           });
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
+          let _identBloco = '';
+          try {
+            if (ctx.identidade) _identBloco = require('../aura/auraIdentidade').blocoParaPrompt(ctx.remoteJid, ctx.identidade, { citado: ctx.citado, ownerNumber: config.owner.number });
+          } catch {}
           answer = await auraModes.assistantRespond(prompt, {
-            botName: config.bot.name, userName: ctx.pushName,
+            botName: config.bot.name, userName: ctx.pushName, identidade: _identBloco,
             isGroup: ctx.isGroup, groupName: ctx.groupName,
             groupContext, historyArray, prefix,
             isOwner, isVip, isAdmin: ctx.isAdmin,

@@ -311,7 +311,9 @@ async function assistantRespond(text, opts = {}) {
     memoria = mem.paraPrompt(r);
   } catch { /* sem memória não bloqueia */ }
 
-  const systemPrompt = buildAssistantPrompt({ ...opts, memoria });
+  let systemPrompt = buildAssistantPrompt({ ...opts, memoria });
+  // v7.28: identidade por número (quem fala / a quem responde / quem está no grupo)
+  if (opts.identidade) systemPrompt += '\n\n' + String(opts.identidade).slice(0, 1800);
 
   try {
     const reply = await ai.chat(text, systemPrompt, {

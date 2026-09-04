@@ -193,11 +193,25 @@ Diagnóstico: a Tenor API v2 foi **descontinuada pela Google** (403) e a v1 exig
 - `roleResolver.js`: idem (passo 1b). `aura/context/userContext.js`: números hardcoded removidos; `BOT_NUMBER` vai para `SUBOWNER_NUMBERS`.
 - Novo `scripts/test-bot-subdono.js` (`npm run test:subdono`): 15/15 OK.
 
+## Alterações locais v7.28 (2026-09-04) — AURA sabe QUEM fala (pelo número)
+
+Problema: AURA, assistente e IA identificavam as pessoas pelo `pushName`. Qualquer um com "Dark" no nome podia ser tratado como Dono pela IA; dois membros com o mesmo nome misturavam-se; o histórico do grupo (`AiMemory GROUP:<jid>`) e o `groupContext` guardavam só `Nome: texto`.
+
+- Novo `src/aura/auraIdentidade.js`:
+  - `identificar(sock,msg,ctx)` → `{numero, lid, jid, pushName, verificadoPorNumero, isOwner, isBotSelf, cargo, rotulo}`. Fonte de verdade = número; LID resolvido por `participantAlt`/`remoteJidAlt`, `groupMetadata.phoneNumber/lid`, cache LID↔PN e `signalRepository.lidMapping`. Sem número confirmado → `lid:…` marcado "não verificado" (nunca inventa).
+  - Perfil por **pessoa × chat**: total, últimas 12 msgs, palavras mais usadas, a quem respondeu, nomes já usados, alcunha. Persistido em `BotConfig aura_ident_*` a cada 60 s.
+  - `blocoParaPrompt()` → "IDENTIDADE (regra absoluta): reconheces pelo NÚMERO… QUEM FALA AGORA: +244…|nome (não verificado) · cargo REAL … ESTÁ A RESPONDER A: +… · OUTRAS PESSOAS NESTE GRUPO: …".
+  - `contextoGrupoComNumeros()` e `linhaHistorico()` → `[+244…|Nome]: texto` em vez de `Nome: texto`.
+- `commandHandler.js`: identifica e regista **todas** as mensagens (com ou sem comando) logo após resolver dono/subdono; aprende pares LID↔PN do `groupMetadata`; groupContext, PV context e AiMemory usam o número; bloco de identidade entra na consciência da AURA e no assistente; `auraRespond` recebe `isSubOwner`.
+- `auraHuman.js`: prompt diz que o nome exibido não prova nada, detecta impostor com "Dark" no nome, e tem bloco próprio para SUBDONO (número do bot / `owner_numbers`: obedece, mas não é o Dark). Limite da consciência 1600 → 3200 chars.
+- `auraModes.js`: assistente recebe `opts.identidade`. `index.js`: arranca a persistência.
+- Novo `scripts/test-aura-identidade.js` (`npm run test:identidade`): 29/29 OK.
+
 ## Validação executada (2026-09-04)
 
 Ambiente: Node v20.20.2, `npm ci --ignore-scripts` + `npm rebuild sharp --foreground-scripts`.
 
-- `npm test` (suite completa, ~77 auditorias incl. `test:gif` e `test:subdono`): **exit 0 — 0 falhas** em ~11,5 min.
+- `npm test` (suite completa, ~78 auditorias incl. `test:gif`, `test:subdono` e `test:identidade`): **exit 0 — 0 falhas** em ~11,5 min.
   - Cargos 12/12, AURA brain 21/21, E2E 16/16, submenus 85/85, MENU18 32/32, AURA avançada 19/19, admin-dono OK, casehandler v7 + addcase-pin OK, rules engine OK.
 - `node scripts/check-syntax.js`: OK · `check-ejs.js`: OK · `audit-commands.js`: OK · `audit-org-comandos.js`: OK (sem fantasmas/stubs).
 - `npm audit --omit=dev`: não concluiu no sandbox por timeout de rede (última medição conhecida: 9 vulnerabilidades, 1 moderada / 8 altas, transitivas).
