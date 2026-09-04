@@ -356,7 +356,9 @@ const AVISO_ALUGUEL_MS = 6 * 60 * 60 * 1000;
 async function _avisoSemAluguel(sock, msg, ctx) {
   try {
     if (!ctx?.isGroup || !ctx?.remoteJid) return;
-    const k = ctx.remoteJid + ':' + ctx.senderNumber;
+    // v7.36: 1 aviso por GRUPO a cada 6h (era por grupo+pessoa → N avisos
+    // num grupo grande). Quem mandou o comando é mencionado.
+    const k = ctx.remoteJid;
     const agora = Date.now();
     if (_avisoAluguelTs.size > 500) _avisoAluguelTs.clear(); // fuga de memória
     if (agora - (_avisoAluguelTs.get(k) || 0) < AVISO_ALUGUEL_MS) return;
@@ -657,7 +659,10 @@ async function _handleInner(sock, msg) {
       // grupo+pessoa, para não virar spam). Os comandos continuam
       // bloqueados — o aviso É a ajuda da assistente.
       if (!checkIsPremium(uCheck)) {
-        await _avisoSemAluguel(sock, msg, ctx);
+        // v7.36: o aviso só faz sentido quando a pessoa TENTOU um comando.
+        // Antes disparava em qualquer mensagem (conversa normal) de cada
+        // membro → parecia spam e "respondia a toda a gente".
+        if (prefixInfo || pareceComando(text)) await _avisoSemAluguel(sock, msg, ctx);
         return false;
       }
     }
@@ -2238,7 +2243,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             const fala = vozMod.textoParaFalar(falsa.termo || finalAnswer, {
               texto: cleanText, citado: cita, groupContext,
             });
-            const voz = await require('./ai').speakWithFallback(fala.slice(0, 500));
+            const voz = await require('./ai').speakWithFallback(fala);
             if (voz && voz.length > 500) {
               await sock.sendMessage(ctx.remoteJid, {
                 audio: voz, mimetype: 'audio/mpeg', ptt: true,
@@ -2417,7 +2422,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         }
       }
 
-      if (pediuAudio && finalAnswer.length > 0 && finalAnswer.length < 900) {
+      if (pediuAudio && finalAnswer.length > 0) {   // v7.36: sem tecto de 900 chars — respostas longas também saem em voz (por pedaços)
         try {
           const aiVoz = require('./ai');
           // tira emojis e marcações — o TTS lê-os em voz alta
@@ -2427,7 +2432,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             texto: cleanText, citado: cita, groupContext,
           });
 
-          const voz = await aiVoz.speakWithFallback(paraFalar.slice(0, 500));
+          const voz = await aiVoz.speakWithFallback(paraFalar);
           if (voz && voz.length > 500) {
             await sock.sendMessage(ctx.remoteJid, {
               audio: voz, mimetype: 'audio/mpeg', ptt: true,

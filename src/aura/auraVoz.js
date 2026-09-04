@@ -87,7 +87,8 @@ function fallbackFala({ texto = '', citado = '', groupContext = '' } = {}) {
 
 function textoParaFalar(resposta, opts = {}) {
   const limpo = limparParaTts(resposta);
-  if (limpo && !eMetaVoz(limpo) && limpo.length >= 8) return limpo.slice(0, 500);
+  // v7.36: era 500 chars → a Aura dizia só o início do que lhe mandavam. Agora fala tudo (até ~2 min de voz).
+  if (limpo && !eMetaVoz(limpo) && limpo.length >= 8) return limpo.slice(0, 1800);
   return fallbackFala(opts);
 }
 

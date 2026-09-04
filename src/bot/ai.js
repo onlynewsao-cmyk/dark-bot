@@ -795,7 +795,7 @@ async function speakElevenLabs(text, voiceId = null) {
     const req = https.request({
       hostname: 'api.elevenlabs.io', path: `/v1/text-to-speech/${voiceId}`, method: 'POST',
       headers: { 'xi-api-key': config.ai.elevenlabsKey, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg', 'Content-Length': Buffer.byteLength(body) },
-      timeout: 15000,
+      timeout: 60000, // v7.36: 15s cortava áudios longos (ficava só o início ou nada)
     }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
@@ -1020,14 +1020,51 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // v6.53: o voiceId por omissão era '21m00Tcm4TlvDq8ikWAM' (Rachel),
 // uma library voice que o plano free NÃO pode usar → HTTP 402.
 // Passa a null para o speakElevenLabs escolher uma voz da conta.
+// v7.36: parte o texto em frases (≤ maxLen) para nenhum motor cortar a fala a meio
+function splitForTts(text, maxLen = 900) {
+  const t = String(text || '').replace(/\s+/g, ' ').trim();
+  if (t.length <= maxLen) return [t];
+  const frases = t.match(/[^.!?…]+[.!?…]+["”»)]?\s*|[^.!?…]+$/g) || [t];
+  const out = []; let cur = '';
+  for (const f of frases) {
+    if ((cur + f).length > maxLen && cur) { out.push(cur.trim()); cur = ''; }
+    if (f.length > maxLen) { for (let i = 0; i < f.length; i += maxLen) out.push(f.slice(i, i + maxLen).trim()); continue; }
+    cur += f;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+// gTTS (Google Translate) — grátis, PT, sem chave. Limite ~200 chars por pedido.
+function speakGoogleTts(text, lang = 'pt') {
+  const https = require('https');
+  const parts = splitForTts(text, 190);
+  const one = (q) => new Promise((resolve, reject) => {
+    const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(q)}`;
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124 Safari/537.36', 'Referer': 'https://translate.google.com/' }, timeout: 15000 }, res => {
+      const chunks = []; res.on('data', c => chunks.push(c));
+      res.on('end', () => { const b = Buffer.concat(chunks); if (res.statusCode !== 200 || b.length < 300) return reject(new Error('gTTS HTTP ' + res.statusCode)); resolve(b); });
+    });
+    req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('gTTS timeout')); });
+  });
+  return (async () => { const bufs = []; for (const p of parts) bufs.push(await one(p)); return Buffer.concat(bufs); })();
+}
+
 async function speakWithFallback(text, voiceId = null) {
-  // Tentar ElevenLabs primeiro
+  const full = String(text || '').trim();
+  if (!full) return null;
+  // Tentar ElevenLabs primeiro — em pedaços de ≤900 chars, concatenados (MP3 concatena bem)
   try {
-    const audio = await speakElevenLabs(text, voiceId);
-    if (audio && audio.length > 500) return audio;
+    const parts = splitForTts(full, 900);
+    const bufs = [];
+    for (const p of parts) { const a = await speakElevenLabs(p, voiceId); if (a && a.length > 500) bufs.push(a); else throw new Error('pedaço vazio'); }
+    if (bufs.length) return Buffer.concat(bufs);
   } catch (e) {
     console.warn('[Voz] ElevenLabs falhou:', e.message);
   }
+  // Fallback 2: Google TTS (grátis)
+  try { const g = await speakGoogleTts(full, 'pt'); if (g && g.length > 500) return g; }
+  catch (e) { console.warn('[Voz] gTTS falhou:', e.message); }
   
   // Fallback: usar TTS gratuito do sistema
   try {
@@ -1061,6 +1098,8 @@ module.exports = {
   speakElevenLabs,
   getElevenVoice,
   speakWithFallback,
+  speakGoogleTts,
+  splitForTts,
   searchTavily,
   transcribeAssemblyAI,
   chat,
