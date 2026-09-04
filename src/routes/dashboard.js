@@ -58,7 +58,8 @@ router.get('/control', requireOwner, async (req, res) => {
     gemini: !!config.ai.geminiApiKey,
     appUrl: config.appUrl || 'não definido',
   };
-  res.render('dashboard/control', { title: 'Controle', botState, settings, envStatus });
+  let themes = []; try { themes = require('../bot/changeThemes').listThemes().map(t => ({ id: t.name, name: t.label || t.name, icon: t.emoji || '' })); } catch {}
+  res.render('dashboard/control', { title: 'Controle', botState, settings, envStatus, themes });
 });
 router.get('/console', requireOwner, async (req, res) => {
   const all = await BotConfig.find().catch(() => []);

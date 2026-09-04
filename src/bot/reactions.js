@@ -46,7 +46,12 @@ function getErrorEmoji(commandName) {
 /**
  * Reage à mensagem com emoji apropriado
  */
+async function reactionsAtivas() {
+  try { const v = await require('./botConfigCache').get('reactions_enabled', true); return !(v === false || v === 'false'); } catch { return true; }
+}
 async function react(sock, msg, emoji) {
+  // v7.35: respeita o interruptor "Auto-reações" do dashboard (reactions_enabled)
+  if (!(await reactionsAtivas())) return;
   try {
     await sock.sendMessage(msg.key.remoteJid, {
       react: { text: emoji, key: msg.key }

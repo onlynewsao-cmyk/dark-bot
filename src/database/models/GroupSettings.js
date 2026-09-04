@@ -8,6 +8,8 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   // ── Anti-link ──────────────────────────────────────────
   antilink: { type: Boolean, default: false },
+  antilinkOptOut: { type: Boolean, default: false },   // v7.35: grupo desligou explicitamente (ignora global do dashboard)
+  antispamOptOut: { type: Boolean, default: false },
   antilinkMode: {
     type: String,
     // smart=só WA/Telegram | all_links=qualquer link | whatsapp_only=só invite WA

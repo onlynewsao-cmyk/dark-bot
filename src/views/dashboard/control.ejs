@@ -171,6 +171,47 @@
       </div>
     </div>
 
+      <!-- v7.35: FUNÇÕES DO BOT QUE FALTAVAM NO PAINEL -->
+      <div class="card">
+        <h2>🧩 Funções avançadas do bot</h2>
+        <p class="muted small">Sincronizadas com os comandos do WhatsApp (<code>!adultmode</code>, <code>!themeglobal</code>, <code>!blacklist</code>, <code>!blockcmd</code>, <code>!cap</code>…). Mudar aqui ou lá dá no mesmo.</p>
+        <div class="toggles-grid">
+          <div class="toggle-row">
+            <div class="toggle-info"><strong>🔞 Menu +18 (adult mode)</strong><div class="muted small">Liberta o portal 18+ para VIPs</div></div>
+            <label class="switch"><input type="checkbox" <%= settings.adult_mode_enabled ? 'checked' : '' %> onchange="toggleSetting('adult_mode_enabled', this.checked)" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><strong>🎭 Tema em TODAS as respostas</strong><div class="muted small">theme_apply_all — não só nos menus</div></div>
+            <label class="switch"><input type="checkbox" <%= settings.theme_apply_all ? 'checked' : '' %> onchange="toggleSetting('theme_apply_all', this.checked)" /><span class="slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info"><strong>👑 God-mode admin</strong><div class="muted small">Dono age como admin em qualquer grupo</div></div>
+            <label class="switch"><input type="checkbox" <%= settings.godmode_admin_enabled ? 'checked' : '' %> onchange="toggleSetting('godmode_admin_enabled', this.checked)" /><span class="slider"></span></label>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:12px">
+          <div class="form-group">
+            <label>🎨 Tema activo</label>
+            <select id="activeTheme" onchange="toggleSetting('active_theme', this.value)">
+              <% (themes || []).forEach(t => { %><option value="<%= t.id %>" <%= (settings.active_theme || 'dark') === t.id ? 'selected' : '' %>><%= t.icon || '' %> <%= t.name || t.id %></option><% }) %>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>🗣️ Tom global da IA (ai_global_tone)</label>
+            <input type="text" id="aiTone" value="<%= settings.ai_global_tone || '' %>" placeholder="ex: sarcástico e directo, em PT-AO" onchange="toggleSetting('ai_global_tone', this.value)" />
+          </div>
+        </div>
+        <div class="form-grid">
+          <% [['blacklist','🚫 Blacklist (números banidos do bot)','2449xxxxxxx, 2449yyyyyyy'],['blocked_commands','⛔ Comandos bloqueados globalmente','eval, exec'],['disabled_users','🔇 Utilizadores silenciados','2449xxxxxxx'],['disabled_groups','🔇 Grupos silenciados (JID)','120363xxxx@g.us'],['owner_numbers','👑 Sub-donos (números)','2449xxxxxxx']].forEach(([k,label,ph]) => { %>
+            <div class="form-group">
+              <label><%= label %></label>
+              <textarea rows="2" placeholder="<%= ph %>" onchange="saveList('<%= k %>', this.value)"><%= Array.isArray(settings[k]) ? settings[k].join(', ') : (settings[k] || '') %></textarea>
+            </div>
+          <% }) %>
+        </div>
+        <p class="muted small">📡 Capturas de redes sociais: <a href="/dashboard/cap">C∆P Capture</a> · 🎨 Stickers/menus: <a href="/dashboard/settings">Configurações</a> · 🤖 IA/AURA: <a href="/dashboard/ia">IA</a></p>
+      </div>
+
   </main>
 </div>
 
@@ -187,6 +228,10 @@
     }
   });
 
+  async function saveList(key, text) {
+    const arr = String(text || '').split(/[\n,;]+/).map(x => x.trim()).filter(Boolean);
+    return toggleSetting(key, arr);
+  }
   async function toggleSetting(key, value) {
     try {
       const r = await fetch('/api/settings', {
@@ -194,7 +239,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [key]: value }),
       });
-      if (r.ok) toast(value ? '✅ Ativado' : '🔴 Desativado', 'success', 1800);
+      if (r.ok) toast(Array.isArray(value) || typeof value === 'string' ? '✅ Guardado' : (value ? '✅ Ativado' : '🔴 Desativado'), 'success', 1800);
       else toast('❌ Erro ao salvar', 'error');
     } catch (e) { toast(e.message, 'error'); }
   }

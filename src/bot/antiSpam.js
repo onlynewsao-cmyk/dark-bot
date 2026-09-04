@@ -113,7 +113,12 @@ async function check(sock, msg) {
     if (ownerNum && senderNum === ownerNum) return false; // dono imune
 
     const gs = await GroupSettings.findOne({ groupJid: remoteJid }).lean().catch(() => null);
-    if (!gs?.antispam) return false;
+    // v7.35: interruptor global do dashboard (antispam_enabled) como padrão quando o grupo não definiu
+    let ativo = !!gs?.antispam;
+    if (!ativo && !gs?.antispamOptOut) {
+      try { ativo = !!(await require('./botConfigCache').get('antispam_enabled', false)); } catch { ativo = false; }
+    }
+    if (!ativo) return false;
 
     // Comandos do bot não contam como spam
     const text =

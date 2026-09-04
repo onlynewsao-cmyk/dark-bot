@@ -408,8 +408,8 @@ module.exports = function registerGroupCases(registerCase) {
     let saved = false;
     let extra = '';
 
-    if (['on','ativar','ligar'].includes(sub)) { gs.antilink = true; saved = true; }
-    else if (['off','desativar','desligar'].includes(sub)) { gs.antilink = false; saved = true; }
+    if (['on','ativar','ligar'].includes(sub)) { gs.antilink = true; gs.antilinkOptOut = false; saved = true; }
+    else if (['off','desativar','desligar'].includes(sub)) { gs.antilink = false; gs.antilinkOptOut = true; saved = true; }
     else if (['modo','mode'].includes(sub)) {
       const m2 = {'smart':'smart','wa':'whatsapp_only','whatsapp':'whatsapp_only','all':'all_links','todos':'all_links'}[args[1]?.toLowerCase()];
       if (!m2) return reply('❌ Modos: *smart* | *wa* | *all*');
@@ -496,9 +496,9 @@ module.exports = function registerGroupCases(registerCase) {
       { upsert: true, new: true }
     );
     const sub = (args[0]||'toggle').toLowerCase();
-    if (['on','ativar'].includes(sub)) { gs.antispam = true; await gs.save(); }
-    else if (['off','desativar'].includes(sub)) { gs.antispam = false; await gs.save(); }
-    else if (sub === 'toggle') { gs.antispam = !gs.antispam; await gs.save(); } // v7.29: clique no menu alterna
+    if (['on','ativar'].includes(sub)) { gs.antispam = true; gs.antispamOptOut = false; await gs.save(); }
+    else if (['off','desativar'].includes(sub)) { gs.antispam = false; gs.antispamOptOut = true; await gs.save(); }
+    else if (sub === 'toggle') { gs.antispam = !gs.antispam; gs.antispamOptOut = !gs.antispam; await gs.save(); } // v7.29: clique no menu alterna
     await reply(`🛡️ *ANTI-SPAM*\n${gs.antispam ? '🟢 ON  ━━━●' : '🔴 OFF ●━━━━'}\n\n> Usa ${prefix}antispam on/off para alternar`);
   });
 

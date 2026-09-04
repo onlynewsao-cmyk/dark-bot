@@ -260,7 +260,13 @@ async function check(sock, msg) {
 
     // Config do grupo
     const gs = await GroupSettings.findOne({ groupJid: remoteJid }).lean().catch(() => null);
-    if (!gs?.antilink) return false;
+    // v7.35: interruptor global do dashboard (antilink_enabled) — liga em todos os grupos
+    // que não desligaram explicitamente; se o grupo definiu, o grupo manda.
+    let ativo = !!gs?.antilink;
+    if (!ativo && !gs?.antilinkOptOut) {
+      try { ativo = !!(await require('./botConfigCache').get('antilink_enabled', false)); } catch { ativo = false; }
+    }
+    if (!ativo) return false;
 
     const text = extractText(msg);
     if (!text) return false;
