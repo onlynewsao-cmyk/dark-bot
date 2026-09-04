@@ -60,7 +60,7 @@ const AJUDA = (p) => [
   `▸ ${p}cap auto @veigh on|off · ${p}cap intervalo @veigh <min>`,
   `▸ ${p}cap galeria @veigh [n] — reenvia os últimos n ficheiros guardados`,
   `▸ ${p}cap log — últimas capturas (baixou / falhou / enviou)`,
-  `▸ ${p}cap login <sessionid> — sessão IG (stories + perfis completos) · ${p}cap logout`,
+  `▸ ${p}cap login <sessionid> — sessão IG (stories, highlights, feed completo) · ${p}cap sessoes · ${p}cap testar · ${p}cap logout [@conta|all]`,
   '',
   `> Stories e feed completo exigem sessão. Sem sessão: últimos 12 posts públicos.`,
 ];
@@ -77,20 +77,56 @@ module.exports = function registerCap(registerCase) {
 
     // ── login/logout ──
     if (sub === 'login') {
-      const sid = args.slice(1).join(' ').trim();
-      if (!sid) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`Uso: ${p}cap login <sessionid>`, '> Cookie *sessionid* de uma conta IG (não uses a tua principal).', '> Fica guardado só na base de dados do bot.']);
-      cap.setSession('ig', sid);
+      let sid = args.slice(1).join(' ').trim();
+      // aceita "sessionid=xxx" ou cookie inteiro colado
+      const mm = sid.match(/sessionid=([^;\s]+)/i); if (mm) sid = mm[1];
+      if (!sid) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
+        `Uso: ${p}cap login <sessionid>`,
+        '',
+        '*Como obter o sessionid:*',
+        '1️⃣ Cria uma conta Instagram secundária (não a principal).',
+        '2️⃣ No Chrome do PC: instagram.com → login → F12 → Application → Cookies → instagram.com → copia o valor de *sessionid*.',
+        '3️⃣ No telemóvel: Kiwi Browser / Firefox + extensão "Cookie Editor".',
+        '',
+        '> Podes adicionar várias contas (pool com rotação — menos 429).',
+        '> Alternativa: variável IG_SESSIONID no .env do servidor.',
+        '> Fica guardado só na base de dados do bot; a mensagem é apagada.',
+      ]);
       try { await sock.sendMessage(ctx.remoteJid, { delete: msg.key }); } catch {}
-      return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', ['✅ Sessão Instagram guardada. Stories e feed completo activos.', '🗑️ A tua mensagem com o cookie foi apagada.']);
+      await sock.sendMessage(ctx.remoteJid, { text: '🔐 A validar sessão…' }).catch(() => {});
+      const r = await cap.addSessao(sid);
+      if (!r.ok) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`❌ ${r.erro}`, '> Copia o cookie de novo (sem espaços) e tenta outra vez.']);
+      const n = cap.listSessoes().length;
+      return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
+        r.validado ? `✅ Logado como *@${r.user}*` : `🟡 Sessão guardada sem validar (${r.aviso})`,
+        `🔑 Sessões no pool: ${n}`,
+        '⏳ Stories, ⭐ highlights, feed completo e perfis privados (que a conta siga) activos.',
+        '🗑️ A tua mensagem com o cookie foi apagada.',
+      ]);
     }
-    if (sub === 'logout') { cap.setSession('ig', ''); return tReply(sock, msg, ctx, '🔐 C∆P', ['✅ Sessão removida. Stories desactivados.']); }
+    if (sub === 'logout') {
+      const n = cap.delSessao(args[1] || 'all');
+      return tReply(sock, msg, ctx, '🔐 C∆P', [n ? `✅ ${n} sessão(ões) removida(s).` : '❌ Nenhuma sessão para remover.', cap.hasSession('ig') ? `🔑 Restam ${cap.listSessoes().length}` : '⏳ Stories desactivados.']);
+    }
+    if (sub === 'sessoes' || sub === 'sessões' || sub === 'sessions' || sub === 'contas') {
+      const ss = cap.listSessoes();
+      if (!ss.length) return tReply(sock, msg, ctx, '🔐 C∆P SESSÕES', ['Nenhuma sessão.', `> ${p}cap login <sessionid>`]);
+      return tReply(sock, msg, ctx, '🔐 C∆P SESSÕES', ss.map((x, i) => `${x.ok ? '🟢' : '🔴'} ${i + 1}. @${x.user || '?'}${x.ok ? '' : ' — ' + x.lastErr} · ${new Date(x.addedAt).toLocaleDateString('pt-PT')}`).concat(['', `> ${p}cap logout @conta · ${p}cap logout all`]));
+    }
+    if (sub === 'testar' || sub === 'test') {
+      const ss = cap.sessionsAtivas();
+      if (!ss.length) return tReply(sock, msg, ctx, '🔐 C∆P', ['❌ Sem sessões para testar.']);
+      const out = [];
+      for (const x of ss) { const v = await cap.validarSessao(x.sid); out.push(`${v.ok ? '🟢' : '🔴'} @${x.user || v.user || '?'} — ${v.ok ? 'OK' : v.erro}`); if (!v.ok && !v.temporario) cap.marcarSessaoInvalida(x.sid, v.erro); }
+      return tReply(sock, msg, ctx, '🔐 C∆P TESTE', out);
+    }
 
     // ── lista ──
     if (sub === 'lista' || sub === 'list' || sub === 'alvos') {
       const ts = cap.listTargets();
       if (!ts.length) return tReply(sock, msg, ctx, '📡 C∆P — ALVOS', ['Nenhum alvo.', `> ${p}cap add @veigh`]);
       const lines = ts.flatMap(t => [...fmtAlvo(t, p), '']);
-      lines.push(`🔐 Sessão IG: ${cap.hasSession('ig') ? '✅ activa' : '❌ sem login (stories off)'}`);
+      lines.push(`🔐 Sessões IG: ${cap.hasSession('ig') ? '✅ ' + cap.listSessoes().filter(x => x.ok).map(x => '@' + (x.user || '?')).join(', ') : '❌ sem login (stories off, limite 429 baixo)'}`);
       return tReply(sock, msg, ctx, `📡 C∆P — ${ts.length} ALVO(S)`, lines);
     }
 

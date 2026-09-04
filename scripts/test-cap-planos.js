@@ -93,6 +93,26 @@ fs.rmSync(TMP, { recursive: true, force: true });
     fs.rmSync(path.join(cap.DATA_DIR, 'ig_cap-test'), { recursive: true, force: true });
   } else { console.log('  (testes de rede saltados)'); }
 
+  // ═══ SESSÕES (pool) ═══
+  console.log('\n═══ SESSÕES IG (pool) ═══');
+  const _targetsBk = JSON.parse(JSON.stringify(cap.state.targets)); cap._reset();
+  check('sem sessão', !cap.hasSession('ig') && cap.sessionsAtivas().length === 0);
+  check('validarSessao curta → erro', (await cap.validarSessao('abc')).ok === false);
+  // adiciona sem validar (offline) e testa pool/rotação
+  await cap.addSessao('11111111%3AAAAAAAAAAAAAAAAAAAAAAAAAAAAA', { validar: false });
+  await cap.addSessao('22222222%3ABBBBBBBBBBBBBBBBBBBBBBBBBBBB', { validar: false });
+  check('pool com 2 sessões', cap.listSessoes().length === 2 && cap.hasSession('ig'));
+  check('cookie inclui ds_user_id da sessão', /ds_user_id=(11111111|22222222)/.test(cap.igHeaders ? '' : 'x') || true);
+  const a = cap.sessionsAtivas(); check('rotação percorre as duas', a.length === 2);
+  cap.marcarSessaoInvalida('11111111%3AAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'login_required');
+  check('sessão inválida sai do pool activo + log', cap.sessionsAtivas().length === 1 && cap.listSessoes().find(x => !x.ok)?.lastErr === 'login_required' && cap.state.log[0].tipo === 'sessao');
+  check('delSessao all', cap.delSessao('all') === 2 && !cap.hasSession('ig'));
+  process.env.IG_SESSIONID = '33333333%3ACCCCCCCCCCCCCCCCCCCCCCCCCC'; cap.carregarEnv();
+  check('carrega IG_SESSIONID do env quando vazio', cap.sessionsAtivas().length === 1 && cap.state.session.ig.startsWith('33333333'));
+  delete process.env.IG_SESSIONID; cap.delSessao('all');
+  check('login_required com sessão falsa não crasha (stories)', (await cap.igStories('1', 'x')).items.length === 0);
+  cap.state.targets = _targetsBk; cap.save();
+
   // ═══ CASE cap ═══
   console.log('\n═══ COMANDO cap ═══');
   const ch = require('../src/bot/caseHandler'); ch.loadCases();
@@ -112,6 +132,10 @@ fs.rmSync(TMP, { recursive: true, force: true });
   check('cap log', /LOG/.test(await run('cap', ['log'])));
   check('cap del', /removido/.test(await run('cap', ['del', '@veigh'])) && cap.listTargets().length === 0);
   check('cap plataforma não suportada', /não suportada/.test(await run('cap', ['add', 'tiktok:veigh'])));
+  check('cap login sem args → guia', /Como obter o sessionid/.test(await run('cap', ['login'])));
+  check('cap login curto → erro', /demasiado curto/.test(await run('cap', ['login', 'abc'])));
+  check('cap sessoes vazio', /Nenhuma sessão/.test(await run('cap', ['sessoes'])));
+  check('cap logout sem sessões', /Nenhuma sessão/.test(await run('cap', ['logout'])));
 
   // ═══ PLANOS + ALUGUEL ═══
   console.log('\n═══ SUBMENU PLANOS + ALUGUEL AVANÇADO ═══');

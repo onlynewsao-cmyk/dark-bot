@@ -78,11 +78,12 @@ async function arrancar() {
       if (mirror?.targets) { state.targets = mirror.targets; state.session = mirror.session || state.session; save(); }
     } catch {}
   }
+  carregarEnv();
   return state;
 }
 
 function _reset() {
-  state.targets = {}; state.seen = {}; state.log = []; state.session = { ig: '' };
+  state.targets = {}; state.seen = {}; state.log = []; state.session = { ig: '', igPool: [] };
   _loaded = true;
 }
 
@@ -107,11 +108,78 @@ function httpGet(url, { headers = {}, timeout = 25000, redirects = 5 } = {}) {
   });
 }
 
-function igHeaders() {
-  const h = { 'x-ig-app-id': IG_APP_ID, 'Accept': '*/*', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8', 'Referer': 'https://www.instagram.com/' };
-  const sid = String(state.session?.ig || '').trim();
+// ── Sessões IG: pool (state.session.igPool = [{sid, user, ok, addedAt, lastErr}]) + compat state.session.ig ──
+const UAS = [
+  UA,
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+];
+let _rr = 0;
+function sessionsAtivas() {
+  const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
+  const list = pool.filter(s => s && s.sid && s.ok !== false);
+  if (!list.length && state.session?.ig) list.push({ sid: state.session.ig, user: '' });
+  return list;
+}
+function pickSession() { const l = sessionsAtivas(); if (!l.length) return null; return l[(_rr++) % l.length]; }
+function igHeaders(sess) {
+  const h = { 'x-ig-app-id': IG_APP_ID, 'Accept': '*/*', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8', 'Referer': 'https://www.instagram.com/', 'User-Agent': UAS[_rr % UAS.length], 'X-Requested-With': 'XMLHttpRequest' };
+  const s = sess === undefined ? pickSession() : sess;
+  const sid = String(s?.sid || '').trim();
   if (sid) h.Cookie = `sessionid=${sid}; ds_user_id=${sid.split('%3A')[0].split(':')[0]}`;
   return h;
+}
+function marcarSessaoInvalida(sid, motivo) {
+  const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
+  const s = pool.find(x => x.sid === sid);
+  if (s) { s.ok = false; s.lastErr = motivo; s.errAt = Date.now(); }
+  if (state.session.ig === sid) state.session.ig = '';
+  registar({ target: '-', item: '-', tipo: 'sessao', status: 'erro', detalhe: `sessão ${s?.user || sid.slice(0, 8)} inválida: ${motivo}` });
+  save();
+}
+// Valida um sessionid: devolve { ok, user, id } ou { ok:false, erro }
+async function validarSessao(sid) {
+  const sess = { sid: String(sid || '').trim() };
+  if (!sess.sid || sess.sid.length < 20) return { ok: false, erro: 'sessionid demasiado curto' };
+  try {
+    const r = await httpGet('https://www.instagram.com/api/v1/accounts/current_user/?edit=true', { headers: igHeaders(sess), timeout: 20000 });
+    if (r.status === 200) {
+      let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { ok: false, erro: 'resposta inválida' }; }
+      const u = j?.user; if (u?.username) return { ok: true, user: u.username, id: String(u.pk || u.id || '') };
+      return { ok: false, erro: 'sem utilizador na resposta' };
+    }
+    if (r.status === 401 || r.status === 403) return { ok: false, erro: 'sessionid inválido ou expirado (' + r.status + ')' };
+    if (r.status === 429) return { ok: false, erro: 'rate-limit 429 ao validar — tenta daqui a uns minutos', temporario: true };
+    return { ok: false, erro: 'HTTP ' + r.status };
+  } catch (e) { return { ok: false, erro: e.message, temporario: true }; }
+}
+async function addSessao(sid, { validar = true } = {}) {
+  load();
+  state.session.igPool = Array.isArray(state.session.igPool) ? state.session.igPool : [];
+  let info = { ok: true, user: '', id: '' };
+  if (validar) { info = await validarSessao(sid); if (!info.ok && !info.temporario) return info; }
+  const ex = state.session.igPool.find(x => x.sid === sid);
+  if (ex) Object.assign(ex, { ok: true, user: info.user || ex.user, lastErr: '' });
+  else state.session.igPool.push({ sid: String(sid).trim(), user: info.user || '', id: info.id || '', ok: true, addedAt: Date.now() });
+  state.session.ig = String(sid).trim();
+  save();
+  return { ok: true, user: info.user, id: info.id, validado: !info.temporario, aviso: info.temporario ? info.erro : '' };
+}
+function delSessao(qual) {
+  load();
+  const pool = Array.isArray(state.session.igPool) ? state.session.igPool : [];
+  const before = pool.length;
+  state.session.igPool = qual && qual !== 'all' && qual !== 'tudo' ? pool.filter(x => x.user !== String(qual).replace(/^@/, '') && x.sid !== qual) : [];
+  if (!state.session.igPool.some(x => x.sid === state.session.ig)) state.session.ig = state.session.igPool[0]?.sid || '';
+  save();
+  return before - state.session.igPool.length;
+}
+function listSessoes() { load(); return (Array.isArray(state.session.igPool) ? state.session.igPool : []).map(s => ({ user: s.user, ok: s.ok !== false, lastErr: s.lastErr || '', addedAt: s.addedAt })); }
+// arranque: carregar IG_SESSIONID do .env se não houver nenhuma
+function carregarEnv() {
+  const env = String(process.env.IG_SESSIONID || '').trim();
+  if (env && !sessionsAtivas().length) { state.session.igPool = [{ sid: env, user: '', ok: true, addedAt: Date.now(), fonte: 'env' }]; state.session.ig = env; }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -145,10 +213,30 @@ function nodeToItem(n, username) {
   };
 }
 
+const IG_HOSTS = ['https://www.instagram.com', 'https://i.instagram.com'];
+let _hostIdx = 0;
+// GET com rotação de host/UA/sessão e retry em 429 (backoff curto). Marca sessão inválida em login_required.
+async function igGet(pathAndQuery, { tentativas = 3 } = {}) {
+  let last = null;
+  for (let i = 0; i < tentativas; i++) {
+    const sess = pickSession();
+    const host = IG_HOSTS[(_hostIdx++) % IG_HOSTS.length];
+    const r = await httpGet(host + pathAndQuery, { headers: igHeaders(sess) });
+    last = r;
+    if (r.status === 200) return r;
+    const body = r.body?.toString('utf8').slice(0, 300) || '';
+    if (sess && (r.status === 401 || r.status === 403) && /login_required|logged out|checkpoint/i.test(body)) { marcarSessaoInvalida(sess.sid, 'login_required'); continue; }
+    if (r.status === 429 || (r.status === 401 && /wait a few minutes/i.test(body))) { await new Promise(res => setTimeout(res, 1500 * (i + 1))); continue; }
+    return r;
+  }
+  return last;
+}
+
 async function igProfile(username) {
   const u = normUser(username);
-  const r = await httpGet(`https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`, { headers: igHeaders() });
+  const r = await igGet(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
   if (r.status === 404) throw new Error(`Perfil @${u} não existe`);
+  if (r.status === 429) throw new Error(`Instagram respondeu HTTP 429 (limite do IP${sessionsAtivas().length ? '' : ' — sem sessão o limite é baixo; usa cap login'})`);
   if (r.status !== 200) throw new Error(`Instagram respondeu HTTP ${r.status}${r.status === 401 || r.status === 403 ? ' (rate-limit/login)' : ''}`);
   let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { throw new Error('Resposta do Instagram não é JSON (bloqueio temporário?)'); }
   const d = j?.data?.user;
@@ -167,11 +255,10 @@ async function igProfile(username) {
 
 // Paginação completa — só funciona com sessão; sem sessão devolve [] silenciosamente.
 async function igFeedAll(userId, username, maxPages = 15) {
-  if (!state.session?.ig) return { items: [], needsLogin: true };
+  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
   const out = []; let maxId = '';
   for (let i = 0; i < maxPages; i++) {
-    const url = `https://www.instagram.com/api/v1/feed/user/${userId}/?count=33${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ''}`;
-    const r = await httpGet(url, { headers: igHeaders() });
+    const r = await igGet(`/api/v1/feed/user/${userId}/?count=33${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ''}`);
     if (r.status !== 200) break;
     let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { break; }
     const items = j.items || [];
@@ -185,8 +272,8 @@ async function igFeedAll(userId, username, maxPages = 15) {
 }
 
 async function igStories(userId, username) {
-  if (!state.session?.ig) return { items: [], needsLogin: true };
-  const r = await httpGet(`https://www.instagram.com/api/v1/feed/reels_media/?reel_ids=${userId}`, { headers: igHeaders() });
+  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
+  const r = await igGet(`/api/v1/feed/reels_media/?reel_ids=${userId}`);
   if (r.status !== 200) return { items: [], needsLogin: r.status === 401 || r.status === 403, error: `HTTP ${r.status}` };
   let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { items: [], error: 'JSON' }; }
   const reel = j.reels?.[userId] || j.reels_media?.[0];
@@ -198,15 +285,15 @@ async function igStories(userId, username) {
 }
 
 async function igHighlights(userId, username) {
-  if (!state.session?.ig) return { items: [], needsLogin: true };
-  const r = await httpGet(`https://www.instagram.com/api/v1/highlights/${userId}/highlights_tray/`, { headers: igHeaders() });
+  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
+  const r = await igGet(`/api/v1/highlights/${userId}/highlights_tray/`);
   if (r.status !== 200) return { items: [], needsLogin: r.status === 401 || r.status === 403 || r.status === 302, error: `HTTP ${r.status}` };
   let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { items: [], error: 'JSON' }; }
   const trays = j.tray || [];
   const items = [];
   for (const tr of trays.slice(0, 20)) {
     const rid = String(tr.id || '').replace('highlight:', '');
-    const rr = await httpGet(`https://www.instagram.com/api/v1/feed/reels_media/?reel_ids=highlight%3A${rid}`, { headers: igHeaders() }).catch(() => null);
+    const rr = await igGet(`/api/v1/feed/reels_media/?reel_ids=highlight%3A${rid}`).catch(() => null);
     if (!rr || rr.status !== 200) continue;
     let jj; try { jj = JSON.parse(rr.body.toString('utf8')); } catch { continue; }
     const reel = jj.reels?.[`highlight:${rid}`] || jj.reels_media?.[0];
@@ -321,8 +408,8 @@ function addTarget(arg, { destino, addedBy } = {}) {
 function delTarget(arg) { load(); const { platform, username } = parseTargetArg(arg); const key = keyOf(platform, username); const had = !!state.targets[key]; delete state.targets[key]; save(); return had; }
 function listTargets() { load(); return Object.values(state.targets); }
 function setTargetOpt(arg, patch) { const t = getTarget(arg); if (!t) throw new Error('Alvo não encontrado'); Object.assign(t, patch); save(); return t; }
-function setSession(platform, value) { load(); state.session[platform] = String(value || '').trim(); save(); }
-function hasSession(platform = 'ig') { load(); return !!state.session[platform]; }
+function setSession(platform, value) { load(); if (!value) { state.session.ig = ''; state.session.igPool = []; } else { state.session.igPool = [{ sid: String(value).trim(), user: '', ok: true, addedAt: Date.now() }]; state.session.ig = String(value).trim(); } save(); }
+function hasSession(platform = 'ig') { load(); return sessionsAtivas().length > 0; }
 
 // ─────────────────────────────────────────────────────────────
 // ENVIO PARA WHATSAPP
@@ -403,7 +490,7 @@ async function verificarAlvo(sock, t, { forcar = false, incluirStories = t.stori
     const perfil = await prov.profile(t.username);
     t.userId = perfil.id; t.nome = perfil.nome; t.privado = perfil.privado; t.totalPosts = perfil.posts;
     res.perfil = perfil;
-    if (perfil.privado && !state.session[t.platform]) { res.erro = 'perfil privado — requer login'; t.lastCheck = Date.now(); save(); return res; }
+    if (perfil.privado && !sessionsAtivas().length) { res.erro = 'perfil privado — requer login'; t.lastCheck = Date.now(); save(); return res; }
 
     let items = perfil.items;
     if (incluirStories) {
@@ -485,6 +572,15 @@ async function tick() {
     const sock = typeof _getSock === 'function' ? _getSock() : null;
     if (!sock) return;
     const now = Date.now();
+    // aviso ao dono quando uma sessão ficou inválida (1x por sessão)
+    const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
+    for (const sx of pool) {
+      if (sx.ok === false && !sx.avisado) {
+        sx.avisado = true; save();
+        const owner = String(process.env.OWNER_NUMBER || '').replace(/\D/g, '');
+        if (owner) sock.sendMessage(`${owner}@s.whatsapp.net`, { text: `🔐 C∆P: a sessão Instagram${sx.user ? ' @' + sx.user : ''} expirou (${sx.lastErr || 'login_required'}).\nRefaz: cap login <sessionid>` }).catch(() => {});
+      }
+    }
     for (const t of Object.values(state.targets)) {
       if (!t.auto) continue;
       const iv = Math.max(5, t.intervaloMin || DEFAULT_INTERVAL_MIN) * 60000;
@@ -500,6 +596,7 @@ module.exports = {
   PROVIDERS, DATA_DIR, DEFAULT_INTERVAL_MIN,
   load, save, arrancar, _reset, state,
   parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
+  validarSessao, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv,
   igProfile, igFeedAll, igStories, igHighlights, nodeToItem, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
