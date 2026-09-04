@@ -16,17 +16,17 @@ function fmt(n) { return Number(n).toLocaleString('pt-BR'); }
 
 // Queries GIF para situações de economia
 const GIF = {
-  daily:     'anime happy excited gift',
-  trabalho:  'anime working hard',
-  crime_ok:  'anime smug success money',
-  crime_fail:'anime arrested caught',
-  roubo_ok:  'anime steal sneaky',
-  roubo_fail:'anime police arrest',
-  apostar_ok:'anime jackpot win celebrate',
-  apostar_no:'anime gambling lose sad',
-  comprar:   'anime shopping buy happy',
-  ranking:   'anime trophy podium',
-  transferir:'anime giving gift money',
+  daily:     'gift',
+  trabalho:  'work',
+  crime_ok:  'rich',
+  crime_fail:'loser',
+  roubo_ok:  'thief',
+  roubo_fail:'scared',
+  apostar_ok:'winner',
+  apostar_no:'loser',
+  comprar:   'shopping',
+  ranking:   'winner',
+  transferir:'gift',
 };
 
 const ITEMS = {

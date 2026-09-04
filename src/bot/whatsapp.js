@@ -282,7 +282,11 @@ class WhatsAppBot {
         markOnlineOnConnect:        false,
         generateHighQualityLinkPreview: false,
         syncFullHistory:            false,
-        emitOwnEvents:              false,
+        // v7.27: TRUE — o número do próprio bot é SUBDONO e pode executar
+        // comandos a partir do telemóvel ligado. O messageRouter filtra o que
+        // é `fromMe` e só deixa passar comandos com prefixo (nunca as
+        // respostas do próprio bot), por isso não há loop.
+        emitOwnEvents:              true,
         fireInitQueries:            true,
 
         // Timeouts Render Free

@@ -12,6 +12,26 @@ const commandHandler = require('./commandHandler');
 const messageListener = require('./messageListener');
 const antiLink = require('./antiLink');
 const antispam = require('./antiSpam');
+const prefixEngine = require('./prefixEngine');
+
+/**
+ * v7.27: o número do bot é SUBDONO. As mensagens `fromMe` (escritas no
+ * telemóvel onde o bot está ligado) entram no pipeline SÓ quando começam
+ * por um prefixo activo — ou seja, quando são um comando. Tudo o que o
+ * próprio bot envia (respostas, cards, áudios, botões) nunca tem prefixo
+ * no início do texto, logo continua a ser ignorado → sem loop.
+ */
+async function ehComandoProprio(msg) {
+  try {
+    const texto = String(commandHandler.extractText(msg) || '').trimStart();
+    if (!texto) return false;
+    const prefixes = await prefixEngine.getAllActivePrefixes(msg.key?.remoteJid);
+    if (!prefixes.some(p => p && texto.startsWith(p))) return false;
+    // tem de haver um nome de comando logo a seguir ao prefixo (evita "..." ou "!!!")
+    const p = prefixes.find(p => texto.startsWith(p));
+    return /^[a-z0-9]/i.test(texto.slice(p.length));
+  } catch { return false; }
+}
 
 function isNoise(msg) {
   const keys = Object.keys(msg?.message || {});
@@ -49,9 +69,21 @@ async function process(bot, batch) {
       bot.recentInbox.push(entry);
       if (bot.recentInbox.length > 20) bot.recentInbox.shift();
 
-      // Mensagens próprias nunca voltam ao pipeline: evita loop infinito.
-      if (msg.key?.fromMe) { entry.tratada = false; continue; }
       if (isNoise(msg)) { entry.tratada = false; continue; }
+
+      // Mensagens próprias: só COMANDOS com prefixo (subdono no telemóvel).
+      // Respostas do bot não têm prefixo → ignoradas → sem loop infinito.
+      if (msg.key?.fromMe) {
+        if (!(await ehComandoProprio(msg))) { entry.tratada = false; continue; }
+        entry.de = 'bot·self';
+        const tratada = await commandHandler.handle(bot.sock, msg).catch((err) => {
+          console.error('[COMMAND] handler(self):', err?.stack || err?.message || err);
+          return false;
+        });
+        entry.tratada = !!tratada;
+        if (tratada) bot.cmdCount = (bot.cmdCount || 0) + 1;
+        continue;
+      }
 
       messageListener.onUpsert(bot.sock, { ...batch, messages: [msg] }, bot.io).catch((err) => {
         if (!/Closed/i.test(String(err?.message || err))) console.error('[MESSAGE_LISTENER]', err?.stack || err);

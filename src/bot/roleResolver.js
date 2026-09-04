@@ -80,6 +80,16 @@ async function resolveRole({ ctx = {}, msg = null, sock = null, user = undefined
   const envOwnerNum = norm(config?.owner?.number);
   let isOwner = !!ctx.isOwner || (!!senderNum && senderNum === envOwnerNum);
 
+  // ── 1b. v7.27: número do BOT = subdono ────────────────────
+  if (!isOwner) {
+    try {
+      const botNum = norm(String(sock?.user?.id || ctx.sock?.user?.id || '').split(':')[0].split('@')[0]);
+      const envBot = norm(config?.bot?.number);
+      if (msg?.key?.fromMe || ctx.isBotSelf ||
+          (botNum && senderNum === botNum) || (envBot && senderNum === envBot)) isOwner = true;
+    } catch {}
+  }
+
   // ── 2. Dono via dashboard (BotConfig) ─────────────────────
   if (!isOwner) {
     try {

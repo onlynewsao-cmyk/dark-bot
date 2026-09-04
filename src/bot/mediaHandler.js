@@ -6,17 +6,22 @@ async function downloadFromMessage(msg) {
   return downloadMediaMessage(msg, 'buffer', {});
 }
 
-function fetchBuffer(url, redirects = 5) {
+const DEFAULT_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36';
+
+// v7.27: `opts` opcional — { headers, timeout }. Algumas APIs de GIF
+// (nekos.best) rejeitam User-Agent de browser e exigem um UA de bot.
+function fetchBuffer(url, redirects = 5, opts = {}) {
+  if (redirects && typeof redirects === 'object') { opts = redirects; redirects = 5; }
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
     const req = lib.get(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36' },
-      timeout: 60000,
+      headers: { 'User-Agent': DEFAULT_UA, ...(opts.headers || {}) },
+      timeout: opts.timeout || 60000,
     }, (res) => {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         if (redirects <= 0) return reject(new Error('Too many redirects'));
         const next = res.headers.location.startsWith('http') ? res.headers.location : new URL(res.headers.location, url).href;
-        return fetchBuffer(next, redirects - 1).then(resolve, reject);
+        return fetchBuffer(next, redirects - 1, opts).then(resolve, reject);
       }
       if (res.statusCode >= 400) return reject(new Error('HTTP ' + res.statusCode));
       const chunks = [];
@@ -29,8 +34,8 @@ function fetchBuffer(url, redirects = 5) {
   });
 }
 
-async function fetchJson(url) {
-  const buf = await fetchBuffer(url);
+async function fetchJson(url, opts = {}) {
+  const buf = await fetchBuffer(url, 5, opts);
   try { return JSON.parse(buf.toString('utf-8')); }
   catch (e) { throw new Error('JSON inválido'); }
 }

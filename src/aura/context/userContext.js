@@ -6,9 +6,11 @@
  */
 
 const User = require('../../database/models/User');
+const config = require('../../config');
 
-const OWNER_NUMBERS = ['244945280380', '244949926074']; // Dark principal + bot
-const SUBOWNER_NUMBERS = []; // Pode ser preenchido via dashboard
+// v7.27: sem números fixos no código — vêm do env. O número do BOT é subdono.
+const OWNER_NUMBERS = [String(config.owner.number || '').replace(/\D/g, '')].filter(Boolean);
+const SUBOWNER_NUMBERS = [String(config.bot.number || '').replace(/\D/g, '')].filter(Boolean);
 
 async function getUserRole(number, isGroup = false, groupMeta = null) {
   const num = String(number).replace(/\D/g, '');

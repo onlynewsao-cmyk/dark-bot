@@ -169,8 +169,10 @@ const GIF_QUERY = {
   travel: 'anime travel journey', visionary: 'anime visionary future', dependent: 'anime dependent clingy',
 };
 
+// v7.27: a categoria JÁ É a ação canónica do gifHelper (rich, dumb, psycho…).
+// Passa-se directamente para o GIF ser espelho do medidor.
 function gifFor(kind) {
-  return GIF_QUERY[kind] || 'anime reaction wow';
+  return kind || GIF_QUERY[kind] || 'shocked';
 }
 
 function makePercentage(cmd, emoji, adj, kind) {

@@ -1812,7 +1812,7 @@ module.exports = {
       `║ Motivo: ${reason}\n` +
       `╚═══〔 +9999999 AURA ACTIVADA 〕═══╝\n\n` +
       `🛡️ ADMs/Subdonos/VIP, preparem o território. O pedido foi enviado no PV do dono.`;
-    await sendWithGif(sock, msg, ctx, groupText, [ctx.senderJid, ...admins], 'anime summon dark magic portal');
+    await sendWithGif(sock, msg, ctx, groupText, [ctx.senderJid, ...admins], 'summon');
 
     const pvText = `╭━━━〔 👑 INVOCAÇÃO DARKSIDE 〕━━━╮\n` +
       `┃ Grupo: *${meta.subject || ctx.groupName}*\n` +

@@ -542,12 +542,31 @@ async function _handleInner(sock, msg) {
   // v6.14: verifica número do env + número do dashboard (BotConfig) + LID + extra owners
   const envOwnerNum = userManager.normalizeNumber(config.owner.number);
   const dbOwnerNum = userManager.normalizeNumber(String(ownerNumDB || ''));
+  // v7.27: o NÚMERO DO BOT é SUBDONO. Quem escreve a partir do telemóvel
+  // ligado (fromMe) ou do número configurado em BOT_NUMBER executa tudo o
+  // que um subdono executa — mas não é o Dono primário (sem tratamento
+  // "Criador Supremo" nem comandos isPrimaryOwnerOnly).
+  const botSelfNum = userManager.normalizeNumber(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
+  const botSelfLid = String(sock?.user?.lid || '').split(':')[0].split('@')[0];
+  const envBotNum  = userManager.normalizeNumber(config.bot.number);
+  const isBotSelf  = !!msg.key?.fromMe ||
+                     (!!botSelfNum && ctx.senderNumber === botSelfNum) ||
+                     (!!envBotNum && ctx.senderNumber === envBotNum) ||
+                     (!!botSelfLid && (ctx.senderLid === botSelfLid || senderJidFull.startsWith(botSelfLid + '@')));
+  if (isBotSelf && botSelfNum && (!ctx.senderNumber || msg.key?.fromMe)) {
+    // fromMe pode vir sem participant no PV → garante identidade do bot
+    ctx.senderNumber = ctx.senderNumber || botSelfNum;
+    ctx.senderJid = ctx.senderJid || (botSelfNum + '@s.whatsapp.net');
+  }
   const isOwner = ctx.senderNumber === envOwnerNum ||
                   (dbOwnerNum && ctx.senderNumber === dbOwnerNum) ||
                   ownerNumbers.includes(ctx.senderNumber) ||
                   (ownerLid && senderJidFull.includes(ownerLid)) ||
-                  (ownerLid && ctx.senderNumber === ownerLid.split('@')[0]);
+                  (ownerLid && ctx.senderNumber === ownerLid.split('@')[0]) ||
+                  isBotSelf;
   ctx.isOwner = isOwner;
+  ctx.isBotSelf = isBotSelf;
+  ctx.isSubOwner = isOwner && !(ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum));
   ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
   // v6.40: expõe o sock no ctx — o roleResolver/submenus precisam dele
   // para obter os admins do grupo (groupMetadata) sem o receber por parâmetro.

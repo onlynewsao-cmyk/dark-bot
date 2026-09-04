@@ -1,5 +1,5 @@
 /**
- * Pacote de INTERAÇÕES v4.0 — GIFs MP4 via Tenor API v2
+ * Pacote de INTERAÇÕES v4.1 — GIFs MP4 espelho da ação (gifHelper multi-fonte)
  * GIFs compatíveis com WhatsApp (gifPlayback: true)
  */
 const Economy = require('../../database/models/Economy');
@@ -12,68 +12,27 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 const reply = (sock, msg, ctx, text, mentions = []) => sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
 
-// Mapa de ação → query de busca no Tenor
+// v7.27: comando → AÇÃO canónica do gifHelper (espelho do que o comando faz).
+// Antes eram frases Tenor em inglês; a Tenor foi descontinuada e as frases
+// caíam em categorias erradas. Ver gifHelper.ACTIONS para a lista completa.
 const GIF_QUERIES = {
-  // ── Amor / Carinho ────────────────────────────────────────────────
-  abracar:    'anime hug tight wholesome',
-  beijar:     'anime kiss romantic',
-  cafune:     'anime head pat cute',
-  declarar:   'anime love confession heart',
-  flertar:    'anime wink flirt blush',
-  paparico:   'anime spoil princess cute',
-  dancar:     'anime dance celebration happy',
-  chocolate:  'anime chocolate gift sweet',
-
-  // ── Luta / Violência ──────────────────────────────────────────────
-  tapa:       'anime slap face funny',
-  soco:       'anime punch powerful hit',
-  chute:      'anime flying kick action',
-  tiro:       'anime gun shoot action',
-  facada:     'anime knife dark fight',
-  matar:      'anime dramatic death fight',
-  bater:      'anime beat up fight',
-  morder:     'anime vampire bite',
-  cuspir:     'anime disgust spit',
-  empurrar:   'anime push knock down',
-  envenenar:  'anime evil poison dark',
-  espancar:   'anime brutal beat action',
-  bullying:   'anime bully tease',
-  amaldicoar: 'anime dark magic curse spell',
-
-  // ── Emoções / Estados ─────────────────────────────────────────────
-  mimimi:     'anime cry tears dramatic',
-  fofocar:    'anime gossip whisper secrets',
-  acordar:    'anime wake up morning surprised',
-  cuidar:     'anime nurse heal gentle',
-  bencao:     'anime pray blessing divine',
-  pensar:     'anime thinking clever',
-  dormir:     'anime sleep dreaming',
-  correr:     'anime running escape fast',
-  timido:     'anime shy blush embarrassed',
-  chorar:     'anime sad crying emotional',
-  rir:        'anime laugh hilarious',
-  wave:       'anime wave greeting hello',
-  highfive:   'anime high five victory',
-  comer:      'anime eating delicious food',
-  cafe:       'anime coffee relaxing cozy',
-
+  // ── Amor / Carinho ───────────────────────────────────────────────
+  abracar: 'hug', beijar: 'kiss', cafune: 'pat', declarar: 'love', flertar: 'flirt',
+  paparico: 'spoil', dancar: 'dance', chocolate: 'chocolate',
+  // ── Luta / Violência ─────────────────────────────────────────────
+  tapa: 'slap', soco: 'punch', chute: 'kick', tiro: 'shoot', facada: 'stab', matar: 'kill',
+  bater: 'beat', morder: 'bite', cuspir: 'spit', empurrar: 'push', envenenar: 'poison',
+  espancar: 'beat', bullying: 'bully', amaldicoar: 'curse',
+  // ── Emoções / Estados ────────────────────────────────────────────
+  mimimi: 'cry', fofocar: 'gossip', acordar: 'wake', cuidar: 'care', bencao: 'bless',
+  pensar: 'think', dormir: 'sleep', correr: 'run', timido: 'shy', chorar: 'cry', rir: 'laugh',
+  wave: 'wave', highfive: 'highfive', comer: 'eat', cafe: 'coffee',
   // ── Habilidades / Actividades ────────────────────────────────────
-  aura:       'anime aura power incredible wow',       // 🤯 deixa boca aberta
-  godadm:     'anime god mode supreme power aura',
-  meditar:    'anime meditation inner peace aura glow',
-  treinar:    'anime intense workout training power up',
-  estudar:    'anime studying hard books focus',
-  cantar:     'anime singing microphone performance',
-  programar:  'anime hacker coding computer terminal',  // programar no computador
-  gamer:      'anime gaming controller excited',
-  banho:      'anime relaxing bath',
-  trabalhar:  'anime office working hard',
-  cozinhar:   'anime cooking chef impressive',
-  correr:     'anime running sprint speed',
-  hallobat:   'halloween bat dark spooky',
-
+  aura: 'aura', godadm: 'power', meditar: 'meditate', treinar: 'strong', estudar: 'study',
+  cantar: 'sing', programar: 'code', gamer: 'game', banho: 'bath', trabalhar: 'work',
+  cozinhar: 'cook', hallobat: 'bat',
   // Fallback
-  default:    'anime reaction wow amazing',
+  default: 'shocked',
 };
 
 // Bordas visuais
@@ -113,14 +72,14 @@ async function ensureCanFight(sock, msg, ctx, sender, target, damage, border, te
   if (actor.hp <= 0) {
     const st = epStatus(actor);
     const text = `${border.t}\n║ ☠️ *SEM ENERGIA*\n║\n║ @${sender.split('@')[0]} está desmaiado e não consegue atacar.\n║ EP: ${st.state} [${st.bar}] ${st.pct}%\n║\n║ Use *${ctx.prefix || '!'}heal* para voltar.\n${border.b}`;
-    await sendWithGif(sock, msg, ctx, text, [sender], 'anime faint tired');
+    await sendWithGif(sock, msg, ctx, text, [sender], 'faint');
     return false;
   }
   const targetEco = await Economy.getOrCreate(target.split('@')[0]);
   if (targetEco.hp <= 0) {
     const st = epStatus(targetEco);
     const text = `${border.t}\n║ ☠️ *ALVO JÁ DESMAIADO*\n║\n║ @${target.split('@')[0]} não aguenta outro ataque agora.\n║ EP: ${st.state} [${st.bar}] ${st.pct}%\n${border.b}`;
-    await sendWithGif(sock, msg, ctx, text, [target], 'anime faint');
+    await sendWithGif(sock, msg, ctx, text, [target], 'faint');
     return false;
   }
   return true;
@@ -136,7 +95,7 @@ function action({ name, emoji, verbs, soloVerbs = ['está sozinho 🥲'], damage
     const sender = ctx.senderJid;
     const border = B[cat] || B.fun;
     const gifKey = gif || name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s/g, '').toLowerCase();
-    const tenorQuery = GIF_QUERIES[gifKey] || GIF_QUERIES[name.toLowerCase()] || GIF_QUERIES.default || 'anime reaction';
+    const tenorQuery = GIF_QUERIES[gifKey] || GIF_QUERIES[name.toLowerCase()] || GIF_QUERIES.default || 'shocked';
 
     if (!rawTargets.length) {
       const aura = auraForAction({ damage, targets: 1, cat });
@@ -328,38 +287,38 @@ module.exports = {
   highfive: action({ name: 'high five', emoji: '🙏', cat: 'fun', gif: 'highfive', verbs: ['bateu na mão de', 'mandou high five para'] }),
 
   // ═══ PERCENTUAIS — com GIF! ═══
-  gay:      percentage({ name: 'GAY',       emoji: '🏳️‍🌈', adj: 'Gay',       gifQuery: 'anime rainbow happy' }),
-  rankgay:  rankPercentage({ name: 'GAY', emoji: '🏳️‍🌈', adj: 'gay', gifQuery: 'anime rainbow happy' }),
-  lindo:    percentage({ name: 'BELEZA',    emoji: '✨',    adj: 'Lindo(a)',   gifQuery: 'anime sparkle beautiful' }),
-  ranklindo: rankPercentage({ name: 'BELEZA', emoji: '✨', adj: 'beleza', gifQuery: 'anime sparkle beautiful' }),
-  feio:     percentage({ name: 'FEIÚRA',    emoji: '🤢',    adj: 'Feio(a)',    gifQuery: 'anime disgust face' }),
-  burro:    percentage({ name: 'BURRICE',   emoji: '🧠',    adj: 'Burro(a)',   gifQuery: 'anime confused dumb' }),
-  corno:    percentage({ name: 'CHIFRES',   emoji: '🦌',    adj: 'Corno(a)',   gifQuery: 'anime sad betrayal' }),
-  rico:     percentage({ name: 'RIQUEZA',   emoji: '💰',    adj: 'Rico(a)',    gifQuery: 'anime money rich' }),
-  rankrico: rankPercentage({ name: 'RIQUEZA', emoji: '💰', adj: 'rico', gifQuery: 'anime money rich' }),
-  safado:   percentage({ name: 'SAFADEZA',  emoji: '🔥',    adj: 'Safado(a)', gifQuery: 'anime wink smirk' }),
-  doido:    percentage({ name: 'LOUCURA',   emoji: '🤪',    adj: 'Doido(a)',  gifQuery: 'anime crazy wild' }),
-  gostoso:  percentage({ name: 'GOSTOSURA', emoji: '🥵',    adj: 'Gostoso(a)',gifQuery: 'anime hot attractive' }),
-  malucao:  percentage({ name: 'MALUQUICE', emoji: '🃏',    adj: 'Malucão',   gifQuery: 'anime joker laugh' }),
-  crente:   percentage({ name: 'CRENTE',    emoji: '⛪',    adj: 'Crente',    gifQuery: 'anime church prayer' }),
-  ateu:     percentage({ name: 'ATEU',      emoji: '🙅',    adj: 'Ateu',      gifQuery: 'anime skeptic face' }),
-  ateia:    percentage({ name: 'ATEIA',     emoji: '🙅‍♀️',    adj: 'Ateia',     gifQuery: 'anime skeptic face' }),
+  gay:      percentage({ name: 'GAY',       emoji: '🏳️‍🌈', adj: 'Gay',       gifQuery: 'gay' }),
+  rankgay:  rankPercentage({ name: 'GAY', emoji: '🏳️‍🌈', adj: 'gay', gifQuery: 'gay' }),
+  lindo:    percentage({ name: 'BELEZA',    emoji: '✨',    adj: 'Lindo(a)',   gifQuery: 'beautiful' }),
+  ranklindo: rankPercentage({ name: 'BELEZA', emoji: '✨', adj: 'beleza', gifQuery: 'beautiful' }),
+  feio:     percentage({ name: 'FEIÚRA',    emoji: '🤢',    adj: 'Feio(a)',    gifQuery: 'ugly' }),
+  burro:    percentage({ name: 'BURRICE',   emoji: '🧠',    adj: 'Burro(a)',   gifQuery: 'dumb' }),
+  corno:    percentage({ name: 'CHIFRES',   emoji: '🦌',    adj: 'Corno(a)',   gifQuery: 'betrayal' }),
+  rico:     percentage({ name: 'RIQUEZA',   emoji: '💰',    adj: 'Rico(a)',    gifQuery: 'rich' }),
+  rankrico: rankPercentage({ name: 'RIQUEZA', emoji: '💰', adj: 'rico', gifQuery: 'rich' }),
+  safado:   percentage({ name: 'SAFADEZA',  emoji: '🔥',    adj: 'Safado(a)', gifQuery: 'flirt' }),
+  doido:    percentage({ name: 'LOUCURA',   emoji: '🤪',    adj: 'Doido(a)',  gifQuery: 'crazy' }),
+  gostoso:  percentage({ name: 'GOSTOSURA', emoji: '🥵',    adj: 'Gostoso(a)',gifQuery: 'hot' }),
+  malucao:  percentage({ name: 'MALUQUICE', emoji: '🃏',    adj: 'Malucão',   gifQuery: 'crazy' }),
+  crente:   percentage({ name: 'CRENTE',    emoji: '⛪',    adj: 'Crente',    gifQuery: 'prayer' }),
+  ateu:     percentage({ name: 'ATEU',      emoji: '🙅',    adj: 'Ateu',      gifQuery: 'skeptic' }),
+  ateia:    percentage({ name: 'ATEIA',     emoji: '🙅‍♀️',    adj: 'Ateia',     gifQuery: 'skeptic' }),
 
   // ═══ ZOEIRA & MEDIDORES (completo — antes eram fake %) ═══
-  atleta:     percentage({ name: 'ATLETA',     emoji: '⚽', adj: 'Atleta',     gifQuery: 'anime sports athlete' }),
-  bebado2:    percentage({ name: 'BÊBADO',     emoji: '🍺', adj: 'Bêbado(a)',  gifQuery: 'anime drunk funny' }),
-  ciumao:     percentage({ name: 'CIÚME',      emoji: '😤', adj: 'Ciumento',   gifQuery: 'anime jealous angry' }),
-  desapegado: percentage({ name: 'DESAPEGO',   emoji: '🧊', adj: 'Desapegado', gifQuery: 'anime cool cold' }),
-  dorminhoco2: percentage({ name: 'DORMINHOCO', emoji: '😴', adj: 'Dorminhoco', gifQuery: 'anime sleepy yawn' }),
-  fraco:      percentage({ name: 'FORÇA',      emoji: '🤏', adj: 'Fraco(a)',   gifQuery: 'anime weak tired' }),
-  insone:     percentage({ name: 'INSÓNIA',    emoji: '🌙', adj: 'Insone',     gifQuery: 'anime insomnia night' }),
-  inveja:     percentage({ name: 'INVEJA',     emoji: '🐍', adj: 'Invejoso(a)', gifQuery: 'anime envy jealous' }),
-  pecador:    percentage({ name: 'PECADOR',    emoji: '😈', adj: 'Pecador(a)', gifQuery: 'anime devil smirk' }),
-  pirocudo:   percentage({ name: 'PIROCUDO',   emoji: '🍆', adj: 'Pirocudo',   gifQuery: 'anime confident smirk' }),
-  possessivo: percentage({ name: 'POSSESSIVO', emoji: '💍', adj: 'Possessivo(a)', gifQuery: 'anime yandere possessive' }),
-  sono:       percentage({ name: 'SONO',       emoji: '💤', adj: 'Sonolento(a)', gifQuery: 'anime sleepy tired' }),
-  sorte:      percentage({ name: 'SORTE',      emoji: '🍀', adj: 'Sortudo(a)', gifQuery: 'anime lucky clover' }),
-  viciado:    percentage({ name: 'VICIADO',    emoji: '📱', adj: 'Viciado(a)', gifQuery: 'anime phone addiction' }),
+  atleta:     percentage({ name: 'ATLETA',     emoji: '⚽', adj: 'Atleta',     gifQuery: 'sports' }),
+  bebado2:    percentage({ name: 'BÊBADO',     emoji: '🍺', adj: 'Bêbado(a)',  gifQuery: 'drunk' }),
+  ciumao:     percentage({ name: 'CIÚME',      emoji: '😤', adj: 'Ciumento',   gifQuery: 'jealous' }),
+  desapegado: percentage({ name: 'DESAPEGO',   emoji: '🧊', adj: 'Desapegado', gifQuery: 'cold' }),
+  dorminhoco2: percentage({ name: 'DORMINHOCO', emoji: '😴', adj: 'Dorminhoco', gifQuery: 'sleep' }),
+  fraco:      percentage({ name: 'FORÇA',      emoji: '🤏', adj: 'Fraco(a)',   gifQuery: 'weak' }),
+  insone:     percentage({ name: 'INSÓNIA',    emoji: '🌙', adj: 'Insone',     gifQuery: 'tired' }),
+  inveja:     percentage({ name: 'INVEJA',     emoji: '🐍', adj: 'Invejoso(a)', gifQuery: 'jealous' }),
+  pecador:    percentage({ name: 'PECADOR',    emoji: '😈', adj: 'Pecador(a)', gifQuery: 'naughty' }),
+  pirocudo:   percentage({ name: 'PIROCUDO',   emoji: '🍆', adj: 'Pirocudo',   gifQuery: 'confident' }),
+  possessivo: percentage({ name: 'POSSESSIVO', emoji: '💍', adj: 'Possessivo(a)', gifQuery: 'possessive' }),
+  sono:       percentage({ name: 'SONO',       emoji: '💤', adj: 'Sonolento(a)', gifQuery: 'sleep' }),
+  sorte:      percentage({ name: 'SORTE',      emoji: '🍀', adj: 'Sortudo(a)', gifQuery: 'lucky' }),
+  viciado:    percentage({ name: 'VICIADO',    emoji: '📱', adj: 'Viciado(a)', gifQuery: 'addicted' }),
 
   // aliases das variantes (burro2 = burro, feio2 = feio, …)
   burro2:   async (a) => module.exports.burro(a),

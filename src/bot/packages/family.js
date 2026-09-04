@@ -22,13 +22,13 @@ setInterval(() => {
 
 // Queries GIF para cada momento da família
 const GIF = {
-  pedido:   'anime marriage proposal',
-  casamento:'anime wedding celebration',
-  divorcio: 'anime heartbreak crying',
-  adocao:   'anime family hug',
-  expulsar: 'anime angry kick out',
-  familia:  'anime family happy',
-  recusa:   'anime rejection sad',
+  pedido:   'marry',
+  casamento:'marry',
+  divorcio: 'divorce',
+  adocao:   'family',
+  expulsar: 'yeet',
+  familia:  'family',
+  recusa:   'sad',
 };
 
 module.exports = {
