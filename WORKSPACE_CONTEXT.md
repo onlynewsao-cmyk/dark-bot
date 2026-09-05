@@ -267,6 +267,13 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.42 — Linha do tempo do grupo ("quem fez, faz, fez quando") + actualizada antes de responder
+- Novo `src/aura/auraLinhaTempo.js`: regista eventos do grupo com data — entrou/adicionou, saiu, removido (autor≠alvo), promovido, despromovido, fechou/abriu, nome/descrição, e os comandos que ELA executou por ordem de alguém (`doComando`). Fonte: `group-participants.update` e `groups.update` (whatsapp.js) + auraCommands/router universal (commandHandler). Persistência `BotConfig aura_timeline_<jid>` (400 eventos, debounce 4 s).
+- Consulta directa antes do cérebro: "quem promoveu o João?", "quem removeu a Maria?", "quem fechou o grupo?", "o que aconteceu aqui hoje/ontem/esta semana?", "quem saiu ontem?" → lista com @menções e `quandoFoi` ("hoje às 14:03", "há 3 dias"). Sem registos → diz que foi antes de começar a tomar nota (não inventa).
+- `paraPrompt(jid)` entra na consciência (últimos 6 acontecimentos) para ela saber os factos ao conversar.
+- `ai.needsWeb` alargado (últimos/2024-29/preço/custa/dólar/kwanza/quem é o presidente/ainda existe/já saiu/morreu/eleições…) → vai à net antes de responder quando a pergunta depende de estar actualizada; junto com o `blocoTemporal` (v7.40) diz a data do que é antigo.
+- Testes: cases 19/19, vontade-cérebro 30/30, comandos 22/22, brain 21/21, modes 28/28, grupo OK.
+
 ## v7.41 — A voz da AURA em tudo (`src/aura/auraFala.js`)
 - Auditoria do pedido "verifica se a Aura deixa mensagem programada": ela saía do personagem em 5 sítios — `Não consegui: <erro técnico>` (brain/actions), `Diz outra vez o que queres, sem rodeios.` (interpret), `Entendi./Ok./👋` e `_confusa_ Não entendi muito bem` (fallback offline), e os comandos executados por conversa a responder `❌ Uso: !cmd <arg>` / `TypeError…` / `Só o Dono pode`.
 - `auraFala.dizer(tipo,{isOwner,jid,oque,precisa})` — frases dela por situação (naoPercebi / naoConsegui / faltaAlgo / naoPodes / semCabeca), variantes Dark vs outros, sem repetir a última no mesmo chat.

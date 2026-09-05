@@ -431,6 +431,16 @@ class WhatsAppBot {
       // Grupos
       this.sock.ev.on('group-participants.update', async (event) => {
         try { await groupEvents.handle(this.sock, event); } catch {}
+        // v7.42: linha do tempo da AURA (quem entrou/saiu/promoveu, quando)
+        try {
+          const meta = await this.sock.groupMetadata(event.id).catch(() => null);
+          await require('../aura/auraLinhaTempo').doEventoParticipantes(this.sock, event, meta);
+        } catch {}
+      });
+      this.sock.ev.on('groups.update', async (updates) => {
+        for (const u of (updates || [])) {
+          try { await require('../aura/auraLinhaTempo').doEventoGrupo(u); } catch {}
+        }
       });
 
       // ── v6.68: CHAMADAS — atender, ouvir, falar, responder ───

@@ -228,7 +228,10 @@ async function buildSystemPrompt(userTone = '', userProfile = null, groupContext
 // CONTEXTO WEB (notícias em tempo real)
 // ─────────────────────────────────────────────
 function needsWeb(text = '') {
-  return /\b(hoje|agora|atual|not[ií]cia|recente|2026|angola|luanda|mundo|futebol|preço|tempo|clima|resultado|evento)\b/i.test(text);
+  // v7.42: ela vai à net antes de responder sempre que a pergunta depende
+  // de estar ACTUALIZADA (actualidade, quem é/está, preços, versões,
+  // resultados, "ainda", "já saiu", anos recentes).
+  return /\b(hoje|agora|atual|actual|atualmente|actualmente|not[ií]cia|recente|[uú]ltim[oa]s?|202[4-9]|angola|luanda|mundo|futebol|jogo de|pre[çc]o|custa|quanto est[aá]|cota[çc][ãa]o|d[óo]lar|kwanza|tempo|clima|resultado|evento|quem [ée] o (presidente|ministro|treinador|campe[ãa]o)|ainda (existe|est[aá]|vive)|j[áa] saiu|lan[çc]ou|vers[ãa]o (nova|mais recente)|morreu|faleceu|ganhou|elei[çc]|guerra|greve|festival)\b/i.test(text);
 }
 
 async function fastFetch(url, ms = 5000) {

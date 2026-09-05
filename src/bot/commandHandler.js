@@ -1961,6 +1961,21 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       }
       
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
+      // v7.42: "quem promoveu o João?", "quem saiu ontem?", "o que aconteceu aqui hoje?"
+      // → linha do tempo do grupo (factos com data), antes da IA inventar.
+      if (ctx.isGroup) {
+        try {
+          const lt = require('../aura/auraLinhaTempo');
+          if (lt.pareceConsulta(cleanText)) {
+            const r = await lt.responder(ctx.remoteJid, cleanText);
+            if (r?.msg) {
+              await sock.sendMessage(ctx.remoteJid, { text: r.msg, ...(r.mencionar?.length ? { mentions: r.mencionar } : {}) }, { quoted: msg });
+              return true;
+            }
+          }
+        } catch (e) { console.warn('[Aura linha tempo]', e.message?.slice(0, 60)); }
+      }
+
       // ── v6.81: CÉREBRO DA AURA ────────────────────────
       // Catálogo de ~130 capacidades + router IA. Corre antes
       // do auraActions porque cobre muito mais casos; se não
@@ -2150,6 +2165,10 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             if (ctx.isGroup) {
               const cs = av.contextoParaPrompt(ctx.remoteJid);
               if (cs) partes.push(cs);
+            }
+            // v7.42: o que aconteceu no grupo (factos com data)
+            if (ctx.isGroup) {
+              try { const lt = await require('../aura/auraLinhaTempo').paraPrompt(ctx.remoteJid); if (lt) partes.push(lt); } catch {}
             }
             const regras = await av.regrasDe(ctx.remoteJid);
             if (regras.length) {
@@ -2439,6 +2458,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
 
             if (correu) {
               await incrementUserCommand(ctx.senderNumber, ctx, pedido.comando).catch(() => {});
+              if (ctx.isGroup) try { await require('../aura/auraLinhaTempo').doComando(ctx.remoteJid, { quem: ctx.senderNumber, quemNome: ctx.pushName, cmd: pedido.comando, args: pedido.args, alvo: (msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [])[0] || msg.message?.extendedTextMessage?.contextInfo?.participant }); } catch {}
               return true;
             }
           }
@@ -2472,6 +2492,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
                 const ok = await uni.executarComando(escolha, { sock: sockU, msg, ctx, prefix, isOwner, config: commandConfig, nativeCommands, packageCommands, fillVars });
                 if (ok) {
                   await incrementUserCommand(ctx.senderNumber, ctx, escolha.cmd).catch(() => {});
+                  if (ctx.isGroup) try { await require('../aura/auraLinhaTempo').doComando(ctx.remoteJid, { quem: ctx.senderNumber, quemNome: ctx.pushName, cmd: escolha.cmd, args: escolha.args, alvo: (msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [])[0] || msg.message?.extendedTextMessage?.contextInfo?.participant }); } catch {}
                   return true;
                 }
               } else if (!isOwner) {
