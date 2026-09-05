@@ -166,13 +166,20 @@ async function executarComando(escolha, { sock, msg, ctx, prefix, isOwner, confi
   const cmdCtx = { ...ctx, args: argv, prefix };
   const caseCtx = { sock, msg, ctx: cmdCtx, args: argv, text: escolha.args, prefix, command: escolha.cmd, isOwner, config };
   let correu = false;
-  try { correu = await require('../bot/caseHandler').runCase(escolha.cmd, caseCtx); } catch (e) { console.warn('[AuraUniversal] case', e.message?.slice(0, 60)); }
+  let falhou = null;
+  try { correu = await require('../bot/caseHandler').runCase(escolha.cmd, caseCtx); } catch (e) { falhou = e; console.warn('[AuraUniversal] case', e.message?.slice(0, 60)); }
   if (!correu) {
     const fn = nativeCommands?.[escolha.cmd] || packageCommands?.[escolha.cmd];
     if (typeof fn === 'function') {
-      try { await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner, fillVars, config }); correu = true; }
-      catch (e) { console.warn('[AuraUniversal] nativo', e.message?.slice(0, 60)); }
+      try { await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner, fillVars, config }); correu = true; falhou = null; }
+      catch (e) { falhou = e; console.warn('[AuraUniversal] nativo', e.message?.slice(0, 60)); }
     }
+  }
+  // v7.41: o comando existia mas rebentou → ela diz, com o jeito dela,
+  // em vez de ficar muda (a pessoa pensava que ela ignorou).
+  if (!correu && falhou) {
+    try { await sock.sendMessage(ctx.remoteJid, { text: require('./auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }, { quoted: msg }); } catch {}
+    return true;
   }
   return correu;
 }

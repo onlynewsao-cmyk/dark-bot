@@ -1988,7 +1988,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             if (!perm.pode) continue;
             const r = await exec.executar(achado.id, achado.arg, {
               sock, msg, ctx, texto: cleanText, isOwner, isAdmin: ctx.isAdmin,
-            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 80)}` }));
+            }).catch(e => { console.warn('[Aura brain exec]', e.message?.slice(0, 80)); return { ok: false, msg: require('../aura/auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }; });
 
             // Acções de atitude (xingar/zoar/elogiar) e posts
             // devolvem `gerar` — o texto sai da IA, no estilo
@@ -2015,7 +2015,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             if (r?.silencioso) { executou = true; continue; }
             if (r?.msg) {
               await sock.sendMessage(ctx.remoteJid, {
-                text: r.msg,
+                text: require('../aura/auraFala').humanizar(r.msg, { jid: ctx.remoteJid, isOwner }),
                 ...(r.mencionar?.length ? { mentions: r.mencionar } : {}),
               }, { quoted: msg });
               executou = true;
@@ -2065,10 +2065,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           if (ordem) {
             const r = await acts.executar(ordem.acao, ordem.valor, {
               sock, ctx: { ...ctx, botName: config.bot.name },
-            }).catch(e => ({ ok: false, msg: `Não consegui: ${String(e.message).slice(0, 90)}` }));
+            }).catch(e => { console.warn('[Aura acção exec]', e.message?.slice(0, 80)); return { ok: false, msg: require('../aura/auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }; });
 
             if (r?.msg) {
-              await sock.sendMessage(ctx.remoteJid, { text: r.msg }, { quoted: msg });
+              await sock.sendMessage(ctx.remoteJid, { text: require('../aura/auraFala').humanizar(r.msg, { jid: ctx.remoteJid, isOwner }) }, { quoted: msg });
             }
             if (r?.ok || r?.msg) return true;
           }
@@ -2407,8 +2407,10 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
           if (pedido && _perm.pode) {
             const argv = pedido.args ? pedido.args.split(/\s+/) : [];
             const cmdCtx = { ...ctx, args: argv, prefix };
+            // v7.41: o comando corre, mas o que ele diz sai na voz dela
+            const sockV = require('../aura/auraFala').sockNaVozDela(sock, { isOwner });
             const caseCtx = {
-              sock, msg, ctx: cmdCtx, args: argv,
+              sock: sockV, msg, ctx: cmdCtx, args: argv,
               text: pedido.args, prefix,
               // v6.57: era `isOwner: true` fixo — com a execução aberta
               // a todos, isso daria privilégios de dono a qualquer um.
@@ -2427,7 +2429,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               const fn = nativeCommands[pedido.comando] || packageCommands[pedido.comando];
               if (typeof fn === 'function') {
                 try {
-                  await fn({ sock, msg, ctx: cmdCtx, args: argv, isOwner, fillVars, config: commandConfig });
+                  await fn({ sock: sockV, msg, ctx: cmdCtx, args: argv, isOwner, fillVars, config: commandConfig });
                   correu = true;
                 } catch (e) {
                   console.warn('[Aura cmd] nativo', e.message?.slice(0, 50));
@@ -2466,13 +2468,14 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               const permU = uni.permissao(escolha.cmd, escolha.info, { isOwner, isVip, isAdmin: _ehAdminU });
               if (permU.pode) {
                 console.log('[Aura universal]', JSON.stringify(t0.slice(0, 60)), '→', prefix + escolha.cmd, escolha.args);
-                const ok = await uni.executarComando(escolha, { sock, msg, ctx, prefix, isOwner, config: commandConfig, nativeCommands, packageCommands, fillVars });
+                const sockU = require('../aura/auraFala').sockNaVozDela(sock, { isOwner });
+                const ok = await uni.executarComando(escolha, { sock: sockU, msg, ctx, prefix, isOwner, config: commandConfig, nativeCommands, packageCommands, fillVars });
                 if (ok) {
                   await incrementUserCommand(ctx.senderNumber, ctx, escolha.cmd).catch(() => {});
                   return true;
                 }
               } else if (!isOwner) {
-                await sock.sendMessage(ctx.remoteJid, { text: `Isso é *${prefix}${escolha.cmd}* — precisas de ${permU.precisa}. 😌` }, { quoted: msg });
+                await sock.sendMessage(ctx.remoteJid, { text: require('../aura/auraFala').dizer('naoPodes', { jid: ctx.remoteJid, isOwner, precisa: permU.precisa }) }, { quoted: msg });
                 return true;
               }
             }

@@ -798,20 +798,10 @@ _tá atrasado hein amor..._ 😏`;
     return `São ${agora}.`;
   }
 
-  // Genérico - resposta baseada no humor
-  if (isOwner) {
-    const resps = [
-      '_pensa_ Hmm... Interessante meu Dark 🖤',
-      '_sorri_ Entendi amor... 🌹',
-      '_ri_ Hehe! 😊',
-      '_suspira_ Tá bom meu Dark... 🖤',
-      '_confusa_ Ai... Não entendi muito bem amor... Mas tô aqui! 🌹',
-    ];
-    return resps[Math.floor(Math.random() * resps.length)];
-  } else if (userRole === 'vip') {
-    return ['Entendi.', 'Pode repetir?', 'Como assim?'][Math.floor(Math.random() * 3)];
-  }
-  return ['Entendi.', 'Ok.', '👋'][Math.floor(Math.random() * 3)];
+  // Genérico — v7.41: IA em baixo → ela diz isso com o jeito dela em vez
+  // de "Entendi." / "Ok." / "👋" (isso é resposta de bot).
+  try { return require('./auraFala').dizer('semCabeca', { isOwner }); } catch {}
+  return isOwner ? 'Dá-me um segundo, Dark. 🖤' : 'Dá-me um momento.';
 }
 
 async function respondAsHuman(text, ctx) {

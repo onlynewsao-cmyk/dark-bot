@@ -267,6 +267,13 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.41 — A voz da AURA em tudo (`src/aura/auraFala.js`)
+- Auditoria do pedido "verifica se a Aura deixa mensagem programada": ela saía do personagem em 5 sítios — `Não consegui: <erro técnico>` (brain/actions), `Diz outra vez o que queres, sem rodeios.` (interpret), `Entendi./Ok./👋` e `_confusa_ Não entendi muito bem` (fallback offline), e os comandos executados por conversa a responder `❌ Uso: !cmd <arg>` / `TypeError…` / `Só o Dono pode`.
+- `auraFala.dizer(tipo,{isOwner,jid,oque,precisa})` — frases dela por situação (naoPercebi / naoConsegui / faltaAlgo / naoPodes / semCabeca), variantes Dark vs outros, sem repetir a última no mesmo chat.
+- `auraFala.humanizar(texto)` — reescreve mensagens com cara de sistema (`pareceBot`: ❌/⚠️/Uso:/erros JS/HTTP/"só o dono") mantendo a informação útil ("Uso: !ban @pessoa" → "Faço já — só me falta a pessoa (marca com @) 🌹"); erros técnicos nunca vazam.
+- `auraFala.sockNaVozDela(sock)` — Proxy do sock passado aos comandos executados POR CONVERSA (auraCommands e router universal): texto com cara de bot sai na voz dela; reacções/média/textos normais intactos. Comando que rebenta → ela responde ("Tentei, mas não me deixou…") em vez de silêncio.
+- Ligado em: commandHandler (brain exec, actions exec, r.msg, permissão negada do universal), auraInterpret.consertarSeRecusou, auraHuman.generateDynamicResponse, auraUniversal.executarComando.
+
 ## v7.40 — AURA universal: sem comandos próprios, executa QUALQUER comando por conversa, sabe a data, stickers só com ela
 - **Removidos** `src/bot/cases/auraInvoke.js` (`.aura/.aurasai/.auramodo/.auragrupos`) e entradas no `submenuData.js`. O `.aura` de brincadeira (GIF ⚡, packages/interactions) mantém-se. Acordar/dormir/estado agora por conversa (só dono): "aura acorda aqui", "aura dorme", "aura estás acordada?", "aura em que grupos estás acordada?" → `auraUniversal.gerirPresenca` (commandHandler, logo após `_auraAwakeHere`).
 - **Novo `src/aura/auraUniversal.js`**:

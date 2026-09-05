@@ -159,7 +159,8 @@ function consertarSeRecusou(resposta, textoOriginal, msg) {
   const tipo = detectarPedido(textoOriginal);
   if (!tipo) {
     if (eRecusaPolitica(resposta)) {
-      return 'Diz outra vez o que queres, sem rodeios.';
+      // v7.41: na voz dela, não como aviso de sistema
+      try { return require('./auraFala').dizer('naoPercebi', { isOwner: true }); } catch { return 'Diz outra vez o que queres, sem rodeios.'; }
     }
     return resposta;
   }
