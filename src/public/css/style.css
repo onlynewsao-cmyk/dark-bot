@@ -593,6 +593,8 @@ small.muted { font-size: 0.78rem; color: var(--text-muted); }
 .status-connected { background: var(--neon-green); box-shadow: 0 0 10px var(--neon-green), 0 0 20px rgba(0,255,157,0.4); animation: pulse 2s infinite; }
 .status-connecting { background: var(--neon-yellow); box-shadow: 0 0 10px var(--neon-yellow); animation: pulse 1s infinite; }
 .status-disconnected { background: var(--neon-red); box-shadow: 0 0 10px var(--neon-red); }
+.status-restricted { background: #f43f5e; box-shadow: 0 0 10px #f43f5e; animation: pulse 0.8s infinite; }
+.status-off { background: #475569; }
 .status-qr, .status-pairing { background: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan); animation: pulse 1.5s infinite; }
 @keyframes pulse {
   0%, 100% { transform: scale(1); opacity: 1; }

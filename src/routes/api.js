@@ -4,7 +4,6 @@ const { rateLimit, ipKeyGenerator } = require('express-rate-limit');
 const cloudinary = require('cloudinary').v2;
 const { requireApiAuth, requireApiOwner } = require('../middleware/auth');
 const { getBot } = require('../bot/whatsapp');
-const { getCallBot } = require('../bot/callSocket');
 const User = require('../database/models/User');
 const Command = require('../database/models/Command');
 const Media = require('../database/models/Media');
@@ -85,74 +84,25 @@ module.exports = function (io) {
 
   // ===== BOT =====
   router.get('/bot/status', requireApiAuth, (req, res) => res.json(getBot(io).getStatus()));
-  router.get('/callbot/status', requireApiAuth, (req, res) => res.json(getCallBot(io).getStatus()));
 
-  async function startCallBot(req, res) {
-    const mode = req.body.mode === 'pair' ? 'pair' : 'qr';
-    const phoneNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
-    const fresh = req.body.fresh === true || req.body.fresh === 'true' || mode === 'pair';
-    if (mode === 'pair' && phoneNumber.length < 10) {
-      return res.status(400).json({ error: 'Número inválido. Use DDI + número, sem + ou espaços.' });
-    }
-    try {
-      getCallBot(io).start({ mode, phoneNumber: phoneNumber || null, fresh })
-        .catch(err => console.error('CallBot start:', err.message));
-      res.status(202).json({ ok: true, mode, fresh, role: 'calls' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  }
-
-  router.post('/callbot/connect', requireApiOwner, startCallBot);
-  router.post('/callbot/start', requireApiOwner, startCallBot);
-
-  // ===== VOZ REAL (RTP / baileys-caller — 3.º aparelho) =====
-  router.get('/voip/status', requireApiAuth, (req, res) => {
-    try { res.json(require('../bot/liveVoip').getStatus()); }
-    catch (e) { res.status(500).json({ error: e.message }); }
+  // v7.44 — chamadas VoIP no socket principal (substitui callbot/liveVoip)
+  router.get('/voip/calls', requireApiAuth, (req, res) => {
+    const voip = require('../bot/callVoip');
+    const bot = getBot(io);
+    res.json({
+      bot: bot.status,
+      suportado: bot.sock ? voip.suportado(bot.sock) : null,
+      activas: voip.todas().map(a => ({ jid: a.jid, grupo: !!a.grupo, desde: a.desde, tocando: !!a.tocando })),
+      limites: { maxDuracaoMs: voip.MAX_DURACAO_MS, cooldownMs: voip.COOLDOWN_MS, maxPorHora: voip.MAX_POR_HORA },
+    });
   });
-
-  router.post('/voip/start', requireApiOwner, async (req, res) => {
-    try {
-      const live = require('../bot/liveVoip');
-      const d = await live.disponivel();
-      if (!d) {
-        return res.status(400).json({
-          error: 'VOZ REAL não instalada. Corre "npm run setup:voip" no servidor.',
-        });
-      }
-      // fire-and-forget: o QR fica em getStatus().qr e o dashboard faz polling
-      live.conectar().catch((err) => console.error('VoIP connect:', err?.message || err));
-      res.status(202).json({ ok: true, role: 'voip' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+  router.post('/voip/hangup', requireApiOwner, async (req, res) => {
+    const voip = require('../bot/callVoip');
+    const bot = getBot(io);
+    let n = 0;
+    for (const a of voip.todas()) { try { await voip.desligar(bot.sock, a.jid); n++; } catch {} }
+    res.json({ ok: true, desligadas: n });
   });
-
-  router.post('/voip/pair', requireApiOwner, async (req, res) => {
-    const phoneNumber = String(req.body.phoneNumber || '').replace(/\D/g, '');
-    if (phoneNumber.length < 9) {
-      return res.status(400).json({ error: 'Número inválido. Use DDI + número, sem + ou espaços.' });
-    }
-    try {
-      const live = require('../bot/liveVoip');
-      const d = await live.disponivel();
-      if (!d) {
-        return res.status(400).json({
-          error: 'VOZ REAL não instalada. Corre "npm run setup:voip" no servidor.',
-        });
-      }
-      // fire-and-forget: o pair code fica em getStatus().pairingCode e o dashboard faz polling
-      live.emparelhar(phoneNumber).then((r) => {
-        console.log('[VoIP pair]', JSON.stringify(r));
-      }).catch((err) => console.error('[VoIP pair]', err?.message || err));
-      res.status(202).json({ ok: true, role: 'voip', mode: 'pair' });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  router.post('/voip/logout', requireApiOwner, async (req, res) => {
-    try {
-      await require('../bot/liveVoip').apagarSessao();
-      res.json({ ok: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
   // ===== LIGAR-ME AGORA (botão do painel) =====
   // v6.78 — dispara uma chamada real para o Dono num clique. Usa o socket
   // principal (o callbot secundário está desligado) e a mesma escada do
@@ -183,20 +133,6 @@ module.exports = function (io) {
       });
     } catch (err) {
       return res.status(500).json({ ok: false, error: String(err?.message || err).slice(0, 200) });
-    }
-  });
-
-  router.post('/callbot/logout', requireApiOwner, async (req, res) => {
-    await getCallBot(io).logout();
-    res.json({ ok: true });
-  });
-
-  router.post('/callbot/reset', requireApiOwner, async (req, res) => {
-    try {
-      await getCallBot(io).logout();
-      res.json({ ok: true, message: 'Sessão de chamadas limpa' });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
     }
   });
 

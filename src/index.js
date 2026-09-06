@@ -18,7 +18,6 @@ const { connectDB } = require('./database/connection');
 const User = require('./database/models/User');
 const Command = require('./database/models/Command');
 const { getBot } = require('./bot/whatsapp');
-const { getCallBot } = require('./bot/callSocket');
 const scheduler = require('./bot/scheduler');
 const botConfigCache = require('./bot/botConfigCache');
 
@@ -197,11 +196,10 @@ async function bootstrap() {
   // Endpoint SEM autenticação, público, resposta rápida.
   app.get('/health', (req, res) => {
     const botStatus = getBot(io).getStatus();
-    const callStatus = getCallBot(io).getStatus();
     res.status(200).json({
       status: 'ok',
       bot: botStatus.status,
-      callbot: callStatus.status,
+      voip_calls: (()=>{ try { return require('./bot/callVoip').todas().length; } catch { return 0; } })(),
       db: conn ? 'connected' : 'unavailable',
       uptime: botStatus.uptime || 0,
       messages: botStatus.messageCount || 0,
@@ -425,12 +423,10 @@ async function bootstrap() {
   io.on('connection', (socket) => {
     const bot = getBot(io);
     socket.emit('bot:status', bot.getStatus());
-    socket.emit('callbot:status', getCallBot(io).getStatus());
   });
 
   // Bot - tenta auto-conectar se já tem sessão (MongoDB ou local)
   const bot = getBot(io);
-  const callBot = getCallBot(io);
 
   // v6.92 — o auto-start anterior usava countDocuments({ fileName: { $not: /^call:/ } })
   // com um try/catch vazio. No Render Free, a MongoDB pode ainda estar a
@@ -477,17 +473,8 @@ async function bootstrap() {
       atraso *= 2;
     }
 
-    // Baileys secundário de chamadas — sessão isolada sob prefixo "call:".
-    try {
-      const Session = require('./database/models/Session');
-      const hasCall = await Session.countDocuments({ fileName: /^call:/ }).maxTimeMS(8000);
-      if (hasCall > 0) {
-        console.log('🔄 Sessão de CHAMADAS encontrada — a ligar Baileys secundário...');
-        callBot.start({ mode: 'qr' }).catch(e => console.error('CallBot auto-start:', e.message));
-      }
-    } catch (e) {
-      console.error('[AutoStart/call]', e.message);
-    }
+    // v7.44 — Baileys secundário de chamadas REMOVIDO (2.º aparelho a reconectar = sinal de automação).
+    // As chamadas usam o socket principal (callVoip).
   } else {
     // Fallback: arquivos locais (desenvolvimento / sem Mongo)
     try {

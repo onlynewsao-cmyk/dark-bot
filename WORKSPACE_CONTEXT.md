@@ -272,6 +272,7 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `callHandler.onCall`: chamada de número que **nunca falou com o bot** (sem `User`) e sem modo explícito → modo `silencio` (rejeita sem mensagem). `tentarCallbackVozReal` só para o Dono.
 - `callVoip`: 1 chamada de cada vez, máx. 20 min, 2 min entre chamadas, 6/hora (`_resetLimites` para testes). `.call` e "aura liga-me" só o Dono.
 - `whatsapp.js`: BACKOFF 8s→2min (era 3s→48s); `403/forbidden` → estado `restricted`, espera 15 min, desliga chamadas activas; ao fechar o socket termina chamadas VoIP.
+- Dashboard /connect: removidos os cartões antigos "Baileys de Chamadas (secundário)" e "Voz Real (3.º aparelho)" + rotas `/api/callbot/*`, `/api/voip/status|start|pair|logout`, auto-start do callSocket em index.js. Novo cartão "Chamadas de Voz (VoIP)" com `GET /api/voip/calls` (estado do bot, activas, limites) e `POST /api/voip/hangup`; estado `restricted` com aviso. CSS `.status-restricted/.status-off`.
 - Testes: callvoip 16/16, callback 15/15 (expectativa actualizada), chamadas 29/29, brain 21/21, sintaxe OK.
 
 ## v7.43 — Chamadas de voz REAIS (VoIP) — `.call` / `.tocar` / `.fala` / `.desligar` + AURA
