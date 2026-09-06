@@ -115,7 +115,8 @@ async function entrarPorLink(sock, texto) {
  * @param {string} emoji
  * @param {number} quantas  tecto de segurança (por omissão 30)
  */
-async function reagirTudoCanal(sock, alvoJid, emoji = '🕸️', quantas = 30) {
+async function reagirTudoCanal(sock, alvoJid, emoji = '🕸️', quantas = 10) {
+  quantas = Math.min(Number(quantas) || 10, 15); // v7.45 anti-restrição: tecto 15 reacções por pedido
   let jid = alvoJid;
 
   // aceita link em vez de jid
@@ -154,7 +155,7 @@ async function reagirTudoCanal(sock, alvoJid, emoji = '🕸️', quantas = 30) {
       await sock.newsletterReactMessage(jid, String(sid), emoji);
       feitas++;
       // trava anti-banimento: o WhatsApp corta quem dispara em rajada
-      await new Promise(r => setTimeout(r, 350));
+      await new Promise(r => setTimeout(r, 1200 + Math.floor(Math.random() * 1800)));
     } catch { falhas++; }
   }
 
@@ -203,12 +204,15 @@ async function reencaminhar(sock, msg, destinos = []) {
 
   let enviados = 0;
   const falhou = [];
+  // v7.45 anti-restrição: no máximo 10 grupos por pedido
+  const MAX_DESTINOS = 10;
+  destinos = destinos.slice(0, MAX_DESTINOS);
   for (const jid of destinos) {
     try {
       // ID novo por destino: com o mesmo ID o WhatsApp engole as cópias
       await sock.relayMessage(jid, real, { messageId: undefined });
       enviados++;
-      await new Promise(r => setTimeout(r, 400)); // trava anti-banimento
+      await new Promise(r => setTimeout(r, 5000 + Math.floor(Math.random() * 4000))); // v7.45: 5–9 s entre grupos
     } catch (e) {
       falhou.push(jid);
     }

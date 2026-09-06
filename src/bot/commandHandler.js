@@ -1599,11 +1599,15 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           if (!isOwner && brainM.estaIgnorado(ctx.remoteJid, ctx.senderNumber)) return false;
 
           // reagir a tudo
-          if (M.reagirTudo && !M.semReagir) {
+          // v7.45 anti-restrição: "reagir a tudo" não é reagir a TUDO —
+          // uma pessoa reage a ~1 em 3 mensagens e demora uns segundos.
+          if (M.reagirTudo && !M.semReagir && Math.random() < 0.35) {
             const dec = require('../aura/auraDecide');
-            sock.sendMessage(ctx.remoteJid, {
-              react: { text: dec.escolherReacao(text), key: msg.key },
-            }).catch(() => {});
+            setTimeout(() => {
+              sock.sendMessage(ctx.remoteJid, {
+                react: { text: dec.escolherReacao(text), key: msg.key },
+              }).catch(() => {});
+            }, 1500 + Math.floor(Math.random() * 6000));
           }
         } catch (e) {
           console.warn('[Aura modos]', e.message?.slice(0, 50));

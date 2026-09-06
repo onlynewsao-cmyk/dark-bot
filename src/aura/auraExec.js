@@ -451,7 +451,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       await sock.sendMessage(ctx.remoteJid, { text: `A reagir com ${emoji}... dá-me uns segundos.` })
         .catch(() => {});
 
-      const r = await canais.reagirTudoCanal(sock, alvo, emoji, 30);
+      const r = await canais.reagirTudoCanal(sock, alvo, emoji, 10);
       return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
     }
 
@@ -464,7 +464,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       // se ele disse "entra e reage", faz as duas coisas
       if (r.tipo === 'canal' && /\brea(ge|gir|ja)\b/i.test(texto || '')) {
         const emoji = emojiDaFrase(texto) || '🕸️';
-        const rr = await canais.reagirTudoCanal(sock, r.jid, emoji, 30);
+        const rr = await canais.reagirTudoCanal(sock, r.jid, emoji, 10);
         return { ok: true, msg: `${r.msg}\n${rr.msg}` };
       }
       return { ok: true, msg: r.msg };

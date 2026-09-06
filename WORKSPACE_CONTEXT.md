@@ -271,6 +271,7 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `src/bot/humanizer.js`: embrulha `sock.sendMessage` uma vez (whatsapp.js após makeWASocket). Antes de responder a uma msg recebida: atraso 0.4–1.8 s → `readMessages` (✓✓ azul) → presença `composing`/`recording` → espera proporcional (texto ~40 cps, 0.7–4.5 s; PTT 1.5–6 s; media 0.9–3 s) → `paused` → envia. Envios seguidos ao mesmo chat (<12 s): 0.35–1.1 s. Envios de sistema (sem msg recebida): jitter 0.15–0.7 s. Reacções/delete/edit passam directo. PV sem resposta: marca lido 2.5–9 s depois (`lerSemResponder`). Grupos nunca são marcados lidos sem resposta. `HUMANIZE=off` desliga; `HUMANIZE_CPS`.
 - messageRouter: `humanizer.notaRecebida(msg)` por msg, `lerSemResponder` quando nada respondeu.
 - Broadcast (dashboard e AURA `sendBroadcast`): mínimo 6 s + jitter 0–4 s entre destinos (era 2 s fixo / 0).
+- Auditoria AURA (anti-restrição): proactiva já era segura (1 msg/tick 5 min, ≥120 min por chat, só grupos 'aura' + PV do Dono, noite calada); PV a desconhecidos: não existe (falar_com = menção no grupo; ownerPv só ao Dono). Corrigido: `call_*` nível 'dono' no catálogo; `reagirTudo` reage a ~35 % das msgs com 1.5–7.5 s de atraso (era 100 % instantâneo); `reencaminhar` máx. 10 grupos e 5–9 s entre eles (era 400 ms sem limite); `reagirTudoCanal` tecto 15 reacções, 1.2–3 s entre elas (era 30 × 350 ms).
 - Teste `scripts/test-humanizer.js` 10/10 (`npm run test:humanizer`).
 
 ## v7.44 — Anti-restrição (conta ficou restrita 06/09 após chamada + bot no PV)
