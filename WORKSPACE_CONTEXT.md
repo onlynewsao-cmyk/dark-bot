@@ -267,6 +267,15 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.43 — Chamadas de voz REAIS (VoIP) — `.call` / `.tocar` / `.fala` / `.desligar` + AURA
+- **O que faltava**: `@systemzero/baileys` estava em 1.1.1 (só `rejectCall`; realCall.js fazia o telemóvel tocar mas sem áudio). A partir de **1.1.3** a lib traz VoIP nativo (`lib/Socket/voip/*`: WebRTC/SRTP, Opus) e activa sozinha `setupVoip(sock)` em `makeWASocket`: `sock.startCall(jid)`, `sock.startGroupCall(gjid)` (até 6), `sock.playCallAudio(callId, pcm s16le 16 kHz mono)`, `sock.stopCallAudio`, `sock.endCall`, estado em `sock.calls[id].status`, evento `call` com `accept/reject/timeout/terminate`. **Só envia áudio** (a lib não expõe o áudio recebido) → ela fala/toca na chamada e ouve por notas de voz (callHandler antigo mantém-se).
+- Deps: `@systemzero/baileys ^1.1.4`, `opusscript ^0.1.1` (package.json); **ffmpeg** no servidor (`ffmpeg-static` ou `apt install ffmpeg`; `callVoip.ffmpegBin()` cai para o do sistema / `FFMPEG_PATH`).
+- Novo `src/bot/callVoip.js`: `ligar(sock, chatJid)` (PV espera atender 35 s; grupo não espera), `tocarBuffer` (ffmpeg → PCM), `tocarMusica` (systemZeroPlay.ytAudio → buffer/url), `falar` (TTS speakWithFallback → chamada), `parar`, `desligar`, `activa`, `todas`; limpa estado no fim da chamada.
+- Novo `src/bot/cases/chamadaVoz.js`: `.call/.ligar/.liga/.chamada` (sem número = VoIP neste chat; com número → `.ligarnum` antigo), `.tocar <música>`, `.fala <texto>`, `.pararmusica`, `.desligar`, `.callstatus` (dono). Mensagens na voz dela; ela cumprimenta na própria chamada ao atender.
+- `chamadas.js`: aliases `call/chamada` do modo de chamadas passaram a `chamadas/calls/modochamadas`; `ligar/call` por número → `ligarnum`; `desligar` PTT → `encerrar`.
+- AURA: `auraActions` `ligar`/`ligarGrupo` usam VoIP primeiro ("aura liga-me" → toca, atende, ela fala); `auraBrain` capacidades `call_tocar` ("toca X na call"), `call_falar` ("diz na call que…"), `call_parar`, `call_desligar` → `auraExec`.
+- Teste `npm run test:callvoip` (15 checks, sock mockado + conversão PCM real com ffmpeg).
+
 ## v7.42 — Linha do tempo do grupo ("quem fez, faz, fez quando") + actualizada antes de responder
 - Novo `src/aura/auraLinhaTempo.js`: regista eventos do grupo com data — entrou/adicionou, saiu, removido (autor≠alvo), promovido, despromovido, fechou/abriu, nome/descrição, e os comandos que ELA executou por ordem de alguém (`doComando`). Fonte: `group-participants.update` e `groups.update` (whatsapp.js) + auraCommands/router universal (commandHandler). Persistência `BotConfig aura_timeline_<jid>` (400 eventos, debounce 4 s).
 - Consulta directa antes do cérebro: "quem promoveu o João?", "quem removeu a Maria?", "quem fechou o grupo?", "o que aconteceu aqui hoje/ontem/esta semana?", "quem saiu ontem?" → lista com @menções e `quandoFoi` ("hoje às 14:03", "há 3 dias"). Sem registos → diz que foi antes de começar a tomar nota (não inventa).

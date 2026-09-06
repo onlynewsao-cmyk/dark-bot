@@ -116,6 +116,27 @@ function pareceOrdem(texto) {
  * `risco`: 'seguro' | 'destrutivo'  (destrutivo pede confirmação)
  */
 const CAPACIDADES = [
+  // ══ v7.43 — CHAMADA DE VOZ REAL ══════════════════════════
+  {
+    id: 'call_tocar', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Tocar uma música na chamada de voz activa ("toca X na call")',
+    gatilhos: [/\b(toca|tocar|poe|põe|coloca|mete)\b.{0,40}\b(na (call|chamada|liga[cç][aã]o)|aqui na call)\b/, /\b(na (call|chamada))\b.{0,20}\b(toca|poe|põe|coloca)\b/],
+  },
+  {
+    id: 'call_falar', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Dizer algo em voz alta na chamada activa ("diz na call que…")',
+    gatilhos: [/\b(diz|fala|grita|anuncia)\b.{0,10}\bna (call|chamada)\b/],
+  },
+  {
+    id: 'call_parar', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Parar a música que está a tocar na chamada',
+    gatilhos: [/\b(para|pára|parar|pausa|stop)\b.{0,12}\b(a )?(musica|música|som|call)\b/, /\b(cala|tira) (a|essa) (musica|música)\b/],
+  },
+  {
+    id: 'call_desligar', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Desligar/terminar a chamada de voz',
+    gatilhos: [/\b(desliga|desligar|termina|encerra|sai d[ae])\b.{0,10}\b(a )?(call|chamada|liga[cç][aã]o)\b/, /^\s*(aura[, ]*)?desliga\s*$/],
+  },
   // ══ v7.11 ETAPA 5 — VER O GRUPO (histórico) ══════════════
   {
     id: 'quem_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',

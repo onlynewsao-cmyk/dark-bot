@@ -15,7 +15,7 @@ const config = require('../../config');
 
 module.exports = function registerChamadas(registerCase) {
 
-  registerCase(['chamadas', 'chamada', 'call', 'calls'], async ({ sock, msg, ctx, args, isOwner }) => {
+  registerCase(['chamadas', 'calls', 'modochamadas'], async ({ sock, msg, ctx, args, isOwner }) => {
     const call = require('../callHandler');
     const alvo = ctx.remoteJid;
     const acao = String(args?.[0] || '').toLowerCase();
@@ -67,7 +67,9 @@ module.exports = function registerChamadas(registerCase) {
   // O Baileys não tem WebRTC, por isso não há stream de áudio real.
   // O que fazemos: gerar um link `https://call.whatsapp.com/...` que a
   // pessoa clica e a chamada abre no WhatsApp dela para o nosso número.
-  registerCase(['ligar', 'liga', 'call'], async ({ sock, msg, ctx, args, isOwner }) => {
+  // v7.43: 'ligar'/'call' sem número são tratados em chamadaVoz.js (VoIP
+  // real). Aqui fica o caminho antigo por NÚMERO: .ligarnum <número>.
+  registerCase(['ligarnum', 'ligarnumero', 'callnum'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!isOwner) return sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o Dono pode fazer chamadas.' }, { quoted: msg });
 
     const call = require('../callHandler');
@@ -117,7 +119,7 @@ module.exports = function registerChamadas(registerCase) {
     }, { quoted: msg });
   }, true);
 
-  registerCase(['desligar', 'desliga', 'encerrar'], async ({ sock, msg, ctx }) => {
+  registerCase(['encerrar', 'desligarptt'], async ({ sock, msg, ctx }) => {   // v7.43: 'desligar' é da chamadaVoz
     const call = require('../callHandler');
     const c = call.terminar(ctx.remoteJid);
     return sock.sendMessage(ctx.remoteJid, {

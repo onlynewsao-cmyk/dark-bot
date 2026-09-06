@@ -60,6 +60,36 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
   const M = brain.modos(jid);
 
   switch (id) {
+    // ══ v7.43 CHAMADA DE VOZ ══════════════════════════════
+    case 'call_tocar': {
+      const voip = require('../bot/callVoip');
+      if (!voip.activa(jid)) return { ok: false, msg: 'Não estamos em chamada. Diz "liga-me" primeiro. 📞' };
+      const q = String(arg || texto || '').replace(/\b(na (call|chamada|liga[cç][aã]o)|aqui na call)\b/gi, '').replace(/^(toca|tocar|poe|põe|coloca|mete)\s+(a |o |uma? )?(musica|música|som)?\s*/i, '').trim();
+      if (!q) return { ok: false, msg: 'Qual música?' };
+      const r = await voip.tocarMusica(sock, jid, q).catch(e => ({ ok: false, motivo: e.message }));
+      return r.ok ? { ok: true, msg: `🎶 A tocar *${r.titulo}* na chamada.` } : { ok: false, msg: /achei/.test(r.motivo) ? 'Não achei essa. Diz o nome do artista também.' : 'Não consegui tocar — a chamada ainda está ligada?' };
+    }
+    case 'call_falar': {
+      const voip = require('../bot/callVoip');
+      if (!voip.activa(jid)) return { ok: false, msg: 'Não estou em chamada aqui.' };
+      const t = String(arg || texto || '').replace(/^.*?\bna (call|chamada)\b\s*(que|:)?\s*/i, '').trim();
+      if (!t) return { ok: false, msg: 'Dizer o quê?' };
+      const r = await voip.falar(sock, jid, t).catch(() => ({ ok: false }));
+      return r.ok ? { ok: true, silencioso: true } : { ok: false, msg: 'Não consegui falar na chamada agora.' };
+    }
+    case 'call_parar': {
+      const voip = require('../bot/callVoip');
+      if (!voip.activa(jid)) return { ok: false, msg: null };
+      voip.parar(sock, jid);
+      return { ok: true, msg: 'Parei. ⏹️' };
+    }
+    case 'call_desligar': {
+      const voip = require('../bot/callVoip');
+      if (!voip.activa(jid)) return { ok: false, msg: null };
+      await voip.desligar(sock, jid);
+      return { ok: true, msg: 'Desliguei. Foi bom ouvir-te. 🖤' };
+    }
+
     // ══ MODOS ═════════════════════════════════════════════
     case 'modo_so_audio':
       brain.setModo(jid, 'soAudio', true);

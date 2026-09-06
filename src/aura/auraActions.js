@@ -584,6 +584,22 @@ async function executar(acao, valor, { sock, ctx }) {
     }
 
     case 'ligar': {
+      // v7.43: chamada de voz REAL (VoIP) quando a lib suporta — ela liga,
+      // espera atender e cumprimenta na própria chamada.
+      try {
+        const voip = require('../bot/callVoip');
+        if (voip.suportado(sock) && valor !== 'video') {
+          const _n = String(ctx.senderNumber || '').replace(/\D/g, '');
+          const alvoV = emGrupo ? (_n ? _n + '@s.whatsapp.net' : ctx.senderJid) : jid;
+          sock.sendMessage(jid, { text: 'A ligar… atende aí! 📞' }).catch(() => {});
+          const rv = await voip.ligar(sock, alvoV);
+          if (rv.ok) {
+            setTimeout(() => voip.falar(sock, alvoV, 'Oi. Estou aqui. Diz-me que música queres ouvir, ou fala comigo por áudio.').catch(() => {}), 1200);
+            return { ok: true, msg: 'Estou na chamada. 🎧 Pede-me uma música ("toca X") quando quiseres.' };
+          }
+          if (/atendeu|recusou/.test(rv.motivo || '')) return { ok: true, msg: 'Liguei e não atendeste… 😕 Quando quiseres, diz "liga-me" outra vez.' };
+        }
+      } catch (e) { console.warn('[Aura ligar voip]', e.message?.slice(0, 60)); }
       const bridge = require('../bot/callBridge');
       // v6.75 — em grupo o ctx.senderJid vem como @lid e o <offer> rebenta
       // com "No sessions". Para chamadas usa-se SEMPRE o número (PN).
@@ -603,6 +619,13 @@ async function executar(acao, valor, { sock, ctx }) {
 
     case 'ligarGrupo': {
       if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
+      try {
+        const voip = require('../bot/callVoip');
+        if (voip.suportado(sock)) {
+          const rv = await voip.ligar(sock, jid);
+          if (rv.ok) return { ok: true, msg: 'Abri a chamada de voz no grupo (até 6 pessoas). Entrem! 📞 Pede-me músicas com "toca X".' };
+        }
+      } catch {}
       const bridge = require('../bot/callBridge');
       await bridge.ligarGrupo(sock, jid);
       return { ok: true, msg: 'Abri a chamada no grupo. Entram pelo link / botão de chamada.' };

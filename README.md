@@ -118,7 +118,12 @@ A AURA não aparece apenas quando alguém digita um comando. Ela entende context
 - aprender regras por conversa;
 - executar ações autorizadas;
 - controlar grupos através de linguagem natural;
+- executar **qualquer comando do bot** só por conversa (com as permissões de cada um);
+- saber que dia é, quem fez o quê no grupo e quando;
+- **ligar-te de verdade** — chamada de voz real (até 6 pessoas), fala na chamada e toca música (`.call`, `.tocar`, "aura liga-me");
 - falar de forma mais íntima, séria, irónica ou profissional.
+
+> 📞 Chamadas de voz exigem `@systemzero/baileys ≥ 1.1.3`, `opusscript` e **ffmpeg** no servidor (`apt install ffmpeg` ou `ffmpeg-static`).
 
 <div align="center">
 
