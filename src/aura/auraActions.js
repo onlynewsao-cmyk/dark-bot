@@ -588,7 +588,7 @@ async function executar(acao, valor, { sock, ctx }) {
       // espera atender e cumprimenta na própria chamada.
       try {
         const voip = require('../bot/callVoip');
-        if (voip.suportado(sock) && valor !== 'video') {
+        if (voip.suportado(sock) && valor !== 'video' && ctx.isOwner) {   // v7.44: só o Dono
           const _n = String(ctx.senderNumber || '').replace(/\D/g, '');
           const alvoV = emGrupo ? (_n ? _n + '@s.whatsapp.net' : ctx.senderJid) : jid;
           sock.sendMessage(jid, { text: 'A ligar… atende aí! 📞' }).catch(() => {});

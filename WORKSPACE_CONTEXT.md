@@ -267,6 +267,13 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.44 — Anti-restrição (conta ficou restrita 06/09 após chamada + bot no PV)
+- Diagnóstico: a chamada VoIP funcionou; depois um bot ligou para o PV → o `callHandler` respondeu automaticamente (texto + tentativa de callback) a um número desconhecido; somado a reconexões a cada 3 s, a Meta marcou "mensagens automáticas/em massa" (restrição temporária ~6 h; sessão mantém-se).
+- `callHandler.onCall`: chamada de número que **nunca falou com o bot** (sem `User`) e sem modo explícito → modo `silencio` (rejeita sem mensagem). `tentarCallbackVozReal` só para o Dono.
+- `callVoip`: 1 chamada de cada vez, máx. 20 min, 2 min entre chamadas, 6/hora (`_resetLimites` para testes). `.call` e "aura liga-me" só o Dono.
+- `whatsapp.js`: BACKOFF 8s→2min (era 3s→48s); `403/forbidden` → estado `restricted`, espera 15 min, desliga chamadas activas; ao fechar o socket termina chamadas VoIP.
+- Testes: callvoip 16/16, callback 15/15 (expectativa actualizada), chamadas 29/29, brain 21/21, sintaxe OK.
+
 ## v7.43 — Chamadas de voz REAIS (VoIP) — `.call` / `.tocar` / `.fala` / `.desligar` + AURA
 - **O que faltava**: `@systemzero/baileys` estava em 1.1.1 (só `rejectCall`; realCall.js fazia o telemóvel tocar mas sem áudio). A partir de **1.1.3** a lib traz VoIP nativo (`lib/Socket/voip/*`: WebRTC/SRTP, Opus) e activa sozinha `setupVoip(sock)` em `makeWASocket`: `sock.startCall(jid)`, `sock.startGroupCall(gjid)` (até 6), `sock.playCallAudio(callId, pcm s16le 16 kHz mono)`, `sock.stopCallAudio`, `sock.endCall`, estado em `sock.calls[id].status`, evento `call` com `accept/reject/timeout/terminate`. **Só envia áudio** (a lib não expõe o áudio recebido) → ela fala/toca na chamada e ouve por notas de voz (callHandler antigo mantém-se).
 - Deps: `@systemzero/baileys ^1.1.4`, `opusscript ^0.1.1` (package.json); **ffmpeg** no servidor (`ffmpeg-static` ou `apt install ffmpeg`; `callVoip.ffmpegBin()` cai para o do sistema / `FFMPEG_PATH`).

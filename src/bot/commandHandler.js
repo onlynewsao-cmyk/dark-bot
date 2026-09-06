@@ -2079,7 +2079,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           const ordem = acts.detectarAcao(cleanText);
           if (ordem) {
             const r = await acts.executar(ordem.acao, ordem.valor, {
-              sock, ctx: { ...ctx, botName: config.bot.name },
+              sock, ctx: { ...ctx, botName: config.bot.name, isOwner },
             }).catch(e => { console.warn('[Aura acção exec]', e.message?.slice(0, 80)); return { ok: false, msg: require('../aura/auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }; });
 
             if (r?.msg) {

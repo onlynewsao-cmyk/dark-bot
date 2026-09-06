@@ -21,7 +21,9 @@ module.exports = function registerChamadaVoz(registerCase) {
     if (numero.length >= 9) return require('../caseHandler').runCase('ligarnum', { sock, msg, ctx, args, text: args.join(' '), prefix, isOwner, config: require('../../config') });
     if (!voip.suportado(sock)) return reply('Ainda não consigo ligar daqui — o servidor precisa da lib nova (@systemzero/baileys 1.1.4). Avisa o Dark. 😕');
     const grupo = ctx.isGroup;
-    if (grupo && !isOwner) return reply('Chamada de grupo só quando o Dark pede. 😌');
+    // v7.44: chamadas só a pedido do Dono (qualquer um a pedir "call" ao bot
+    // multiplica chamadas automáticas = restrição da Meta).
+    if (!isOwner) return reply('Ligar só quando o Dark pede. 😌 Mas podes mandar-me áudio que eu respondo.');
     if (voip.activa(ctx.remoteJid)) return reply('Já estamos em chamada. Diz *' + prefix + 'tocar <música>* ou *' + prefix + 'desligar*.');
 
     await react('📞');
@@ -31,6 +33,7 @@ module.exports = function registerChamadaVoz(registerCase) {
 
     if (!r.ok) {
       await react('❌');
+      if (/noutra chamada|limite|espera \d+s/.test(r.motivo)) return editar('Calma, Dark 😅 ' + r.motivo + '. É para não levarmos restrição outra vez.');
       return editar(/atendeu|recusou/.test(r.motivo) ? 'Não atendeste… fica para a próxima. 😕' : 'Não consegui ligar agora. ' + (isOwner ? '(' + r.motivo + ')' : ''));
     }
     await react('✅');

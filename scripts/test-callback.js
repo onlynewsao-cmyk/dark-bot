@@ -146,7 +146,8 @@ function makeSock() {
       { id: 'c5', from: '244900000111@s.whatsapp.net', status: 'offer', isVideo: false },
       { ownerJid: '244945280380@s.whatsapp.net', ownerNumber: '244945280380', isOwner: false });
     t('estranho sem modo explícito não recebe callback', r.callback !== true, String(r.callback));
-    t('estranho recebe saudação PTT', sock.sent.some(s => s.content.audio && s.content.ptt), '');
+    // v7.44: desconhecido → rejeita em SILÊNCIO (sem PTT/texto) — anti-restrição Meta
+    t('estranho desconhecido: rejeitado em silêncio (v7.44)', r.modo === 'silencio' && !sock.sent.some(s => s.content.audio || s.content.text), JSON.stringify(r));
   }
 
   // ══════════════════════════════════════════════════════════

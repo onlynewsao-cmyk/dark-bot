@@ -47,7 +47,9 @@ function startKeepAlive(url) {
 }
 
 // ── Backoff de reconexão ─────────────────────────────────────
-const BACKOFF = [3000, 6000, 12000, 24000, 48000];
+// v7.44: mais lento — reconectar a cada 3 s depois de um corte do servidor
+// parece automação agressiva. Primeira tentativa aos 8 s, tecto 2 min.
+const BACKOFF = [8000, 15000, 30000, 60000, 120000];
 let _attempt = 0;
 const nextDelay = () => BACKOFF[Math.min(_attempt++, BACKOFF.length - 1)];
 const resetDelay = () => { _attempt = 0; };
@@ -380,6 +382,9 @@ class WhatsAppBot {
 
           this.log('warn', `Fechado (${code}): ${reason}`);
           this.setStatus('disconnected', { reason: code, message: reason });
+          // v7.44: chamadas VoIP activas morrem com o socket — limpa o estado
+          // (senão a próxima ligação acha que ainda está em chamada).
+          try { const v = require('./callVoip'); for (const a of v.todas()) v.desligar(this.sock, a.jid).catch(() => {}); } catch {}
 
           if (isConflito) {
             this._conflitos = (this._conflitos || 0) + 1;
@@ -395,6 +400,20 @@ class WhatsAppBot {
               this.starting = false;
               this.start({ mode: 'qr' }).catch(() => {});
             }, 60000);
+            return;
+          }
+
+          // v7.44: 403 = conta restrita/bloqueada temporariamente pela Meta.
+          // Reconectar em ciclo só piora. Espera 15 min e avisa.
+          const isRestrito = code === 403 || code === DisconnectReason.forbidden || /forbidden|restrict/i.test(reason);
+          if (isRestrito) {
+            this.log('error', '⛔ 403 — a conta parece RESTRITA pela Meta. Vou esperar 15 min antes de tentar de novo. Não uses chamadas/broadcast até a restrição sair.');
+            this.setStatus('restricted', { reason: code, message: reason });
+            try { require('./callVoip').todas().forEach(a => require('./callVoip').desligar(this.sock, a.jid).catch(() => {})); } catch {}
+            this._reconnectTimer = setTimeout(() => {
+              this.starting = false;
+              this.start({ mode: 'qr' }).catch(() => {});
+            }, 15 * 60 * 1000);
             return;
           }
 

@@ -29,6 +29,15 @@ const { execFile } = require('child_process');
 
 const activas = new Map(); // chatJid → { callId, desde, tocando, jid }
 
+// v7.44 ANTI-RESTRIÇÃO: chamadas são o sinal mais forte de automação para
+// a Meta. Limites duros: 1 chamada de cada vez, máx. 20 min, 2 min de
+// intervalo entre chamadas, máx. 6 por hora.
+const MAX_DURACAO_MS = 20 * 60 * 1000;
+const COOLDOWN_MS = 2 * 60 * 1000;
+const MAX_POR_HORA = 6;
+let _ultimaChamada = 0;
+const _historico = []; // timestamps
+
 function suportado(sock) {
   return !!(sock && typeof sock.startCall === 'function' && typeof sock.playCallAudio === 'function');
 }
@@ -95,6 +104,12 @@ function _vigiarFim(sock, chatJid, callId) {
 async function ligar(sock, chatJid, { esperar = 35000 } = {}) {
   if (!suportado(sock)) return { ok: false, motivo: 'lib sem VoIP (precisa @systemzero/baileys ≥ 1.1.3)' };
   if (activas.has(chatJid)) return { ok: true, callId: activas.get(chatJid).callId, jaEstava: true };
+  if (activas.size >= 1) return { ok: false, motivo: 'já estou noutra chamada' };
+  const agora = Date.now();
+  while (_historico.length && agora - _historico[0] > 3600e3) _historico.shift();
+  if (_historico.length >= MAX_POR_HORA) return { ok: false, motivo: 'limite de chamadas por hora (protecção anti-restrição)' };
+  if (agora - _ultimaChamada < COOLDOWN_MS) return { ok: false, motivo: `espera ${Math.ceil((COOLDOWN_MS - (agora - _ultimaChamada)) / 1000)}s entre chamadas` };
+  _ultimaChamada = agora; _historico.push(agora);
   const grupo = String(chatJid).endsWith('@g.us');
   let callId;
   try {
@@ -106,6 +121,8 @@ async function ligar(sock, chatJid, { esperar = 35000 } = {}) {
   if (!callId) return { ok: false, motivo: 'sem callId' };
   activas.set(chatJid, { callId, desde: Date.now(), tocando: null, jid: chatJid, grupo });
   _vigiarFim(sock, chatJid, callId);
+  // tecto de duração
+  setTimeout(() => { if (activas.get(chatJid)?.callId === callId) desligar(sock, chatJid).catch(() => {}); }, MAX_DURACAO_MS);
   if (grupo) return { ok: true, callId, grupo: true }; // em grupo não há 'accept' único
   const atendeu = await esperarAtender(sock, callId, esperar);
   if (!atendeu) {
@@ -165,7 +182,8 @@ async function desligar(sock, chatJid) {
   return true;
 }
 
+function _resetLimites() { _ultimaChamada = 0; _historico.length = 0; }
 function activa(chatJid) { return activas.get(chatJid) || null; }
 function todas() { return [...activas.values()]; }
 
-module.exports = { suportado, paraPcm, ligar, tocarBuffer, tocarMusica, falar, parar, desligar, activa, todas, esperarAtender };
+module.exports = { _resetLimites, MAX_DURACAO_MS, COOLDOWN_MS, MAX_POR_HORA, suportado, paraPcm, ligar, tocarBuffer, tocarMusica, falar, parar, desligar, activa, todas, esperarAtender };

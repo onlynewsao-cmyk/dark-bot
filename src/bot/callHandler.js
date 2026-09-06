@@ -434,6 +434,8 @@ function _saudacaoCallback(ownerCall) {
  *   • cooldown de 60 s por número (evita spam/ban)
  */
 async function tentarCallbackVozReal(sock, call, { ownerCall, isVideo, saudacao }) {
+  // v7.44: ligar de volta a quem NÃO é o Dono = risco de restrição. Nunca.
+  if (!ownerCall) return { ok: false, motivo: 'so_dono' };
   if (isVideo) return { ok: false, motivo: 'video_nao_suportado' };
 
   const from = call.from;
@@ -518,10 +520,30 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   const ownerNum = String(ownerNumber || config.owner?.number || '').replace(/\D/g, '');
   const donoJid = ownerJid || (ownerNum ? ownerNum + '@s.whatsapp.net' : '');
   const ownerCall = !!(isOwner || (ownerNum && fromNumber === ownerNum));
-  const modo = await getMode(from, ownerCall);
+  let modo = await getMode(from, ownerCall);
   const isVideo = !!call.isVideo;
 
+  // v7.44 ANTI-RESTRIÇÃO: responder automaticamente (texto + callback) a
+  // chamadas de números DESCONHECIDOS é exactamente o padrão que a Meta
+  // marca como "mensagens automáticas/em massa" (conta ficou restrita a
+  // 06/09 depois de um bot ligar para o PV). Para quem nunca falou
+  // connosco: rejeita em silêncio. Só o Dono (e quem o Dono definiu
+  // modo explícito) recebe atendimento/callback.
+  if (!ownerCall && !modoExplicito(from)) {
+    let conhecido = false;
+    try {
+      const User = require('../database/models/User');
+      conhecido = !!(await User.findOne({ number: fromNumber }).select('_id').lean().catch(() => null));
+    } catch {}
+    if (!conhecido) modo = 'silencio';
+  }
+
   console.log(`[Call] offer de ${fromNumber} (${isVideo ? 'vídeo' : 'voz'}) modo=${modo}`);
+
+  if (modo === 'silencio') {
+    try { await sock.rejectCall(call.id, from); } catch {}
+    return { ok: true, modo: 'silencio', motivo: 'desconhecido' };
+  }
 
   if (modo === 'ignorar') {
     return { ok: true, modo: 'ignorar', ignorado: false };

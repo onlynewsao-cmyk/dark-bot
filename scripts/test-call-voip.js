@@ -29,10 +29,15 @@ const C = (n, c, x = '') => { if (c) { ok++; console.log('  ✅', n); } else { b
   C('duração ≈1s', t.dur === 1, t.dur);
   C('parar', voip.parar(sock, '244900@s.whatsapp.net') && stopped === 1);
   C('desligar', await voip.desligar(sock, '244900@s.whatsapp.net') && ended === 'c1' && !voip.activa('244900@s.whatsapp.net'));
+  // limites anti-restrição
+  const rl = await voip.ligar(sock, '244902@s.whatsapp.net');
+  C('cooldown 2 min entre chamadas bloqueia', !rl.ok && /espera/.test(rl.motivo), JSON.stringify(rl));
+  voip._resetLimites();
   // recusada
   const sock2 = { ...sock, calls: {}, startCall: async (jid) => { setTimeout(() => ev.emit('call', [{ id: 'c2', status: 'reject' }]), 50); return { callId: 'c2' }; } };
   const r2 = await voip.ligar(sock2, '244901@s.whatsapp.net');
   C('recusada → ok:false', !r2.ok && /atendeu|recusou/.test(r2.motivo), JSON.stringify(r2));
+  voip._resetLimites();
   // grupo
   const r3 = await voip.ligar(sock, '1@g.us');
   C('grupo → callId sem esperar accept', r3.ok && r3.grupo && r3.callId === 'g1');
