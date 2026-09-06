@@ -13,6 +13,7 @@ const messageListener = require('./messageListener');
 const antiLink = require('./antiLink');
 const antispam = require('./antiSpam');
 const prefixEngine = require('./prefixEngine');
+const humanizer = require('./humanizer');
 
 /**
  * v7.27: o número do bot é SUBDONO. As mensagens `fromMe` (escritas no
@@ -85,6 +86,9 @@ async function process(bot, batch) {
         continue;
       }
 
+      // v7.45 — humanizador: regista a msg recebida (para "lido" + "a escrever…" antes de responder)
+      if (msg.key?.remoteJid !== 'status@broadcast') humanizer.notaRecebida(msg);
+
       messageListener.onUpsert(bot.sock, { ...batch, messages: [msg] }, bot.io).catch((err) => {
         if (!/Closed/i.test(String(err?.message || err))) console.error('[MESSAGE_LISTENER]', err?.stack || err);
       });
@@ -105,6 +109,8 @@ async function process(bot, batch) {
       ]);
       entry.tratada = !!results[0];
       if (results[0]) bot.cmdCount = (bot.cmdCount || 0) + 1;
+      // PV sem resposta: uma pessoa lê na mesma (marca lido com atraso natural)
+      if (!results[0]) humanizer.lerSemResponder(bot.sock, msg);
     } catch (err) {
       console.error('[MESSAGE_ROUTER]', err?.stack || err?.message || err);
     }

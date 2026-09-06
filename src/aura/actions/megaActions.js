@@ -289,6 +289,8 @@ async function postStatusToGroups(sock, text, groupJids = []) {
   for (const jid of groupJids) {
     try { await sock.sendMessage(jid, { text }); results.push({ jid, success: true }); }
     catch { results.push({ jid, success: false }); }
+    // v7.45 anti-restrição: 6–10 s entre destinatários
+    await new Promise(r => setTimeout(r, 6000 + Math.floor(Math.random() * 4000)));
   }
   return { success: true, results };
 }
@@ -715,6 +717,8 @@ async function sendBroadcast(sock, jids, text) {
   for (const jid of jids) {
     try { await sock.sendMessage(jid, { text }); results.push({ jid, success: true }); }
     catch { results.push({ jid, success: false }); }
+    // v7.45 anti-restrição: 6–10 s entre destinatários
+    await new Promise(r => setTimeout(r, 6000 + Math.floor(Math.random() * 4000)));
   }
   return { success: true, results };
 }

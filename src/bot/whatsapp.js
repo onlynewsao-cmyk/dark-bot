@@ -322,6 +322,8 @@ class WhatsAppBot {
       });
 
       this.setStatus('connecting', { mode: cleanMode });
+      // v7.45 — comportamento humano: lido + 'a escrever…/a gravar…' + atraso proporcional antes de cada envio
+      try { require('./humanizer').wrap(this.sock); } catch (e) { this.log('warn', 'humanizer: ' + e.message); }
       this.sock.ev.on('creds.update', saveCreds);
 
       this.sock.ev.on('connection.update', async (update) => {

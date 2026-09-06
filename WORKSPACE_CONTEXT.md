@@ -267,6 +267,12 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.45 — Humanizador (comportamento de pessoa)
+- `src/bot/humanizer.js`: embrulha `sock.sendMessage` uma vez (whatsapp.js após makeWASocket). Antes de responder a uma msg recebida: atraso 0.4–1.8 s → `readMessages` (✓✓ azul) → presença `composing`/`recording` → espera proporcional (texto ~40 cps, 0.7–4.5 s; PTT 1.5–6 s; media 0.9–3 s) → `paused` → envia. Envios seguidos ao mesmo chat (<12 s): 0.35–1.1 s. Envios de sistema (sem msg recebida): jitter 0.15–0.7 s. Reacções/delete/edit passam directo. PV sem resposta: marca lido 2.5–9 s depois (`lerSemResponder`). Grupos nunca são marcados lidos sem resposta. `HUMANIZE=off` desliga; `HUMANIZE_CPS`.
+- messageRouter: `humanizer.notaRecebida(msg)` por msg, `lerSemResponder` quando nada respondeu.
+- Broadcast (dashboard e AURA `sendBroadcast`): mínimo 6 s + jitter 0–4 s entre destinos (era 2 s fixo / 0).
+- Teste `scripts/test-humanizer.js` 10/10 (`npm run test:humanizer`).
+
 ## v7.44 — Anti-restrição (conta ficou restrita 06/09 após chamada + bot no PV)
 - Diagnóstico: a chamada VoIP funcionou; depois um bot ligou para o PV → o `callHandler` respondeu automaticamente (texto + tentativa de callback) a um número desconhecido; somado a reconexões a cada 3 s, a Meta marcou "mensagens automáticas/em massa" (restrição temporária ~6 h; sessão mantém-se).
 - `callHandler.onCall`: chamada de número que **nunca falou com o bot** (sem `User`) e sem modo explícito → modo `silencio` (rejeita sem mensagem). `tentarCallbackVozReal` só para o Dono.

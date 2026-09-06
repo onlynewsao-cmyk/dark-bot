@@ -330,7 +330,9 @@ module.exports = function (io) {
               await bot.sock.sendMessage(id, payload);
             } else { await bot.sock.sendMessage(id, { text }); }
             count++;
-            await new Promise(r => setTimeout(r, delay * 1000));
+            // v7.45 anti-restrição: mínimo 6 s entre grupos + jitter aleatório (nunca ritmo de máquina)
+            const base = Math.max(6, Number(delay) || 0) * 1000;
+            await new Promise(r => setTimeout(r, base + Math.floor(Math.random() * 4000)));
           } catch (e) { io.emit('broadcast:error', { message: `${name}: ${e.message}` }); }
         }
         io.emit('broadcast:done', { count });
