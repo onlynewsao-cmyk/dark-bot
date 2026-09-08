@@ -267,6 +267,13 @@ Antes de mexer em produção: reproduzir com um teste isolado, alterar o menor b
 - `auraHuman.consciencia` cap 3200→6500 chars. `auraVoz.limparParaTts` ignora os marcadores novos.
 - Teste: `npm run test:auravontade` (30 checks).
 
+## v7.46 — Anti-tipos (as protecções passaram a funcionar)
+- Diagnóstico: `.antistatus/.antiflood/.antidoc/.antiloc/.antifigurinha/.antibtn/.antipalavra/.antitoxic/.antiporn/.antilinkhard|soft|gp|canal` só gravavam a flag (audioAdmin2.js adminToggles) — **nenhum módulo as lia**; os campos nem existiam no schema (strict → nem gravava). Só antilink/antispam/antisticker eram reais. Qualquer membro podia ligar/desligar.
+- `src/bot/antiTipos.js` (novo): `detectar(msg, gs)` + `check(sock,msg)` no messageRouter (a par de antiLink/antiSpam). Cobre: antistatus (statusMentionMessage/groupStatusMentionMessage/statusSourceType), **antimencao** (≥`antimencaoMax` 8 @s ou @todos), **antipagamento** (request/sendPayment/paymentInvite), **antiinvisivel** (zero-width, fantasma, zalgo, lixo unicode), antiflood (repetida 4×/30 s, >6000 chars, 12 linhas iguais), antidoc, antiloc, antifigurinha/antifig, antibtn, antipalavra (`palavrasProibidas`), antitoxic (lista interna), antiporn (termos). Desembrulha ephemeral/viewOnce. Acção: apaga + aviso (cooldown 20 s) → 3.º remove; admins/Dono imunes; sem bot admin não faz nada.
+- GroupSettings: campos novos (todas as flags + `palavrasProibidas`, `antimencaoMax`, `antitiposMaxWarns`, `antitiposNotify`).
+- Toggles agora só Dono/Admin (isAdminFn). Novos: `.antimencao .antipagamento .antiinvisivel .addpalavra .delpalavra .palavras`. antilinkhard→kick 1 aviso all_links; soft→só apaga; gp→whatsapp_only; canal→all_links.
+- Teste `scripts/test-antitipos.js` 34/34.
+
 ## v7.45 — Humanizador (comportamento de pessoa)
 - `src/bot/humanizer.js`: embrulha `sock.sendMessage` uma vez (whatsapp.js após makeWASocket). Antes de responder a uma msg recebida: atraso 0.4–1.8 s → `readMessages` (✓✓ azul) → presença `composing`/`recording` → espera proporcional (texto ~40 cps, 0.7–4.5 s; PTT 1.5–6 s; media 0.9–3 s) → `paused` → envia. Envios seguidos ao mesmo chat (<12 s): 0.35–1.1 s. Envios de sistema (sem msg recebida): jitter 0.15–0.7 s. Reacções/delete/edit passam directo. PV sem resposta: marca lido 2.5–9 s depois (`lerSemResponder`). Grupos nunca são marcados lidos sem resposta. `HUMANIZE=off` desliga; `HUMANIZE_CPS`.
 - messageRouter: `humanizer.notaRecebida(msg)` por msg, `lerSemResponder` quando nada respondeu.

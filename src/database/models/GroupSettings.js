@@ -124,6 +124,25 @@ const GroupSettingsSchema = new mongoose.Schema({
   // ── Limites free por grupo ────────────────────────────────
   freePvDailyLimit:  { type: Number, default: 20 },  // comandos PV para free por dia
 
+
+  // ── v7.46 Anti-tipos (executados por antiTipos.js) ─────────
+  antistatus:     { type: Boolean, default: false },
+  antimencao:     { type: Boolean, default: false },
+  antimencaoMax:  { type: Number,  default: 8 },
+  antipagamento:  { type: Boolean, default: false },
+  antiinvisivel:  { type: Boolean, default: false },
+  antiflood:      { type: Boolean, default: false },
+  antidoc:        { type: Boolean, default: false },
+  antiloc:        { type: Boolean, default: false },
+  antifigurinha:  { type: Boolean, default: false },
+  antifig:        { type: Boolean, default: false },
+  antibtn:        { type: Boolean, default: false },
+  antipalavra:    { type: Boolean, default: false },
+  palavrasProibidas: [{ type: String }],
+  antitoxic:      { type: Boolean, default: false },
+  antiporn:       { type: Boolean, default: false },
+  antitiposMaxWarns: { type: Number, default: 3 },
+  antitiposNotify:   { type: Boolean, default: true },
 }, { timestamps: true });
 
 module.exports = mongoose.model('GroupSettings', GroupSettingsSchema);

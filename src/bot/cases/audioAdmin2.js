@@ -200,6 +200,7 @@ module.exports = function registerAudioAdmin2(registerCase) {
   // ═══ ADMIN: ANTIDEMOTE / ANTIFLOOD / ETC ═══
   const adminToggles = [
     'antidemote', 'antiflood', 'antifigurinha', 'antistatus', 'antidoc',
+    'antimencao', 'antipagamento', 'antiinvisivel', // v7.46
     'antiloc', 'antifig', 'antibtn', 'antilinkgp', 'antilinkcanal',
     'antilinkhard', 'antilinksoft', 'antiporn', 'antitoxic', 'antipalavra',
     'autodl', 'automsg', 'autosticker', 'assistente', 'modobn', 'modolite',
@@ -208,8 +209,14 @@ module.exports = function registerAudioAdmin2(registerCase) {
     'mantercontador', 'infoperso', 'fotomenugrupo',
   ];
   for (const cmd of adminToggles) {
-    registerCase([cmd], async ({ sock, msg, ctx, args, isOwner }) => {
+    registerCase([cmd], async ({ sock, msg, ctx, args, isOwner, isAdminFn }) => {
       if (!isOwner && !ctx.isGroup) return tReply(sock, msg, ctx, '🛡️ ADMIN', ['❌ Só em grupos']);
+      // v7.46: só Dono/Admin do grupo pode ligar/desligar protecções
+      if (!isOwner && ctx.isGroup) {
+        let adm = false;
+        try { adm = typeof isAdminFn === 'function' ? await isAdminFn() : false; } catch {}
+        if (!adm) return tReply(sock, msg, ctx, '🛡️ ' + cmd.toUpperCase(), ['🚫 Só o *Dono* ou *Admins* do grupo.']);
+      }
       const action = args[0]?.toLowerCase();
       let isOn = action === 'on' || action === '1' || action === 'ativar';
       const isOff = action === 'off' || action === '0' || action === 'desativar';
@@ -226,9 +233,16 @@ module.exports = function registerAudioAdmin2(registerCase) {
           const cur = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
           isOn = !(cur && cur[cmd]);
         }
+        // v7.46: as variantes do antilink mapeiam para as opções REAIS do antiLink.js
+        let upd = { [cmd]: isOn };
+        if (cmd === 'antilinkhard')  upd = isOn ? { antilink: true, antilinkAction: 'kick', antilinkMaxWarns: 1, antilinkMode: 'all_links', antilinkOptOut: false } : { antilinkAction: 'warn', antilinkMaxWarns: 2, antilinkMode: 'smart' };
+        if (cmd === 'antilinksoft')  upd = isOn ? { antilink: true, antilinkAction: 'delete', antilinkMode: 'smart', antilinkOptOut: false } : { antilinkAction: 'warn' };
+        if (cmd === 'antilinkgp')    upd = isOn ? { antilink: true, antilinkMode: 'whatsapp_only', antilinkOptOut: false } : { antilinkMode: 'smart' };
+        if (cmd === 'antilinkcanal') upd = isOn ? { antilink: true, antilinkMode: 'all_links', antilinkOptOut: false } : { antilinkMode: 'smart' };
+        if (cmd === 'antifigurinha' || cmd === 'antifig') upd = { antifigurinha: isOn, antifig: isOn };
         await GroupSettings.findOneAndUpdate(
           { groupJid: ctx.remoteJid },
-          { [cmd]: isOn },
+          upd,
           { upsert: true }
         );
         const label = cmd.replace('anti', 'ANTI-').replace(/([A-Z])/g, ' $1').toUpperCase().replace('  ', ' ');
@@ -245,6 +259,34 @@ module.exports = function registerAudioAdmin2(registerCase) {
       }
     }, true);
   }
+
+  // ═══ v7.46 — LISTA DO ANTIPALAVRA ═══
+  registerCase(['addpalavra', 'delpalavra', 'palavras', 'listapalavras'], async ({ sock, msg, ctx, args, isOwner, isAdminFn, command }) => {
+    if (!ctx.isGroup) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['❌ Só em grupos']);
+    if (!isOwner) {
+      let adm = false; try { adm = await isAdminFn(); } catch {}
+      if (!adm) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['🚫 Só o *Dono* ou *Admins* do grupo.']);
+    }
+    const GroupSettings = require('../../database/models/GroupSettings');
+    const cmd = String(command || '').toLowerCase();
+    const palavra = args.join(' ').trim().toLowerCase();
+    if (cmd === 'addpalavra') {
+      if (!palavra) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['Uso: !addpalavra <palavra>']);
+      await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $addToSet: { palavrasProibidas: palavra }, antipalavra: true }, { upsert: true });
+      return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`✅ "${palavra}" adicionada. Antipalavra ligado.`]);
+    }
+    if (cmd === 'delpalavra') {
+      if (!palavra) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['Uso: !delpalavra <palavra>']);
+      await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $pull: { palavrasProibidas: palavra } });
+      return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`🗑️ "${palavra}" removida.`]);
+    }
+    const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
+    const lista = gs?.palavrasProibidas || [];
+    return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [
+      `Estado: ${gs?.antipalavra ? '🟢 ON' : '🔴 OFF'}`,
+      lista.length ? lista.map(w => `• ${w}`).join('\n') : '(lista vazia — usa !addpalavra)',
+    ]);
+  }, true);
 
   // ═══ ADMIN: MUTE / UNMUTE (v6.39 — com verificação de permissão) ═══
   registerCase(['mute', 'mute2'], async ({ sock, msg, ctx, args, isOwner }) => {

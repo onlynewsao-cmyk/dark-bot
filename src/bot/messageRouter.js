@@ -12,6 +12,7 @@ const commandHandler = require('./commandHandler');
 const messageListener = require('./messageListener');
 const antiLink = require('./antiLink');
 const antispam = require('./antiSpam');
+const antiTipos = require('./antiTipos');
 const prefixEngine = require('./prefixEngine');
 const humanizer = require('./humanizer');
 
@@ -104,6 +105,11 @@ async function process(bot, batch) {
         }),
         antispam.check(bot.sock, msg).catch((err) => {
           if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTISPAM]', err?.message || err);
+          return false;
+        }),
+        // v7.46 — antistatus / antimencao / antipagamento / antiinvisivel / antiflood / antidoc / …
+        antiTipos.check(bot.sock, msg).catch((err) => {
+          if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTITIPOS]', err?.message || err);
           return false;
         }),
       ]);

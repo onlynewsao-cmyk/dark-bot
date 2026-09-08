@@ -21,6 +21,7 @@ const SEL_PATTERNS = [
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
+  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/,
   /^antiraid$/, /^antilinkcanal$/, /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
   /^welcome$/, /^bemvindo$/, /^goodbye$/, /^saida$/, /^boasvindas$/,
   /^autosticker$/, /^autorespostas$/,
@@ -288,6 +289,11 @@ function categorize(cmd) {
     hora:'info', horas:'info', data:'info', date:'info', agora:'info',
     liga:'info', ligar:'info', desliga:'info', desligar:'info', encerrar:'info',
     call:'info', calls:'info', chamada:'info', chamadas:'info', 'chamada-video':'info', vcall:'info',
+    ligame:'info', 'liga-me':'info', ligacao:'info', tocar:'info', tocarcall:'info', playcall:'info', calltocar:'info',
+    fala:'info', falacall:'info', dizcall:'info', falanacall:'info', pararmusica:'info', paramusica:'info', stopcall:'info',
+    desligacall:'info', endcall:'info', terminarchamada:'info', callstatus:'info', callsativas:'info',
+    pausa:'info', para:'info', modochamadas:'info', ligarnum:'info', ligarnumero:'info', callnum:'info', desligarptt:'info',
+    antimencao:'admin', antipagamento:'admin', antiinvisivel:'admin', addpalavra:'admin', delpalavra:'admin', palavras:'admin', listapalavras:'admin',
     diag:'info', diagnostico:'info', 'diagnóstico':'info',
     // AURA (moderação da aura) → ia
     auramod:'ia', aurarpg:'ia', moderar:'ia',
@@ -340,7 +346,7 @@ function categorize(cmd) {
   // Owner
   if (/^(broadcast|send|eval|restart|panel|addcase|removicase|downcase|listcases|runcase|reloadcases|setprefix|settheme|temas|change|themeglobal|globaltheme|buttonmode|menustyle|addcmdvip|flood)/.test(c)) return 'owner';
   // Anti-link / Anti-spam / Welcome
-  if (/^(antilink|antispam|welcome|goodbye|bemvindo|saida|antistatus|autosticker|bemvindo|saida)/.test(c)) return 'admin';
+  if (/^(antilink|antispam|welcome|goodbye|bemvindo|saida|antistatus|antimencao|antipagamento|antiinvisivel|antiflood|antidoc|antiloc|antifig|antibtn|antiporn|antitoxic|antipalavra|addpalavra|delpalavra|palavras|autosticker)/.test(c)) return 'admin';
   // Flood
   if (/^flood/.test(c)) return 'admin';
   // Relacionamentos
@@ -405,7 +411,7 @@ const SUBCATEGORIES = {
   ],
   admin: [
     { id: '🛡️ Moderação', re: /^(kick|ban|ban2|bam|mute|desmute|mute2|desmute2|tempban|tempkick|warn|advertir|unwarn|warnings|resetwarn|promote|demote|rebaixar|promover|calar|unmute|unadmin|silenciar|del|apagar|deletar|delete|limpar|dam|fakeban|fakelog|fakeedit|fakemsg)$/ },
-    { id: '⛔ Protecções (Anti-X)', re: /^(antilink|antilinkgp|antilinkcanal|antilinkhard|antilinksoft|antispam|antiflood|antifigurinha|antistatus|antidoc|antiloc|antifig|antibtn|antiporn|antitoxic|antipalavra|antidemote|antiraid|capturalink|captcha|x9)$/ },
+    { id: '⛔ Protecções (Anti-X)', re: /^(antilink|antilinkgp|antilinkcanal|antilinkhard|antilinksoft|antispam|antiflood|antifigurinha|antistatus|antimencao|antipagamento|antiinvisivel|antidoc|antiloc|antifig|antibtn|antiporn|antitoxic|antipalavra|addpalavra|delpalavra|palavras|antidemote|antiraid|capturalink|captcha|x9)$/ },
     { id: '👋 Boas-vindas & Saída', re: /^(welcome|bemvindo|boasvindas|bv|goodbye|saida|legendabv|legendasaiu|fotobv|rmfotobv|fotosaiu|rmfotosaiu)$/ },
     { id: '👥 Grupo', re: /^(open|abrir|abrir-grupo|close|fechar|fechar-grupo|opengp|closegp|actgp|grupo|setnomegrupo|nomegp|setdesc|descgrupo|fotogrupo|setregras|regras|rules|normas|addregra|delregra|link|linkgp|convite|invite|revoke|resetlink|novo-link|add|adicionar|addmembro|out|sair|leave|bye|todos|hidetag|everyone|all|tagall|marcar|totag|sorteio|participantes|admins|tagadmins|jid|getjid|atividade|inativos|inatividade)$/ },
     { id: '🔐 Permissões & Cargos', re: /^(addmod|delmod|grantmodcmd|revokemodcmd|listmods|listmodcmds|listautoadm|addautoadm|addautoadmidia|delautoadm|whitelist|wladd|wldel|wllist|blockuser|unblockuser|addblacklist|delblacklist|listblacklist|listblocksgp|listamute|listadv|adv|rmadv|addparceria|delparceria|parcerias|aprovar|recusarsolic|solicitacoes)$/ },
@@ -444,7 +450,7 @@ const SUBCATEGORIES = {
   info: [
     { id: '🤖 Bot', re: /^(ping|info|status|statusbot|statusgp|system|stats|uptime|tempoonline|aiapis|totalcmd|topcmd|likeff|infoff|dono|criador|donos|suporte|bug|zipbot|gitbot|start)$/ },
     { id: '👤 Perfil', re: /^(perfil|me|dados|meustatus|lid|myid|msgid|msginfo|perfilpic|getprefix|prefixo|avaliar|roles|mention|afk|voltei|equipe|subdono|staff|planos|menuplanos|submenuplanos|plans|vip|assinar|premium|myvip|alugar|trial|statusalugar|estender)$/ },
-    { id: '📞 Chamadas', re: /^(ligar|liga|desligar|desliga|encerrar|call|calls|chamada|chamadas|chamada-video|vcall|videocall)$/ },
+    { id: '📞 Chamadas', re: /^(ligar|liga|ligame|liga-me|ligacao|desligar|desliga|desligacall|endcall|terminarchamada|encerrar|call|calls|chamada|chamadas|chamada-video|vcall|videocall|tocar|tocarcall|playcall|calltocar|fala|falacall|dizcall|falanacall|pararmusica|paramusica|stopcall|callstatus|callsativas)$/ },
     { id: '🕐 Utilidades', re: /^(hora|horas|data|date|agora|help|ajuda|cmds|comandos|menu|diag|diagnostico|diagnóstico|tempo|clima)$/ },
   ],
   stickers: [
