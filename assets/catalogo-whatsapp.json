@@ -1,0 +1,36 @@
+{
+  "currency": "AOA",
+  "brand": "DARK BOT",
+  "products": [
+    {
+      "name": "DARK BOT — Mensal",
+      "price": 1500,
+      "description": "Acesso Premium por 1 mês: IA, downloads, stickers, jogos e prioridade.",
+      "image": "dark-bot-menu-aura.png"
+    },
+    {
+      "name": "DARK BOT — Trimestral",
+      "price": 4000,
+      "description": "Acesso Premium por 3 meses. Plano popular com IA, mídia HD e recursos VIP.",
+      "image": "menu-aura-neon.png"
+    },
+    {
+      "name": "DARK BOT — Semestral",
+      "price": 7500,
+      "description": "Acesso Premium por 6 meses com downloads HD, IA com memória e stickers ilimitados.",
+      "image": "menu-aura-toxic.png"
+    },
+    {
+      "name": "DARK BOT — Anual",
+      "price": 14000,
+      "description": "Acesso Premium por 1 ano com prioridade, economia, RPG, mídia e ferramentas avançadas.",
+      "image": "menu-aura-moon.png"
+    },
+    {
+      "name": "DARK BOT — Vitalício",
+      "price": 30000,
+      "description": "Acesso Premium vitalício com todos os recursos disponíveis do DARK BOT.",
+      "image": "dark-bot-menu-aura.png"
+    }
+  ]
+}
