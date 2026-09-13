@@ -2824,30 +2824,47 @@ module.exports = {
   },
   async mediaup({ sock, msg, ctx, args, isOwner, config: cfg }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
-    const localConfig = cfg || config;
-    const cloudinary = require('cloudinary').v2;
     const m = msg.message || {};
+    const quoted = m.extendedTextMessage?.contextInfo?.quotedMessage || {};
     const mediaMsg = m.imageMessage || m.videoMessage || m.audioMessage || m.documentMessage
-      || m.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage
-      || m.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage;
+      || quoted.imageMessage || quoted.videoMessage || quoted.audioMessage || quoted.documentMessage;
     if (!mediaMsg) return reply(sock, msg, ctx, '📁 Responde/envias uma mídia com este comando para fazer upload.');
     const name = args.join(' ').trim() || `media_${Date.now()}`;
     await react(sock, msg, '⏳');
     try {
       const buf  = await mediaHandler.downloadFromMessage({ message: { imageMessage: mediaMsg, videoMessage: mediaMsg, audioMessage: mediaMsg } });
-      const type = m.imageMessage ? 'image' : m.videoMessage ? 'video' : 'auto';
-      const result = await cloudinary.uploader.upload(
-        'data:' + (mediaMsg.mimetype || 'image/jpeg') + ';base64,' + buf.toString('base64'),
-        { folder: 'darkbot-media', public_id: name.replace(/\s/g,'_'), resource_type: type }
-      );
-      const Media = require('../database/models/Media');
-      await Media.findOneAndUpdate(
+      if (!buf?.length) throw new Error('Mídia vazia');
+      const pick = m.imageMessage || quoted.imageMessage ? 'image'
+        : m.videoMessage || quoted.videoMessage ? 'video'
+        : m.audioMessage || quoted.audioMessage ? 'audio' : 'document';
+      const mime = mediaMsg.mimetype || 'application/octet-stream';
+      // v7.49: com keys Cloudinary → Cloudinary; sem keys → NUVEM DO BOT (MongoDB).
+      const cloudOn = !!(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+      if (cloudOn) {
+        const cloudinary = require('cloudinary').v2;
+        const type = pick === 'image' ? 'image' : pick === 'video' ? 'video' : 'auto';
+        const result = await cloudinary.uploader.upload(
+          'data:' + mime + ';base64,' + buf.toString('base64'),
+          { folder: 'darkbot-media', public_id: name.replace(/\s/g,'_'), resource_type: type }
+        );
+        const Media = require('../database/models/Media');
+        await Media.findOneAndUpdate(
+          { name },
+          { name, type, url: result.secure_url, publicId: result.public_id, size: result.bytes || 0 },
+          { upsert: true, new: true }
+        );
+        await react(sock, msg, '✅');
+        return reply(sock, msg, ctx, `✅ *Mídia guardada!*\n\n📂 Nome: *${name}*\n☁️ Cloudinary\n🔗 URL: ${result.secure_url}\n\nUsa: *!mediadown ${name}*`);
+      }
+      if (buf.length > 10 * 1024 * 1024) throw new Error('Mídia >10MB — a nuvem do bot aceita até 10MB (usa !compress ou configura o Cloudinary)');
+      const CloudMedia = require('../database/models/CloudMedia');
+      await CloudMedia.findOneAndUpdate(
         { name },
-        { name, type, url: result.secure_url, publicId: result.public_id, size: result.bytes || 0 },
+        { name, type: pick, mime, size: buf.length, data: buf, ownerNumber: ctx.senderNumber || '' },
         { upsert: true, new: true }
       );
       await react(sock, msg, '✅');
-      return reply(sock, msg, ctx, `✅ *Mídia guardada!*\n\n📂 Nome: *${name}*\n🔗 URL: ${result.secure_url}\n\nUsa: *!mediadown ${name}*`);
+      return reply(sock, msg, ctx, `✅ *Mídia guardada!*\n\n📂 Nome: *${name}*\n🤖 Nuvem do bot (MongoDB)\n📦 ${(buf.length / 1024).toFixed(0)} KB\n\nUsa: *!mediadown ${name}*`);
     } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Upload falhou: ' + e.message); }
   },
 
@@ -2855,10 +2872,27 @@ module.exports = {
     const name = args.join(' ').trim();
     if (!name) return reply(sock, msg, ctx, '📁 Use: !mediadown <nome>\n\nVer lista: !medialist');
     try {
-      const Media = require('../database/models/Media');
-      const media = await Media.findOne({ name: { $regex: new RegExp('^' + name, 'i') } });
-      if (!media) return reply(sock, msg, ctx, `❌ Mídia "*${name}*" não encontrada.\n\nUsa !medialist para ver a lista.`);
+      // v7.49: nome escapado (antes `.*` fazia match a tudo) + nuvem do bot primeiro.
+      const q = { name: { $regex: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } };
+      const CloudMedia = require('../database/models/CloudMedia');
+      const local = await CloudMedia.findOne(q).lean().catch(() => null);
       await react(sock, msg, '⏳');
+      if (local && local.data && local.data.length) {
+        const buf = Buffer.from(local.data);
+        const payload = local.type === 'image'
+          ? { image: buf, caption: `📁 *${local.name}*` }
+          : local.type === 'video'
+          ? { video: buf, mimetype: local.mime || 'video/mp4', caption: `📁 *${local.name}*` }
+          : local.type === 'audio'
+          ? { audio: buf, mimetype: local.mime || 'audio/mpeg' }
+          : { document: buf, fileName: local.name, mimetype: local.mime || 'application/octet-stream' };
+        await sock.sendMessage(ctx.remoteJid, payload, { quoted: msg });
+        await react(sock, msg, '✅');
+        return;
+      }
+      const Media = require('../database/models/Media');
+      const media = await Media.findOne(q);
+      if (!media) return reply(sock, msg, ctx, `❌ Mídia "*${name}*" não encontrada.\n\nUsa !medialist para ver a lista.`);
       const payload = media.type === 'image'
         ? { image: { url: media.url }, caption: `📁 *${media.name}*` }
         : media.type === 'video'
@@ -2874,10 +2908,16 @@ module.exports = {
   async medialist({ sock, msg, ctx, isOwner }) {
     try {
       const Media = require('../database/models/Media');
-      const items = await Media.find().sort({ createdAt: -1 }).limit(30).lean();
+      const CloudMedia = require('../database/models/CloudMedia');
+      const [cloud, bot] = await Promise.all([
+        Media.find().sort({ createdAt: -1 }).limit(30).lean().catch(() => []),
+        CloudMedia.find().sort({ createdAt: -1 }).limit(30).lean().catch(() => []),
+      ]);
+      // v7.49: lista junta — 🤖 nuvem do bot + ☁️ Cloudinary.
+      const items = [...bot.map(m => ({ ...m, onde: '🤖' })), ...cloud.map(m => ({ ...m, onde: '☁️' }))].slice(0, 30);
       if (!items.length) return reply(sock, msg, ctx, '📭 Nenhuma mídia guardada ainda.\n\nUsa !mediaup para guardar mídias.');
       let text = `╭━━━〔 📁 MEDIA STORAGE 〕━━━╮\n┃ ${items.length} mídias guardadas\n╠━━━━━━━━━━━━━━━━━━━━━━━━━╣\n`;
-      items.forEach((m, i) => { text += `┃ ${i+1}. *${m.name}* [${m.type}]\n`; });
+      items.forEach((m, i) => { text += `┃ ${i+1}. ${m.onde} *${m.name}* [${m.type}]\n`; });
       text += `╰━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n📥 Usar: !mediadown <nome>`;
       if (isOwner) text += `\n📤 Enviar: !mediaup <nome>`;
       return reply(sock, msg, ctx, text);
@@ -2934,10 +2974,14 @@ module.exports = {
     const name = args.join(' ').trim();
     if (!name) return reply(sock, msg, ctx, '📁 Use: !mediadel <nome>');
     try {
+      const q = { name: { $regex: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } };
+      // v7.49: apaga da nuvem do bot primeiro; senão tenta Cloudinary.
+      const CloudMedia = require('../database/models/CloudMedia');
+      const goneLocal = await CloudMedia.findOneAndDelete(q).catch(() => null);
+      if (goneLocal) return reply(sock, msg, ctx, `✅ Mídia *${name}* apagada da nuvem do bot.`);
       const Media = require('../database/models/Media');
-      const media = await Media.findOne({ name: { $regex: new RegExp('^' + name, 'i') } });
+      const media = await Media.findOne(q);
       if (!media) return reply(sock, msg, ctx, '❌ Não encontrado.');
-      // Tenta apagar do Cloudinary
       if (media.publicId) {
         const cloudinary = require('cloudinary').v2;
         await cloudinary.uploader.destroy(media.publicId, { resource_type: media.type === 'video' ? 'video' : 'image' }).catch(() => {});

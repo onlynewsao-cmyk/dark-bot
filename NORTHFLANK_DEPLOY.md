@@ -1,6 +1,6 @@
 # Deploy do DARK BOT no Northflank
 
-> Atualizado para a **v7.48** (RPG revisto: combate, economia, aliases). Revisto em 2026-09-13.
+> Atualizado para a **v7.49** (nuvem de mídia no MongoDB + página no dashboard). Revisto em 2026-09-13.
 
 O serviço deve ser criado no projeto **dark-bot** do Northflank usando este repositório e o `Dockerfile` incluído na raiz.
 
@@ -135,7 +135,7 @@ Antes de ativar auto-deploy, guardar o commit funcional atual. Em caso de falha,
 ## 9. Checklist v7.47 (pós-deploy)
 
 ```text
-[x] npm test — 83 grupos verdes, 0 falhas (v7.48, validado 2026-09-13)
+[x] npm test — 84 grupos verdes, 0 falhas (v7.49, validado 2026-09-13)
 [ ] /health → 200 e /ping → pong
 [ ] /login com OWNER_USERNAME/OWNER_PASSWORD
 [ ] /dashboard/connect → QR ou pair-code liga o WhatsApp

@@ -7,6 +7,7 @@ const { getBot } = require('../bot/whatsapp');
 const User = require('../database/models/User');
 const Command = require('../database/models/Command');
 const Media = require('../database/models/Media');
+const CloudMedia = require('../database/models/CloudMedia');
 const BotConfig = require('../database/models/BotConfig');
 const Schedule = require('../database/models/Schedule');
 const Payment = require('../database/models/Payment');
@@ -272,6 +273,12 @@ module.exports = function (io) {
       await cloudinary.uploader.destroy(media.publicId, { resource_type: rt });
     } catch (e) {}
     await media.deleteOne();
+    res.json({ ok: true });
+  });
+  // v7.49 — apagar ficheiro da nuvem do bot
+  router.delete('/nuvem/:id', requireApiOwner, async (req, res) => {
+    const f = await CloudMedia.findByIdAndDelete(req.params.id);
+    if (!f) return res.status(404).json({ error: 'Não encontrado' });
     res.json({ ok: true });
   });
 

@@ -1,10 +1,13 @@
 'use strict';
 /** v7.38 — addcase/downcase/listcases/delcase/runcase/testcase + mediaup/mediadown/medialist/mediadel (mocks de DB/Cloudinary) */
 process.env.NODE_ENV='test';
+// v7.49: este teste cobre o caminho Cloudinary — keys falsas + uploader mockado.
+process.env.CLOUDINARY_CLOUD_NAME='x'; process.env.CLOUDINARY_API_KEY='y'; process.env.CLOUDINARY_API_SECRET='z';
 const Module=require('module'); const orig=Module.prototype.require;
 const store={}; 
 Module.prototype.require=function(id){
   if(id.endsWith('database/models/BotConfig')||id==='../database/models/BotConfig'||id==='./database/models/BotConfig'){ return { get:async(k,d)=>store[k]??d, set:async(k,v)=>{store[k]=v}, findOne:()=>({lean:async()=>null}) }; }
+  if(id.endsWith('models/CloudMedia')){ return { findOne:()=>({lean:async()=>null}), findOneAndUpdate:async()=>null, findOneAndDelete:async()=>null, find:()=>({sort:()=>({limit:()=>({lean:async()=>[]})})}) }; }
   if(id.endsWith('models/Media')){ return global.MediaMock; }
   if(id==='cloudinary'){ return { v2:{ config(){}, uploader:{ upload:async(d,o)=>({secure_url:'https://res.cloudinary.com/x/'+o.public_id, public_id:o.public_id, bytes:d.length}), destroy:async()=>({}) } } }; }
   return orig.apply(this,arguments);

@@ -1,0 +1,60 @@
+<%- include('../partials/head') %>
+<div class="app-shell">
+  <%- include('../partials/sidebar') %>
+  <main class="main">
+    <header class="page-header">
+      <div>
+        <h1>🤖 Nuvem do bot</h1>
+        <p class="muted">Ficheiros guardados no MongoDB do bot (sem Cloudinary) — máx. 10MB cada</p>
+      </div>
+    </header>
+
+    <div class="card">
+      <h2>📤 Como guardar</h2>
+      <p>No WhatsApp (só dono), responde a uma <strong>foto, vídeo, áudio ou documento</strong> com:</p>
+      <p><code>!mediaup &lt;nome&gt;</code> &nbsp;→&nbsp; <code>!medialist</code> lista &nbsp;→&nbsp; <code>!mediadown &lt;nome&gt;</code> reenvia &nbsp;→&nbsp; <code>!mediadel &lt;nome&gt;</code> apaga</p>
+      <p class="muted">Se configurares as keys Cloudinary no .env, o !mediaup passa a usar a Cloudinary (sem limite de 10MB) e os ficheiros aparecem em 🖼️ Mídias.</p>
+    </div>
+
+    <div class="card">
+      <h2>📚 Ficheiros (<%= files.length %>)</h2>
+      <div class="media-grid">
+        <% files.forEach(f => { %>
+          <div class="media-card">
+            <div class="media-thumb">
+              <% if (f.type === 'image') { %>
+                <img src="/dashboard/nuvem/file/<%= f._id %>" alt="<%= f.name %>" />
+              <% } else if (f.type === 'video') { %>
+                <video src="/dashboard/nuvem/file/<%= f._id %>" muted></video>
+              <% } else if (f.type === 'audio') { %>
+                <div class="media-icon">🎵</div>
+              <% } else { %>
+                <div class="media-icon">📄</div>
+              <% } %>
+            </div>
+            <div class="media-info">
+              <strong><%= f.name %></strong>
+              <small class="muted"><%= f.type %> · <%= Math.round((f.size||0)/1024) %>KB</small>
+              <div class="button-row">
+                <a class="btn btn-sm" href="/dashboard/nuvem/file/<%= f._id %>?dl=1">⬇️ Baixar</a>
+                <button class="btn btn-sm btn-danger" onclick="delFile('<%= f._id %>')">🗑️</button>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+        <% if (files.length === 0) { %>
+          <p class="muted text-center">Nuvem vazia. Guarda o primeiro ficheiro com !mediaup no WhatsApp!</p>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  async function delFile(id) {
+    if (!confirm('Apagar este ficheiro da nuvem do bot?')) return;
+    await fetch('/api/nuvem/' + id, { method: 'DELETE' });
+    location.reload();
+  }
+</script>
+<%- include('../partials/footer') %>

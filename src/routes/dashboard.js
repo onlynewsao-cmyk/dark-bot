@@ -4,6 +4,7 @@ const { requireLogin, requireOwner } = require('../middleware/auth');
 const User = require('../database/models/User');
 const Command = require('../database/models/Command');
 const Media = require('../database/models/Media');
+const CloudMedia = require('../database/models/CloudMedia');
 const BotConfig = require('../database/models/BotConfig');
 const Schedule = require('../database/models/Schedule');
 const Payment = require('../database/models/Payment');
@@ -119,6 +120,15 @@ router.get('/commands/:id/edit', requireOwner, async (req, res) => {
 });
 
 router.get('/media', requireOwner, async (req, res) => res.render('dashboard/media', { title: 'Mídias', medias: await Media.find().sort({ createdAt: -1 }) }));
+// v7.49 — NUVEM DO BOT (ficheiros no MongoDB via !mediaup sem Cloudinary)
+router.get('/nuvem', requireOwner, async (req, res) => res.render('dashboard/nuvem', { title: 'Nuvem do bot', files: await CloudMedia.find().select('name type mime size ownerNumber createdAt').sort({ createdAt: -1 }).lean().catch(() => []) }));
+router.get('/nuvem/file/:id', requireOwner, async (req, res) => {
+  const f = await CloudMedia.findById(req.params.id).lean().catch(() => null);
+  if (!f || !f.data || !f.data.length) return res.status(404).send('Ficheiro não encontrado');
+  res.set('Content-Type', f.mime || 'application/octet-stream');
+  res.set('Content-Disposition', (req.query.dl ? 'attachment' : 'inline') + '; filename="' + String(f.name).replace(/"/g, '') + '"');
+  res.send(Buffer.from(f.data));
+});
 router.get('/users', requireOwner, async (req, res) => res.render('dashboard/users', { title: 'Usuários', users: await User.find().sort({ createdAt: -1 }) }));
 
 router.get('/payments', requireOwner, async (req, res) => {
