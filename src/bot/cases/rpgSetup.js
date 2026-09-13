@@ -29,29 +29,32 @@ module.exports = function registerRPGSetup(registerCase) {
       '━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '📋 *COMANDOS PARA CRIAR A COMUNIDADE:*',
       '',
-      '🏰 *1. CRIAR GRUPO RPG:*',
-      '   !criargrupo DARKRPG — Cria o grupo principal',
-      '   !setnomegrupo DARKRPG ⚔️ — Define o nome',
-      '   !setdesc Grupo oficial do DARKRPG — Descrição',
+      '🏰 *1. CRIAR A COMUNIDADE:*',
+      '   Cria a comunidade pela app do WhatsApp (não gasta queries)',
+      '   Adiciona o bot e dá-lhe admin',
+      '   !darkrpg — O bot deteta-a e cria os grupos do RPG',
       '',
-      '📢 *2. CRIAR CANAL:*',
-      '   !criarcanal DARKRPG — Cria o canal de notícias',
+      '🎮 *2. ATIVAR OS GRUPOS:*',
+      '   Entra em cada grupo e usa, do dono:',
+      '   !setarena !setdungeons !settrocas',
+      '   !setcavernas !setlazer !setarsenal',
       '',
-      '🎮 *3. CONFIGURAR RPG:*',
-      '   !darkrpg ativar — Ativa o sistema RPG no grupo',
-      '   !welcome on — Ativa boas-vindas',
+      '📢 *3. CONFIGURAR O GRUPO:*',
+      '   !setnomegrupo DARK VILLE ⚔️ — Define o nome',
+      '   !setdesc Grupo oficial do RPG — Descrição',
+      '   !welcome on — Boas-vindas (!bvrpg on no RPG)',
       '   !antilink on — Protege contra links',
       '',
       '⚔️ *4. MODERAÇÃO:*',
-      '   !regras — Mostra as regras da comunidade',
+      '   !regrasrpg — Regras da comunidade RPG',
       '   !warn @user — Avisa um membro',
       '   !kick @user — Remove do grupo',
       '   !ban @user — Bane permanentemente',
       '',
-      '🎭 *5. AURA MODERADORA:*',
-      '   !aura on — Ativa a AURA no grupo',
-      '   !aura batalha — Narra batalhas com efeitos',
-      '   !aura ranking — Mostra ranking público',
+      '🎭 *5. AURA NO GRUPO:*',
+      '   "aura acorda aqui" — A AURA fica presente',
+      '   !auramod batalha — Duelos com a AURA',
+      '   !auramod ranking — Ranking público',
       '',
       '━━━━━━━━━━━━━━━━━━━━━━━━━━',
       '💡 *Execute os comandos na ordem acima!*',
@@ -66,7 +69,9 @@ module.exports = function registerRPGSetup(registerCase) {
   }, true);
 
   // ═══ RANKING PÚBLICO ═══
-  registerCase(['ranking', 'leaderboard', 'toprpg'], async ({ sock, msg, ctx, args }) => {
+  // v7.47: 'toprpg' saiu daqui — o rpg2.js (rankrpg/toprpg/rankglobal)
+  // carrega primeiro e é o dono; este alias estava morto.
+  registerCase(['ranking', 'leaderboard'], async ({ sock, msg, ctx, args }) => {
     const type = (args[0] || 'level').toLowerCase();
     const validTypes = ['level', 'kills', 'berries', 'rep'];
     const category = validTypes.includes(type) ? type : 'level';
@@ -86,13 +91,26 @@ module.exports = function registerRPGSetup(registerCase) {
   // Este estava morto. Renomeado para não colidir.
   registerCase(['bvrpg', 'welcomerpg'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono.']);
+    if (!ctx.isGroup) return tReply(sock, msg, ctx, '👥 Grupo', ['Isto só funciona dentro do grupo.']);
 
+    // v7.47: o on/off dizia "ativadas!" mas NÃO GRAVAVA nada (teatro). Agora
+    // escreve o mesmo campo do !welcome real (grupos.js).
     const action = (args[0] || '').toLowerCase();
-    if (action === 'on' || action === 'ativar') {
-      return tReply(sock, msg, ctx, '✅ Boas-vindas', ['✅ Mensagens de boas-vindas ativadas!', 'Quando alguém entrar no grupo, receberá uma mensagem de boas-vindas.']);
-    }
-    if (action === 'off' || action === 'desativar') {
-      return tReply(sock, msg, ctx, '❌ Boas-vindas', ['❌ Mensagens de boas-vindas desativadas!']);
+    if (action === 'on' || action === 'ativar' || action === 'off' || action === 'desativar') {
+      const GroupSettings = require('../../database/models/GroupSettings');
+      const gs = await GroupSettings.findOneAndUpdate(
+        { groupJid: ctx.remoteJid },
+        { $setOnInsert: { groupJid: ctx.remoteJid } },
+        { upsert: true, new: true }
+      );
+      gs.welcomeEnabled = (action === 'on' || action === 'ativar');
+      await gs.save();
+      return tReply(sock, msg, ctx, gs.welcomeEnabled ? '✅ Boas-vindas' : '❌ Boas-vindas', [
+        gs.welcomeEnabled
+          ? '✅ Boas-vindas ATIVADAS neste grupo!'
+          : '❌ Boas-vindas DESATIVADAS neste grupo!',
+        'Quando alguém entrar, recebe a mensagem de boas-vindas.',
+      ]);
     }
 
     // Mostra preview
@@ -101,11 +119,13 @@ module.exports = function registerRPGSetup(registerCase) {
   }, true);
 
   // ═══ EVENTOS ═══
-  registerCase(['evento', 'event', 'eventos'], async ({ sock, msg, ctx, args, isOwner }) => {
-    if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode criar eventos.']);
-
+  // v7.47: 'eventos' saiu daqui — o interacoes2.js carrega primeiro e é o
+  // dono do nome; este alias estava morto.
+  registerCase(['evento', 'event'], async ({ sock, msg, ctx, args, isOwner }) => {
     const eventType = (args[0] || '').toLowerCase();
 
+    // v7.47: ver a lista é público; só CRIAR é do dono. Antes um membro que
+    // fazia !evento levava "Só o dono" sem sequer ver o que existia.
     if (!eventType) {
       const events = Object.entries(community.EVENTS).map(([key, ev]) =>
         `• *${key}* — ${ev.name}\n  ${ev.desc}\n  ⏱️ ${ev.duration / 60000} min`
@@ -114,9 +134,11 @@ module.exports = function registerRPGSetup(registerCase) {
         'Eventos disponíveis:',
         ...events,
         '',
-        `> Uso: !evento <tipo>`,
+        isOwner ? `> Uso: !evento <tipo>` : `> O dono ativa com !evento <tipo>`,
       ]);
     }
+
+    if (!isOwner) return tReply(sock, msg, ctx, '🚫 Acesso', ['Só o dono pode criar eventos.']);
 
     const event = community.EVENTS[eventType];
     if (!event) return tReply(sock, msg, ctx, '❌ Erro', ['Evento não encontrado: ' + eventType]);
@@ -143,17 +165,18 @@ ${event.desc}
     const action = (args[0] || '').toLowerCase();
 
     if (action === 'batalha' || action === 'battle') {
+      // v7.47: citava o !x1 (não existe) e prometia narração/imagens
+      // automáticas (não existem). Texto honesto + duelo real.
       return tReply(sock, msg, ctx, '⚔️ AURA — Modo Batalha', [
-        '🎭 *AURA agora modera as batalhas!*',
+        '🎭 *Modo batalha ativo neste grupo!*',
         '',
-        'Quando dois jogadores duelarem:',
-        '• AURA narra cada turno com efeitos visuais',
-        '• Gera imagens dos personagens em batalha',
-        '• Calcula dano, crítico, habilidades',
-        '• Declara o vencedor automaticamente',
+        'Duelos disponíveis agora:',
+        '• !duelar — duelo rápido PvE',
+        '• !lutar — combate por turnos (5 rondas)',
+        '• !lutar boss — contra um boss',
+        '• !arena — torneio de rondas',
         '',
-        `> Use !x1 @user para iniciar um duelo`,
-        `> A AURA cuida do resto!`,
+        '> A narração da AURA turno-a-turno vem aí.',
       ]);
     }
 
@@ -181,38 +204,50 @@ ${event.desc}
   registerCase(['menu-rpg2', 'menurpgfull'], async ({ sock, msg, ctx, prefix }) => {
     const p = prefix || '!';
 
+    // v7.47: o menu citava despertar/portal/x1/gacha/cartas/forja/raid —
+    // NENHUM existe (o utilizador escrevia e não acontecia nada). Só ficam
+    // comandos reais (a forja é !forge, o duelo é !duelar, o boss é !bossrpg).
     return sock.sendMessage(ctx.remoteJid, {
       text: `━━━ ⚔️ *MENU DARKRPG* ⚔️ ━━━
 
 🎭 *PERSONAGEM:*
-• ${p}despertar — Inicie sua jornada
-• ${p}perfil — Veja seus status
-• ${p}nome <nome> — Mude seu nome
-• ${p}racas — Veja as 6 origens
-• ${p}vidas — Veja suas vidas
+• ${p}criarpersonagem — Começa a tua jornada
+• ${p}rg — Ficha completa (raça, classe, stats)
+• ${p}nome <nome> — Muda o teu nome
+• ${p}racas — Vê raças e classes
+• ${p}vidas — HP, MP e vidas
 
 ⚔️ *BATALHA:*
-• ${p}portal entrar — Enfrente bosses
-• ${p}lutar — Combate PvE
-• ${p}x1 @user — Duelo PvP
-• ${p}arena — Torneio
+• ${p}lutar — Combate por turnos (!lutar boss)
+• ${p}dungeon — Masmorra (loot)
+• ${p}bossrpg — Boss (grande loot)
+• ${p}duelar — Duelo rápido
+• ${p}arena — Torneio de rondas
 
-🃏 *COLEÇÃO:*
-• ${p}gacha — Invocar cartas (300 berries)
-• ${p}cartas — Ver álbum
+🗺️ *MUNDO:*
+• ${p}quest — Missões com história
+• ${p}explorar — Explora os biomas
+• ${p}world — Mapa do mundo
+• ${p}viajar <sítio> — Viaja e descobre
+• ${p}npc — Fala com NPCs
+
+🎒 *ITENS & OFÍCIOS:*
+• ${p}inventario — O teu baú
 • ${p}loja — Comprar itens
-• ${p}forja — Refinar armas
+• ${p}vender <item> — Vende o loot
+• ${p}forge — Forja armas e poções
+• ${p}minerar — Minera • ${p}pescar — Pesca
+• ${p}work — Trabalha por coins
 
 🏰 *SOCIAL:*
-• ${p}guilda — Criar/ver clã
-• ${p}raid — Boss mundial
-• ${p}mercado — Compra/venda
+• ${p}guilda — Criar/ver guilda
+• ${p}criaclan <nome> — Criar clã (5000)
 • ${p}ranking — Leaderboard
+• ${p}regrasrpg — Regras da comunidade
 
 📊 *INFO:*
-• ${p}regras — Regras da comunidade
-• ${p}darkrpg — Setup completo
-• ${p}evento — Criar eventos`
+• ${p}darkrpg — Comunidade DARK VILLE
+• ${p}evento — Ver/criar eventos`
     }, { quoted: msg });
   }, true);
 };

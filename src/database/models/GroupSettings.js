@@ -143,6 +143,17 @@ const GroupSettingsSchema = new mongoose.Schema({
   antiporn:       { type: Boolean, default: false },
   antitiposMaxWarns: { type: Number, default: 3 },
   antitiposNotify:   { type: Boolean, default: true },
+
+  // ── v7.47 incoming-cases: anti-fobados / auto-apresentação / abrir-fechar ──
+  antifoba:       { type: Boolean, default: false },   // divulgação oculta + DDI blacklist (ban imediato)
+  fobaBlacklist:  [{ type: String }],                  // DDIs bloqueados à entrada (ex: ['63'])
+  autoapresentar: { type: Boolean, default: false },   // novo membro tem 5 min para falar
+  aberturaHora:   { type: String, default: '' },       // 'HH:MM' Africa/Luanda — abrir grupo
+  fechamentoHora: { type: String, default: '' },       // 'HH:MM' Africa/Luanda — fechar grupo
+  horariosExecuted: {                                   // último dia executado (evita repetir)
+    abertura:   { type: String, default: '' },
+    fechamento: { type: String, default: '' },
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('GroupSettings', GroupSettingsSchema);

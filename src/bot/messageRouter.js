@@ -13,6 +13,8 @@ const messageListener = require('./messageListener');
 const antiLink = require('./antiLink');
 const antispam = require('./antiSpam');
 const antiTipos = require('./antiTipos');
+const antiFoba = require('./antiFoba');
+const autoApresentar = require('./autoApresentar');
 const prefixEngine = require('./prefixEngine');
 const humanizer = require('./humanizer');
 
@@ -112,7 +114,14 @@ async function process(bot, batch) {
           if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTITIPOS]', err?.message || err);
           return false;
         }),
+        // v7.47 incoming-cases — anti-fobados (divulgação oculta + DDI blacklist)
+        antiFoba.check(bot.sock, msg).catch((err) => {
+          if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTIFOBA]', err?.message || err);
+          return false;
+        }),
       ]);
+      // v7.47 incoming-cases — auto-apresentação: membro falou → cancela remoção (síncrono, barato)
+      try { autoApresentar.onMessage(bot.sock, msg); } catch {}
       entry.tratada = !!results[0];
       if (results[0]) bot.cmdCount = (bot.cmdCount || 0) + 1;
       // PV sem resposta: uma pessoa lê na mesma (marca lido com atraso natural)

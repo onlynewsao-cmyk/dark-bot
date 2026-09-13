@@ -136,7 +136,6 @@ function categorize(cmd) {
     tema:'info', tempo:'info', ver:'info', velocidade:'info', weather:'info',
     fullsticker:'stickers', renamesticker:'stickers',
     'novo-link':'admin', rpginfo:'economia', teste:'info', termo:'jogos',
-    aura:'ia', dormiraura:'ia', modoaura:'ia',
     cap:'owner', capture:'owner', captura:'owner', 'c∆p':'owner',   // v7.30 C∆P
     planos:'info', menuplanos:'info', submenuplanos:'info', plans:'info',
     'microsoft-ai':'ia', rest:'info', pais:'info', getcasecode:'owner', listcase:'owner',
@@ -310,6 +309,24 @@ function categorize(cmd) {
     robloxcode:'search',
     // Eventos → interacoes
     event:'interacoes', evento:'interacoes', eventos:'interacoes',
+    // v7.47 incoming-cases
+    tourl:'texto', fakechat:'admin', fdc:'texto', fatos:'texto', curiosidade:'texto',
+    grok:'ia', tiktokphoto:'logos', photooxytiktok:'logos',
+    pdf:'texto', criarpdf:'texto', gerarpdf:'texto',
+    upscale:'stickers', hd:'stickers', remini:'stickers',
+    edits:'ia', editl:'ia', editlimpar:'ia', edit:'ia', editimg:'ia', aiedit:'ia',
+    infoff:'info', ffinfo:'info', perfilff:'info', like:'info', enviarlike:'info', darflw:'info',
+    spotifysearch:'downloads', spsearch:'downloads', tomp3video:'downloads', videoaomp3:'downloads',
+    minado:'jogos', campominado:'jogos',
+    // v7.47: 'aura' é o poder RPG "ativar aura" (interactions.js), não o
+    // case de invocação removido na v7.40 (o mapa antigo 'ia' era obsoleto).
+    aura:'interacoes',
+    delstts:'admin', delstatus:'admin', rmstts:'admin',
+    abrirgp:'admin', abertura:'admin', fechargp:'admin', fechamento:'admin',
+    horariosgp:'admin', verhorarios:'admin', limparhorarios:'admin',
+    antifoba:'admin', antifobados:'admin', anticarente:'admin',
+    fobadd:'admin', fobdel:'admin', fobalista:'admin',
+    autoapresentar:'admin', autoapresentacao:'admin', apresentacao:'admin',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads

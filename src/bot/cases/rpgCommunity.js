@@ -323,7 +323,8 @@ module.exports = function registerRPGCommunity(registerCase) {
         msg_text += '💰 Custo: 5000 berries\n';
         msg_text += '━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
         msg_text += '👑 *O líder foi promovido a admin do grupo do clã!*\n';
-        msg_text += '📤 *Use !addclan @user para adicionar membros.*';
+        // v7.47: citava o !addclan, que não existe. O líder adiciona à mão.
+        msg_text += '📤 *Adiciona os membros no grupo do clã (és admin).*';
 
         await sock.sendMessage(ctx.remoteJid, { text: msg_text, mentions: [ctx.senderJid] }, { quoted: msg });
         await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });

@@ -92,6 +92,16 @@ const RPGPlayerSchema = new mongoose.Schema({
   karma:      { type: Number, default: 0 },
   reputation: { type: Number, default: 0 },
 
+  // ── v7.47: o código já lia/escrevia estes campos, mas com o `strict`
+  // do Mongoose eram deitados fora ao gravar (só viviam em RAM até ao
+  // restart). Sem isto o !prestige "esquecia-se" do prestige, o streak
+  // de vitórias da masmorra misturava-se com o daily e o nível de
+  // crafting/ receitas do !forge perdiam-se.
+  prestige:       { type: Number, default: 0 },
+  winStreak:      { type: Number, default: 0 },
+  craftingLevel:  { type: Number, default: 1 },
+  recipesKnown:   [{ type: String }],
+
   // Cooldowns
   lastDaily:   { type: Date, default: null },
   lastWork:    { type: Date, default: null },

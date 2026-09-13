@@ -58,7 +58,7 @@ function catalogo() {
 }
 
 // ── 2. Permissões ────────────────────────────────────────────────
-const ADMIN_RE = /^(ban|kick|remove|promote|demote|mute|unmute|fechar|abrir|warn|unwarn|antilink|antispam|antisticker|antifake|antiflood|antiporn|welcome|goodbye|bansticker|unbansticker|banfig|unbanfig|todos|tagall|hidetag|marcar|setnome|setdesc|setfoto|revoke|del|add|link|linkgrupo|bemvindo|regras|setregras|blacklist|banlist|tempban|autosticker|modo|so ?adm|soadm|adminonly)/;
+const ADMIN_RE = /^(ban|kick|remove|promote|demote|mute|unmute|fechar|fechamento|abrir|abertura|warn|unwarn|antilink|antispam|antisticker|antifake|antiflood|antiporn|welcome|goodbye|bansticker|unbansticker|banfig|unbanfig|todos|tagall|hidetag|marcar|setnome|setdesc|setfoto|revoke|del|add|link|linkgrupo|bemvindo|regras|setregras|blacklist|banlist|tempban|autosticker|modo|so ?adm|soadm|adminonly|antifoba|fobadd|fobdel|fobalista|autoapresentar|horariosgp|limparhorarios)/;
 const VIP_RE = /^(play|video|ytmp|yt|tiktok|instagram|facebook|twitter|spotify|soundcloud|pinterest|imagem|ia|gpt|resumir|pesquisar|noticias|decrypt|vpn|gimage|shazam|mediafire|gdrive|kwai|baixar)/;
 
 function permissao(nome, info, { isOwner, isVip, isAdmin }) {
@@ -108,6 +108,23 @@ const SINONIMOS = [
   [/\b(beija|abraca|bate|tapa|mata|casa|casar|namora)\b/, ['beijar', 'abracar', 'bater', 'tapa', 'matar', 'casar', 'namorar']],
   [/\b(vip|premium)\b/, ['vip', 'myvip', 'addvip', 'delvip', 'vips']],
   [/\b(midia|media|logo|banner|mup|mdown|guarda|guardar)\b/, ['mup', 'mdown', 'mlist', 'mdel', 'mediaup', 'mediadown']],
+  // v7.47 incoming-cases - a AURA executa os novos comandos por conversa
+  [/\b(link da (foto|imagem|video|midia)|url da (foto|imagem|video|midia)|transforma em link|vira link|tourl)\b/, ['tourl']],
+  [/\b(fake ?chat|quote falso|mensagem falsa|finge que)\b/, ['fakechat']],
+  [/\b(fato curioso|facto curioso|curiosidade|fatos desconhecidos|voce sabia|sabias que)\b/, ['fdc']],
+  [/\b(grok)\b/, ['grok']],
+  [/\b(tiktok ?photo|efeito tiktok|texto tiktok)\b/, ['tiktokphoto']],
+  [/\b(pdf|documento pdf|gera (um )?pdf|cria (um )?pdf)\b/, ['pdf']],
+  [/\b(melhora (a |essa )?(foto|imagem)|foto em hd|imagem em hd|upscale|remini|qualidade da foto)\b/, ['upscale', 'hd', 'remini']],
+  [/\b(edita (a |essa )?(foto|imagem)|editar foto|muda o fundo|troca o fundo|nano ?banana)\b/, ['edit', 'edits', 'editl']],
+  [/\b(free ?fire|perfil ff|info ff|uid do ff|likes ff|like no ff)\b/, ['infoff', 'like', 'ffinfo', 'enviarlike']],
+  [/\b(campo minado|minado)\b/, ['minado']],
+  [/\b(apaga (o |esse )?status|deleta (o |esse )?status|remove (o |esse )?status)\b/, ['delstts']],
+  [/\b(abre o grupo (as|as)|abrir o grupo (as|as)|horario de abertura|agenda abertura)\b/, ['abrirgp', 'abertura', 'horariosgp']],
+  [/\b(fecha o grupo (as|as)|fechar o grupo (as|as)|horario de fecho|agenda fechamento)\b/, ['fechargp', 'fechamento', 'horariosgp']],
+  [/\b(anti.?foba|fobados|divulgacao oculta|blacklist de ddi|ddi bloqueado)\b/, ['antifoba', 'fobalista', 'fobadd', 'fobdel']],
+  [/\b(auto.?apresenta|apresentacao obrigatoria|novato)\b/, ['autoapresentar']],
+  [/\b(converte em mp3|video em audio|video para mp3|extrai o audio)\b/, ['tomp3']],
 ];
 // nunca sugeridos: brincadeiras homónimas ou ruído
 const EXCLUIR = new Set(['aura', 'auramod', 'aurarpg', 'liga', 'lista', 'reverse', 'bot', 'dark']);

@@ -138,6 +138,11 @@ function viajar(p, chave) {
     };
   }
 
+  // v7.47: viajar com hp 0 RESSUSCITAVA (hp = maxHp - dano). Morto não viaja.
+  if ((p.hp || 0) <= 0) {
+    return { ok: false, motivo: '💀 Estás morto! Usa !descansar ou !pocao para recuperar.' };
+  }
+
   const b = rpg.BIOMES[real];
   const mundo = mundoDe(p);
   const primeiraVez = !mundo.visited.includes(real);

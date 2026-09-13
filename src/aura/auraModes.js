@@ -108,7 +108,14 @@ async function isAuraAwake(remoteJid, opts) {
 
 /** True se foi explicitamente INVOCADA ("aura acorda") neste chat. */
 async function isAuraInvoked(remoteJid, opts) {
-  return (await getMode(remoteJid, opts)) === MODE_AURA;
+  // v7.47: com a AURA humana por defeito, getMode()==='aura' já não
+  // distingue invocação explícita (todo o grupo novo daria true).
+  // Lê o registo: só conta auraMode:'aura' gravado na base.
+  try {
+    const GroupSettings = require('../database/models/GroupSettings');
+    const gs = await GroupSettings.findOne({ groupJid: String(remoteJid || '') }).select('auraMode').lean().catch(() => null);
+    return gs?.auraMode === MODE_AURA;
+  } catch { return false; }
 }
 
 /**

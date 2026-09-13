@@ -270,13 +270,12 @@ module.exports = function registerAudioAdmin2(registerCase) {
     const GroupSettings = require('../../database/models/GroupSettings');
     const cmd = String(command || '').toLowerCase();
     const palavra = args.join(' ').trim().toLowerCase();
-    if (cmd === 'addpalavra') {
-      if (!palavra) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['Uso: !addpalavra <palavra>']);
+    // v7.47: sem palavra cai na lista abaixo (efeito real ao clicar, padrão v7.29)
+    if (cmd === 'addpalavra' && palavra) {
       await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $addToSet: { palavrasProibidas: palavra }, antipalavra: true }, { upsert: true });
       return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`✅ "${palavra}" adicionada. Antipalavra ligado.`]);
     }
-    if (cmd === 'delpalavra') {
-      if (!palavra) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['Uso: !delpalavra <palavra>']);
+    if (cmd === 'delpalavra' && palavra) {
       await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $pull: { palavrasProibidas: palavra } });
       return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`🗑️ "${palavra}" removida.`]);
     }

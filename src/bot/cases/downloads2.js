@@ -38,6 +38,30 @@ async function sendVideo(sock, jid, quoted, r) {
   return sock.sendMessage(jid, { document: buf, fileName: `${(r.title || 'video').slice(0, 50)}.mp4`, mimetype: 'video/mp4', caption: `🎬 *${r.title || 'Vídeo'}*` }, { quoted });
 }
 
+// v7.47 incoming-cases (tomp3): vídeo/áudio → MP3 192k via ffmpeg,
+// sem shell (execFileSync), ficheiros temporários isolados.
+function videoBufferToMp3(buffer) {
+  const fs = require('fs');
+  const os = require('os');
+  const path = require('path');
+  const { execFileSync } = require('child_process');
+  let ffmpeg = 'ffmpeg';
+  try { ffmpeg = require('ffmpeg-static') || 'ffmpeg'; } catch {}
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-tomp3-'));
+  const input = path.join(dir, 'input.bin');
+  const output = path.join(dir, 'output.mp3');
+  try {
+    fs.writeFileSync(input, buffer);
+    execFileSync(ffmpeg, ['-y', '-i', input, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '192k', output],
+      { stdio: 'ignore', timeout: 120000 });
+    const out = fs.readFileSync(output);
+    if (!out || out.length < 1024) throw new Error('ffmpeg não gerou MP3 válido');
+    return out;
+  } finally {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
+}
+
 // Helper: resposta de erro com tema
 async function errReply(sock, msg, ctx, text) {
   const RE = require('../renderEngine');
@@ -155,10 +179,31 @@ module.exports = function registerDownloads2(registerCase) {
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Pinterest: ' + e.message); }
   });
 
-  // ═══ YOUTUBE AUDIO (aliases de ytd) ═══
-  registerCase(['baixaraudio', 'dlmp3', 'ytaudio', 'tomp3', 'ytmp3s', 'dlmp3s'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  // ═══ YOUTUBE AUDIO (aliases de ytd) + TOMP3 local (incoming-cases) ═══
+  // v7.47: com vídeo/áudio citado → converte para MP3 local (ffmpeg, sem shell);
+  // com URL/texto → comportamento original (áudio do YouTube).
+  registerCase(['baixaraudio', 'dlmp3', 'ytaudio', 'tomp3', 'ytmp3s', 'dlmp3s', 'tomp3video', 'videoaomp3'], async ({ sock, msg, m, quoted, ctx, args, prefix, reply }) => {
+    const qm = quoted?.message || {};
+    const quotedMedia = quoted && (qm.videoMessage || qm.audioMessage);
+    const ownMedia = !quoted && (msg.message?.videoMessage || msg.message?.audioMessage);
+    if (quotedMedia || ownMedia) {
+      sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+      try {
+        const srcMsg = quotedMedia ? quoted.msg : msg;
+        const buf = await mediaHandler.downloadFromMessage(srcMsg);
+        if (!buf?.length) throw new Error('mídia vazia');
+        if (buf.length > 100 * 1024 * 1024) throw new Error('mídia maior que 100 MB');
+        const mp3 = videoBufferToMp3(buf);
+        await sock.sendMessage(ctx.remoteJid, {
+          audio: mp3, mimetype: 'audio/mpeg', ptt: false,
+          fileName: `tomp3_${Date.now()}.mp3`,
+        }, { quoted: msg });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TOMP3: ' + e.message); }
+      return;
+    }
     const url = args.join(' ').trim();
-    if (!url) return reply(`🎵 Uso: \`${prefix}ytd <url YouTube>\``);
+    if (!url) return reply(`🎵 Uso: \`${prefix}ytd <url YouTube>\`\nou responde a um vídeo/áudio com \`${prefix}tomp3\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const ytdl = require('../ytdl');

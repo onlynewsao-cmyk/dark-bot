@@ -33,13 +33,13 @@ function cooldownMsg(action, remaining) {
   return emoji + ' *Cooldown:* Espera *' + remaining + 's* para próximo ' + name + '.\n💡 _Descansa um pouco, guerreiro._';
 }
 
-// Limpa cooldowns antigos a cada 10 min
+// Limpa cooldowns antigos a cada 10 min (unref: não segura o processo)
 setInterval(() => {
   const now = Date.now();
   for (const [key, ts] of _rpgCooldowns) {
     if (now - ts > 600000) _rpgCooldowns.delete(key);
   }
-}, 600000);
+}, 600000).unref?.();
 
 
 async function tReply(sock, msg, ctx, title, lines) {
@@ -64,8 +64,14 @@ module.exports = function registerRPG2(registerCase) {
     const p = await rpg.getPlayer(ctx.senderNumber);
     const race = rpg.RACES[p.race] || rpg.RACES.humano;
     const cls = rpg.CLASSES[p.class] || rpg.CLASSES.guerreiro;
-    const hpBar = '❤️'.repeat(Math.ceil(p.hp / p.maxHp * 10)) + '🖤'.repeat(10 - Math.ceil(p.hp / p.maxHp * 10));
-    const mpBar = '💙'.repeat(Math.ceil(p.mp / p.maxMp * 10)) + '🖤'.repeat(10 - Math.ceil(p.mp / p.maxMp * 10));
+    // v7.47: com hp>maxHp o repeat() recebia contagem negativa e o !rg
+    // rebentava com RangeError. Barras limitadas a 0..10.
+    const barra = (cur, max, cheio, vazio) => {
+      const n = Math.max(0, Math.min(10, Math.ceil((cur || 0) / (max || 1) * 10)));
+      return cheio.repeat(n) + vazio.repeat(10 - n);
+    };
+    const hpBar = barra(p.hp, p.maxHp, '❤️', '🖤');
+    const mpBar = barra(p.mp, p.maxMp, '💙', '🖤');
     const xpPct = Math.floor(p.xp / p.xpNext * 100);
 
     await rpg.savePlayer(p);
@@ -93,7 +99,9 @@ module.exports = function registerRPG2(registerCase) {
   }, true);
 
   // ═══ QUEST NARRATIVA ═══
-  registerCase(['quest', 'historia', 'aventura'], async ({ sock, msg, ctx, args }) => {
+  // v7.47: 'aventura' saiu daqui — o ia2.js carrega primeiro e é o dono
+  // do nome; este alias estava morto e só confundia o catálogo.
+  registerCase(['quest', 'historia'], async ({ sock, msg, ctx, args }) => {
     // v6.90: este `if` tinha perdido as chavetas — o `return` corria SEMPRE
     // e todo o sistema de quests era código morto (respondia "COOLDOWN" a
     // toda a gente, com 0s). Pior: o `savePlayer(p)` estava ANTES do
@@ -447,7 +455,9 @@ module.exports = function registerRPG2(registerCase) {
   // ranking mundial). Os comandos são os mesmos: !mapa / !biomas / !world.
 
   // ═══ STATUS / VIDAS ═══
-  registerCase(['vidas', 'lives', 'status'], async ({ sock, msg, ctx }) => {
+  // v7.47: 'status' saiu daqui — o info.js (diagnóstico do bot) é o dono do
+  // nome; este alias estava morto. A ficha rápida fica em !vidas/!lives.
+  registerCase(['vidas', 'lives'], async ({ sock, msg, ctx }) => {
     const p = await rpg.getPlayer(ctx.senderNumber);
     await rpg.savePlayer(p);
 

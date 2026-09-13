@@ -61,10 +61,24 @@ async function handle(sock, event) {
     }
 
     const gs = await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
+
+    // v7.47 incoming-cases: anti-fobados bane DDIs na blacklist ANTES do
+    // welcome (banidos não recebem boas-vindas); auto-apresentação arma o
+    // prazo de 5 min para quem entrou e cancela para quem saiu.
+    let banidosFoba = [];
+    if (action === 'add') {
+      try { banidosFoba = await require('./antiFoba').onJoin(sock, groupJid, participants, meta) || []; } catch {}
+      try { await require('./autoApresentar').onParticipantsUpdate(sock, groupJid, participants, action, meta); } catch {}
+    }
+    if (action === 'remove') {
+      try { await require('./autoApresentar').onParticipantsUpdate(sock, groupJid, participants, action, meta); } catch {}
+    }
+
     for (const participant of participants) {
       const number = participant.split('@')[0].replace(/\D/g, '');
       const isBot  = botJids.some(j => j.split(':')[0].split('@')[0] === number);
       if (isBot) continue;
+      if (banidosFoba.includes(participant)) continue;
       if (action === 'add')    await onJoin(sock, groupJid, participant, number, groupName, gs, meta);
       if (action === 'remove') await onLeave(sock, groupJid, participant, number, groupName, gs);
     }

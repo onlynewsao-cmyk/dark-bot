@@ -51,13 +51,26 @@ module.exports = function registerEconomia2(registerCase) {
   }, true);
 
   registerCase(['pix', 'transferir'], async ({ sock, msg, ctx, args }) => {
+    // v7.47: o !pix antigo "transferia" para NINGUÉM — os coins evaporavam.
+    // Agora exige destino (@menção ou número) e credita-o a sério.
     const amt = parseInt(args[0]);
-    if (!amt || amt <= 0) return tReply(sock, msg, ctx, '💸 PIX', ['Uso: !pix <valor>']);
+    const ci = msg?.message?.extendedTextMessage?.contextInfo;
+    const menc = ci?.mentionedJid?.[0];
+    const destNum = menc ? String(menc).replace(/\D/g, '') : String(args[1] || '').replace(/\D/g, '');
+    if (!amt || amt <= 0 || !destNum) {
+      return tReply(sock, msg, ctx, '💸 PIX', ['Uso: !pix <valor> @user', '> Sem destino, sem transferência.']);
+    }
+    if (destNum === String(ctx.senderNumber).replace(/\D/g, '')) {
+      return tReply(sock, msg, ctx, '💸 PIX', ['❌ Não dá para transferir para ti próprio.']);
+    }
     const p = await rpg.getPlayer(ctx.senderNumber);
     if (amt > p.coins) return tReply(sock, msg, ctx, '💸 PIX', ['❌ Só tens ' + p.coins + ' coins']);
     p.coins -= amt;
+    const dest = await rpg.getPlayer(destNum);
+    dest.coins = (dest.coins || 0) + amt;
     await rpg.savePlayer(p);
-    return tReply(sock, msg, ctx, '💸 PIX', ['✅ Transferiste *' + amt + '* coins!', '💰 Restante: *' + p.coins + '*']);
+    await rpg.savePlayer(dest);
+    return tReply(sock, msg, ctx, '💸 PIX', ['✅ Transferiste *' + amt + '* coins para @' + destNum + '!', '💰 Restante: *' + p.coins + '*']);
   }, true);
 
   // ═══ TRABALHOS ═══
@@ -163,13 +176,16 @@ module.exports = function registerEconomia2(registerCase) {
         if (p.inventory[i] === ing) { p.inventory.splice(i, 1); removed++; }
       }
     }
-    p.inventory.push(recipe.result);
+    // v7.47: `recipe.result` não existe no RECIPES — o inventário recebia
+    // `undefined` e a mensagem dizia "Forjaste *undefined*!". O item é a
+    // chave da receita.
+    p.inventory.push(item);
     p.craftingLevel = (p.craftingLevel || 1) + 1;
     if (!p.recipesKnown) p.recipesKnown = [];
     if (!p.recipesKnown.includes(item)) p.recipesKnown.push(item);
     rpg.addXP(p, R(20, 50));
     await rpg.savePlayer(p);
-    return tReply(sock, msg, ctx, '🔨 FORJA', ['🔨 Forjaste *' + recipe.result + '*!', '📊 Crafting Nv.' + p.craftingLevel]);
+    return tReply(sock, msg, ctx, '🔨 FORJA', ['🔨 Forjaste *' + item + '*!', '📊 Crafting Nv.' + p.craftingLevel]);
   }, true);
 
   registerCase(['enchant', 'encantar'], async ({ sock, msg, ctx }) => {
@@ -234,20 +250,24 @@ module.exports = function registerEconomia2(registerCase) {
     const win = result.dmg > eResult.dmg;
     if (win) {
       const loot = rpg.generateLoot(enemy, p.level);
-      p.coins += R(20, 80);
+      // v7.47: os coins somados e os mostrados eram dois R() diferentes.
+      const ganho = R(20, 80);
+      p.coins += ganho;
       loot.forEach(i => p.inventory.push(i));
       const lv = rpg.addXP(p, R(15, 40));
       p.kills++;
-      p.streak++;
-      if (p.streak > (p.bestStreak || 0)) p.bestStreak = p.streak;
+      // v7.47: `p.streak` é o DAILY (!streak) — a masmorra subia e zerava o
+      // daily alheio. Streak de vitórias vai para `winStreak`.
+      p.winStreak = (p.winStreak || 0) + 1;
+      if (p.winStreak > (p.bestStreak || 0)) p.bestStreak = p.winStreak;
       await rpg.savePlayer(p);
-      const lines = [enemy.emoji + ' *' + enemy.name + '* derrotado!', '💰 +' + R(20, 80) + ' coins'];
+      const lines = [enemy.emoji + ' *' + enemy.name + '* derrotado!', '💰 +' + ganho + ' coins'];
       if (loot.length) lines.push('🎒 Loot: ' + loot.join(', '));
       if (lv) lines.push('🎉 Nível ' + p.level + '!');
       return tReply(sock, msg, ctx, '🏰 MASMORRA', lines);
     }
     p.hp = Math.max(0, p.hp - eResult.dmg);
-    p.streak = 0;
+    p.winStreak = 0;
     if (p.hp <= 0) { p.deaths++; p.lives = Math.max(0, p.lives - 1); }
     await rpg.savePlayer(p);
     return tReply(sock, msg, ctx, '🏰 MASMORRA', [enemy.emoji + ' *' + enemy.name + '* venceu!', '❤️ HP: ' + p.hp + '/' + p.maxHp, '> Usa !pocao para curar']);
@@ -360,7 +380,9 @@ module.exports = function registerEconomia2(registerCase) {
       return tReply(sock, msg, ctx, '🐾 PETS', ['Sem pets. Captura um na exploração!', '> !explorar para encontrar']);
     }
     const lines = p.pets.map((pet, i) => {
-      const def = rpg.PETS[pet.id] || {};
+      // v7.47: rpg.PETS não existe no motor — sem o guard, o primeiro jogador
+      // COM pets rebentava aqui com TypeError.
+      const def = (rpg.PETS || {})[pet.id] || {};
       return (pet.active ? '⭐' : '  ') + (def.emoji || '🐾') + ' *' + (pet.name || pet.id) + '* Nv.' + pet.level + ' HP:' + pet.hp + '/' + pet.maxHp;
     });
     return tReply(sock, msg, ctx, '🐾 PETS', lines);
@@ -412,11 +434,14 @@ module.exports = function registerEconomia2(registerCase) {
   }, true);
 
   // ═══ ADMIN RPG ═══
-  registerCase(['rpgadd', 'rpgremove'], async ({ sock, msg, ctx, args, isOwner }) => {
+  registerCase(['rpgadd', 'rpgremove'], async ({ sock, msg, ctx, args, isOwner, command }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🔧 ADMIN', ['🚫 Só o dono']);
     const p = await rpg.getPlayer(ctx.senderNumber);
-    const amt = parseInt(args[0]) || 100;
-    if (args[0]?.startsWith('-')) p.coins -= Math.abs(amt); else p.coins += amt;
+    const amt = Math.abs(parseInt(args[0]) || 100);
+    // v7.47: o !rpgremove SOMAVA (o handler era o mesmo do add e ignorava o
+    // nome do comando). Agora remove mesmo.
+    if (String(command).toLowerCase() === 'rpgremove') p.coins = Math.max(0, p.coins - amt);
+    else p.coins += amt;
     await rpg.savePlayer(p);
     return tReply(sock, msg, ctx, '🔧 ADMIN', ['✅ Coins: ' + p.coins]);
   }, true);
@@ -424,15 +449,25 @@ module.exports = function registerEconomia2(registerCase) {
   registerCase(['rpgsetlevel'], async ({ sock, msg, ctx, args, isOwner }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🔧 ADMIN', ['🚫 Só o dono']);
     const p = await rpg.getPlayer(ctx.senderNumber);
-    p.level = parseInt(args[0]) || 1;
+    // v7.47: aceitava nível -5 (ficha negativa, inimigos estranhos).
+    p.level = Math.max(1, Math.min(100, parseInt(args[0]) || 1));
     await rpg.savePlayer(p);
     return tReply(sock, msg, ctx, '🔧 ADMIN', ['✅ Nível: ' + p.level]);
   }, true);
 
-  registerCase(['rpgadditem', 'rpgremoveitem'], async ({ sock, msg, ctx, args, isOwner }) => {
+  registerCase(['rpgadditem', 'rpgremoveitem'], async ({ sock, msg, ctx, args, isOwner, command }) => {
     if (!isOwner) return tReply(sock, msg, ctx, '🔧 ADMIN', ['🚫 Só o dono']);
     const p = await rpg.getPlayer(ctx.senderNumber);
-    p.inventory.push(args.join(' ') || 'item');
+    const item = args.join(' ').trim() || 'item';
+    // v7.47: o !rpgremoveitem ADICIONAVA (mesmo handler cego do add).
+    if (String(command).toLowerCase() === 'rpgremoveitem') {
+      const idx = p.inventory.indexOf(item);
+      if (idx === -1) return tReply(sock, msg, ctx, '🔧 ADMIN', ['❌ Não tem "' + item + '"']);
+      p.inventory.splice(idx, 1);
+      await rpg.savePlayer(p);
+      return tReply(sock, msg, ctx, '🔧 ADMIN', ['✅ Item removido']);
+    }
+    p.inventory.push(item);
     await rpg.savePlayer(p);
     return tReply(sock, msg, ctx, '🔧 ADMIN', ['✅ Item adicionado']);
   }, true);

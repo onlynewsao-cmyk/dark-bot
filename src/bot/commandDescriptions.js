@@ -185,6 +185,30 @@ const PADROES = [
   [/^(restart|reiniciar|shutdown)\d*$/, 'Controla o processo do bot'],
   [/^(block|unblock|bloquear)\d*$/, 'Bloqueia ou desbloqueia um contacto'],
   [/^(setprefix|prefixo)\d*$/,   'Muda o prefixo dos comandos'],
+
+  // v7.47 incoming-cases
+  [/^(tourl)$/,                  'Converte mídia respondida num link'],
+  [/^(fakechat)$/,               'Responde com quote falso (zoeira)'],
+  [/^(fdc|fatos|curiosidade)$/,  'Facto curioso aleatório'],
+  [/^(grok)$/,                   'Pergunta à IA Grok'],
+  [/^(tiktokphoto|photooxytiktok)$/, 'Logo estilo TikTok com 2 textos'],
+  [/^(pdf|criarpdf|gerarpdf)$/,  'Gera um PDF com a IA'],
+  [/^(upscale|hd|remini)$/,      'Melhora a qualidade da foto (HD)'],
+  [/^(edits|editl|editlimpar)$/, 'Seleciona/limpa imagens p/ editar'],
+  [/^(edit|editimg|aiedit)$/,    'Edita a foto com IA (prompt)'],
+  [/^(infoff|ffinfo|perfilff)$/, 'Vê o perfil Free Fire pelo UID'],
+  [/^(like|enviarlike|darflw)$/, 'Envia likes Free Fire ao UID'],
+  [/^(spotifysearch|spsearch)$/, 'Pesquisa e baixa do Spotify'],
+  [/^(tomp3video|videoaomp3)$/,  'Converte vídeo/áudio em MP3'],
+  [/^(minado|campominado)$/,     'Jogo campo minado'],
+  [/^(delstts|delstatus|rmstts)$/, 'Apaga status do grupo (admin)'],
+  [/^(abrirgp|abertura)$/,       'Agenda a abertura diária do grupo'],
+  [/^(fechargp|fechamento)$/,    'Agenda o fecho diário do grupo'],
+  [/^(horariosgp|verhorarios)$/, 'Vê os horários de abrir/fechar'],
+  [/^(limparhorarios)$/,         'Remove os horários programados'],
+  [/^(antifoba|antifobados|anticarente)$/, 'Anti-divulgação oculta (bane)'],
+  [/^(fobadd|fobdel|fobalista)$/, 'Gere os DDIs na blacklist'],
+  [/^(autoapresentar|autoapresentacao|apresentacao)$/, 'Novato tem 5 min p/ falar'],
 ];
 
 // ── 2. Palavras-chave soltas (fallback intermédio) ──────────

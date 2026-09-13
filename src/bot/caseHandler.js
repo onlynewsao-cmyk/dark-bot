@@ -532,7 +532,10 @@ function extractSourceFromFile(filePath, fileName) {
 function loadCases() {
   const dir = path.join(__dirname, 'cases');
   if (!fs.existsSync(dir)) return;
-  const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
+  // v7.47: sem .sort(), a ordem vinha do filesystem (readdir) — no Docker
+  // (overlayfs) podia diferir do dev e TROCAR os vencedores dos ~30 nomes
+  // disputados (toprpg, speed, stats...). Ordem alfabética = estável.
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.js')).sort();
   for (const file of files) {
     try {
       delete require.cache[require.resolve(path.join(dir, file))];

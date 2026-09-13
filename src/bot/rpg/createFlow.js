@@ -142,6 +142,9 @@ async function _ficha(sock, msg, ctx, p) {
 
 async function _finalizar(sock, msg, ctx, name, race, cls) {
   const p = await rpg.getPlayer(ctx.senderNumber);
+  // O caminho escrito (!rpgstart Nome raça classe) SOBRESCREVE de propósito
+  // (reroll — regressão v6.89 em test-aura-printbugs2.js). O que NÃO repete
+  // é o bónus de raça (raceBonusApplied).
   p.name = name || p.name || 'Aventureiro';
   p.race = race;
   p.class = cls;

@@ -200,7 +200,9 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return dynSub(sock, msg, ctx, config, 'zoeira');
   });
   
-      registerCase(['submenuRPG', 'menurpg', 'menurpg2'], async ({ sock, msg, ctx, config }) => {
+      // v7.47: 'menurpg' saiu daqui — o menu curado (rpgCommunity.js) é o
+      // dono; antes o !menurpg abria o submenu ECONOMIA genérico.
+      registerCase(['submenuRPG', 'menurpg2'], async ({ sock, msg, ctx, config }) => {
     return dynSub(sock, msg, ctx, config, 'economia');
   });
 

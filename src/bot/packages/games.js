@@ -383,7 +383,7 @@ module.exports = {
     if (bullet === 1) {
       eco.hp = 0; eco.losses++; await eco.save();
       return reply(sock, msg, ctx,
-        `🔫 *ROLETA RUSSA*\n\n💥 BANG! @${ctx.senderNumber} morreu!\n☠️ HP zerado\n\n_Use !heal_`, [ctx.senderJid]);
+        `🔫 *ROLETA RUSSA*\n\n💥 BANG! @${ctx.senderNumber} morreu!\n☠️ HP zerado\n\n_Usa !heal para reviver_`, [ctx.senderJid]);
     }
     const reward = randInt(100, 500); eco.coins += reward; eco.wins++; eco.addXp(20); await eco.save();
     return reply(sock, msg, ctx,

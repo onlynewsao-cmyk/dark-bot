@@ -51,9 +51,11 @@ module.exports = function registerSearch2(registerCase) {
       const d = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       if (d.erro) throw new Error('CEP não encontrado');
       return tReply(sock, msg, ctx, '📮 CEP ' + cep, [
-        `📍 ${d.logradouro}`,
-        `🏘️ ${d.bairro}`,
+        `📍 ${d.logradouro || 'Não informado'}`,
+        `🏘️ ${d.bairro || 'Não informado'}`,
         `🏙️ ${d.localidade} - ${d.uf}`,
+        `🗺️ Região: ${d.regiao || 'Não informada'}`,
+        `🏠 Complemento: ${d.complemento || 'Nenhum'}`,
         `📮 ${d.cep}`,
       ].filter(l => !l.endsWith('undefined')));
     } catch (e) {

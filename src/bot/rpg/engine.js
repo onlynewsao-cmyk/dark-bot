@@ -306,6 +306,16 @@ async function savePlayer(p) {
 }
 
 function addXP(p, amount) {
+  // v7.47: jogadores antigos/incompletos (sem stats) rebentavam aqui com
+  // "Cannot read properties of undefined" ao subir de nível.
+  if (typeof p.xp !== 'number') p.xp = 0;
+  if (typeof p.xpNext !== 'number') p.xpNext = 100;
+  if (typeof p.level !== 'number') p.level = 1;
+  if (typeof p.maxHp !== 'number') p.maxHp = 150;
+  if (typeof p.maxMp !== 'number') p.maxMp = 80;
+  if (!p.stats || typeof p.stats !== 'object') {
+    p.stats = { str: 6, dex: 6, int: 6, vit: 6, luk: 6 };
+  }
   p.xp += amount;
   let leveled = false;
   while (p.xp >= p.xpNext) {
@@ -436,6 +446,10 @@ const ITEMS = {
   'pão':               { emoji: '🍞', price: 20,  type: 'food', effect: { hp: 15 } },
   'carne':             { emoji: '🍖', price: 55,  type: 'food', effect: { hp: 40 } },
   'concha':            { emoji: '🐚', price: 30,  type: 'food', effect: { hp: 10 } },
+  // v7.47: o !cook produzia 'bolo'/'sopa' mas o !eat recusava-os ("não é
+  // comida") porque não estavam no catálogo — a cadeia cozinhar→comer era morta.
+  'bolo':              { emoji: '🍰', price: 60,  type: 'food', effect: { hp: 35 } },
+  'sopa':              { emoji: '🍲', price: 50,  type: 'food', effect: { hp: 30 } },
   // materiais (loot dos biomas)
   'madeira':           { emoji: '🪵', price: 15 },
   'ferro':             { emoji: '⛓️', price: 60 },
@@ -498,16 +512,20 @@ function generateEnemy(level = 1, tipo = null) {
       const b = pool[Math.floor(Math.random() * pool.length)];
       if (b) {
         const nomeBoss = b.name || b.nome || 'Boss';
+        // v7.47: os stats do catálogo v7 (hp 5000!) são de outra escala —
+        // com eles o boss era matematicamente impossível. Mantém-se o
+        // nome/emoji e escalam-se os stats ao nível (boss = duro mas mortal).
+        const hpBoss = lvl * 30 + 100;
         return {
           // v6.62: o cases/rpg2.js usa .name/.level; outros usam
           // .nome/.nivel. Devolvemos os dois para não partir nenhum.
           nome: nomeBoss, name: nomeBoss,
           emoji: b.emoji || '💀',
           nivel: lvl, level: lvl,
-          hp: b.hp || lvl * 40,
-          maxHp: b.hp || lvl * 40,
-          atk: b.atk || lvl * 6,
-          def: b.def || lvl * 3,
+          hp: hpBoss,
+          maxHp: hpBoss,
+          atk: lvl * 5 + 10,
+          def: lvl * 2 + 5,
           xp: b.xp || lvl * 30,
           gold: b.gold || lvl * 25,
           boss: true,
@@ -543,8 +561,18 @@ function generateEnemy(level = 1, tipo = null) {
  * "rpg.calcDamage is not a function".
  */
 function calcDamage(atacante, alvo, skill = 'basic') {
-  const atk = Number(atacante?.atk ?? atacante?.str ?? 10);
-  const def = Number(alvo?.def ?? alvo?.vit ?? 5);
+  // v7.47: jogadores (RPGPlayer) não têm .atk/.str — têm stats.* e level.
+  // Antes caíam sempre no fallback 10/5: STR/VIT/level NÃO faziam nada e o
+  // jogo ficava mais difícil ao subir (o inimigo escala com o nível e o
+  // jogador não). lutar/dungeon/boss passavam a impossíveis pelo nv.5.
+  const atk = Number(
+    atacante?.atk ?? atacante?.str ??
+    (atacante?.stats ? 8 + (atacante.level || 1) * 2 + (atacante.stats.str || 0) * 1.5 : 10)
+  );
+  const def = Number(
+    alvo?.def ?? alvo?.vit ??
+    (alvo?.stats ? 3 + (alvo.level || 1) + (alvo.stats.vit || 0) * 0.5 : 5)
+  );
 
   // multiplicador por tipo de golpe
   const mult = skill === 'basic' ? 1

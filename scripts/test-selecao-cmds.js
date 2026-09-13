@@ -11,7 +11,7 @@ Module.prototype.require = function (id) {
   if (id.endsWith('botConfigCache')) return { get: async (k, d) => d, set: async () => {}, clear: () => {}, refresh: async () => {} };
   return orig.apply(this, arguments);
 };
-const R = (p) => require('/home/user/dark-bot/src/bot/' + p);
+const R = (p) => require('../src/bot/' + p);
 const sd = R('submenuData'); const ch = R('caseHandler'); ch.loadCases();
 const nc = R('nativeCommands');
 const pkg = { ...R('packages/interactions'), ...R('packages/family'), ...R('packages/economy'), ...R('packages/games'), ...R('packages/cheats') };

@@ -48,7 +48,7 @@ t('menuadm → admin', targetOf('menuadm') === 'admin', targetOf('menuadm'));
 // diagnostico existe em info.js
 console.log('\n╔═══ Comando diagnóstico ═══╗');
 const info = fs.readFileSync(path.join(__dirname, '..', 'src', 'bot', 'cases', 'info.js'), 'utf8');
-t('diagnostico/diag registado em info.js', /registerCase\(\['diagnostico'[^)]*\]/.test(info), '');
+t('diagnostico/diag registado em info.js', /registerCase\(\[[^\]]*'diagnostico'[^\]]*\]/.test(info), '');
 
 // menustatus nativo tem ping + perfil + diagnostico
 console.log('\n╔═══ Menustatus nativo (curated) ═══╗');

@@ -32,7 +32,55 @@ async function tick() {
       lastInactivitySweep = Date.now();
       runDarkSideGroupAutomation().catch(e => console.error('DarkSide automation:', e.message));
     }
+
+    // v7.47 incoming-cases: abrir/fechar grupo programado (abrirgp/fechargp)
+    await checkGroupSchedules().catch(e => console.error('Group schedules:', e.message?.slice(0, 80)));
   } catch (err) { console.error('Scheduler tick:', err); }
+}
+
+// ── v7.47: abre/fecha grupos nos horários programados ────────────
+// Fuso Africa/Luanda (padrão do projeto). Guarda anti-repetição por dia
+// em horariosExecuted.{abertura,fechamento} ('YYYY-MM-DD').
+async function checkGroupSchedules(nowOverride = null) {
+  const bot = getBot();
+  const sock = bot.sock;
+  if (!sock || bot.connectionStatus !== 'connected') return { checked: 0, acted: 0 };
+  let moment;
+  try { moment = require('moment-timezone'); } catch { return { checked: 0, acted: 0 }; }
+  const agora = nowOverride || moment().tz('Africa/Luanda');
+  const hoje = agora.format('YYYY-MM-DD');
+  const hm = agora.format('HH:mm');
+
+  const grupos = await GroupSettings.find({
+    $or: [
+      { aberturaHora: { $ne: '' } },
+      { fechamentoHora: { $ne: '' } },
+    ],
+  }).lean().catch(() => []);
+  let acted = 0;
+  for (const gs of grupos || []) {
+    if (!gs?.groupJid?.endsWith('@g.us')) continue;
+    try {
+      const exec = gs.horariosExecuted || {};
+      if (gs.aberturaHora && gs.aberturaHora === hm && exec.abertura !== hoje) {
+        await sock.groupSettingUpdate(gs.groupJid, 'not_announcement');
+        await sock.sendMessage(gs.groupJid, { text: `🔓 *GRUPO ABERTO*\nHorário programado: ${gs.aberturaHora}` }).catch(() => {});
+        await GroupSettings.updateOne({ groupJid: gs.groupJid }, { $set: { 'horariosExecuted.abertura': hoje } }).catch(() => {});
+        console.log(`✅ ABRIU: ${gs.groupJid} | ${gs.aberturaHora}`);
+        acted++;
+      }
+      if (gs.fechamentoHora && gs.fechamentoHora === hm && exec.fechamento !== hoje) {
+        await sock.groupSettingUpdate(gs.groupJid, 'announcement');
+        await sock.sendMessage(gs.groupJid, { text: `🔒 *GRUPO FECHADO*\nHorário programado: ${gs.fechamentoHora}` }).catch(() => {});
+        await GroupSettings.updateOne({ groupJid: gs.groupJid }, { $set: { 'horariosExecuted.fechamento': hoje } }).catch(() => {});
+        console.log(`✅ FECHOU: ${gs.groupJid} | ${gs.fechamentoHora}`);
+        acted++;
+      }
+    } catch (e) {
+      console.error(`❌ horarios ${gs.groupJid}:`, e.message?.slice(0, 80));
+    }
+  }
+  return { checked: (grupos || []).length, acted };
 }
 
 async function send(item, recurring = false) {
@@ -170,4 +218,4 @@ async function maybeHandleInactiveMembers(sock, gs) {
   }
 }
 
-module.exports = { start, runDarkSideGroupAutomation };
+module.exports = { start, runDarkSideGroupAutomation, checkGroupSchedules };
