@@ -13,7 +13,7 @@ const fullModels = { find: () => w([]), findOne: () => w(null), findOneAndUpdate
 Module.prototype.require = function (id) {
   const s = String(id);
   if (/models[\\/]User/.test(s)) return { ...fullModels, findOne: () => { N_USER++; return w({ whatsappNumber: '1', role: 'free' }); } };
-  if (/models[\\/]GroupSettings/.test(s)) return { ...fullModels, findOne: () => { N_GS++; return w({ groupJid: 'g', antispam: false }); } };
+  if (/models[\\/]GroupSettings/.test(s)) return global.__gsFake || { ...fullModels, findOne: () => { N_GS++; return w({ groupJid: 'g', antispam: false }); } };
   if (/models[\\/]/.test(s)) return fullModels;
   if (s.endsWith('botConfigCache')) { const _m = global.__turboCfg || (global.__turboCfg = {}); return { get: async (k, d) => (k in _m ? _m[k] : d), set: async (k, v) => { _m[k] = v; } }; }
   return orig.apply(this, arguments);
@@ -244,6 +244,104 @@ Module.prototype.require = function (id) {
   await RX.reactError(rxsock, rxmsg, 'sticker');
   C('reactSuccess/Error: ✅/❌', rxSent.length === 2 && rxSent[0].react?.text === '✅' && rxSent[1].react?.text === '❌');
   C('getProcessingEmoji: play→🎵, xyz→⏳', RX.getProcessingEmoji('play') === '🎵' && RX.getProcessingEmoji('xyz') === '⏳');
+
+  // ── 14. v7.59: áudio do botão SEM capa ──
+  const FAKE_MP3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(3000)]);
+  global.__szpAudio = async () => ({ buffer: FAKE_MP3, title: 'Teste', author: 'Bot', duration: '0:03', mimetype: 'audio/mpeg', thumbnail: 'http://x/y.jpg', source: 'stub' });
+  for (const k of Object.keys(require.cache)) if (k.includes('systemZeroPlay')) delete require.cache[k];
+  require.cache[require.resolve('../src/bot/systemZeroPlay')] = { exports: { ytAudio: (...a) => global.__szpAudio(...a), ytVideo: async () => ({}) } };
+  require('../src/bot/cases/downloads.js')(RC);
+  let ytdSent = null;
+  const ytdsock = { sendMessage: async (j, c) => { ytdSent = c; return { key: { id: 'x' } }; } };
+  C('reg: ytd', collected.has('ytd') && collected.has('gyt'));
+  await collected.get('ytd')({ sock: ytdsock, msg: {}, ctx: { remoteJid: 'g@g.us', isGroup: true }, text: 'http://youtu.be/x | 128k', args: [], prefix: '!', command: 'ytd', reply: async t => { got = t; }, react: () => {} });
+  C('ytd: envia áudio sem capa', ytdSent && ytdSent.audio === FAKE_MP3 && !ytdSent.contextInfo, JSON.stringify(Object.keys(ytdSent || {})));
+  C('ytd: filename mp3', ytdSent && /Teste.*\.mp3/.test(ytdSent.fileName || ''), ytdSent && ytdSent.fileName);
+
+  // ── 15. v7.60: modos + canal + setmenu ──
+  const gsStore = {};
+  global.__gsFake = {
+    findOneAndUpdate: async (q) => {
+      const k = q.groupJid;
+      gsStore[k] = gsStore[k] || { groupJid: k, save: async () => {} };
+      return gsStore[k];
+    },
+  };
+  delete require.cache[require.resolve('../src/bot/cases/grupos.js')];
+  require('../src/bot/cases/grupos.js')(RC);
+  const mbase = { sock: { groupMetadata: async () => ({ participants: [] }) }, msg: {}, ctx: { isGroup: true, isOwner: true, remoteJid: 'g@g.us' }, prefix: '!', reply: async t => { got = t; } };
+  C('reg: modo', collected.has('modo'));
+  await collected.get('modo')({ ...mbase, args: [] });
+  C('modo: painel lista', got.includes('MODOS DO GRUPO') && got.includes('antilink'), got.slice(0, 120));
+  await collected.get('modo')({ ...mbase, args: ['antilink', 'on'] });
+  C('modo: liga antilink', /ATIVADO/.test(got) && gsStore['g@g.us'].antilink === true, got);
+  await collected.get('modo')({ ...mbase, args: ['welcome', 'off'] });
+  C('modo: desliga welcome', /DESATIVADO/.test(got) && gsStore['g@g.us'].welcomeEnabled === false, got);
+  await collected.get('modo')({ ...mbase, args: ['xyz', 'on'] });
+  C('modo: desconhecido avisa', /desconhecido/.test(got), got);
+  await collected.get('modo')({ ...mbase, ctx: { isGroup: false, isOwner: true }, args: [] });
+  C('modo: PV recusado', /Só em grupos/.test(got), got);
+
+  require.cache[require.resolve('../src/aura/auraCanais')] = { exports: {
+    meuCanal: async () => global.__canalMeu,
+    postarCanal: async () => ({ ok: true, msg: 'publicado!' }),
+    infoCanal: async () => ({ ok: true, msg: 'INFO-FK' }),
+    estatisticasCanal: async () => 'STATS-FK',
+    adotarCanal: async () => ({ ok: true, msg: 'adotado!' }),
+    criarCanalSeguro: async () => ({ ok: true, jid: 'chan@newsletter', invite: 'inv' }),
+    guardarCanal: async () => {},
+    renomearCanal: async () => ({ ok: true, msg: 'renomeado!' }),
+    descreverCanal: async () => ({ ok: true, msg: 'ok' }),
+    fotoCanal: async () => ({ ok: true, msg: 'foto ok' }),
+    perguntarSeguidores: async () => ({ ok: true, msg: 'perguntado!' }),
+    lerRespostasCanal: async () => ({ ok: true, msg: 'sem respostas' }),
+    aceitarConviteCanal: async () => ({ ok: true, msg: 'seguindo!' }),
+    deixarCanal: async () => ({ ok: true, msg: 'deixado' }),
+    apagarCanal: async () => ({ ok: true, msg: 'apagado' }),
+  } };
+  require.cache[require.resolve('../src/aura/auraAgenda')] = { exports: {
+    criar: async () => ({ ok: true, msg: 'agendado!' }),
+    listar: async () => [{ tema: 'news', intervaloMin: 60, proxima: Date.now() }],
+    parar: async () => ({ ok: true, msg: 'parado' }),
+  } };
+  require('../src/bot/cases/canal.js')(RC);
+  global.__canalMeu = { jid: 'chan@newsletter', name: 'FK', description: 'd', invite: 'i' };
+  const cbase = { sock: {}, m: {}, msg: { message: {} }, ctx: {}, prefix: '!', reply: async t => { got = t; } };
+  C('reg: canal', collected.has('canal'));
+  await collected.get('canal')({ ...cbase, args: [], text: '', isOwner: false });
+  C('canal: ajuda pública', got.includes('AURA CANAIS') && got.includes('FK'), got.slice(0, 100));
+  await collected.get('canal')({ ...cbase, args: ['postar'], text: 'postar olá mundo', isOwner: true });
+  C('canal: postar dono', /publicado/.test(got), got);
+  await collected.get('canal')({ ...cbase, args: ['postar'], text: 'postar x', isOwner: false });
+  C('canal: postar free bloqueado', /dono/.test(got), got);
+  await collected.get('canal')({ ...cbase, args: ['info'], text: 'info', isOwner: false });
+  C('canal: info pública', /INFO-FK/.test(got), got);
+  await collected.get('canal')({ ...cbase, args: ['stats'], text: 'stats', isOwner: false });
+  C('canal: stats string ok', /STATS-FK/.test(got), got);
+  await collected.get('canal')({ ...cbase, args: ['agenda'], text: 'agenda', isOwner: false });
+  C('canal: agenda lista', got.includes('AGENDADOS') && got.includes('news'), got.slice(0, 100));
+  await collected.get('canal')({ ...cbase, args: ['xyz'], text: 'xyz', isOwner: true });
+  C('canal: sub desconhecida', /desconhecido/.test(got), got);
+
+  const SM = require('../src/bot/cases/setmenu.js');
+  C('setmenu: resolveTarget', SM.resolveTarget('downloads').key === 'menu_downloads' && SM.resolveTarget('menu_downloads').key === 'menu_downloads' && SM.resolveTarget('menu').main === true && SM.resolveTarget('xyz') === null);
+  C('setmenu: detectKind', SM.detectKind(false, true, true) === 'gif' && SM.detectKind(false, true, false) === 'video' && SM.detectKind(true, false, false) === 'foto' && SM.detectKind(false, true, false, 'gif') === 'gif');
+  SM(RC);
+  C('reg: setmenu', collected.has('setmenu'));
+  await collected.get('setmenu')({ isOwner: false, args: [], reply: async t => { got = t; } });
+  C('setmenu: free recusado', /dono/.test(got), got);
+  await collected.get('setmenu')({ isOwner: true, args: [], prefix: '!', reply: async t => { got = t; } });
+  C('setmenu: painel dono', got.includes('MÍDIA DOS MENUS') && got.includes('menu_downloads'), got.slice(0, 120));
+
+  const fsT = require('fs');
+  fsT.mkdirSync('assets/menu-media', { recursive: true });
+  fsT.writeFileSync('assets/menu-media/__turbo_probe.bin', Buffer.from('PROBE123'));
+  const _lb = await mh.fetchBuffer('local:menu-media/__turbo_probe.bin?v=1');
+  C('fetchBuffer local:', _lb.toString() === 'PROBE123');
+  fsT.unlinkSync('assets/menu-media/__turbo_probe.bin');
+  let _ljFail = false;
+  try { await mh.fetchBuffer('local:../x'); } catch { _ljFail = true; }
+  C('fetchBuffer local: bloqueia ..', _ljFail);
 
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);

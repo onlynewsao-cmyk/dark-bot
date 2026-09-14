@@ -31,45 +31,27 @@ const config         = require('../../config');
 
 // ── Helper: envia áudio com card de metadados ─────────────────
 async function sendAudioCard(sock, jid, quoted, r) {
+  // v7.59: SEM capa — o externalAdReply+thumbnail quebrava a entrega/
+  // renderização no fluxo do botão (mídia "invisível" p/ membros).
+  // Áudio simples (só buffer + nome) entrega sempre.
   const title    = r.title    || 'Áudio';
-  const author   = r.author   || '';
-  const duration = r.duration || '';
   const mime     = r.mimetype || 'audio/mpeg';
   const ext      = mime.includes('mp4') ? 'm4a' : 'mp3';
   const fileName = `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`;
-
-  let thumbBuf = null;
-  if (r.thumb || r.thumbnail) {
-    try {
-      thumbBuf = await mediaHandler.fetchBuffer(r.thumb || r.thumbnail);
-      thumbBuf = mediaHandler.cleanThumb(thumbBuf); // v7.56: só JPEG/PNG ≤96KB
-    } catch {}
-  }
-
-  const contextInfo = thumbBuf ? {
-    externalAdReply: {
-      title,
-      body: [author && `👤 ${author}`, duration && `⏱️ ${duration}`].filter(Boolean).join('  •  ') || '🎵 DARK BOT',
-      mediaType: 2,
-      thumbnail: thumbBuf,
-      mediaUrl: '',
-      sourceUrl: '',
-      renderLargerThumbnail: false,
-    },
-  } : undefined;
 
   let audioBuffer = r.buffer && Buffer.isBuffer(r.buffer) ? r.buffer : null;
   try {
     if (!audioBuffer) audioBuffer = await mediaHandler.fetchBuffer(r.url);
     if (!mediaHandler.isAudioBytes(audioBuffer)) throw new Error('áudio vazio ou inválido');
-    console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, r.source || r.quality || '');
-    return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false, contextInfo }, { quoted });
+    console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' nocover');
+    return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
   } catch (bufferError) {
     // Algumas URLs de provider são válidas para o fetch do WhatsApp, mas
     // expiram/bloqueiam o fetch do Node. Tenta a entrega por URL antes de
     // trocar de provider; isso evita perder músicas que já foram geradas.
     if (r.url) {
-      return sock.sendMessage(jid, { audio: { url: r.url }, mimetype: mime, fileName, ptt: false, contextInfo }, { quoted });
+      console.log('[MUSIC-SEND]', jid, 'URL', mime, (r.source || r.quality || '') + ' nocover');
+      return sock.sendMessage(jid, { audio: { url: r.url }, mimetype: mime, fileName, ptt: false }, { quoted });
     }
     throw bufferError;
   }

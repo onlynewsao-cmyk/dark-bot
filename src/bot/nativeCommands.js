@@ -138,7 +138,9 @@ const MENU_MEDIA_TTL = 10 * 60 * 1000;
 async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
   const mediaUrl = await botConfigCache.get(`menu_media_${target}_url`, '');
   const mediaType = await botConfigCache.get(`menu_media_${target}_type`, 'none');
-  const finalText = await appendChannel(menuText);
+  const RE = require('./renderEngine');
+  const themed = await RE.themeText(menuText, ctx.remoteJid).catch(() => menuText);
+  const finalText = await appendChannel(themed);
 
   if (mediaUrl && mediaType !== 'none') {
     try {
@@ -152,14 +154,22 @@ async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
           _menuMediaCache.set(mediaUrl, { buf, ts: Date.now() });
         }
       }
+      // v7.60: mídia local: do !setmenu já vem comprimida (não recomprime =
+      // não perde qualidade); URL remota (dashboard) mantém fluxo antigo.
+      const isLocal = String(mediaUrl).startsWith('local:');
       if (mediaType === 'gif') {
-        // GIF → Comprime e envia com gifPlayback (animado no WhatsApp)
-        const compressed = await compressVideoForGif(buf);
+        // GIF → loop animado, sem áudio
+        const compressed = isLocal ? buf : await compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
           video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
       } else if (mediaType === 'video') {
-        // Vídeo → Comprime e envia com gifPlayback (como GIF)
+        if (isLocal) {
+          // Vídeo NORMAL do !setmenu (com áudio, sem gifPlayback)
+          return sock.sendMessage(ctx.remoteJid, {
+            video: buf, caption: finalText, mimetype: 'video/mp4',
+          }, { quoted: msg });
+        }
         const compressed = await compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
           video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
@@ -597,6 +607,25 @@ const selCmds = allowed.filter(it => it.sel === true);
         title:    `${t.icon} ${title}`,
         sections: [{ title: `${t.icon} COMANDOS`, rows }],
       };
+      // v7.60: mídia do submenu (!setmenu) no cabeçalho interactivo
+      let subMediaHeader = { title: '', hasMediaAttachment: false };
+      try {
+        const _mmUrl = await botConfigCache.get(`menu_media_${target}_url`, '').catch(() => '');
+        const _mmType = await botConfigCache.get(`menu_media_${target}_type`, 'none').catch(() => 'none');
+        if (_mmUrl && _mmType && _mmType !== 'none') {
+          const _mmBuf = await mediaHandler.fetchBuffer(_mmUrl).catch(() => null);
+          if (_mmBuf?.length) {
+            const { prepareWAMessageMedia } = require('@systemzero/baileys');
+            if (_mmType === 'image') {
+              const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
+              if (_mm?.imageMessage) subMediaHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
+            } else {
+              const _mm = await prepareWAMessageMedia({ video: _mmBuf, gifPlayback: _mmType === 'gif' }, { upload: sock.waUploadToServer });
+              if (_mm?.videoMessage) subMediaHeader = { title: '', hasMediaAttachment: true, videoMessage: _mm.videoMessage };
+            }
+          }
+        }
+      } catch { subMediaHeader = { title: '', hasMediaAttachment: false }; }
       const m = generateWAMessageFromContent(ctx.remoteJid, {
         interactiveMessage: proto.Message.InteractiveMessage.fromObject({
           body:   proto.Message.InteractiveMessage.Body.fromObject({ text: textBody }),
@@ -628,7 +657,7 @@ const selCmds = allowed.filter(it => it.sel === true);
   }
 
   if (!sent) {
-    await reply(sock, msg, ctx, textBody);
+    await sendMenuWithMedia(sock, msg, ctx, textBody, target); // v7.60: mídia do !setmenu
   }
 }
 
@@ -1066,7 +1095,7 @@ module.exports = {
         style,
         showPrefix: showPrefix === true || showPrefix === 'true' || showPrefix === 'on',
       });
-      await reply(sock, msg, ctx, menuText);
+      await sendMenuWithMedia(sock, msg, ctx, menuText, 'menu'); // v7.60: mídia do !setmenu
       logCmd('menu', ctx);
     } catch (e2) {
       await reply(sock, msg, ctx, t.icon + ' *ᴍᴇɴᴜ*\n\nErro ao montar o menu: ' + String(e2.message || '').slice(0, 80));

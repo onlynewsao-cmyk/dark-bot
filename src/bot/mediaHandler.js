@@ -1,6 +1,8 @@
 const { downloadMediaMessage } = require('@systemzero/baileys');
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 async function downloadFromMessage(msg) {
   return downloadMediaMessage(msg, 'buffer', {});
@@ -12,6 +14,14 @@ const DEFAULT_UA = 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, l
 // (nekos.best) rejeitam User-Agent de browser e exigem um UA de bot.
 function fetchBuffer(url, redirects = 5, opts = {}) {
   if (redirects && typeof redirects === 'object') { opts = redirects; redirects = 5; }
+  // v7.60: pseudo-URL local: — mídia do !setmenu (assets/menu-media/...)
+  if (typeof url === 'string' && url.startsWith('local:')) {
+    const rel = url.slice(6).split('?')[0].replace(/^\/+/, '');
+    if (!rel || rel.includes('..')) return Promise.reject(new Error('caminho local inválido'));
+    try {
+      return Promise.resolve(fs.readFileSync(path.join(__dirname, '..', '..', 'assets', rel)));
+    } catch (e) { return Promise.reject(e); }
+  }
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
     const req = lib.get(url, {

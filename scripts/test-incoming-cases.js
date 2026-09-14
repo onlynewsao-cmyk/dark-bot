@@ -273,6 +273,7 @@ const said = (arr, re) => arr.some(o => re.test(String(o)));
   t('minado desmarcar A1', said(r.out, /Bandeira removida/), r.out[0]?.slice(0, 50));
   r = await run('minado', { args: ['abrir', 'A1'] });
   t('minado abrir A1 → casa aberta ou bomba', said(r.out, /Casa aberta|bomba/i), r.out[0]?.slice(0, 50));
+  await run('minado', { args: ['iniciar', 'facil'] }); // v7.60: garante partida p/ sair (abrir pode rebentar = flake)
   r = await run('minado', { args: ['sair'] });
   t('minado sair', said(r.out, /encerrada/), r.out[0]);
   r = await run('minado', { args: ['ver'] });

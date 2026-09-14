@@ -338,6 +338,9 @@ function categorize(cmd) {
     statusvid:'downloads', stv:'downloads',
     x:'downloads',
     eadmin:'admin', checkadm:'admin', veradmin:'admin', // v7.57
+    modo:'admin', modos:'admin', // v7.60
+    canal:'owner', canais:'owner', channel:'owner', // v7.60
+    setmenu:'owner', definirmenu:'owner', menumedia:'owner', // v7.60
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
