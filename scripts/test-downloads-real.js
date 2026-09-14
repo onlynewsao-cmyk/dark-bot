@@ -49,8 +49,9 @@ console.log('\n╔═══ 2. Twitter/X com yt-dlp ═══╗');
 console.log('\n╔═══ 3. Kwai ═══╗');
 {
   const src = fs.readFileSync(path.join(ROOT, 'cases', 'downloads2.js'), 'utf8');
-  t('kwai usa ytdlpSocialVideo primeiro', /registerCase\(\['kwai'\][\s\S]{0,800}ytdlpSocialVideo/.test(src), '');
-  t('kwai mantém zahwazein como 2.º', /registerCase\(\['kwai'\][\s\S]{0,1200}zahwazein/.test(src), '');
+  t('kwai usa scrape dl.kwai primeiro', /registerCase\(\['kwai'\][\s\S]{0,800}dl\.kwai\(/.test(src), '');
+  t('kwai mantém ytdlpSocialVideo como 2.º', /registerCase\(\['kwai'\][\s\S]{0,1600}ytdlpSocialVideo/.test(src), '');
+  t('kwai sem zahwazein viva (morta)', !/zahwazein\.xyz\/downloader\/kwai/.test(src), '');
 }
 
 // ── 4. tiktokstalk/tiktoktxt com fallback real (tiktokSearch) ──
@@ -69,9 +70,11 @@ console.log('\n╔═══ 5. Shazam ═══╗');
 {
   const src = fs.readFileSync(path.join(ROOT, 'cases', 'downloads2.js'), 'utf8');
   const i = src.indexOf("registerCase(['shazam'");
-  const body = src.slice(i, i + 2500);
+  const body = src.slice(i, i + 5000); // v7.64: handler cresceu (Whisper + fallback)
   t('shazam usa IA (ai.chat) para identificar', body.includes('ai.chat'), '');
-  t('shazam trata áudio citado com aviso honesto', body.includes('audioMessage') && body.includes('AudD'), '');
+  t('shazam trata áudio citado via Whisper', body.includes('audioMessage') && body.includes('transcribeAudio'), '');
+  t('shazam tem fallback honesto no áudio', body.includes('Não consegui ouvir'), '');
+  t('shazam letra tem fallback grátis', body.includes('lyrics.ovh'), '');
 
   const { describe } = require(path.join(ROOT, 'commandDescriptions'));
   const d = describe('shazam', 'downloads');

@@ -73,6 +73,24 @@ async function errReply(sock, msg, ctx, text) {
   return sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, 'ERRO', ['❌ ' + text], { botName: config.bot.name }) }, { quoted: msg });
 }
 
+// v7.64: o resultado é VÍDEO? Antes só via .mp4 no url — os buffers do
+// yt-dlp têm url:'' e iam parar ao ramo de FOTO com url vazia → ❌.
+function isVideoResult(item = {}) {
+  if (item.buffer?.length > 1024 || item.video) return true;
+  if (/video/i.test(item.mimetype || '') || /video/i.test(item.type || '')) return true;
+  return !!String(item.url || item.download || '').match(/\.mp4/i);
+}
+
+// v7.64: pega "Título — Artista" do /suggest da lyrics.ovh (Deezer). Pura p/ testes.
+function shazamPickLyric(json) {
+  const d = json?.data || json?.result || [];
+  const first = Array.isArray(d) ? d[0] : null;
+  const title = first?.title_short || first?.title;
+  const artist = first?.artist?.name;
+  if (!title || !artist) return null;
+  return `${title} — ${artist}`;
+}
+
 module.exports = function registerDownloads2(registerCase) {
 
   // ═══ TIKTOK ═══
@@ -91,7 +109,7 @@ module.exports = function registerDownloads2(registerCase) {
   });
 
   // ═══ INSTAGRAM ═══
-  registerCase(['instagram', 'ig', 'instamp3', 'instamp4', 'igstory'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  registerCase(['instagram', 'ig', 'instamp3', 'instamp4', 'igstory'], async ({ sock, msg, ctx, args, prefix, reply, isOwner }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`📸 Uso: \`${prefix}instagram <url>\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
@@ -100,11 +118,11 @@ module.exports = function registerDownloads2(registerCase) {
       const r = await dl.instagram(url);
       const items = Array.isArray(r) ? r : [r];
       for (const item of items.slice(0, 10)) {
-        if (item.video || item.url?.match(/\.mp4/i)) await sendVideo(sock, ctx.remoteJid, msg, item);
+        if (isVideoResult(item)) await sendVideo(sock, ctx.remoteJid, msg, item);
         else await sock.sendMessage(ctx.remoteJid, { image: { url: item.image || item.url || item.thumbnail } }, { quoted: msg });
       }
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Instagram: ' + e.message); }
+    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Instagram: ' + e.message + (isOwner ? '\n\n🍪 Dono: o IG exige login — define YTDLP_COOKIES_BASE64 (cookies Netscape em base64) na Northflank.' : '')); }
   });
 
   // ═══ FACEBOOK ═══
@@ -130,7 +148,7 @@ module.exports = function registerDownloads2(registerCase) {
       const r = await dl.twitter(url);
       const items = Array.isArray(r) ? r : [r];
       for (const item of items.slice(0, 5)) {
-        if (item.video || item.url?.match(/\.mp4/i)) await sendVideo(sock, ctx.remoteJid, msg, item);
+        if (isVideoResult(item)) await sendVideo(sock, ctx.remoteJid, msg, item);
         else await sock.sendMessage(ctx.remoteJid, { image: { url: item.image || item.url } }, { quoted: msg });
       }
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
@@ -304,14 +322,54 @@ module.exports = function registerDownloads2(registerCase) {
     const trecho = args.join(' ').trim();
     const quoted = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    // áudio citado → reconhecimento por fingerprint precisa de API (AudD/ACRCloud)
+    // v7.64: letra via IA, com fallback grátis (lyrics.ovh/Deezer) se a IA falhar
+    async function identifyByLyrics(trecho) {
+      try {
+        const ai = require('../ai');
+        const r = await ai.chat(
+          `Identifica a música a partir deste trecho de letra: "${trecho}". Responde SÓ com: Título — Artista (ano). Se não souberes, responde "não identifiquei".`,
+          'És um especialista em música com conhecimento enciclopédico.',
+          {}, false
+        );
+        const s = String(r || '').trim();
+        if (s && !s.startsWith('❌') && !/não identifiquei/i.test(s)) {
+          return { texto: s.replace(/^[✗Xx-]+/, '').trim(), fonte: '🤖 IA' };
+        }
+      } catch {}
+      const mh = require('../mediaHandler');
+      const j = await mh.fetchJson(`https://api.lyrics.ovh/suggest/${encodeURIComponent(trecho.slice(0, 100))}`, 15000);
+      const pick = shazamPickLyric(j);
+      if (!pick) throw new Error('não identifiquei');
+      return { texto: pick, fonte: '🔍 busca' };
+    }
+
+    // áudio citado → transcreve (Whisper) e identifica pela letra ouvida
     if (quoted && (quoted.audioMessage || quoted.pttMessage)) {
-      return reply(RE.renderBlock(t, 'SHAZAM', [
-        '🎧 Não consigo reconhecer o áudio directamente — isso precisa de uma API de impressão digital (AudD/ACRCloud) que não está configurada.',
-        '',
-        '👉 Mas identifico pela LETRA:',
-        `\`${prefix}shazam <trecho da música>\``,
-      ], { botName: config.bot.name }));
+      try { react('🎧'); } catch {}
+      try {
+        const mh = require('../mediaHandler');
+        const buf = await mh.downloadFromMessage({ message: quoted });
+        if (!buf || buf.length < 1000) throw new Error('áudio vazio');
+        if (buf.length > 20 * 1024 * 1024) throw new Error('áudio grande demais');
+        const ai = require('../ai');
+        const ouvido = String(await ai.transcribeAudio(buf) || '').trim();
+        if (ouvido.length < 4) throw new Error('nada audível');
+        const found = await identifyByLyrics(ouvido.slice(0, 200));
+        try { react('✅'); } catch {}
+        return reply(RE.renderBlock(t, 'SHAZAM', [
+          `🎶 *${found.texto.slice(0, 120)}*`,
+          `Ouvi: "${ouvido.slice(0, 80)}"`,
+          `> Queres o áudio? ${prefix}play ${found.texto.split('—')[0].trim().slice(0, 40)}`,
+        ].filter(Boolean), { botName: config.bot.name }));
+      } catch (e) {
+        try { react('❌'); } catch {}
+        return reply(RE.renderBlock(t, 'SHAZAM', [
+          '🎧 Não consegui ouvir esse áudio.',
+          '',
+          '👉 Mas identifico pela LETRA:',
+          `\`${prefix}shazam <trecho da música>\``,
+        ], { botName: config.bot.name }));
+      }
     }
 
     if (!trecho) {
@@ -327,22 +385,17 @@ module.exports = function registerDownloads2(registerCase) {
 
     try { react('⏳'); } catch {}
     try {
-      const ai = require('../ai');
-      const r = await ai.chat(
-        `Identifica a música a partir deste trecho de letra: "${trecho}". Responde SÓ com: Título — Artista (ano). Se não souberes, responde "não identifiquei".`,
-        'És um especialista em música com conhecimento enciclopédico.',
-        {}, false
-      );
-      const texto = String(r || '').trim().replace(/^[❌✗Xx-]+/, '').trim() || 'Não identifiquei.';
+      const found = await identifyByLyrics(trecho);
+      const texto = found.texto;
       try { react('✅'); } catch {}
       return reply(RE.renderBlock(t, 'SHAZAM', [
-        `🎶 *${texto.slice(0, 120)}*`,
+        `🎶 *${texto.slice(0, 120)}* ${found.fonte}`,
         trecho ? `Trecho: "${trecho.slice(0, 80)}"` : '',
         `> Queres o áudio? ${prefix}play ${texto.split('—')[0].trim().slice(0, 40)}`,
       ].filter(Boolean), { botName: config.bot.name }));
     } catch (e) {
       try { react('❌'); } catch {}
-      return reply(RE.renderBlock(t, 'ERRO', ['❌ IA indisponível agora: ' + (e.message || e).slice(0, 60)], { botName: config.bot.name }));
+      return reply(RE.renderBlock(t, 'ERRO', ['❌ Não identifiquei. Tenta outro trecho ou ' + prefix + 'play <título>'], { botName: config.bot.name }));
     }
   });
 
@@ -369,7 +422,16 @@ module.exports = function registerDownloads2(registerCase) {
     if (!url) return reply(`📱 Uso: \`${prefix}kwai <url>\`\nEx: \`${prefix}kwai https://www.kwai.com/...\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
-      // 1º — yt-dlp (suporta Kwai/Kuaishou, sem depender de API externa)
+      // v7.64: 1º scrape da página (mp4 direto no HTML) — o yt-dlp NÃO
+      // tem extractor Kwai e a API zahwazein morreu.
+      try {
+        const dl = require('../downloader');
+        const r = await dl.kwai(url);
+        await sendVideo(sock, ctx.remoteJid, msg, r);
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
+      } catch (e) { console.log('[KWAI] scrape falhou:', e.message?.slice(0, 80)); }
+      // 2º — yt-dlp (tenta na mesma; cobre kuaishou.com se suportado)
       try {
         const dl = require('../downloader');
         const r = await dl.ytdlpSocialVideo(url, 'Kwai HD');
@@ -377,14 +439,7 @@ module.exports = function registerDownloads2(registerCase) {
         sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
         return;
       } catch (e) { console.log('[KWAI] yt-dlp falhou:', e.message?.slice(0, 80)); }
-      // 2º — API pública (pode estar offline)
-      const axios = require('axios');
-      const r = await axios.get(`https://api.zahwazein.xyz/downloader/kwai?url=${encodeURIComponent(url)}`, { timeout: 12000 });
-      const dlUrl = r.data?.result?.url || r.data?.result?.video;
-      if (!dlUrl) throw new Error('Sem resultado');
-      const buf = await mediaHandler.fetchBuffer(dlUrl);
-      await sendVideo(sock, ctx.remoteJid, msg, { buffer: buf, title: 'Kwai' });
-      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      throw new Error('Sem resultado (link inválido ou privado)');
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Kwai: ' + e.message + '\n\nSe o link for privado, tenta ' + prefix + 'video <nome> no YouTube.'); }
   });
 
@@ -568,3 +623,6 @@ module.exports = function registerDownloads2(registerCase) {
     } catch (e) { return reply('❌ musictest: ' + (e.message || e)); }
   });
 };
+
+module.exports.isVideoResult = isVideoResult; // v7.64 (testes)
+module.exports.shazamPickLyric = shazamPickLyric; // v7.64 (testes)

@@ -392,6 +392,45 @@ Module.prototype.require = function (id) {
   const promptR = AH.buildAuraSystemPrompt({ userName: 'Teste', mood: 'revoltada' });
   C('aura: prompt revoltada', promptR.includes('REVOLTADA'));
 
+  // ── 19. v7.64: setmenu persistente + routing downloads + kwai ──
+  const D2 = require('../src/bot/cases/downloads2.js');
+  C('dl: buf é vídeo', D2.isVideoResult({ buffer: Buffer.alloc(2000), url: '' }) === true);
+  C('dl: jpg é foto', D2.isVideoResult({ url: 'https://a.b/c.jpg' }) === false);
+  C('dl: mp4 é vídeo', D2.isVideoResult({ url: 'https://a.b/c.mp4' }) === true);
+  C('dl: mimetype vídeo', D2.isVideoResult({ url: '', mimetype: 'video/mp4' }) === true);
+  const DL = require('../src/bot/downloader.js');
+  C('kwai: extrai mp4', (DL.kwaiMp4FromHtml('<a href="https://aws-br-cdn.kwai.net/x_b_abc.mp4?tag=1">v</a>') || '').includes('.mp4'));
+  C('kwai: sem mp4 dá null', DL.kwaiMp4FromHtml('<html>nada aqui</html>') === null);
+  let kwaiErr = '';
+  try { await DL.kwai('nao-e-url'); } catch (e) { kwaiErr = e.message; }
+  C('kwai: valida URL (sem rede)', /Envie link do Kwai/.test(kwaiErr));
+  const BCC = require('../src/bot/botConfigCache'); // sem .js → usa o mock do turbo (linha 18)
+  const NC = require('../src/bot/nativeCommands.js');
+  const fakeBin = Buffer.alloc(300, 7);
+  await BCC.set('menu_media__turbo_bin', fakeBin.toString('base64'));
+  const mmb = await NC.getMenuMediaBuf('_turbo', '');
+  C('setmenu: bin do cache', Buffer.isBuffer(mmb) && mmb.equals(fakeBin));
+  await BCC.set('menu_media__turbo_bin', '');
+  require('../src/bot/cases/setmenu.js')(RC);
+  await BCC.set('menu_media_menu_downloads_url', 'local:menu-media/menu_downloads.jpg?v=1');
+  await BCC.set('menu_media_menu_downloads_type', 'image');
+  await BCC.set('menu_media_menu_downloads_bin', '');
+  let panelGot = '';
+  await collected.get('setmenu')({ isOwner: true, args: [], prefix: '!', reply: async t => { panelGot = t; } });
+  C('setmenu: painel ⚠️ sem bytes', panelGot.includes('⚠️') && panelGot.includes('menu_downloads'));
+  await BCC.set('menu_media_menu_downloads_bin', Buffer.alloc(300, 9).toString('base64'));
+  await collected.get('setmenu')({ isOwner: true, args: [], prefix: '!', reply: async t => { panelGot = t; } });
+  C('setmenu: painel ✅ com bin', /✅ `menu_downloads`/.test(panelGot));
+  await BCC.set('menu_media_menu_downloads_url', '');
+  await BCC.set('menu_media_menu_downloads_type', 'none');
+  await BCC.set('menu_media_menu_downloads_bin', '');
+  C('shazam: pick letra', D2.shazamPickLyric({ data: [{ title_short: 'Heroes', artist: { name: 'Bowie' } }] }) === 'Heroes — Bowie');
+  C('shazam: vazio dá null', D2.shazamPickLyric({ data: [] }) === null);
+  D2(RC);
+  let shGot = '';
+  await collected.get('shazam')({ sock: {}, msg: { message: {} }, ctx: { remoteJid: 'x' }, args: [], prefix: '!', reply: async t => { shGot = t; }, react: () => {} });
+  C('shazam: sem args mostra uso', shGot.includes('shazam <trecho'));
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

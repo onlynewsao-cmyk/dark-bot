@@ -135,6 +135,16 @@ async function sendAudioWithCard(sock, msg, ctx, r) {
 // de rede POR comando de menu. A URL muda quando o dono troca a mídia.
 const _menuMediaCache = new Map(); // url → { buf, ts }
 const MENU_MEDIA_TTL = 10 * 60 * 1000;
+// v7.64: bytes primeiro do Mongo (*_bin, sobrevive a restarts),
+// depois ficheiro/URL (*_url, fluxo antigo).
+async function getMenuMediaBuf(target, mediaUrl) {
+  try {
+    const bin = await botConfigCache.get(`menu_media_${target}_bin`, '').catch(() => '');
+    if (bin && String(bin).length > 100) return Buffer.from(String(bin), 'base64');
+  } catch {}
+  if (!mediaUrl) return null;
+  return mediaHandler.fetchBuffer(mediaUrl).catch(() => null);
+}
 async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
   const mediaUrl = await botConfigCache.get(`menu_media_${target}_url`, '');
   const mediaType = await botConfigCache.get(`menu_media_${target}_type`, 'none');
@@ -148,7 +158,7 @@ async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
       const _mmc = _menuMediaCache.get(mediaUrl);
       if (_mmc && (Date.now() - _mmc.ts) < MENU_MEDIA_TTL) buf = _mmc.buf;
       else {
-        buf = await mediaHandler.fetchBuffer(mediaUrl);
+        buf = await getMenuMediaBuf(target, mediaUrl);
         if (buf?.length) {
           if (_menuMediaCache.size > 20) _menuMediaCache.clear();
           _menuMediaCache.set(mediaUrl, { buf, ts: Date.now() });
@@ -613,7 +623,7 @@ const selCmds = allowed.filter(it => it.sel === true);
         const _mmUrl = await botConfigCache.get(`menu_media_${target}_url`, '').catch(() => '');
         const _mmType = await botConfigCache.get(`menu_media_${target}_type`, 'none').catch(() => 'none');
         if (_mmUrl && _mmType && _mmType !== 'none') {
-          const _mmBuf = await mediaHandler.fetchBuffer(_mmUrl).catch(() => null);
+          const _mmBuf = await getMenuMediaBuf(target, _mmUrl);
           if (_mmBuf?.length) {
             const { prepareWAMessageMedia } = require('@systemzero/baileys');
             if (_mmType === 'image') {
@@ -3893,3 +3903,8 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
   },
 
 };
+
+// v7.64: helper de testes SEM poluir o catálogo — exports enumeráveis
+// do nativeCommands são varridos como comandos (audit-org-comandos,
+// submenu). Não-enumerável: invisível para Object.keys, acessível direto.
+Object.defineProperty(module.exports, 'getMenuMediaBuf', { value: getMenuMediaBuf, enumerable: false });

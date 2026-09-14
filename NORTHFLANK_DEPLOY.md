@@ -67,6 +67,7 @@ Variáveis opcionais (v7.47 incluído) ficam documentadas em `.env.example`:
 | `CLOUDINARY_*` | Uploads de mídia do dashboard | Não |
 | `TENOR_API_KEY` / `GIPHY_API_KEY` | Mais variedade de GIFs | Não (6 fontes grátis incluídas) |
 | `COBALT_API_URL` / `COBALT_API_KEY` | Melhor TikTok/IG/FB/Twitter | Não |
+| `YTDLP_COOKIES_BASE64` | Cookies IG (Netscape em base64) — desbloqueia `!instagram` com login | Não (só fotos/vídeos públicos sem isto) |
 | `IG_SESSIONID` / `CAP_PROXY` | C∆P (monitor Instagram) | Não |
 | `FB_PAGE_ID` / `FB_PAGE_ACCESS_TOKEN` | Publicação no Facebook | Não |
 | `WHATSAPP_CHANNEL_URL` | Canal no menu | Não |
@@ -135,7 +136,7 @@ Antes de ativar auto-deploy, guardar o commit funcional atual. Em caso de falha,
 ## 9. Checklist v7.47 (pós-deploy)
 
 ```text
-[x] npm test — 89 grupos verdes, 0 falhas (v7.63, validado 2026-09-14; audit-publico 1606/0, turbo 121/0, incoming 76/0)
+[x] npm test — 89 grupos verdes, 0 falhas (v7.64, validado 2026-09-14; audit-publico 1606/0, turbo 134/0, incoming 76/0)
 [ ] /health → 200 e /ping → pong
 [ ] /login com OWNER_USERNAME/OWNER_PASSWORD
 [ ] /dashboard/connect → QR ou pair-code liga o WhatsApp

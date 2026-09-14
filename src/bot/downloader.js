@@ -319,6 +319,30 @@ async function tiktok(url) {
   throw new Error('❌ Não consegui baixar o TikTok.');
 }
 
+// ==================== KWAI ====================
+// v7.64: o yt-dlp NÃO tem extractor Kwai ("Unsupported URL") e a API
+// zahwazein morreu — extrai o mp4 direto do HTML (aws-br-cdn.kwai.net,
+// URL assinada fresca a cada página). Pura p/ testes.
+function kwaiMp4FromHtml(html) {
+  const clean = String(html || '').replace(/\\\//g, '/').replace(/&amp;/g, '&');
+  const cands = [...clean.matchAll(/https:\/\/[A-Za-z0-9\-._~:/?#[\]@!$&'()*+,;=%]+?\.mp4[^"'\s\\]*/g)]
+    .map(m => m[0].replace(/\\+$/, ''));
+  return cands.find(u => /_b_/i.test(u)) || cands.sort((a, b) => b.length - a.length)[0] || null;
+}
+
+async function kwai(url) {
+  if (!isUrl(url) || !/kwai\.com|kuaishou\.com/i.test(url)) throw new Error('❌ Envie link do Kwai.');
+  const page = await mediaHandler.fetchBuffer(url, 5, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36' },
+    timeout: 25000,
+  });
+  const best = kwaiMp4FromHtml(String(page || ''));
+  if (!best) throw new Error('Kwai sem mp4 na página');
+  const buffer = await fetchMediaBuffer(best, 120000);
+  if (!buffer || buffer.length < 4096) throw new Error('Kwai vazio');
+  return { title: 'Kwai HD', url: '', buffer, mimetype: 'video/mp4', quality: 'Kwai MP4', fileName: 'kwai.mp4' };
+}
+
 async function facebook(url) {
   if (!isUrl(url)) throw new Error('❌ Envie link do Facebook.');
   try { return await ytdlpSocialVideo(url, 'Facebook HD'); }
@@ -477,7 +501,7 @@ module.exports = {
   youtubeVideo, youtubeVideoSavefrom, youtubeSearch,
   play160, playMedium, play320, videoHD, videoFHD, youtubeYtdlp,
   ytdlpSocialVideo,
-  tiktok, instagram, facebook, twitter,
+  tiktok, instagram, facebook, twitter, kwai, kwaiMp4FromHtml,
   spotify, soundcloud, pinterest, pinterestSearch,
   mediafire, liteapks, apkDownload,
 };

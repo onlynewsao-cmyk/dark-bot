@@ -104,9 +104,15 @@ async function showPanel(prefix, reply) {
   const rows = await Promise.all(keys.map(async (k) => {
     const t = await c.get(`menu_media_${k}_type`, 'none').catch(() => 'none');
     const u = await c.get(`menu_media_${k}_url`, '').catch(() => '');
-    const icon = (t && t !== 'none' && u) ? '✅' : '⚪';
-    const tipo = (t && t !== 'none' && u) ? ` (${t})` : '';
-    return `${icon} \`${k}\`${tipo}`;
+    if (!t || t === 'none' || !u) return `⚪ \`${k}\``;
+    // v7.64: configurado mas sem bytes? o ficheiro perdeu-se no restart.
+    const bin = await c.get(`menu_media_${k}_bin`, '').catch(() => '');
+    let ok = !!bin;
+    if (!ok && String(u).startsWith('local:')) {
+      const rel = String(u).slice(6).split('?')[0].replace(/^menu-media\//, '');
+      ok = fs.existsSync(path.join(MEDIA_DIR, rel));
+    } else if (!ok) ok = true; // URL remota (dashboard): assume-se viva
+    return `${ok ? '✅' : '⚠️'} \`${k}\` (${t})`;
   }));
   return reply(
     `🖼️ *MÍDIA DOS MENUS*\n\n${rows.join('\n')}\n\n` +
@@ -114,7 +120,7 @@ async function showPanel(prefix, reply) {
     `\`${prefix}setmenu menu\` — menu principal\n` +
     `\`${prefix}setmenu <submenu> [foto|video|gif]\`\n` +
     `ex: \`${prefix}setmenu downloads video\`\n\n` +
-    `*Remover:* \`${prefix}setmenu <alvo> off\``,
+    `*Remover:* \`${prefix}setmenu <alvo> off\`\n\n⚠️ = ficheiro perdido no restart — redefine a mídia.\n✅ = guardado (sobrevive a restarts).`,
   );
 }
 
@@ -122,6 +128,7 @@ async function clearTarget(t) {
   const c = cache();
   await c.set(`menu_media_${t.key}_url`, '').catch(() => {});
   await c.set(`menu_media_${t.key}_type`, 'none').catch(() => {});
+  await c.set(`menu_media_${t.key}_bin`, '').catch(() => {}); // v7.64
   const files = [path.join(MEDIA_DIR, `${t.key}.mp4`), path.join(MEDIA_DIR, `${t.key}.jpg`)];
   if (t.main) files.push(path.join(LOGOS_DIR, 'fotomenu.mp4'), path.join(LOGOS_DIR, 'fotomenu.jpg'), path.join(LOGOS_DIR, 'fotomenu.png'));
   for (const f of files) { try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {} }
@@ -175,8 +182,15 @@ function registerSetmenu(registerCase) {
       const c = cache();
       await c.set(`menu_media_${t.key}_url`, `local:menu-media/${t.key}.${ext}?v=${Date.now()}`);
       await c.set(`menu_media_${t.key}_type`, kind === 'foto' ? 'image' : kind);
+      // v7.64: bytes no Mongo — ficheiros locais evaporam a cada restart
+      // da Northflank (contentor efémero, sem volumes); o binário sobrevive.
+      let binOk = false;
+      if (comp.length <= 12 * 1024 * 1024) {
+        await c.set(`menu_media_${t.key}_bin`, comp.toString('base64')).catch(() => {});
+        binOk = true;
+      }
       const kb = (b) => (b.length / 1024).toFixed(0);
-      return reply(`✅ *${t.key}* agora tem ${kind === 'foto' ? '🖼️ foto' : kind === 'gif' ? '🎞️ GIF' : '🎬 vídeo'}!\n📦 ${kb(buf)}KB → ${kb(comp)}KB\nVê com o comando do menu.`);
+      return reply(`✅ *${t.key}* agora tem ${kind === 'foto' ? '🖼️ foto' : kind === 'gif' ? '🎞️ GIF' : '🎬 vídeo'}!\n📦 ${kb(buf)}KB → ${kb(comp)}KB\nVê com o comando do menu.${binOk ? '' : ' (⚠️ pesado: só neste servidor)'}`);
     } catch (e) {
       return reply('❌ setmenu: ' + String(e?.message || e).slice(0, 120));
     }
