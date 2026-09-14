@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.60.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.61.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,7 +29,8 @@
 
 | Versão | Destaques |
 |---|---|
-| **v7.60** 🎛️ | **`!modo`** (20 modos on/off por grupo) · **`!canal`** (Aura gere canais: postar/criar/agendar/stats) · **`!setmenu`** (foto/vídeo/GIF do menu com compressão inteligente) |
+| **v7.61** 🚦 | **`!modo` por utilidade** — cada grupo liga/desliga categorias (downloads, brincadeiras, jogos, IA…); comando barrado pede ativação ao admin |
+| **v7.60** 🎛️ | **`!modo`** (painel de funcionalidades) · **`!canal`** (Aura gere canais: postar/criar/agendar/stats) · **`!setmenu`** (foto/vídeo/GIF do menu com compressão inteligente) |
 | **v7.59** 🎵 | **Áudio do botão SEM capa** — removido `externalAdReply`+thumbnail (quebrava entrega/renderização); áudio simples entrega sempre + log `nocover` |
 | **v7.58** ⚡ | **React colado** — disparo imediato sem await de config (cache 10s) + 139 `await react` removidos (cada comando poupa ~1 RTT) |
 | **v7.57** 👑 | **`!admins` melhorado** — lista todos (👑 dono / 🛡️ admins, `2/13`) ou verifica UMA pessoa: responde com `!admins`, `!eadmin @pessoa` / número |

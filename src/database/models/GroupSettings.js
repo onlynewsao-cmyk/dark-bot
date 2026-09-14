@@ -6,6 +6,19 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   botEnabled: { type: Boolean, default: true },
 
+  // ── v7.61 MODOS por categoria (undefined = ON, fail-open) ──
+  modeDownloads:  { type: Boolean, default: true },
+  modeStickers:   { type: Boolean, default: true },
+  modeIa:         { type: Boolean, default: true },
+  modeJogos:      { type: Boolean, default: true },
+  modeEconomia:   { type: Boolean, default: true },
+  modeInteracoes: { type: Boolean, default: true },
+  modeTexto:      { type: Boolean, default: true },
+  modeSearch:     { type: Boolean, default: true },
+  modeAudio:      { type: Boolean, default: true },
+  modeLogos:      { type: Boolean, default: true },
+  modeZoeira:     { type: Boolean, default: true },
+
   // ── Anti-link ──────────────────────────────────────────
   antilink: { type: Boolean, default: false },
   antilinkOptOut: { type: Boolean, default: false },   // v7.35: grupo desligou explicitamente (ignora global do dashboard)

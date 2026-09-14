@@ -696,31 +696,10 @@ module.exports = function registerGroupCases(registerCase) {
     } catch (e) { reply('❌ ' + e.message); }
   });
 
-  // !modo — Painel de modos on/off do grupo (v7.60)
+  // !modo — Modos do grupo por categoria (v7.61: downloads, brincadeiras...)
   registerCase(['modo', 'modos'], async ({ sock, msg, ctx, args, reply, prefix }) => {
     if (!await requireSenderAdmin(sock, ctx, reply)) return;
-    const MODOS = [
-      ['bot', 'botEnabled', '🤖 Bot no grupo (master)'],
-      ['antilink', 'antilink', '🔗 Antilink'],
-      ['antispam', 'antispam', '🚫 Antispam'],
-      ['antisticker', 'antisticker', '🎨 Antisticker'],
-      ['welcome', 'welcomeEnabled', '👋 Boas-vindas'],
-      ['goodbye', 'goodbyeEnabled', '👋 Despedida'],
-      ['onlyadm', 'onlyAdmins', '🛡️️ Só admins usam comandos'],
-      ['inativos', 'inactiveEnabled', '💤 Controlo de inativos'],
-      ['idle', 'idleNudgeEnabled', '⏰ Cutucada quando parado'],
-      ['wm', 'stickerWmEnabled', '🏷️ Marca-d’água nos stickers'],
-      ['antistatus', 'antistatus', '📵 Antistatus'],
-      ['antimencao', 'antimencao', '📢 Antimenção em massa'],
-      ['antiflood', 'antiflood', '🌊 Antiflood'],
-      ['antipalavra', 'antipalavra', '🤬 Antipalavra'],
-      ['antidoc', 'antidoc', '📄 Antidocumento'],
-      ['antiloc', 'antiloc', '📍 Antilocalização'],
-      ['antifig', 'antifig', '🖼️ Antifig'],
-      ['antibtn', 'antibtn', '🔘 Antibotão'],
-      ['antipagamento', 'antipagamento', '💳 Antipagamento'],
-      ['antiinvisivel', 'antiinvisivel', '👻 Anti-invisível'],
-    ];
+    const MG = require('../modeGate');
     let gs = await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { $setOnInsert: { groupJid: ctx.remoteJid } },
@@ -729,19 +708,17 @@ module.exports = function registerGroupCases(registerCase) {
     if (!gs) gs = { groupJid: ctx.remoteJid };
     const nome = String(args[0] || '').toLowerCase();
     if (!nome) {
-      const linhas = MODOS.map(([n, f, label]) => `${gs[f] ? '✅' : '❌'} \`${n}\` — ${label}`);
-      return reply(`🎛️ *MODOS DO GRUPO*\n\n${linhas.join('\n')}\n\nUsa: \`${prefix}modo <nome> on|off\`\nEx: \`${prefix}modo antilink on\``);
+      const linhas = MG.MODES.map(mo => `${gs[mo.field] === false ? '❌' : '✅'} \`${mo.name}\` — ${mo.label} (${mo.desc})`);
+      return reply(`🎛️ *MODOS DO GRUPO*\n\n${linhas.join('\n')}\n\nUsa: \`${prefix}modo <nome> on|off\`\nEx: \`${prefix}modo downloads off\`\n\n_Admin, menus e nucleares funcionam sempre._`);
     }
-    const achado = MODOS.find(([n]) => n === nome);
+    const achado = MG.findMode(nome);
     if (!achado) return reply(`❌ Modo desconhecido: \`${nome}\`\nVê a lista com \`${prefix}modo\``);
     const v = String(args[1] || '').toLowerCase();
     if (!['on', 'off', 'ligar', 'desligar', 'ativar', 'desativar', '1', '0'].includes(v))
-      return reply(`❓ Usa: \`${prefix}modo ${nome} on|off\``);
+      return reply(`❓ Usa: \`${prefix}modo ${achado.name} on|off\``);
     const liga = ['on', 'ligar', 'ativar', '1'].includes(v);
-    gs[achado[1]] = liga;
-    if (achado[0] === 'antilink') gs.antilinkOptOut = !liga;
-    if (achado[0] === 'antispam') gs.antispamOptOut = !liga;
+    gs[achado.field] = liga;
     if (typeof gs.save === 'function') await gs.save();
-    return reply(`${liga ? '✅' : '❌'} *${achado[2]}* ${liga ? 'ATIVADO' : 'DESATIVADO'} neste grupo.`);
+    return reply(`${liga ? '✅' : '❌'} Modo *${achado.label}* ${liga ? 'ATIVADO' : 'DESATIVADO'} neste grupo.${liga ? '' : '\nComandos dele vão pedir ativação.'}`);
   });
 };

@@ -2850,6 +2850,17 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
     if (groupConfig.onlyAdmins && !isOwner && !(await isGroupAdminForHandler(sock, ctx))) return false;
   }
 
+  // ── v7.61: MODOS por categoria — grupo escolhe o que o bot faz ──
+  // Dono passa sempre; PV não tem modos (só grupos).
+  if (ctx.isGroup && groupConfig && !isOwner) {
+    const gate = require('./modeGate').check(canonicalCommand, groupConfig);
+    if (!gate.allowed) {
+      const modeGate = require('./modeGate');
+      await sock.sendMessage(ctx.remoteJid, { text: modeGate.lockedMessage(gate.mode, prefix) }, { quoted: msg });
+      return true;
+    }
+  }
+
   // ── Limite free PV (50 cmds/dia — mais generoso para não frustrar) ──
   // Comandos de info/ajuda não contam para o limite
   const PV_EXEMPT = new Set(['menu','start','ping','info','dono','criador','aiapis','donos','help','cmds','comandos','vip','prefixos']);

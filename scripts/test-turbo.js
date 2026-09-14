@@ -272,11 +272,13 @@ Module.prototype.require = function (id) {
   const mbase = { sock: { groupMetadata: async () => ({ participants: [] }) }, msg: {}, ctx: { isGroup: true, isOwner: true, remoteJid: 'g@g.us' }, prefix: '!', reply: async t => { got = t; } };
   C('reg: modo', collected.has('modo'));
   await collected.get('modo')({ ...mbase, args: [] });
-  C('modo: painel lista', got.includes('MODOS DO GRUPO') && got.includes('antilink'), got.slice(0, 120));
-  await collected.get('modo')({ ...mbase, args: ['antilink', 'on'] });
-  C('modo: liga antilink', /ATIVADO/.test(got) && gsStore['g@g.us'].antilink === true, got);
-  await collected.get('modo')({ ...mbase, args: ['welcome', 'off'] });
-  C('modo: desliga welcome', /DESATIVADO/.test(got) && gsStore['g@g.us'].welcomeEnabled === false, got);
+  C('modo: painel lista', got.includes('MODOS DO GRUPO') && got.includes('downloads'), got.slice(0, 120));
+  await collected.get('modo')({ ...mbase, args: ['downloads', 'off'] });
+  C('modo: desliga downloads', /DESATIVADO/.test(got) && gsStore['g@g.us'].modeDownloads === false, got);
+  await collected.get('modo')({ ...mbase, args: ['dl', 'on'] });
+  C('modo: alias dl religa', /ATIVADO/.test(got) && gsStore['g@g.us'].modeDownloads === true, got);
+  await collected.get('modo')({ ...mbase, args: ['brincadeiras', 'off'] });
+  C('modo: desliga brincadeiras', /DESATIVADO/.test(got) && gsStore['g@g.us'].modeZoeira === false, got);
   await collected.get('modo')({ ...mbase, args: ['xyz', 'on'] });
   C('modo: desconhecido avisa', /desconhecido/.test(got), got);
   await collected.get('modo')({ ...mbase, ctx: { isGroup: false, isOwner: true }, args: [] });
@@ -342,6 +344,21 @@ Module.prototype.require = function (id) {
   let _ljFail = false;
   try { await mh.fetchBuffer('local:../x'); } catch { _ljFail = true; }
   C('fetchBuffer local: bloqueia ..', _ljFail);
+
+  // ── 16. v7.61: gate de modos por categoria ──
+  const MG = require('../src/bot/modeGate');
+  C('gate: play sem config passa (fail-open)', MG.check('play', {}).allowed === true);
+  C('gate: play passa sem doc', MG.check('play', null).allowed === true);
+  const gOff = MG.check('play', { modeDownloads: false });
+  C('gate: play barrado c/ modo off', gOff.allowed === false && gOff.mode.name === 'downloads');
+  C('gate: msg pede ativação', MG.lockedMessage(gOff.mode, '!').includes('!modo downloads on'));
+  C('gate: ban passa (admin livre)', MG.check('ban', { modeDownloads: false }).allowed === true);
+  C('gate: menu passa (info livre)', MG.check('menu', { modeDownloads: false, modeZoeira: false }).allowed === true);
+  C('gate: modo passa (auto-livre)', MG.check('modo', { modeDownloads: false }).allowed === true);
+  C('gate: sticker barrado', MG.check('sticker', { modeStickers: false }).allowed === false);
+  C('gate: ppt passa, zoeira off não afeta', MG.check('ppt', { modeZoeira: false }).allowed === true);
+  C('gate: desconhecido passa (fail-open)', MG.check('xxxyyyzz', { modeDownloads: false }).allowed === true);
+  C('gate: findMode alias', MG.findMode('dl').name === 'downloads' && MG.findMode('fun').name === 'brincadeiras' && MG.findMode('xyz') === null);
 
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
