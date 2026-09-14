@@ -655,16 +655,44 @@ module.exports = function registerGroupCases(registerCase) {
     }, reply);
   });
 
-  // !tagadmins — Marca todos os admins
-  registerCase(['tagadmins', 'admins', 'marcaradmins'], async ({ m, sock, ctx, reply }) => {
+  // !admins — Lista admins OU verifica se alguém é admin (v7.57: reply/menção/número)
+  registerCase(['tagadmins', 'admins', 'marcaradmins', 'eadmin', 'checkadm', 'veradmin'], async ({ m, sock, msg, ctx, args, reply, command }) => {
     if (!ctx.isGroup) return reply('👥 Só em grupos.');
+    if (/^(eadmin|checkadm|veradmin)$/.test(command || '') && !args.length && !m.quoted && !getMentions(msg).length)
+      return reply('❓ Marca ou responde a alguém:\n`!eadmin @pessoa` — é admin?\n`!admins` — lista todos os admins.');
     try {
-      const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const admins = meta.participants.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
-      if (!admins.length) return reply('📋 Sem admins detectados.');
-      const mentions = admins.map(p => p.id);
-      const txt = '👑 *Admins do grupo:*\n\n' + admins.map(p => mentionTag(p.id)).join(' ');
-      await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
+      let meta = null;
+      try { meta = await sock.groupMetadata(ctx.remoteJid); } catch {}
+      if (!meta?.participants?.length) meta = ctx.groupMeta;
+      if (!meta?.participants?.length) return reply('❌ Não consegui ler os membros do grupo.');
+      const parts = meta.participants;
+      const numOf = (id) => String(id || '').split(':')[0].split('@')[0];
+      const admins = parts.filter(p => p.admin === 'admin' || p.admin === 'superadmin');
+      let target = m.quoted?.sender || null;
+      if (!target) {
+        const men = getMentions(msg);
+        if (men.length) target = men[0];
+      }
+      if (!target && args.length) {
+        const num = String(args.join('')).replace(/\D/g, '');
+        if (num.length >= 9) target = (parts.map(p => p.id).find(id => numOf(id).endsWith(num.slice(-9))) || num + '@s.whatsapp.net');
+      }
+      const send = (text, mentions) => sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: m });
+      if (target) {
+        const tn = numOf(target);
+        const entry = parts.find(p => numOf(p.id) === tn || (p.lid && numOf(p.lid) === tn));
+        if (!entry) return send('❓ @' + tn + ' não está neste grupo.', [target]);
+        if (entry.admin === 'superadmin') return send('👑 @' + tn + ' é o *DONO/FUNDADOR* do grupo.', [entry.id]);
+        if (entry.admin === 'admin') return send('✅ @' + tn + ' *É ADMIN* do grupo.', [entry.id]);
+        return send('❌ @' + tn + ' *NÃO é admin* — membro comum.', [entry.id]);
+      }
+      if (!admins.length) return reply('📋 Sem admins detectados (só o criador?).');
+      const order = [...admins].sort((a, b) => ((b.admin === 'superadmin') ? 1 : 0) - ((a.admin === 'superadmin') ? 1 : 0));
+      const mentions = order.map(p => p.id);
+      const txt = '👑 *Admins do grupo* (' + admins.length + '/' + parts.length + '):\n\n' +
+        order.map(p => (p.admin === 'superadmin' ? '👑' : '🛡️') + ' ' + mentionTag(p.id)).join('\n') +
+        '\n\n_Responde a alguém com !admins para verificar só essa pessoa._';
+      await send(txt, mentions);
     } catch (e) { reply('❌ ' + e.message); }
   });
 };

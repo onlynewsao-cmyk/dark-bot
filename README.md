@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.57** 👑 | **`!admins` melhorado** — lista todos (👑 dono / 🛡️ admins, `2/13`) ou verifica UMA pessoa: responde com `!admins`, `!eadmin @pessoa` / número |
 | **v7.56** 🔊 | **Áudio blindado** — validação de bytes MP3 antes de cada envio + thumbnails saneados (só JPEG/PNG ≤96KB) · **`.musictest`** diagnóstico (só dono) · logs `[MUSIC-SEND]` |
 | **v7.55** 👻 | 11 **comandos fantasma** implementados (`info`, `restart`, `blacklist`, `setpremium`, `qrcode`, `horoscopo`, `decrypt`, `statusvideo`, `x`, `figura`, `bass`) · fallback yt-dlp no TikTok · `audit-publico` 1605/0 |
 | **v7.54** 📥 | Downloads Spotify/SoundCloud ressuscitados (fallback yt-dlp + oEmbed) — SystemZone morreu, a música chega na mesma |

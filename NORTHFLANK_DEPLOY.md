@@ -135,7 +135,7 @@ Antes de ativar auto-deploy, guardar o commit funcional atual. Em caso de falha,
 ## 9. Checklist v7.47 (pós-deploy)
 
 ```text
-[x] npm test — 88 grupos verdes, 0 falhas (v7.56, validado 2026-09-14; audit-publico 1605/0, turbo 59/0)
+[x] npm test — 88 grupos verdes, 0 falhas (v7.57, validado 2026-09-14; audit-publico 1605/0, turbo 66/0)
 [ ] /health → 200 e /ping → pong
 [ ] /login com OWNER_USERNAME/OWNER_PASSWORD
 [ ] /dashboard/connect → QR ou pair-code liga o WhatsApp

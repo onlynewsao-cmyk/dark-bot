@@ -199,6 +199,34 @@ Module.prototype.require = function (id) {
   await collected.get('musictest')({ isOwner: false, args: [], reply: async t => { got = t; } });
   C('musictest: free recusado', /dono/.test(got));
 
+  // ── 12. v7.57: admins — lista + verifica um ──
+  require('../src/bot/cases/grupos.js')(RC);
+  const gparts = [
+    { id: '244900000001@s.whatsapp.net', admin: 'superadmin' },
+    { id: '244911111111@s.whatsapp.net', admin: 'admin' },
+    { id: '244922222222@s.whatsapp.net', admin: null },
+  ];
+  let gotMen = [];
+  const gsock = {
+    groupMetadata: async () => ({ participants: gparts }),
+    sendMessage: async (j, c) => { got = c.text; gotMen = c.mentions || []; return { key: { id: 'x' } }; },
+  };
+  const gbase = { sock: gsock, msg: { message: {} }, ctx: { isGroup: true, remoteJid: 'g@g.us' }, reply: async t => { got = t; } };
+  C('reg: eadmin', collected.has('eadmin') && collected.has('checkadm') && collected.has('veradmin'));
+  await collected.get('admins')({ ...gbase, m: {}, args: [], command: 'admins' });
+  C('admins: lista 2/3 + menciona', got.includes('Admins do grupo') && got.includes('2/3') && gotMen.length === 2, got);
+  await collected.get('eadmin')({ ...gbase, m: { quoted: { sender: '244911111111@s.whatsapp.net' } }, args: [], command: 'eadmin' });
+  C('eadmin: reply admin detetado', /É ADMIN/.test(got), got);
+  const gmen = { message: { extendedTextMessage: { contextInfo: { mentionedJid: ['244922222222@s.whatsapp.net'] } } } };
+  await collected.get('admins')({ ...gbase, m: {}, msg: gmen, args: [], command: 'admins' });
+  C('admins: menção membro = não admin', /NÃO é admin/.test(got), got);
+  await collected.get('eadmin')({ ...gbase, m: {}, args: ['244900000001'], command: 'eadmin' });
+  C('eadmin: número fundador = dono', /DONO\/FUNDADOR/.test(got), got);
+  await collected.get('eadmin')({ ...gbase, m: {}, args: [], command: 'eadmin' });
+  C('eadmin: sem alvo mostra uso', /Marca ou responde/.test(got), got);
+  await collected.get('admins')({ ...gbase, m: {}, ctx: { isGroup: false }, args: [], command: 'admins' });
+  C('admins: PV recusado', /Só em grupos/.test(got), got);
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

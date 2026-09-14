@@ -337,6 +337,7 @@ function categorize(cmd) {
     decrypt:'texto', vpndec:'texto', vpninfo:'texto',
     statusvid:'downloads', stv:'downloads',
     x:'downloads',
+    eadmin:'admin', checkadm:'admin', veradmin:'admin', // v7.57
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads
