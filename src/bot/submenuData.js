@@ -329,7 +329,7 @@ function categorize(cmd) {
     autoapresentar:'admin', autoapresentacao:'admin', apresentacao:'admin',
     // v7.55: comandos fantasma implementados (todos fora de 'outros')
     botinfo:'info', sobre:'info',
-    reiniciar:'owner', shutdown:'owner',
+    reiniciar:'owner', shutdown:'owner', musictest:'owner', testaudio:'owner',
     desbanir:'admin',
     setpremium:'owner', darpremium:'owner',
     qrcode:'texto', qr:'texto', gerarqr:'texto',

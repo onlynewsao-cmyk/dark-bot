@@ -104,4 +104,26 @@ function fetchJsonPost(url, body, headers = {}, timeoutMs = 25000) {
   });
 }
 
-module.exports = { downloadFromMessage, fetchBuffer, fetchJson, fetchJsonPost };
+module.exports = { downloadFromMessage, fetchBuffer, fetchJson, fetchJsonPost, isAudioBytes, cleanThumb };
+
+// v7.56: bytes de áudio válidos? (MP3/MP4-M4A/OGG/WAV)
+// Envia-se lixo (HTML de erro, truncado) e alguns clientes não renderizam
+// a mensagem — fica "invisível" para uns e visível para o bot.
+function isAudioBytes(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 1024) return false;
+  if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return true; // MP3 frame sync
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return true; // ID3
+  if (buf.toString('ascii', 4, 8) === 'ftyp') return true; // MP4/M4A
+  if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true; // OggS
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return true; // RIFF/WAV
+  return false;
+}
+
+// v7.56: thumbnails grandes/quebrados no cartão partem a renderização
+// nalguns clientes — só anexa JPEG/PNG pequeno, senão áudio limpo.
+function cleanThumb(buf, maxBytes = 98304) {
+  if (!Buffer.isBuffer(buf) || !buf.length || buf.length > maxBytes) return null;
+  const isJpeg = buf[0] === 0xFF && buf[1] === 0xD8;
+  const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+  return (isJpeg || isPng) ? buf : null;
+}

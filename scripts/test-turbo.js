@@ -182,6 +182,23 @@ Module.prototype.require = function (id) {
   await collected.get('statusvideo')({ sock: fakeSock, msg: { message: {} }, quoted: null, ctx: {}, args: [], prefix: '!', reply: async t => { got = t; } });
   C('statusvideo: sem mídia mostra uso', /Uso/.test(got));
 
+  // ── 11. v7.56: validação de mídia (áudio nunca-invisível) ──
+  const mh = require('../src/bot/mediaHandler');
+  const mp3 = Buffer.concat([Buffer.from([0xFF, 0xFB, 0x90, 0x00]), Buffer.alloc(2000)]);
+  const id3 = Buffer.concat([Buffer.from('ID3'), Buffer.alloc(2000)]);
+  const html = Buffer.concat([Buffer.from('<html>'), Buffer.alloc(2000)]);
+  C('isAudioBytes: MP3 ok', mh.isAudioBytes(mp3) === true);
+  C('isAudioBytes: ID3 ok', mh.isAudioBytes(id3) === true);
+  C('isAudioBytes: HTML rejeitado', mh.isAudioBytes(html) === false);
+  C('isAudioBytes: curto rejeitado', mh.isAudioBytes(Buffer.alloc(100)) === false);
+  const jpg = Buffer.concat([Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]), Buffer.alloc(5000)]);
+  C('cleanThumb: JPEG pequeno ok', mh.cleanThumb(jpg) === jpg);
+  C('cleanThumb: grande rejeitado', mh.cleanThumb(Buffer.concat([Buffer.from([0xFF, 0xD8]), Buffer.alloc(200000)])) === null);
+  C('cleanThumb: lixo rejeitado', mh.cleanThumb(html) === null);
+  C('reg: musictest', collected.has('musictest'));
+  await collected.get('musictest')({ isOwner: false, args: [], reply: async t => { got = t; } });
+  C('musictest: free recusado', /dono/.test(got));
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

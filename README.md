@@ -1,19 +1,46 @@
 <div align="center">
 
-# 🕸️ DARK BOT
-## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
+<img src="assets/hero.png" alt="DARK BOT — banner" width="100%" />
+
+[![Typing](https://readme-typing-svg.demolab.com?font=Fira+Code&size=22&pause=1200&color=00FF9D&center=true&vCenter=true&width=760&lines=IA+VIVA+%C2%B7+M%C3%8DDIA+REAL+%C2%B7+RPG+%C2%B7+MODERA%C3%87%C3%83O;1900%2B+cases+%C2%B7+88+grupos+de+teste+verdes;Pipeline+83ms+%E2%86%92+1ms+%E2%9A%A1+TURBO;N%C3%A3o+%C3%A9+s%C3%B3+automa%C3%A7%C3%A3o.+%C3%89+presen%C3%A7a.)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 
 <img src="src/public/img/logo.jpg" alt="DARK BOT" width="220" />
 
-### ✦ 𝙸𝙰 𝚅𝙸𝚅𝙰 · 𝙴𝙵𝙴𝙸𝚃𝙾𝚂 𝙽𝙴𝙾𝙽 · 𝙼Í𝙳𝙸𝙰 𝚁𝙴𝙰𝙻 · 𝙲𝙾𝙼𝙰𝙽𝙳𝙾 𝙳𝙰 𝚂𝚄𝙰 𝚁𝙴𝙳𝙴 ✦
+# 🕸️ DARK BOT
+## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
-[![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/dark-bot)
-[![Node](https://img.shields.io/badge/NODE.JS-18%2B-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.56.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![License](https://img.shields.io/badge/LICENSE-MIT-b14aed?style=for-the-badge)](LICENSE)
-[![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/dark-bot)
 
 > **Não é só um bot. É uma presença.**
 > Conversa, reage, cria, modera, joga, pesquisa, baixa e transforma o teu WhatsApp numa central viva.
+
+<img src="assets/dark-anim.svg" alt="DARK BOT animado" width="100%" />
+
+</div>
+
+---
+
+## 🆕 NOVIDADES
+
+| Versão | Destaques |
+|---|---|
+| **v7.56** 🔊 | **Áudio blindado** — validação de bytes MP3 antes de cada envio + thumbnails saneados (só JPEG/PNG ≤96KB) · **`.musictest`** diagnóstico (só dono) · logs `[MUSIC-SEND]` |
+| **v7.55** 👻 | 11 **comandos fantasma** implementados (`info`, `restart`, `blacklist`, `setpremium`, `qrcode`, `horoscopo`, `decrypt`, `statusvideo`, `x`, `figura`, `bass`) · fallback yt-dlp no TikTok · `audit-publico` 1605/0 |
+| **v7.54** 📥 | Downloads Spotify/SoundCloud ressuscitados (fallback yt-dlp + oEmbed) — SystemZone morreu, a música chega na mesma |
+| **v7.53** ⚡ | Pipeline **83ms → 1ms**: hotCache TTL 45s, groupMetadata paralelo, stats fire-and-forget, presets `veryfast`, heartbeat `composing` na IA |
+| **v7.52** 🚀 | TURBO: humanizer fast, 1 query/mensagem, ffmpeg/yt-dlp async, heap 1.5GB |
+| **v7.51** 🛡️ | Call gates anti-ban: o bot **nunca** liga sozinho (o número cai na hora) |
+
+<div align="center">
+
+<video src="assets/demo.mp4" poster="assets/demo-poster.jpg" width="720" controls muted loop playsinline></video>
+
+*[▶ Ver demo em ecrã cheio](assets/demo.mp4)*
 
 </div>
 
@@ -63,6 +90,15 @@ O DARK BOT foi pensado para ter uma identidade visual reconhecível em cada deta
 - respostas que parecem uma interface, não texto solto;
 - temas de menu para mudar a atmosfera da rede.
 
+<div align="center">
+<img src="assets/menu-aura-neon.png" alt="Menu AURA Neon" width="300" />
+<img src="assets/menu-aura-toxic.png" alt="Menu AURA Toxic" width="300" />
+<img src="assets/menu-aura-moon.png" alt="Menu AURA Moon" width="300" />
+
+*Três atmosferas: Neon · Toxic · Moon*
+
+</div>
+
 ### ☠️ Card DARK TÓXICO
 
 O comando `play` apresenta a música com capa, informações e botões numa experiência visual exagerada:
@@ -104,6 +140,10 @@ O bot pode responder com:
 
 A AURA não aparece apenas quando alguém digita um comando. Ela entende contexto, ambiente e intenção.
 
+<div align="center">
+<img src="assets/aura-cover.png" alt="AURA" width="480" />
+</div>
+
 ### Ela pode:
 
 - conversar no privado;
@@ -124,6 +164,7 @@ A AURA não aparece apenas quando alguém digita um comando. Ela entende context
 - falar de forma mais íntima, séria, irónica ou profissional.
 
 > 📞 Chamadas de voz exigem `@systemzero/baileys ≥ 1.1.3`, `opusscript` e **ffmpeg** no servidor (`apt install ffmpeg` ou `ffmpeg-static`).
+> 🛡️ O bot **nunca** liga sozinho — só quando o Dono pede (proteção anti-ban).
 
 <div align="center">
 
@@ -142,20 +183,18 @@ A AURA não aparece apenas quando alguém digita um comando. Ela entende context
 
 ## 🎵 MÍDIA DE VERDADE
 
-Nada de respostas que prometem um ficheiro e entregam apenas um link quebrado.
+Nada de respostas que prometem um ficheiro e entregam apenas um link quebrado. Cada rede é **testada ao vivo** — bytes reais verificados:
 
-O DARK BOT trabalha com uma cadeia real de pesquisa, download, conversão e entrega:
-
-- YouTube;
-- TikTok;
-- Instagram;
-- Facebook;
-- X/Twitter;
-- Spotify;
-- SoundCloud;
-- Pinterest;
-- GIFs e imagens;
-- stickers animados.
+| Rede | Comando | Estado |
+|---|---|---|
+| TikTok | `.tiktok` | ✅ TikWM + fallback yt-dlp |
+| YouTube | `.play` `.baixarvideo` `.baixaraudio` | ✅ ~1.5s |
+| Facebook | `.facebook` | ✅ MP4 HD |
+| X/Twitter | `.twitter` / `.x` | ✅ MP4 |
+| Spotify | `.spotify` | ✅ MP3 via fallback |
+| SoundCloud | `.soundcloud` | ✅ MP3 via fallback |
+| Instagram | `.instagram` | ⚠️ precisa de cookies (`YTDLP_COOKIES_BASE64`) |
+| Pinterest · GIFs · stickers | vários | ✅ |
 
 ### Velocidade escolhida para cada situação
 
@@ -181,7 +220,18 @@ Economia, carteira, banco, loja, recompensas, rankings e sistemas de progressão
 
 ### JOGOS E INTERAÇÕES
 
-Quiz, batalhas, roleta, anagramas, campo minado, rankings, família, desafios e dezenas de brincadeiras sociais.
+Quiz, batalhas, roleta, anagramas, campo minado (`.minado`), rankings, família, desafios e dezenas de brincadeiras sociais.
+
+### PACK INCOMING 🆕
+
+Comandos vindos de fora, integrados e testados (76 asserts):
+
+```text
+🛡️ ADMIN  delstts · abrirgp/fechargp · horariosgp · antifoba · fobadd/fobdel · autoapresentar
+🎮 JOGOS  minado (campo minado)
+🔧 TOOLS  tourl · fakechat · fdc · grok · tiktokphoto · pdf · upscale · edits/edit
+🎮 FF     infoff (perfil) · like (enviar likes) · spotifysearch
+```
 
 ### DARKSHIELD
 
@@ -222,8 +272,8 @@ Uma interface web para administrar o ecossistema inteiro:
 │  🕸️ DARK CONTROL CENTER                                │
 ├──────────────┬──────────────────────────────────────────┤
 │  BOT ONLINE  │  AURA AWAKENED                          │
-│  1870 CASES  │  SOCKET.IO LIVE                        │
-│  DB READY    │  MEDIA ENGINE READY                    │
+│  1944 CASES  │  SOCKET.IO LIVE                         │
+│  DB READY    │  MEDIA ENGINE READY                     │
 └──────────────┴──────────────────────────────────────────┘
 ```
 
@@ -241,7 +291,7 @@ DARKTUNNEL · ANYTUNNEL · APNALITE · TLSTUNNEL · WYRVPN
 JSON · TXT · BDNET
 ```
 
-Com acesso controlado, logs e separação por permissões.
+Com acesso controlado, logs e separação por permissões. No chat: envia o ficheiro, cola a URI ou usa `.decrypt` / `!vpn <uri>`.
 
 ---
 
@@ -271,19 +321,29 @@ Cada tema pode alterar molduras, ícones, separadores, títulos e atmosfera.
 | AURA viva | mídia real | RPG e jogos | DarkShield | dashboard |
 | memória | conversão | economia | moderação | eventos live |
 
-### 1.870 cases · 93 comandos de download · 19 modelos de dados · 31 páginas visuais
+### 1944 cases · 505 handlers · 20 modelos · 33 páginas · 88 grupos de teste · 1605 asserts
 
+</div>
+
+---
+
+## 💎 PLANOS
+
+<div align="center">
+<img src="assets/tabela-precos-dark-bot.jpg" alt="Tabela de preços" width="480" />
 </div>
 
 ---
 
 ## ☁️ DEPLOY NO NORTHFLANK
 
-O projeto está preparado para migrar para o Northflank usando o `Dockerfile` da raiz. O container instala Node 20, FFmpeg e dependências de produção, expondo a porta `3000`.
+O projeto está preparado para o Northflank usando o `Dockerfile` da raiz. O container instala Node 20, FFmpeg e dependências de produção, expondo a porta `3000`.
 
 Guia completo: [`NORTHFLANK_DEPLOY.md`](NORTHFLANK_DEPLOY.md).
 
 No serviço, configurar `APP_URL`, `MONGODB_URI`, `SESSION_SECRET`, dados do Dono, dados do bot e pelo menos um provider de IA como secrets. Não colocar API keys no código ou no repositório.
+
+Extras opcionais: `YTDLP_COOKIES_BASE64` (Instagram), `NYX_FF_TOKEN` (likes Free Fire), `GROQ_API_KEY` (IA).
 
 Health checks:
 
@@ -295,17 +355,17 @@ GET /ping
 ## 🚀 COMEÇA A EXPERIÊNCIA
 
 ```bash
-git clone https://github.com/onlynewsao-cmyk/dark-bot.git
-cd dark-bot
+git clone https://github.com/onlynewsao-cmyk/darknet-tunnel.git
+cd darknet-tunnel
 npm ci
 cp .env.example .env
 npm start
 ```
 
-Configura o teu ambiente com MongoDB, prefixo, número do Dono e pelo menos um provider de IA. Em produção, usa o Render com:
+Configura o teu ambiente com MongoDB, prefixo, número do Dono e pelo menos um provider de IA. Em produção, usa o Northflank com:
 
 ```env
-APP_URL=https://teu-servico.onrender.com
+APP_URL=https://teu-servico.northflank.com
 ```
 
 > O `APP_URL` deve ser a raiz do domínio, sem `/dashboard` ou `/control`.
@@ -322,7 +382,7 @@ npm run test:e2e
 npm test
 ```
 
-O projeto mantém testes para sintaxe, menus, permissões, AURA, RPG, downloads, conversão de mídia e fluxo end-to-end.
+88 grupos de teste: sintaxe, menus, permissões, AURA, RPG, downloads (com **entrega real de mídia verificada**), conversão, chamadas anti-ban e fluxo end-to-end.
 
 ---
 
@@ -330,7 +390,7 @@ O projeto mantém testes para sintaxe, menus, permissões, AURA, RPG, downloads,
 
 # ☠️ DARK BOT
 ## 𝙽𝙰̃𝙾 𝙴́ 𝚂𝙾́ 𝙰𝚄𝚃𝙾𝙼𝙰𝙲̧𝙰̃𝙾.
-## 𝙴́ 𝙿𝚁𝙴𝚂𝙴𝙽𝙲̧𝙰. 🕸️
+## 𝙴́ 𝙿𝚁𝙴𝚂𝙴𝙽Ç𝙰. 🕸️
 
 ### Feito para dominar o caos com estilo.
 

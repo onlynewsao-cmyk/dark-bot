@@ -42,7 +42,7 @@ async function sendAudioCard(sock, jid, quoted, r) {
   if (r.thumb || r.thumbnail) {
     try {
       thumbBuf = await mediaHandler.fetchBuffer(r.thumb || r.thumbnail);
-      if (!thumbBuf || thumbBuf.length < 100) thumbBuf = null;
+      thumbBuf = mediaHandler.cleanThumb(thumbBuf); // v7.56: só JPEG/PNG ≤96KB
     } catch {}
   }
 
@@ -61,7 +61,8 @@ async function sendAudioCard(sock, jid, quoted, r) {
   let audioBuffer = r.buffer && Buffer.isBuffer(r.buffer) ? r.buffer : null;
   try {
     if (!audioBuffer) audioBuffer = await mediaHandler.fetchBuffer(r.url);
-    if (!audioBuffer || audioBuffer.length < 1024) throw new Error('áudio vazio');
+    if (!mediaHandler.isAudioBytes(audioBuffer)) throw new Error('áudio vazio ou inválido');
+    console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, r.source || r.quality || '');
     return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false, contextInfo }, { quoted });
   } catch (bufferError) {
     // Algumas URLs de provider são válidas para o fetch do WhatsApp, mas

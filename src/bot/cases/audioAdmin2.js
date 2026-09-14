@@ -104,6 +104,7 @@ async function applyAudioEffect(sock, msg, ctx, filterName) {
     const outBuf = fs.readFileSync(tmpOut);
     fs.unlinkSync(tmpIn);
     fs.unlinkSync(tmpOut);
+    if (!require('../mediaHandler').isAudioBytes(outBuf)) throw new Error('efeito gerou áudio inválido');
 
     await sock.sendMessage(ctx.remoteJid, {
       audio: outBuf, mimetype: 'audio/mpeg',

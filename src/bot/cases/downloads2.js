@@ -15,17 +15,21 @@ const config = require('../../config');
 // Helper: enviar áudio
 async function sendAudio(sock, jid, quoted, r) {
   const buf = r.buffer || await mediaHandler.fetchBuffer(r.url || r.download || r.download_url);
-  if (!buf || buf.length < 1024) throw new Error('áudio vazio');
+  if (!mediaHandler.isAudioBytes(buf)) throw new Error('áudio vazio ou inválido'); // v7.56
   const title = r.title || 'Áudio';
   const mime = r.mimetype || 'audio/mpeg';
   const ext = mime.includes('mp4') ? 'm4a' : 'mp3';
+  let contextInfo;
+  if (r.thumbnail) {
+    const thumb = mediaHandler.cleanThumb(await mediaHandler.fetchBuffer(r.thumbnail).catch(() => null));
+    if (thumb) contextInfo = { externalAdReply: { title, body: r.author || '', mediaType: 2, thumbnail: thumb, mediaUrl: '', sourceUrl: '' } };
+  }
+  console.log('[MUSIC-SEND]', jid, Math.round(buf.length / 1024) + 'KB', mime, r.source || r.quality || '');
   return sock.sendMessage(jid, {
     audio: buf, mimetype: mime,
     fileName: `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`,
     ptt: false,
-    contextInfo: r.thumbnail ? {
-      externalAdReply: { title, body: r.author || '', mediaType: 2, thumbnail: await mediaHandler.fetchBuffer(r.thumbnail).catch(() => null), mediaUrl: '', sourceUrl: '' },
-    } : undefined,
+    ...(contextInfo ? { contextInfo } : {}),
   }, { quoted });
 }
 
@@ -534,5 +538,33 @@ module.exports = function registerDownloads2(registerCase) {
         await sock.sendMessage(ctx.remoteJid, { video: outBuf, caption: '📱 Pronto pro status (≤30s)' }, { quoted: msg });
       } finally { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }
     } catch (e) { return reply('❌ StatusVideo: ' + (e.message || e)); }
+  });
+
+  // ── musictest (v7.56: diagnóstico de entrega de áudio; só dono) ──
+  registerCase(['musictest', 'testaudio'], async ({ sock, msg, ctx, args, isOwner, reply }) => {
+    if (!isOwner) return reply('🚫 Só o *dono*.');
+    const withCard = String(args[0] || '').toLowerCase() === 'card';
+    try {
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
+      const execFileAsync = require('util').promisify(require('child_process').execFile);
+      let ff = 'ffmpeg';
+      try { ff = require('ffmpeg-static') || 'ffmpeg'; } catch {}
+      const out = path.join(os.tmpdir(), `darkbot-musictest-${Date.now()}.mp3`);
+      await execFileAsync(ff, ['-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-b:a', '128k', out], { timeout: 60000 });
+      const buf = fs.readFileSync(out);
+      try { fs.unlinkSync(out); } catch {}
+      const mh = require('../mediaHandler');
+      if (!mh.isAudioBytes(buf)) throw new Error('ffmpeg gerou bytes inválidos?!');
+      const contextInfo = withCard
+        ? { externalAdReply: { title: 'MUSICTEST', body: 'cartão de teste', mediaType: 2, mediaUrl: '', sourceUrl: '' } }
+        : undefined;
+      await sock.sendMessage(ctx.remoteJid, {
+        audio: buf, mimetype: 'audio/mpeg', fileName: 'musictest.mp3', ptt: false,
+        ...(contextInfo ? { contextInfo } : {}),
+      }, { quoted: msg });
+      return reply(`🔊 Teste enviado (${(buf.length / 1024).toFixed(0)}KB, ${withCard ? 'COM cartão' : 'SEM cartão'}).\nConsegues ouvir? Diz o que aconteceu.`);
+    } catch (e) { return reply('❌ musictest: ' + (e.message || e)); }
   });
 };
