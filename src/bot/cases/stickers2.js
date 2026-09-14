@@ -107,7 +107,7 @@ module.exports = function registerStickers2(registerCase) {
     }
   }, true);
 
-  // ═══ BRAT2 (SEMPRE palavra por palavra) ═══
+  // ═══ BRAT2 (typewriter ANIMADO — frames PNG → webp animado via ffmpeg) ═══
   registerCase(['brat2'], async ({ sock, msg, ctx, args }) => {
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     const input = args.join(' ').trim() || 'brat';
@@ -115,35 +115,20 @@ module.exports = function registerStickers2(registerCase) {
       const sharp = require('sharp');
       const words = input.split(/\s+/);
       const text = input.toUpperCase().slice(0, 25);
-      // Auto-scale font
       const maxW = 480;
       let fontSize = 100;
       while (text.length * fontSize * 0.6 > maxW && fontSize > 16) fontSize -= 4;
       if (text.length > 15) fontSize = Math.min(fontSize, 32);
 
-      // SEMPRE palavra por palavra (mesmo para 1 palavra, faz letra por letra)
       const frames = [];
-      const delays = [];
       if (words.length === 1) {
-        // 1 palavra → letra por letra
-        for (let i = 1; i <= text.length; i++) {
-          frames.push(text.slice(0, i) + (i < text.length ? '|' : ''));
-          delays.push(130);
-        }
+        for (let i = 1; i <= text.length; i++) frames.push({ t: text.slice(0, i) + (i < text.length ? '|' : ''), n: 1 });
       } else {
-        // 2+ palavras → palavra por palavra
-        for (let i = 1; i <= words.length; i++) {
-          const partial = words.slice(0, i).join(' ').toUpperCase();
-          frames.push(partial + (i < words.length ? '|' : ''));
-          delays.push(250);
-        }
+        for (let i = 1; i <= words.length; i++) frames.push({ t: words.slice(0, i).join(' ').toUpperCase() + (i < words.length ? '|' : ''), n: 2 });
       }
-      // Pausa final (2 frames)
-      frames.push(text, text);
-      delays.push(700, 700);
+      frames.push({ t: text, n: 5 }, { t: text, n: 5 }); // pausa final
 
-      const pngFrames = [];
-      for (const frameText of frames) {
+      const render = async (frameText) => {
         const svgStr = '<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">' +
           '<rect width="512" height="512" fill="#84CC16"/>' +
           '<text x="256" y="256" text-anchor="middle" dominant-baseline="middle" ' +
@@ -151,21 +136,45 @@ module.exports = function registerStickers2(registerCase) {
           'font-weight="900" fill="black" opacity="0.85" ' +
           'textLength="' + Math.min(frameText.length * fontSize * 0.55, maxW) + '" lengthAdjust="spacingAndGlyphs">' +
           frameText.slice(0, 25) + '</text></svg>';
-        pngFrames.push(await sharp(Buffer.from(svgStr)).png().toBuffer());
-      }
+        return sharp(Buffer.from(svgStr)).png().toBuffer();
+      };
 
-      let finalBuf;
+      // v7.50: antes passava 1 frame estático com isVideo:true → crash NATIVO
+      // (free(): invalid size) que matava o bot para TODOS. Agora monta um
+      // webp ANIMADO real; sem ffmpeg cai para o frame final estático.
+      let finalBuf = null;
       try {
-        finalBuf = await sharp(pngFrames[0], { animated: true })
-          .webp({ quality: 68, loop: 0, delay: delays })
-          .toBuffer();
-      } catch { finalBuf = pngFrames[pngFrames.length - 1]; }
+        const fs = require('fs'); const os = require('os'); const path = require('path');
+        const execFileAsync = require('util').promisify(require('child_process').execFile); // v7.52 async
+        const FF = (() => { try { return require('ffmpeg-static') || 'ffmpeg'; } catch { return 'ffmpeg'; } })();
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'brat2-'));
+        let fi = 0;
+        for (const f of frames) {
+          const png = await render(f.t);
+          for (let k = 0; k < f.n; k++) fs.writeFileSync(path.join(dir, 'f' + String(fi++).padStart(3, '0') + '.png'), png);
+        }
+        const out = path.join(dir, 'out.webp');
+        await execFileAsync(FF, ['-y', '-framerate', '8', '-i', path.join(dir, 'f%03d.png'), '-vcodec', 'libwebp', '-q', '68', '-loop', '0', '-an', out], { stdio: 'ignore' });
+        finalBuf = fs.readFileSync(out);
+        fs.rmSync(dir, { recursive: true, force: true });
+        if (!finalBuf || finalBuf.length < 200) finalBuf = null;
+      } catch { finalBuf = null; }
 
-      const stk = await stickerMaker.create(finalBuf, {
-        botName: config.bot.name, ownerName: config.owner.name,
-        userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: true,
-        packName: ' brat2', authorName: ctx.pushName,
-      });
+      let stk;
+      if (finalBuf) {
+        stk = await stickerMaker.create(finalBuf, {
+          botName: config.bot.name, ownerName: config.owner.name,
+          userName: ctx.pushName, groupName: ctx.groupName || 'PV', preAnimated: true,
+          packName: ' brat2', authorName: ctx.pushName,
+        });
+      } else {
+        const png = await render(text);
+        stk = await stickerMaker.create(png, {
+          botName: config.bot.name, ownerName: config.owner.name,
+          userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
+          packName: ' brat2', authorName: ctx.pushName,
+        });
+      }
       await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {

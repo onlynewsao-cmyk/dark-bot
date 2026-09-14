@@ -8,6 +8,8 @@
 'use strict';
 
 const { execFileSync } = require('child_process');
+// v7.52 TURBO: ffmpeg assíncrono
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -66,14 +68,14 @@ function getFfmpegBin() {
   try { return require('ffmpeg-static') || 'ffmpeg'; } catch { return 'ffmpeg'; }
 }
 
-function ffmpegExtractPngs(buf, count = 4) {
+async function ffmpegExtractPngs(buf, count = 4) {
   const bin = getFfmpegBin();
   const dir = path.join(os.tmpdir(), `stkvis_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
   const inFile = path.join(dir, 'in.webp');
   fs.mkdirSync(dir, { recursive: true });
   try {
     fs.writeFileSync(inFile, buf);
-    execFileSync(bin, [
+    await execFileAsync(bin, [
       '-y', '-i', inFile,
       '-vf', 'fps=6,scale=512:512:force_original_aspect_ratio=decrease',
       '-vframes', String(Math.max(1, count)),
@@ -137,7 +139,7 @@ async function stickerToVision(buf, stickerMsg = {}) {
   } catch { /* cai no ffmpeg */ }
 
   try {
-    const frames = ffmpegExtractPngs(buf, info.animated ? 4 : 1);
+    const frames = await ffmpegExtractPngs(buf, info.animated ? 4 : 1);
     if (frames.length) {
       return {
         kind: info.animated || frames.length > 1 ? 'animated' : 'static',

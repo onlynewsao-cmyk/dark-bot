@@ -17,6 +17,8 @@ const path       = require('path');
 const fs         = require('fs');
 const os         = require('os');
 const { spawnSync } = require('child_process');
+// v7.52 TURBO: yt-dlp/ffmpeg assíncronos (o Sync parava todos os chats)
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const yts        = require('yt-search');
 
 const SZ_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
@@ -152,7 +154,7 @@ async function ytdlpDownload(videoUrl, audioOnly = true, quality = '128k', maxHe
   args.push(videoUrl);
 
   try {
-    spawnSync(bin, args, { timeout: 120000, stdio: 'pipe' });
+    await execFileAsync(bin, args, { timeout: 120000, stdio: 'pipe' });
     const files = fs.readdirSync(tmp);
     if (!files.length) throw new Error('yt-dlp não gerou ficheiro');
     const outFile = path.join(tmp, files[0]);
@@ -296,10 +298,10 @@ async function compressVideoForWhatsApp(inputBuf) {
   try {
     fs.writeFileSync(inPath, inputBuf);
     // Comprime: 480p, CRF 28, áudio 96k
-    const r = spawnSync(ffmpegBin(), [
+    const r = await execFileAsync(ffmpegBin(), [
       '-y', '-i', inPath,
       '-vf', 'scale=-2:480',
-      '-c:v', 'libx264', '-crf', '28', '-preset', 'fast',
+      '-c:v', 'libx264', '-crf', '28', '-preset', 'veryfast', // v7.53: shrink ~2x mais rápido
       '-c:a', 'aac', '-b:a', '96k',
       '-movflags', '+faststart',
       outPath,
@@ -314,13 +316,13 @@ async function compressVideoForWhatsApp(inputBuf) {
 }
 
 // ─── Extrai MP3 de buffer M4A/MP4 ────────────────────────────
-function extractAudioFromBuffer(inputBuf, bitrate = '128k') {
+async function extractAudioFromBuffer(inputBuf, bitrate = '128k') {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-audio-'));
   const inPath = path.join(tmp, 'input.m4a');
   const outPath = path.join(tmp, 'audio.mp3');
   try {
     fs.writeFileSync(inPath, inputBuf);
-    const r = spawnSync(ffmpegBin(), [
+    const r = await execFileAsync(ffmpegBin(), [
       '-y', '-i', inPath,
       '-vn', '-ar', '44100', '-ac', '2', '-b:a', bitrate,
       outPath,
@@ -356,7 +358,7 @@ async function getAudio(query, quality = '128k') {
   // 2. @distube/ytdl-core
   try {
     const { buf } = await distubeDlAudio(meta.url);
-    const mp3buf = extractAudioFromBuffer(buf, quality);
+    const mp3buf = await extractAudioFromBuffer(buf, quality);
     return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'ytdl-core' };
   } catch (e) { errors.push('ytdl-core: ' + e.message?.slice(0, 60)); }
 
@@ -364,7 +366,7 @@ async function getAudio(query, quality = '128k') {
   if (meta.videoId) {
     try {
       const m4abuf = await youtubeijsStream(meta.videoId, true);
-      const mp3buf = extractAudioFromBuffer(m4abuf, quality);
+      const mp3buf = await extractAudioFromBuffer(m4abuf, quality);
       return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'youtubei.js' };
     } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
   }
@@ -374,7 +376,7 @@ async function getAudio(query, quality = '128k') {
     const r = await loaderDownload(meta.url, 'mp3');
     // Loader.to pode ignorar o bitrate pedido; normalizamos sempre com
     // FFmpeg para que 96k/192k/320k sejam reais também no fallback.
-    const mp3buf = extractAudioFromBuffer(r.buffer, quality);
+    const mp3buf = await extractAudioFromBuffer(r.buffer, quality);
     return { ...meta, title: r.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'loader.to' };
   } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
 
@@ -383,7 +385,7 @@ async function getAudio(query, quality = '128k') {
     const info = await szDownloadMP4(meta.url);
     const mp4buf = await fetchBuf(info.url, 120000);
     if (mp4buf && mp4buf.length > 10240) {
-      const mp3buf = extractAudioFromBuffer(mp4buf, quality);
+      const mp3buf = await extractAudioFromBuffer(mp4buf, quality);
       return { ...meta, title: info.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'SystemZone' };
     }
   } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }

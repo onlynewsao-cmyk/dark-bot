@@ -23,7 +23,10 @@ async function getThemeForContext(groupJid = null) {
       if (cached.theme) return cached.theme;
     } else {
       try {
-        const gs = await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
+        // v7.53: TTL do hotCache primeiro (0ms); sem TTL, à base como antes
+        let gs = null;
+        try { gs = require('./hotCache').peekGroup(groupJid) ?? null; } catch {}
+        if (gs === null) gs = await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
         if (gs?.groupTheme) {
           const t = changeThemes.getTheme(gs.groupTheme);
           if (t) {

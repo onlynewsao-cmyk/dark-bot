@@ -158,10 +158,9 @@ function painelAviso(alvo, motivo, acao) {
   ].join('\n');
 }
 
-async function getSettings(groupJid) {
+async function getSettings(groupJid, msg) {
   try {
-    const GroupSettings = require('../database/models/GroupSettings');
-    return await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
+    return await require('./hotCache').getGroupSettings(msg, groupJid); // v7.52: 1 query/msg partilhada
   } catch { return null; }
 }
 
@@ -179,7 +178,7 @@ async function check(sock, msg) {
     const sender = msg.key?.participant;
     if (!sender) return false;
 
-    const gs = await getSettings(grupoId);
+    const gs = await getSettings(grupoId, msg);
     if (!gs?.antifoba) return false;
 
     const violacao = analisarMensagem(msg.message);
@@ -188,7 +187,7 @@ async function check(sock, msg) {
     const chave = `foba:msg:${grupoId}:${sender}:${msg.key.id || ''}`;
     if (!reservar(chave)) return true;
 
-    const meta = await sock.groupMetadata(grupoId).catch(() => null);
+    const meta = await require('./hotCache').getMeta(sock, grupoId); // v7.52: meta com TTL
     if (!meta) { PROCESSADOS.delete(chave); return false; }
     const botId = sock.user?.id || '';
     let botNum = '';
@@ -229,7 +228,7 @@ async function onJoin(sock, groupJid, participants, meta) {
       .map(d => String(d).replace(/\D/g, '')).filter(Boolean);
     if (!blacklist.length) return removidos;
 
-    const metadata = meta || await sock.groupMetadata(groupJid).catch(() => null);
+    const metadata = meta || await require('./hotCache').getMeta(sock, groupJid); // v7.52: meta com TTL
     if (!metadata) return removidos;
     const botId = sock.user?.id || '';
     let botNum = '';

@@ -1,30 +1,33 @@
 'use strict';
 
 /**
- * v7.45 — Humanizador de envio.
+ * v7.45 — Humanizador de envio. v7.52 — modos off/fast/full.
  *
  * Faz o bot comportar-se como uma pessoa ao responder, sem tocar nos ~770
  * `sock.sendMessage` espalhados pelo código: embrulha o `sendMessage` do
  * socket uma única vez, na criação.
  *
- * Para cada envio para um chat onde houve mensagem recebida:
- *   1. marca a mensagem recebida como LIDA (✓✓ azul) — depois de um pequeno atraso;
- *   2. mostra "a escrever…" (texto) ou "a gravar áudio…" (PTT);
- *   3. espera um tempo proporcional ao tamanho da resposta (com jitter e tecto);
- *   4. envia e limpa a presença ("paused").
+ * MODOS (env HUMANIZE):
+ *   fast (OMISSÃO) — lido + "a escrever…" sem bloquear, espera mínima
+ *                    (80–260ms). Rápido e continua a parecer humano.
+ *   full ("on")    — comportamento teatral original: atraso de leitura +
+ *                    espera proporcional ao tamanho (até ~6s). Lento.
+ *   off            — sem nada (útil em testes).
  *
- * Envios seguidos para o mesmo chat (ex.: card + áudio) só pagam o atraso
- * completo no primeiro; os seguintes têm um atraso curto. Envios sem mensagem
- * recebida associada (agendados, broadcast, avisos de sistema) só têm um
- * jitter mínimo para não saírem em rajada exacta.
- *
- * Desliga-se com HUMANIZE=off (útil em testes/sim).
+ * Em fast, presença e lido são fire-and-forget: o RTT do WhatsApp nunca
+ * atrasa o envio. A presença mostra-se ANTES da espera mínima, por isso
+ * quem recebe continua a ver "a escrever…" antes da resposta.
  */
 
-const ON = String(process.env.HUMANIZE || 'on').toLowerCase() !== 'off';
+const _raw = String(process.env.HUMANIZE || '').toLowerCase().trim();
+const MODE = _raw === 'off' || _raw === '0' || _raw === 'false' ? 'off'
+  : (_raw === 'full' || _raw === 'on' || _raw === 'true' || _raw === '1') ? 'full'
+  : 'fast';
+const ON = MODE !== 'off';
+const FAST = MODE === 'fast';
 
 // Velocidade "humana" de escrita ~ 40 caracteres/seg, com tecto para não
-// arrastar respostas longas (a IA gera textos grandes).
+// arrastar respostas longas (a IA gera textos grandes). Só usado em full.
 const CPS               = Number(process.env.HUMANIZE_CPS || 40);
 const MIN_TEXTO_MS      = 700;
 const MAX_TEXTO_MS      = 4500;
@@ -36,6 +39,11 @@ const SEGUIDO_MS        = [350, 1100];     // 2.º, 3.º envio para o mesmo chat
 const JANELA_SEGUIDO_MS = 12000;
 const LER_ATRASO_MS     = [400, 1800];     // tempo até "abrir" a conversa
 const JITTER_SISTEMA_MS = [150, 700];
+
+// v7.52 fast: fracções dos valores full — presença visível, espera mínima.
+const FAST_RESPOSTA_MS = [80, 260];
+const FAST_SEGUIDO_MS  = [60, 180];
+const FAST_SISTEMA_MS  = [40, 140];
 
 const ultimoEnvio  = new Map();  // jid → ts do último envio
 const pendenteLer  = new Map();  // jid → key da última msg recebida por ler
@@ -88,7 +96,8 @@ function lerSemResponder(sock, msg) {
   if (!ON) return;
   const jid = msg?.key?.remoteJid;
   if (!jid || jid.endsWith('@g.us') || msg.key.fromMe) return;
-  setTimeout(() => lerPendente(sock, jid), rnd([2500, 9000]));
+  const janela = FAST ? [800, 2500] : [2500, 9000];
+  setTimeout(() => lerPendente(sock, jid), rnd(janela));
 }
 
 function wrap(sock) {
@@ -105,22 +114,40 @@ function wrap(sock) {
     const respostaAAlguem = pendenteLer.has(jid);
 
     try {
-      if (respostaAAlguem && !seguido) {
-        await sleep(rnd(LER_ATRASO_MS));
-        await lerPendente(sock, jid);
-      }
-      let espera;
-      if (seguido) espera = rnd(SEGUIDO_MS);
-      else if (respostaAAlguem) espera = calcularEspera(tp, content);
-      else espera = rnd(JITTER_SISTEMA_MS);
+      if (FAST) {
+        // ── FAST: lido + presença disparam SEM esperar; só a espera
+        // mínima bloqueia o envio (o RTT do WhatsApp não conta).
+        if (respostaAAlguem && !seguido) lerPendente(sock, jid).catch(() => {});
+        const espera = seguido ? rnd(FAST_SEGUIDO_MS)
+          : respostaAAlguem ? rnd(FAST_RESPOSTA_MS)
+          : rnd(FAST_SISTEMA_MS);
+        if (espera > 0 && (tp === 'texto' || tp === 'ptt' || tp === 'audio' || tp === 'media')) {
+          const presence = (tp === 'ptt' || tp === 'audio') ? 'recording' : 'composing';
+          try { sock.sendPresenceUpdate(presence, jid).catch(() => {}); } catch {}
+          await sleep(espera);
+          try { sock.sendPresenceUpdate('paused', jid).catch(() => {}); } catch {}
+        } else if (espera > 0) {
+          await sleep(espera);
+        }
+      } else {
+        // ── FULL: comportamento original (teatral, lento).
+        if (respostaAAlguem && !seguido) {
+          await sleep(rnd(LER_ATRASO_MS));
+          await lerPendente(sock, jid);
+        }
+        let espera;
+        if (seguido) espera = rnd(SEGUIDO_MS);
+        else if (respostaAAlguem) espera = calcularEspera(tp, content);
+        else espera = rnd(JITTER_SISTEMA_MS);
 
-      if (espera > 500 && (tp === 'texto' || tp === 'ptt' || tp === 'audio' || tp === 'media')) {
-        const presence = (tp === 'ptt' || tp === 'audio') ? 'recording' : 'composing';
-        await sock.sendPresenceUpdate(presence, jid).catch(() => {});
-        await sleep(espera);
-        await sock.sendPresenceUpdate('paused', jid).catch(() => {});
-      } else if (espera > 0) {
-        await sleep(espera);
+        if (espera > 500 && (tp === 'texto' || tp === 'ptt' || tp === 'audio' || tp === 'media')) {
+          const presence = (tp === 'ptt' || tp === 'audio') ? 'recording' : 'composing';
+          await sock.sendPresenceUpdate(presence, jid).catch(() => {});
+          await sleep(espera);
+          await sock.sendPresenceUpdate('paused', jid).catch(() => {});
+        } else if (espera > 0) {
+          await sleep(espera);
+        }
       }
     } catch {}
 
@@ -132,4 +159,22 @@ function wrap(sock) {
   return sock;
 }
 
-module.exports = { wrap, notaRecebida, lerSemResponder, _cfg: { ON, CPS } };
+/**
+ * v7.53 — heartbeat "a pensar": enquanto a IA trabalha (1–4 s sem nada no
+ * ecrã), mantém o "a escrever…" vivo com pulso a cada 4 s. Fire-and-forget:
+ * nunca atrasa nada. Devolve a função de parar (chamar em finally).
+ *
+ *   const parar = pensando(sock, jid);
+ *   try { answer = await ai.chat(...); } finally { parar(); }
+ */
+function pensando(sock, jid) {
+  if (!ON || !sock || !jid || typeof sock.sendPresenceUpdate !== 'function') return () => {};
+  let parado = false;
+  const pulso = () => { if (!parado) { try { sock.sendPresenceUpdate('composing', jid).catch(() => {}); } catch {} } };
+  pulso();
+  const timer = setInterval(pulso, 4000);
+  if (timer.unref) timer.unref(); // nunca prende o processo
+  return () => { parado = true; try { clearInterval(timer); } catch {} };
+}
+
+module.exports = { wrap, notaRecebida, lerSemResponder, pensando, _cfg: { ON, CPS, MODE } };

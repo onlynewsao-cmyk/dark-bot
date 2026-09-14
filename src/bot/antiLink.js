@@ -259,7 +259,7 @@ async function check(sock, msg) {
     if (ownerNum && senderNum === ownerNum) return false; // dono imune
 
     // Config do grupo
-    const gs = await GroupSettings.findOne({ groupJid: remoteJid }).lean().catch(() => null);
+    const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
     // v7.35: interruptor global do dashboard (antilink_enabled) — liga em todos os grupos
     // que não desligaram explicitamente; se o grupo definiu, o grupo manda.
     let ativo = !!gs?.antilink;
@@ -295,8 +295,7 @@ async function check(sock, msg) {
     // Premium imune (opcional, desligado por padrão)
     if (gs.antilinkVipImmune) {
       try {
-        const User = require('../database/models/User');
-        const u = await User.findOne({ whatsappNumber: senderNum }).lean();
+        const u = await require('./hotCache').getUser(msg, senderNum); // v7.52: memo partilhado
         const isPrem = u && (u.role === 'premium' || (u.premiumUntil && new Date(u.premiumUntil) > new Date()));
         if (isPrem) return false;
       } catch {}

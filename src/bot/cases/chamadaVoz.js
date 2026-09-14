@@ -91,8 +91,11 @@ module.exports = function registerChamadaVoz(registerCase) {
     return reply('Desliguei. Foi bom ouvir-te. 🖤');
   }, true);
 
-  registerCase(['callstatus', 'chamadas', 'callsativas'], async ({ reply, isOwner }) => {
-    if (!isOwner) return;
+  // v7.50: 'chamadas' era disputado com chamadas.js — este handler (só dono,
+  // silencioso p/ free) ganhava e o menu info prometia-o a todos. Agora o
+  // display amigável (chamadas.js) vence; a vista voip fica em !callstatus.
+  registerCase(['callstatus', 'callsativas'], async ({ reply, isOwner }) => {
+    if (!isOwner) return reply('🔒 Só o dono vê as chamadas activas.');
     const t = voip.todas();
     if (!t.length) return reply('Nenhuma chamada activa.');
     return reply('📞 Chamadas activas:\n' + t.map(a => `• ${a.jid.split('@')[0]}${a.grupo ? ' (grupo)' : ''} — ${Math.round((Date.now() - a.desde) / 60000)} min${a.tocando ? ' · a tocar ' + a.tocando : ''}`).join('\n'));

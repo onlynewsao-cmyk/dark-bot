@@ -18,6 +18,8 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+// v7.52 TURBO: opus assíncrono (o Sync parava todos os chats ~90s)
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const mediaHandler = require('./mediaHandler');
 
 let _szp = null;
@@ -52,13 +54,13 @@ function _ffmpegBin() {
 }
 
 /** MP3 → opus (16 kHz mono) para nota de voz. */
-function _paraOpus(buffer) {
+async function _paraOpus(buffer) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-opus-'));
   const inP = path.join(tmp, 'in.mp3');
   const outP = path.join(tmp, 'out.ogg');
   try {
     fs.writeFileSync(inP, buffer);
-    const r = spawnSync(_ffmpegBin(), [
+    const r = await execFileAsync(_ffmpegBin(), [
       '-y', '-i', inP, '-c:a', 'libopus', '-b:a', '64k', '-ar', '16000', '-ac', '1', outP,
     ], { timeout: 90000, stdio: 'pipe' });
     if (!fs.existsSync(outP) || fs.statSync(outP).size < 512) {
@@ -223,7 +225,7 @@ async function tentarNumero(sock, msg, ctx, text) {
 
     // opcao 3 — nota de voz (opus)
     let opus;
-    try { opus = _paraOpus(buffer); } catch { /* sem ffmpeg → manda o mp3 como PTT */ }
+    try { opus = await _paraOpus(buffer); } catch { /* sem ffmpeg → manda o mp3 como PTT */ }
     if (opus && opus.length > 500) {
       await sock.sendMessage(ctx.remoteJid, {
         audio: opus, mimetype: 'audio/ogg; codecs=opus', ptt: true,

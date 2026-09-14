@@ -21,6 +21,8 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const { execSync, execFileSync } = require('child_process');
+// v7.52 TURBO: ffmpeg assíncrono (o Sync parava todos os chats)
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const axios = require('axios');
 const { sendWithGif } = require('./gifHelper');
 const facebookPublisher = require('./facebookPublisher');
@@ -129,6 +131,10 @@ async function sendAudioWithCard(sock, msg, ctx, r) {
 }
 
 /** Envia menu com mídia (foto/vídeo/gif) se configurada */
+// v7.53: buffer da mídia do menu em cache (TTL 10min) — era 1 download
+// de rede POR comando de menu. A URL muda quando o dono troca a mídia.
+const _menuMediaCache = new Map(); // url → { buf, ts }
+const MENU_MEDIA_TTL = 10 * 60 * 1000;
 async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
   const mediaUrl = await botConfigCache.get(`menu_media_${target}_url`, '');
   const mediaType = await botConfigCache.get(`menu_media_${target}_type`, 'none');
@@ -136,16 +142,25 @@ async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
 
   if (mediaUrl && mediaType !== 'none') {
     try {
-      const buf = await mediaHandler.fetchBuffer(mediaUrl);
+      let buf = null;
+      const _mmc = _menuMediaCache.get(mediaUrl);
+      if (_mmc && (Date.now() - _mmc.ts) < MENU_MEDIA_TTL) buf = _mmc.buf;
+      else {
+        buf = await mediaHandler.fetchBuffer(mediaUrl);
+        if (buf?.length) {
+          if (_menuMediaCache.size > 20) _menuMediaCache.clear();
+          _menuMediaCache.set(mediaUrl, { buf, ts: Date.now() });
+        }
+      }
       if (mediaType === 'gif') {
         // GIF → Comprime e envia com gifPlayback (animado no WhatsApp)
-        const compressed = compressVideoForGif(buf);
+        const compressed = await compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
           video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
       } else if (mediaType === 'video') {
         // Vídeo → Comprime e envia com gifPlayback (como GIF)
-        const compressed = compressVideoForGif(buf);
+        const compressed = await compressVideoForGif(buf);
         return sock.sendMessage(ctx.remoteJid, {
           video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
@@ -197,13 +212,13 @@ function videoInputExt(kind) {
   return 'bin';
 }
 
-function convertVideoBufferToMp4(buffer, kind = 'unknown') {
+async function convertVideoBufferToMp4(buffer, kind = 'unknown') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-video-'));
   const inputPath = path.join(tmpDir, `input.${videoInputExt(kind)}`);
   const outputPath = path.join(tmpDir, 'output.mp4');
   try {
     fs.writeFileSync(inputPath, buffer);
-    execFileSync(getFfmpegBin(), [
+    await execFileAsync(getFfmpegBin(), [
       '-y',
       '-i', inputPath,
       '-map', '0:v:0?',
@@ -234,7 +249,7 @@ function convertVideoBufferToMp4(buffer, kind = 'unknown') {
  * @param {string} kind - Tipo do vídeo (mp4, webm, etc)
  * @returns {Buffer} Vídeo comprimido em MP4
  */
-function compressVideo(buffer, kind = 'unknown') {
+async function compressVideo(buffer, kind = 'unknown') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-compress-'));
   const inputPath = path.join(tmpDir, `input.${videoInputExt(kind)}`);
   const outputPath = path.join(tmpDir, 'output.mp4');
@@ -243,13 +258,13 @@ function compressVideo(buffer, kind = 'unknown') {
     // CRF 23 = qualidade visual quase idêntica ao original
     // preset medium = melhor compressão (mais lento que veryfast)
     // maxrate e bufsize limitam bitrate para reduzir tamanho
-    execFileSync(getFfmpegBin(), [
+    await execFileAsync(getFfmpegBin(), [
       '-y',
       '-i', inputPath,
       '-map', '0:v:0?',
       '-map', '0:a:0?',
       '-c:v', 'libx264',
-      '-preset', 'medium',
+      '-preset', 'fast', // v7.53: era medium (lento)
       '-crf', '23',
       '-pix_fmt', 'yuv420p',
       '-maxrate', '1500k',
@@ -278,7 +293,7 @@ function compressVideo(buffer, kind = 'unknown') {
  * @param {string} kind - Tipo do vídeo
  * @returns {Buffer} Vídeo comprimido pronto para gifPlayback
  */
-function compressVideoForGif(buffer, kind = 'unknown') {
+async function compressVideoForGif(buffer, kind = 'unknown') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-gif-'));
   const inputPath = path.join(tmpDir, `input.${videoInputExt(kind)}`);
   const outputPath = path.join(tmpDir, 'output.mp4');
@@ -286,13 +301,13 @@ function compressVideoForGif(buffer, kind = 'unknown') {
     fs.writeFileSync(inputPath, buffer);
     // Para GIF: CRF 28 (mais compressão), preset fast, sem áudio
     // Resolução máxima 480px de largura para reduzir tamanho
-    execFileSync(getFfmpegBin(), [
+    await execFileAsync(getFfmpegBin(), [
       '-y',
       '-i', inputPath,
       '-map', '0:v:0?',
       '-vf', 'scale=\'min(480,iw)\':-2',
       '-c:v', 'libx264',
-      '-preset', 'fast',
+      '-preset', 'veryfast', // v7.53: previews GIF ~2x mais rápidos
       '-crf', '28',
       '-pix_fmt', 'yuv420p',
       '-an', // Sem áudio para GIF
@@ -325,7 +340,7 @@ async function sendVideoFromUrl(sock, jid, urlOrBuffer, caption, quotedMsg, opts
 
     // Regra nova: transcodificar sempre para MP4 WhatsApp-safe.
     // Mesmo se já for .mp4, pode vir com codec incompatível.
-    const mp4 = (opts.safeMp4 && kind === 'mp4') ? buf : convertVideoBufferToMp4(buf, kind);
+    const mp4 = (opts.safeMp4 && kind === 'mp4') ? buf : await convertVideoBufferToMp4(buf, kind);
 
     return sock.sendMessage(jid, {
       video: mp4,
@@ -738,13 +753,13 @@ function getQuotedAudioMessage(msg) {
   return null;
 }
 
-function processAudioEffect(buffer, filter, name) {
+async function processAudioEffect(buffer, filter, name) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dark-audiofx-'));
   const input = path.join(tmpDir, 'input.bin');
   const output = path.join(tmpDir, `${name}.mp3`);
   try {
     fs.writeFileSync(input, buffer);
-    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-af', filter, '-vn', '-b:a', '160k', '-ar', '44100', '-f', 'mp3', output], { stdio: 'ignore', timeout: 120000 });
+    await execFileAsync(getFfmpegBin(), ['-y', '-i', input, '-af', filter, '-vn', '-b:a', '160k', '-ar', '44100', '-f', 'mp3', output], { stdio: 'ignore', timeout: 120000 });
     const out = fs.readFileSync(output);
     if (!out || out.length < 1024) throw new Error('áudio vazio');
     if (out.length > 16 * 1024 * 1024) throw new Error('áudio muito grande após efeito');
@@ -953,7 +968,7 @@ module.exports = {
       if (caminhoVideo) {
         // Comprime o vídeo antes de enviar (reduz tamanho, mantém qualidade)
         const videoBuffer = fs2.readFileSync(caminhoVideo);
-        const compressedVideo = compressVideoForGif(videoBuffer, 'mp4');
+        const compressedVideo = await compressVideoForGif(videoBuffer, 'mp4');
         // Salva o vídeo comprimido temporariamente
         const tmpCompressed = path.join(os.tmpdir(), `menu-compressed-${Date.now()}.mp4`);
         fs2.writeFileSync(tmpCompressed, compressedVideo);
@@ -1755,8 +1770,10 @@ module.exports = {
     const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
     const limit = Math.min(Math.max(Number(args[0]) || 50, 5), 100);
     const list = meta.participants.slice(0, limit);
+    // v7.50: fallback para grupos/canais sem subject (era "undefined").
+    const gname = meta.subject || ctx.groupName || 'grupo';
     const text = `╭━━━〔 👥 PARTICIPANTES 〕━━━╮\n` +
-      `┃ Grupo: *${meta.subject}*\n┃ Total: *${meta.participants.length}*\n┣━━━━━━━━━━━━━━━━━━━━\n` +
+      `┃ Grupo: *${gname}*\n┃ Total: *${meta.participants.length}*\n┣━━━━━━━━━━━━━━━━━━━━\n` +
       list.map((p, i) => `┃ ${String(i + 1).padStart(2, '0')} ${isParticipantAdmin(p) ? '👑' : '👤'} @${p.id.split('@')[0]}`).join('\n') +
       (meta.participants.length > limit ? `\n┃ ... +${meta.participants.length - limit} membro(s)` : '') +
       `\n╰━━━〔 ᴅᴀʀᴋ sɪᴅᴇ ⚡ 〕━━━╯`;
@@ -2948,7 +2965,7 @@ module.exports = {
       if (!buf || buf.length < 100) throw new Error('Mídia vazia');
 
       const originalSize = buf.length;
-      const { buf: compressed, type } = compressor.autoCompress(buf, quality);
+      const { buf: compressed, type } = await compressor.autoCompress(buf, quality);
       const newSize = compressed.length;
       const saved = ((1 - newSize / originalSize) * 100).toFixed(0);
 
@@ -3581,7 +3598,7 @@ module.exports = {
     await react(sock, msg, '🎛️');
     try {
       const input = await mediaHandler.downloadFromMessage(src);
-      const out = processAudioEffect(input, AUDIO_EFFECTS[effect], effect);
+      const out = await processAudioEffect(input, AUDIO_EFFECTS[effect], effect);
       await sock.sendMessage(ctx.remoteJid, { audio: out, mimetype: 'audio/mpeg', fileName: `dark-${effect}.mp3`, ptt: false }, { quoted: msg });
       await react(sock, msg, '✅');
     } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, `❌ Efeito falhou: ${e.message}`); }

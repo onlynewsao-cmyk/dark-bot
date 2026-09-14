@@ -15,6 +15,8 @@
  */
 
 const { execSync, execFileSync } = require('child_process');
+// v7.52 TURBO: ffmpeg assíncrono (o Sync parava todos os chats)
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 let _Sticker, _StickerTypes;
 function waSticker() {
   if (!_Sticker) {
@@ -144,7 +146,7 @@ async function gifToWebpSquare(buffer) {
 }
 
 /* ─── Vídeo MP4/WebM → WebP animado 512x512 cover (via ffmpeg) ─ */
-function videoToWebpSquare(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
+async function videoToWebpSquare(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
   const tmp     = path.join(os.tmpdir(), `stk_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const inFile  = `${tmp}.in`;
   const outFile = `${tmp}.webp`;
@@ -156,7 +158,7 @@ function videoToWebpSquare(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_M
      * FILTRO CORRECTO para sticker quadrado SEM artefactos:
      * maxSec aumentado para 13 segundos conforme solicitado.
      */
-    execFileSync(FFMPEG_BIN, [
+    await execFileAsync(FFMPEG_BIN, [
       '-y',
       '-t', String(maxSec),
       '-i', inFile,
@@ -270,6 +272,12 @@ async function create(buffer, rawOpts = {}) {
   const isGif  = mime === 'image/gif';
   const isVid  = isVideo || mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
   const isAnim = isGif || isVid;
+  // v7.50: isVideo MENTIROSO (imagem com isVideo:true) entrava no pipeline de
+  // vídeo e rebentava NATIVO (free(): invalid size) — mata o processo todo sem
+  // catch possível (!brat2). Só vídeo REAL vai ao ffmpeg.
+  const videoReal = mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
+  // v7.50: webp já animado — só injeta meta (re-encodar achataria a animação).
+  if (opts.preAnimated) return injectMeta(buffer, pack, author, idPack, urlPack);
 
   /* ── GIF animado (processado pelo sharp — sem ffmpeg, sem artefactos) ── */
   if (isGif) {
@@ -291,10 +299,10 @@ async function create(buffer, rawOpts = {}) {
   }
 
   /* ── Vídeo MP4/WebM (precisa de ffmpeg para converter) ── */
-  if (isVid) {
+  if (isVid && videoReal) {
     if (FFMPEG_OK) {
       try {
-        const webpAnim = videoToWebpSquare(buffer);
+        const webpAnim = await videoToWebpSquare(buffer);
         const out = await injectMeta(webpAnim, pack, author, idPack, urlPack);
         if (out && out.length > 200) return out;
       } catch (e) {
@@ -345,13 +353,13 @@ async function imageToWebpFull(buffer, watermarkText = '') {
   return img.webp({ quality: 90, lossless: false }).toBuffer();
 }
 
-function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
+async function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
   const tmp = path.join(os.tmpdir(), `stkfull_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const inFile = `${tmp}.in`;
   const outFile = `${tmp}.webp`;
   try {
     fs.writeFileSync(inFile, inputBuf);
-    execFileSync(FFMPEG_BIN, [
+    await execFileAsync(FFMPEG_BIN, [
       '-y', '-t', String(maxSec), '-i', inFile,
       '-vf', [
         'scale=w=512:h=512:force_original_aspect_ratio=decrease',
@@ -385,9 +393,10 @@ async function createFull(buffer, rawOpts = {}) {
   const isGif = mime === 'image/gif';
   const isVid = isVideo || mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
 
-  if ((isGif || isVid) && FFMPEG_OK) {
+  // v7.50: mesmo guard anti-crash nativo do create().
+  if ((isGif || (isVid && (mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi'))) && FFMPEG_OK) {
     try {
-      const webp = videoToWebpFull(buffer);
+      const webp = await videoToWebpFull(buffer);
       const out = await injectMeta(webp, pack, author, idPack, urlPack);
       if (out && out.length > 200) return out;
     } catch (e) {}

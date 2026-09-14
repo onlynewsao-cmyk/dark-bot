@@ -1024,6 +1024,20 @@ async function chatWithImage(prompt, systemPrompt, imageBuffer, memoryOpts = {})
 // uma library voice que o plano free NÃO pode usar → HTTP 402.
 // Passa a null para o speakElevenLabs escolher uma voz da conta.
 // v7.36: parte o texto em frases (≤ maxLen) para nenhum motor cortar a fala a meio
+// v7.52 TURBO: paralelo com tecto, preservando a ordem (TTS em pedaços)
+async function mapCap(items, cap, fn) {
+  const out = new Array(items.length);
+  let i = 0;
+  const n = Math.min(Math.max(Number(cap) || 1, 1), items.length) || 1;
+  await Promise.all(Array.from({ length: n }, async () => {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx], idx);
+    }
+  }));
+  return out;
+}
+
 function splitForTts(text, maxLen = 900) {
   const t = String(text || '').replace(/\s+/g, ' ').trim();
   if (t.length <= maxLen) return [t];
@@ -1050,7 +1064,7 @@ function speakGoogleTts(text, lang = 'pt') {
     });
     req.on('error', reject); req.on('timeout', () => { req.destroy(); reject(new Error('gTTS timeout')); });
   });
-  return (async () => { const bufs = []; for (const p of parts) bufs.push(await one(p)); return Buffer.concat(bufs); })();
+  return (async () => Buffer.concat(await mapCap(parts, 4, (p) => one(p))))(); // v7.52: pedaços em paralelo
 }
 
 async function speakWithFallback(text, voiceId = null) {
@@ -1059,8 +1073,10 @@ async function speakWithFallback(text, voiceId = null) {
   // Tentar ElevenLabs primeiro — em pedaços de ≤900 chars, concatenados (MP3 concatena bem)
   try {
     const parts = splitForTts(full, 900);
-    const bufs = [];
-    for (const p of parts) { const a = await speakElevenLabs(p, voiceId); if (a && a.length > 500) bufs.push(a); else throw new Error('pedaço vazio'); }
+    // v7.52: pedaços em paralelo (tecto 3) — texto longo fala ~3x mais rápido
+    const got = await mapCap(parts, 3, (p) => speakElevenLabs(p, voiceId));
+    const bufs = got.filter(a => a && a.length > 500);
+    if (bufs.length !== parts.length) throw new Error('pedaço vazio');
     if (bufs.length) return Buffer.concat(bufs);
   } catch (e) {
     console.warn('[Voz] ElevenLabs falhou:', e.message);
@@ -1071,12 +1087,13 @@ async function speakWithFallback(text, voiceId = null) {
   
   // Fallback: usar TTS gratuito do sistema
   try {
-    const { execSync } = require('child_process');
+    const _efAsync = require('util').promisify(require('child_process').execFile); // v7.52: async, sem shell
     const tmpFile = `/tmp/aura-voice-${Date.now()}.mp3`;
     
     // Usar espeak ou similar se disponível
     try {
-      execSync(`espeak -v pt "${text.replace(/"/g, '\"')}" --stdout > ${tmpFile}`, { timeout: 10000 });
+      const { stdout: _wav } = await _efAsync('espeak', ['-v', 'pt', String(text), '--stdout'], { timeout: 10000, maxBuffer: 12 * 1024 * 1024, encoding: 'buffer' });
+      require('fs').writeFileSync(tmpFile, _wav);
       const fs = require('fs');
       const audio = fs.readFileSync(tmpFile);
       fs.unlinkSync(tmpFile);

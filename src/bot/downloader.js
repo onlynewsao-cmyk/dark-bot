@@ -9,6 +9,10 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync, execSync } = require('child_process');
+// v7.52 TURBO: yt-dlp/ffmpeg ASSÍNCRONOS — o Sync bloqueava o event loop
+// (todos os chats parados até 3-4 min por download). Sync mantido só onde
+// não há alternativa.
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const yts = require('yt-search');
 const mediaHandler = require('./mediaHandler');
 const {
@@ -95,10 +99,13 @@ async function resolveMedia(input) {
 }
 
 // ==================== yt-dlp (fallback robusto) ====================
+let _nodeBin = null; // v7.52: memoized (evita spawn por download)
 function findNodeBin() {
   if (process.env.NODE_BIN) return process.env.NODE_BIN;
-  try { return execFileSync('which', ['node'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
-  catch { return 'node'; }
+  if (_nodeBin) return _nodeBin;
+  try { _nodeBin = execFileSync('which', ['node'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); }
+  catch { _nodeBin = 'node'; }
+  return _nodeBin;
 }
 
 function writeYtCookies(tmpDir) {
@@ -123,6 +130,7 @@ function withYtDlpHardening(args, tmpDir = '') {
     '--js-runtimes', `node:${findNodeBin()}`,
     '--remote-components', 'ejs:npm',
     '--extractor-args', process.env.YTDLP_EXTRACTOR_ARGS || 'youtube:player_client=default,web_creator,android_vr',
+    '--concurrent-fragments', '4', // v7.52: DASH em paralelo (rede, não CPU)
   ];
   if (process.env.YTDLP_PROXY) out.push('--proxy', process.env.YTDLP_PROXY);
   const cookies = writeYtCookies(tmpDir);
@@ -130,7 +138,7 @@ function withYtDlpHardening(args, tmpDir = '') {
   return [...out, ...args];
 }
 
-function runYtDlp(args, timeoutMs = 180000, tmpDir = '') {
+async function runYtDlp(args, timeoutMs = 180000, tmpDir = '') {
   const runners = [];
   if (process.env.YTDLP_BIN) runners.push({ cmd: process.env.YTDLP_BIN, prefix: [] });
   runners.push({ cmd: 'python3', prefix: ['-m', 'yt_dlp'] });
@@ -140,7 +148,7 @@ function runYtDlp(args, timeoutMs = 180000, tmpDir = '') {
   const errors = [];
   for (const runner of runners) {
     try {
-      return execFileSync(runner.cmd, [...runner.prefix, ...hardenedArgs], {
+      return await execFileAsync(runner.cmd, [...runner.prefix, ...hardenedArgs], {
         encoding: 'utf8', timeout: timeoutMs, maxBuffer: 20 * 1024 * 1024,
         stdio: ['ignore', 'pipe', 'pipe'],
         env: { ...process.env, PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin' },
@@ -152,13 +160,13 @@ function runYtDlp(args, timeoutMs = 180000, tmpDir = '') {
   throw new Error('yt-dlp falhou: ' + errors.slice(0, 3).join(' | '));
 }
 
-function extractAudioFromVideoBuffer(videoBuffer, bitrate = '128k') {
+async function extractAudioFromVideoBuffer(videoBuffer, bitrate = '128k') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-video2audio-'));
   const input = path.join(tmpDir, 'input.mp4');
   const out = path.join(tmpDir, 'audio.mp3');
   try {
     fs.writeFileSync(input, videoBuffer);
-    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-vn', '-b:a', bitrate, '-ar', '44100', '-ac', '2', '-f', 'mp3', out], { stdio: 'ignore', timeout: 160000 });
+    await execFileAsync(getFfmpegBin(), ['-y', '-i', input, '-vn', '-b:a', bitrate, '-ar', '44100', '-ac', '2', '-f', 'mp3', out], { stdio: 'ignore', timeout: 160000 });
     const buf = fs.readFileSync(out);
     if (!buf || buf.length < 2048) throw new Error('áudio extraído vazio');
     return buf;
@@ -175,11 +183,11 @@ async function ytdlpAudio(media, bitrate, label, timeoutMs) {
       '--retries', '1', '--socket-timeout', '20', '--max-filesize', '35M', '-f', 'bestaudio/best', '-o', outTpl];
     if (ffLoc && ffLoc !== 'ffmpeg') ffArgs.push('--ffmpeg-location', path.dirname(ffLoc));
     ffArgs.push(media.url);
-    runYtDlp(ffArgs, timeoutMs, tmpDir);
+    await runYtDlp(ffArgs, timeoutMs, tmpDir);
     const input = findDownloadedFile(tmpDir);
     if (!input) throw new Error('yt-dlp não gerou arquivo');
     const out = path.join(tmpDir, 'audio.mp3');
-    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-vn', '-b:a', bitrate, '-ar', '44100', '-ac', '2', '-f', 'mp3', out], { stdio: 'ignore', timeout: 150000 });
+    await execFileAsync(getFfmpegBin(), ['-y', '-i', input, '-vn', '-b:a', bitrate, '-ar', '44100', '-ac', '2', '-f', 'mp3', out], { stdio: 'ignore', timeout: 150000 });
     const buffer = fs.readFileSync(out);
     if (!buffer || buffer.length < 2048) throw new Error('áudio vazio');
     return { title: media.title, duration: media.duration, author: media?.author || '', thumb: media.thumb, url: '', buffer, mimetype: 'audio/mpeg', quality: `${label} · yt-dlp`, fileName: `${safeTitle(media.title)}.mp3` };
@@ -196,11 +204,11 @@ async function ytdlpVideo(media, height, label, timeoutMs) {
       '--retries', '1', '--socket-timeout', '20', '--max-filesize', height >= 1080 ? '140M' : '90M', '-f', format, '-o', outTpl];
     if (ffLoc && ffLoc !== 'ffmpeg') ffArgs.push('--ffmpeg-location', path.dirname(ffLoc));
     ffArgs.push(media.url);
-    runYtDlp(ffArgs, timeoutMs, tmpDir);
+    await runYtDlp(ffArgs, timeoutMs, tmpDir);
     const input = findDownloadedFile(tmpDir);
     if (!input) throw new Error('yt-dlp não gerou arquivo');
     const out = path.join(tmpDir, 'video.mp4');
-    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out], { stdio: 'ignore', timeout: 240000 });
+    await execFileAsync(getFfmpegBin(), ['-y', '-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out], { stdio: 'ignore', timeout: 240000 });
     const buffer = fs.readFileSync(out);
     if (!buffer || buffer.length < 4096) throw new Error('vídeo vazio');
     return { title: media.title, duration: media.duration, author: media?.author || '', thumb: media.thumb, url: '', buffer, mimetype: 'video/mp4', quality: `${label} · yt-dlp`, fileName: `${safeTitle(media.title)}.mp4` };
@@ -215,7 +223,7 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
       assertDurationAllowed(parseDurationToSeconds(z.duration), z.title || String(query));
       const videoBuffer = await fetchMediaBuffer(z.url, 90000);
       if (videoBuffer && videoBuffer.length > 4096) {
-        const buffer = extractAudioFromVideoBuffer(videoBuffer, bitrate);
+        const buffer = await extractAudioFromVideoBuffer(videoBuffer, bitrate);
         return {
           title: z.title || String(query),
           duration: z.duration || '',
@@ -270,11 +278,11 @@ async function ytdlpSocialVideo(url, label = 'social HD', timeoutMs = 220000) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-social-'));
   const outTpl = path.join(tmpDir, 'source.%(ext)s');
   try {
-    runYtDlp(['--no-warnings', '--force-overwrites', '--no-part', '--retries', '1', '--socket-timeout', '25', '--max-filesize', '120M', '-f', 'bestvideo+bestaudio/best', '-o', outTpl, url], timeoutMs, tmpDir);
+    await runYtDlp(['--no-warnings', '--force-overwrites', '--no-part', '--retries', '1', '--socket-timeout', '25', '--max-filesize', '120M', '-f', 'bestvideo+bestaudio/best', '-o', outTpl, url], timeoutMs, tmpDir);
     const input = findDownloadedFile(tmpDir);
     if (!input) throw new Error('yt-dlp não gerou arquivo social');
     const out = path.join(tmpDir, 'social.mp4');
-    execFileSync(getFfmpegBin(), ['-y', '-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out], { stdio: 'ignore', timeout: 220000 });
+    await execFileAsync(getFfmpegBin(), ['-y', '-i', input, '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out], { stdio: 'ignore', timeout: 220000 });
     const buffer = fs.readFileSync(out);
     if (!buffer || buffer.length < 4096) throw new Error('vídeo social vazio');
     return { title: label, url: '', buffer, mimetype: 'video/mp4', quality: label, fileName: `${safeTitle(label)}.mp4` };
@@ -397,7 +405,9 @@ async function pinterestSearch(query) {
 async function mediafire(url) {
   if (!/mediafire\.com/i.test(url)) throw new Error('❌ Envie um link do MediaFire.');
   try {
-    const html = execSync(`curl -sL "${url}" -H "User-Agent: Mozilla/5.0"`, { timeout: 15000 }).toString();
+    // v7.52: fetch em vez de curl Sync (não bloqueia + fecha injecção de shell via URL)
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15000) });
+    const html = await res.text();
     const match = html.match(/href="(https:\/\/download\d+\.mediafire\.com\/[^"]+)"/);
     if (match) {
       const fileName = decodeURIComponent(match[1].split('/').pop() || 'mediafire_file');
@@ -411,7 +421,9 @@ async function mediafire(url) {
 async function liteapks(query) {
   const results = [];
   try {
-    const html = execSync(`curl -sL "https://liteapks.com/?s=${encodeURIComponent(query)}" -H "User-Agent: Mozilla/5.0" --max-time 10`, { timeout: 15000 }).toString();
+    // v7.52: fetch em vez de curl Sync (não bloqueia o event loop)
+    const res = await fetch(`https://liteapks.com/?s=${encodeURIComponent(query)}`, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(12000) });
+    const html = await res.text();
     const regex = /href="(https:\/\/liteapks\.com\/[a-z0-9]+-?[a-z0-9-]*\.html)"/g;
     let m;
     while ((m = regex.exec(html)) !== null && results.length < 4) {

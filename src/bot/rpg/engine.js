@@ -289,6 +289,14 @@ async function getPlayer(number) {
     if (typeof p.maxHp !== 'number') p.maxHp = p.hp || 100;
     if (typeof p.kills !== 'number') p.kills = 0;
     if (typeof p.deaths !== 'number') p.deaths = 0;
+    // v7.50: veteranos (docs antigos) viam "undefined rep" no !rg/!vidas —
+    // o schema tem default 0 mas só para docs NOVOS. Normaliza aqui.
+    if (typeof p.reputation !== 'number') p.reputation = 0;
+    if (typeof p.bank !== 'number') p.bank = 0;
+    if (typeof p.coins !== 'number') p.coins = 0;
+    if (typeof p.lives !== 'number') p.lives = 3;
+    if (typeof p.mp !== 'number') p.mp = 80;
+    if (typeof p.maxMp !== 'number') p.maxMp = 80;
     if (!p.name) p.name = 'Aventureiro';
   }
 

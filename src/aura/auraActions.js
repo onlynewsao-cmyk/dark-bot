@@ -584,6 +584,10 @@ async function executar(acao, valor, { sock, ctx }) {
     }
 
     case 'ligar': {
+      // v7.51 DEFESA EM PROFUNDIDADE: o despachante já só chama isto para
+      // o dono, mas chamada automática = ban instantâneo. O gate vive AQUI
+      // dentro também — nunca confiar só no chamador.
+      if (!ctx.isOwner) return { ok: false, msg: 'Ligar só quando o Dark pede. 😌' };
       // v7.43: chamada de voz REAL (VoIP) quando a lib suporta — ela liga,
       // espera atender e cumprimenta na própria chamada.
       try {
@@ -618,6 +622,9 @@ async function executar(acao, valor, { sock, ctx }) {
     }
 
     case 'ligarGrupo': {
+      // v7.51 DEFESA EM PROFUNDIDADE: gate de dono DENTRO da acção
+      // (ver 'ligar' acima). Chamada automática = ban instantâneo.
+      if (!ctx.isOwner) return { ok: false, msg: 'Ligar só quando o Dark pede. 😌' };
       if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
       try {
         const voip = require('../bot/callVoip');

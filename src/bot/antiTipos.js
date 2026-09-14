@@ -234,7 +234,7 @@ async function check(sock, msg) {
     const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
     if (ownerNum && senderNum === ownerNum) return false;
 
-    const gs = await GroupSettings.findOne({ groupJid: remoteJid }).lean().catch(() => null);
+    const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
     if (!gs) return false;
     const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn'].some(f => gs[f]);
     if (!algumaFlag) return false;

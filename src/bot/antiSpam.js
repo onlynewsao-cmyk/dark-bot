@@ -112,7 +112,7 @@ async function check(sock, msg) {
     const ownerNum = String(config.owner.number || '').replace(/\D/g, '');
     if (ownerNum && senderNum === ownerNum) return false; // dono imune
 
-    const gs = await GroupSettings.findOne({ groupJid: remoteJid }).lean().catch(() => null);
+    const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
     // v7.35: interruptor global do dashboard (antispam_enabled) como padrão quando o grupo não definiu
     let ativo = !!gs?.antispam;
     if (!ativo && !gs?.antispamOptOut) {

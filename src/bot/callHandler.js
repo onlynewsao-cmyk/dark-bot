@@ -570,6 +570,18 @@ async function onCall(sock, call, { ownerJid, ownerNumber, isOwner } = {}) {
   }
 
   // ── ATENDER ──────────────────────────────────────────────
+  // v7.51 ANTI-TROLL: sem isto, um troll a ligar 50× seguidas recebia 50
+  // saudações automáticas (padrão de spam = risco de ban). Não-dono: 1
+  // atendimento automático por número a cada 5 min; o resto rejeita calado.
+  if (!ownerCall) {
+    const ck = 'at' + fromNumber;
+    const ult = _callbackCooldown.get(ck) || 0;
+    if (Date.now() - ult < 5 * 60 * 1000) {
+      try { await sock.rejectCall(call.id, from); } catch {}
+      return { ok: true, modo: 'atender', tipo: isVideo ? 'vídeo' : 'voz', motivo: 'cooldown_antitroll', ignorado: true };
+    }
+    _callbackCooldown.set(ck, Date.now());
+  }
   // v6.76: marcar PRIMEIRO (para as notas de voz que cheguem já contarem
   // como turnos da chamada) e falar LOGO A SEGUIR. As tentativas de aceitar
   // o sinal ficam para o fim, em segundo plano: nenhuma delas funciona

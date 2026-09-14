@@ -104,6 +104,7 @@ module.exports = function registerRental2(registerCase) {
         },
         { upsert: true, new: true }
       );
+      try { require('../hotCache').forgetGroup(targetJid); } catch {} // v7.53: fura o TTL
 
       const opTxt = op === '=' ? `📐 Definido: *${dias} dias* a partir de agora`
         : op === '-' ? `➖ Subtraídos: *${dias} dias* (tinha ${diasAntes})`
@@ -264,6 +265,7 @@ module.exports = function registerRental2(registerCase) {
       { trialExpiresAt: trialEnd, isHosted: false, groupName: ctx.groupName || '' },
       { upsert: true, new: true }
     );
+    try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {} // v7.53: fura o TTL
     return tReply(sock, msg, ctx, '🆓 TRIAL ACTIVADO', [
       `🆓 *3 dias grátis* activados!`,
       `📅 Expira: ${trialEnd.toLocaleDateString('pt-PT')}`,
@@ -283,13 +285,16 @@ module.exports = function registerRental2(registerCase) {
     const trial = gs.trialExpiresAt && new Date(gs.trialExpiresAt) > new Date();
     const expires = gs.hostedUntil ? new Date(gs.hostedUntil).toLocaleDateString('pt-PT') : '—';
     const trialExp = gs.trialExpiresAt ? new Date(gs.trialExpiresAt).toLocaleDateString('pt-PT') : '—';
+    // v7.50: o submenu promete "Dias restantes" mas o status não mostrava.
+    const diasHost = gs.hostedUntil ? Math.max(0, Math.ceil((new Date(gs.hostedUntil) - Date.now()) / 86400000)) : 0;
+    const diasTrial = gs.trialExpiresAt ? Math.max(0, Math.ceil((new Date(gs.trialExpiresAt) - Date.now()) / 86400000)) : 0;
     const cmdsUsed = gs.commandsUsedToday || 0;
 
     return tReply(sock, msg, ctx, '🏠 STATUS ALUGUEL', [
       hosted ? '🟢 *ALUGUEL ACTIVO*' : trial ? '🆓 *TRIAL ACTIVO*' : '🔴 *INACTIVO*',
       '',
-      hosted ? `📅 Expira: ${expires}` : '',
-      trial ? `📅 Trial expira: ${trialExp}` : '',
+      hosted ? `📅 Expira: ${expires} (*${diasHost} dias restantes*)` : '',
+      trial ? `📅 Trial expira: ${trialExp} (*${diasTrial} dias restantes*)` : '',
       `👤 Activado por: ${gs.rentedBy || '—'}`,
       `📊 Comandos hoje: ${cmdsUsed}${hosted ? ' (ilimitado)' : ` / 500`}`,
       '',
@@ -312,6 +317,7 @@ module.exports = function registerRental2(registerCase) {
     }
 
     await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { isHosted: false, hostedUntil: new Date(0) }, { upsert: true });
+    try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {} // v7.53: fura o TTL
     return tReply(sock, msg, ctx, '🚫 ALUGUEL CANCELADO', [
       `🚫 Aluguel cancelado para *${ctx.groupName || ctx.remoteJid}*`,
       `> Usa !alugar para reactivar`,
@@ -332,6 +338,7 @@ module.exports = function registerRental2(registerCase) {
     const newEnd = new Date(base.getTime() + dias * 86400000);
 
     await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { hostedUntil: newEnd }, { upsert: true });
+    try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {} // v7.53: fura o TTL
     return tReply(sock, msg, ctx, '🔄 ALUGUEL ESTENDIDO', [
       `➕ +${dias} dias adicionados`,
       `📅 Nova data: *${newEnd.toLocaleDateString('pt-PT')}*`,

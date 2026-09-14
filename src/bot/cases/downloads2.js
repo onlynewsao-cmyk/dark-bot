@@ -40,11 +40,11 @@ async function sendVideo(sock, jid, quoted, r) {
 
 // v7.47 incoming-cases (tomp3): vídeo/áudio → MP3 192k via ffmpeg,
 // sem shell (execFileSync), ficheiros temporários isolados.
-function videoBufferToMp3(buffer) {
+async function videoBufferToMp3(buffer) { // v7.52: async (o Sync parava todos os chats)
   const fs = require('fs');
   const os = require('os');
   const path = require('path');
-  const { execFileSync } = require('child_process');
+  const execFileAsync = require('util').promisify(require('child_process').execFile);
   let ffmpeg = 'ffmpeg';
   try { ffmpeg = require('ffmpeg-static') || 'ffmpeg'; } catch {}
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-tomp3-'));
@@ -52,7 +52,7 @@ function videoBufferToMp3(buffer) {
   const output = path.join(dir, 'output.mp3');
   try {
     fs.writeFileSync(input, buffer);
-    execFileSync(ffmpeg, ['-y', '-i', input, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '192k', output],
+    await execFileAsync(ffmpeg, ['-y', '-i', input, '-vn', '-ar', '44100', '-ac', '2', '-b:a', '192k', output],
       { stdio: 'ignore', timeout: 120000 });
     const out = fs.readFileSync(output);
     if (!out || out.length < 1024) throw new Error('ffmpeg não gerou MP3 válido');
@@ -193,7 +193,7 @@ module.exports = function registerDownloads2(registerCase) {
         const buf = await mediaHandler.downloadFromMessage(srcMsg);
         if (!buf?.length) throw new Error('mídia vazia');
         if (buf.length > 100 * 1024 * 1024) throw new Error('mídia maior que 100 MB');
-        const mp3 = videoBufferToMp3(buf);
+        const mp3 = await videoBufferToMp3(buf);
         await sock.sendMessage(ctx.remoteJid, {
           audio: mp3, mimetype: 'audio/mpeg', ptt: false,
           fileName: `tomp3_${Date.now()}.mp3`,

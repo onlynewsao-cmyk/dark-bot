@@ -344,9 +344,9 @@ function checkIsPremium(u) {
   if (!u.premiumUntil) return true;
   return new Date(u.premiumUntil) > new Date();
 }
-async function userIsPremiumOrOwner(number, isOwner) {
+async function userIsPremiumOrOwner(number, isOwner, msg) {
   if (isOwner) return true;
-  const u = await User.findOne({ whatsappNumber: number }).lean().catch(() => null);
+  const u = await require('./hotCache').getUser(msg, number); // v7.52: memo partilhado
   return checkIsPremium(u);
 }
 
@@ -625,6 +625,20 @@ async function _handleInner(sock, msg) {
   // Grupo COM aluguel activo → responde a TODOS
   // Grupo SEM aluguel → só dono, subdono, VIP
   // Free sem trial → silêncio total
+  // v7.53: groupMetadata arranca AQUI, em paralelo com as queries ao Mongo
+  // da secção de aluguel (era sequencial: +60ms em cache-miss). O await
+  // está abaixo, onde a meta é precisa. Com .catch + fallback intacto.
+  let _gmP = null;
+  if (ctx.isGroup && typeof sock?.groupMetadata === 'function') {
+    _gmP = Promise.resolve().then(async () => {
+      const _mc0 = groupMetaCache.get(ctx.remoteJid);
+      if (_mc0 && (Date.now() - _mc0.ts) < GROUP_META_TTL) return _mc0.meta;
+      const meta = await sock.groupMetadata(ctx.remoteJid);
+      groupMetaCache.set(ctx.remoteJid, { meta, ts: Date.now() });
+      try { require('../aura/auraIdentidade').aprenderDoGrupo(meta); } catch {}
+      return meta;
+    }).catch(() => null);
+  }
   if (ctx.isGroup && !isOwner) {
     const GroupSettings = require('../database/models/GroupSettings');
 
@@ -637,11 +651,12 @@ async function _handleInner(sock, msg) {
     const [gs, uCheck] = await Promise.all([
       requestCache.remember(
         requestCache.K.group(ctx.remoteJid) + ':doc',
-        () => GroupSettings.findOne({ groupJid: ctx.remoteJid })
+        // v7.52: loader passa pelo hotCache → voo único partilhado com os antis
+        () => require('./hotCache').getGroupDoc(msg, ctx.remoteJid)
       ).catch(() => null),
       requestCache.remember(
         requestCache.K.user(ctx.senderNumber) + ':doc',
-        () => User.findOne({ whatsappNumber: ctx.senderNumber })
+        () => require('./hotCache').getUserDoc(msg, ctx.senderNumber)
       ).catch(() => null),
     ]);
 
@@ -700,7 +715,7 @@ async function _handleInner(sock, msg) {
       // v6.45: reaproveita a leitura feita acima (regras de aluguel)
       groupConfig = await requestCache.remember(
         requestCache.K.group(ctx.remoteJid) + ':doc',
-        () => GroupSettings.findOne({ groupJid: ctx.remoteJid })
+        () => require('./hotCache').getGroupDoc(msg, ctx.remoteJid) // v7.52: voo único
       );
       if (!groupConfig) {
         groupConfig = await GroupSettings.create({ 
@@ -731,17 +746,20 @@ async function _handleInner(sock, msg) {
         }
       }
 
-      const cached = groupMetaCache.get(ctx.remoteJid);
-      if (cached && (now - cached.ts) < GROUP_META_TTL) {
-        ctx.groupName = cached.meta.subject;
-        ctx.groupMeta = cached.meta;
-      } else {
-        const meta = await sock.groupMetadata(ctx.remoteJid);
-        ctx.groupName = meta.subject;
-        ctx.groupMeta = meta;
-        groupMetaCache.set(ctx.remoteJid, { meta, ts: now });
-        try { require('../aura/auraIdentidade').aprenderDoGrupo(meta); } catch {}
+      // v7.53: veio em paralelo (ver _gmP acima); fallback intacto se falhou.
+      let _metaG = _gmP ? await _gmP : null;
+      if (!_metaG) {
+        const cached = groupMetaCache.get(ctx.remoteJid);
+        if (cached && (now - cached.ts) < GROUP_META_TTL) {
+          _metaG = cached.meta;
+        } else {
+          _metaG = await sock.groupMetadata(ctx.remoteJid);
+          groupMetaCache.set(ctx.remoteJid, { meta: _metaG, ts: now });
+          try { require('../aura/auraIdentidade').aprenderDoGrupo(_metaG); } catch {}
+        }
       }
+      ctx.groupName = _metaG.subject;
+      ctx.groupMeta = _metaG;
 
       ctx.blockedCommands = groupConfig.blockedCommands || [];
       ctx.blockedSubmenus = groupConfig.blockedSubmenus || [];
@@ -1995,7 +2013,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         // mesmo cara de ordem — é isto que protege a
         // velocidade: conversa normal nunca chega aqui.
         if (!achados.length && brain.pareceOrdem(cleanText)) {
-          const viaIA = await brain.rotearComIA(cleanText, require('./ai')).catch(() => null);
+          const _pararIA = require('./humanizer').pensando(sock, ctx.remoteJid); // v7.53: "a escrever…" enquanto pensa
+          let viaIA = null;
+          try { viaIA = await brain.rotearComIA(cleanText, require('./ai')).catch(() => null); }
+          finally { _pararIA(); }
           if (viaIA) achados.push(viaIA);
         }
 
@@ -2218,6 +2239,8 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             }
           } catch {}
 
+          const _pararResp = require('./humanizer').pensando(sock, ctx.remoteJid); // v7.53: "a escrever…" durante a IA
+          try {
           answer = await aura.auraRespond(prompt, {
             isOwner,
             isSubOwner: !!ctx.isSubOwner,   // v7.28: número do bot / owner_numbers
@@ -2242,6 +2265,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             instrucaoExtra: _instrucaoVoz || '',
             consciencia: _consciencia || '',
           });
+          } finally { _pararResp(); }
         } else {
           // v6.43: modo assistente profissional (estilo Meta AI)
           let _identBloco = '';
@@ -2317,7 +2341,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               const fn = nativeCommands[nome] || packageCommands[nome];
               if (typeof fn !== 'function') return false;
               await fn({ sock, msg, ctx: cmdCtx, args, isOwner, fillVars, config: commandConfig });
-              await incrementUserCommand(ctx.senderNumber, ctx, nome).catch(() => {});
+              incrementUserCommand(ctx.senderNumber, ctx, nome).catch(() => {}); // v7.53: stats sem bloquear
               return true;
             },
           });
@@ -2461,7 +2485,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
             }
 
             if (correu) {
-              await incrementUserCommand(ctx.senderNumber, ctx, pedido.comando).catch(() => {});
+              incrementUserCommand(ctx.senderNumber, ctx, pedido.comando).catch(() => {}); // v7.53: stats sem bloquear
               if (ctx.isGroup) try { await require('../aura/auraLinhaTempo').doComando(ctx.remoteJid, { quem: ctx.senderNumber, quemNome: ctx.pushName, cmd: pedido.comando, args: pedido.args, alvo: (msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [])[0] || msg.message?.extendedTextMessage?.contextInfo?.participant }); } catch {}
               return true;
             }
@@ -2495,7 +2519,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
                 const sockU = require('../aura/auraFala').sockNaVozDela(sock, { isOwner });
                 const ok = await uni.executarComando(escolha, { sock: sockU, msg, ctx, prefix, isOwner, config: commandConfig, nativeCommands, packageCommands, fillVars });
                 if (ok) {
-                  await incrementUserCommand(ctx.senderNumber, ctx, escolha.cmd).catch(() => {});
+                  incrementUserCommand(ctx.senderNumber, ctx, escolha.cmd).catch(() => {}); // v7.53: stats sem bloquear
                   if (ctx.isGroup) try { await require('../aura/auraLinhaTempo').doComando(ctx.remoteJid, { quem: ctx.senderNumber, quemNome: ctx.pushName, cmd: escolha.cmd, args: escolha.args, alvo: (msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [])[0] || msg.message?.extendedTextMessage?.contextInfo?.participant }); } catch {}
                   return true;
                 }
@@ -2793,7 +2817,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       return true;
     }
     if (overrideAccess === 'premium' && !isOwner) {
-      const premUser = await User.findOne({ whatsappNumber: ctx.senderNumber }).catch(() => null);
+      const premUser = await require('./hotCache').getUser(msg, ctx.senderNumber); // v7.52: memo partilhado
       if (!premUser || !checkIsPremium(premUser)) {
         await sock.sendMessage(ctx.remoteJid, { text: `⭐ *Comando Premium*\n\nUse ${prefix}vip para ver planos.` }, { quoted: msg });
         return true;
@@ -2806,7 +2830,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
   }
 
   if (await isVipCommand(canonicalCommand)) {
-    const okVip = await userIsPremiumOrOwner(ctx.senderNumber, isOwner);
+    const okVip = await userIsPremiumOrOwner(ctx.senderNumber, isOwner, msg);
     if (!okVip) {
       await sock.sendMessage(ctx.remoteJid, {
         text: `╭━━━〔 ⭐ VIP DARKSIDE 〕━━━╮\n┃ Comando: *${canonicalCommand}*\n┃ Status: Premium/Owner\n┃ Aura necessária: +9999\n╰━━━━━━━━━━━━━━━━━━━━╯\n\nUse *${prefix}vip* para ver planos e liberar ferramentas top.`,
@@ -2833,7 +2857,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
     try {
       const FREE_PV_LIMIT = 50;
       const todayStr = new Date().toISOString().slice(0, 10);
-      const pvUser = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
+      const pvUser = await require('./hotCache').getUser(msg, ctx.senderNumber); // v7.52: memo partilhado
       if (!pvUser || !checkIsPremium(pvUser)) {
         const sameDayCount = (pvUser?.pvCommandsDate === todayStr) ? (pvUser?.pvCommandsToday || 0) : 0;
         if (sameDayCount >= FREE_PV_LIMIT) {
@@ -2876,7 +2900,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
+      incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand).catch(() => {}); // v7.53: stats sem bloquear
       return true;
     }
   }
@@ -2890,7 +2914,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
+      incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand).catch(() => {}); // v7.53: stats sem bloquear
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -2909,7 +2933,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         groupConfig.totalCommands++;
         await groupConfig.save();
       }
-      await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
+      incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand).catch(() => {}); // v7.53: stats sem bloquear
       reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
       return true;
     } catch (err) {
@@ -3029,7 +3053,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
     } else if (responseText) {
       await sock.sendMessage(ctx.remoteJid, { text: responseText }, { quoted: msg });
     }
-    await incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand);
+    incrementUserCommand(ctx.senderNumber, ctx, canonicalCommand).catch(() => {}); // v7.53: stats sem bloquear
     reactions.reactSuccess(sock, msg, canonicalCommand).catch(() => {});
     return true;
   } catch (err) {

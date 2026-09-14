@@ -1,4 +1,5 @@
 'use strict';
+process.env.HUMANIZE = 'full'; // v7.52: este teste valida o modo teatral (omissão agora é fast)
 const h = require('../src/bot/humanizer');
 let ok = 0, fail = 0;
 const t = (n, c, d = '') => { c ? ok++ : fail++; console.log(`  ${c ? '✅' : '❌'} ${n} ${d}`); };

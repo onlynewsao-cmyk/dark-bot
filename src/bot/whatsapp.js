@@ -291,11 +291,12 @@ class WhatsAppBot {
         emitOwnEvents:              true,
         fireInitQueries:            true,
 
-        // Timeouts Render Free
+        // Timeouts — v7.52 TURBO: falhar rápido em vez de prender o
+        // pipeline 60s (groupMetadata, queries presas)
         connectTimeoutMs:           45000,
         keepAliveIntervalMs:        20000,
-        retryRequestDelayMs:        500,
-        defaultQueryTimeoutMs:      60000,
+        retryRequestDelayMs:        250,
+        defaultQueryTimeoutMs:      25000,
 
         // Patch de compatibilidade de botões
         // v5.1: NÃO re-envolve buttonsMessage com viewOnce:true — essas vêm do

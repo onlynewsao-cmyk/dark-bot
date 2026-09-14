@@ -299,6 +299,7 @@ module.exports = function (io) {
       if (name) user.name = name;
       if (typeof whatsappNumber !== 'undefined') user.whatsappNumber = whatsappNumber.replace(/\D/g, '');
       await user.save();
+      try { require('../bot/hotCache').forgetUser(user.whatsappNumber); } catch {} // v7.53: fura o TTL
       res.json(user);
     } catch (err) { res.status(400).json({ error: err.message }); }
   });
@@ -430,6 +431,7 @@ module.exports = function (io) {
         u.role = 'premium';
         u.premiumUntil = days > 9999 ? null : new Date(Date.now() + days * 86400000);
         await u.save();
+        try { require('../bot/hotCache').forgetUser(u.whatsappNumber); } catch {} // v7.53: fura o TTL
       }
       // Notifica via bot se possível
       try {
@@ -766,6 +768,7 @@ module.exports = function (io) {
       user.role = 'premium';
       user.premiumUntil = new Date(Date.now() + days * 86400000);
       await user.save();
+      try { require('../bot/hotCache').forgetUser(user.whatsappNumber); } catch {} // v7.53: fura o TTL
       res.json({ ok: true, premiumUntil: user.premiumUntil });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
@@ -778,6 +781,7 @@ module.exports = function (io) {
       user.role = 'free';
       user.premiumUntil = null;
       await user.save();
+      try { require('../bot/hotCache').forgetUser(user.whatsappNumber); } catch {} // v7.53: fura o TTL
       res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });

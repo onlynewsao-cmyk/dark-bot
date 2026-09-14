@@ -27,6 +27,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+// v7.52 TURBO: ffmpeg assíncrono (o Sync parava todos os chats)
+const execFileAsync = require('util').promisify(require('child_process').execFile);
 const mediaHandler = require('./mediaHandler');
 const config = require('../config');
 
@@ -380,7 +382,7 @@ function extForKind(kind) {
   return ({ gif: 'gif', webp: 'webp', mp4: 'mp4', png: 'png', jpg: 'jpg' })[kind] || 'bin';
 }
 
-function convertAnimatedToMp4(inputBuffer, kind = 'gif') {
+async function convertAnimatedToMp4(inputBuffer, kind = 'gif') {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-gif-'));
   const inputPath = path.join(tmpDir, `input.${extForKind(kind)}`);
   const outputPath = path.join(tmpDir, 'output.mp4');
@@ -394,7 +396,7 @@ function convertAnimatedToMp4(inputBuffer, kind = 'gif') {
       '-vf', 'fps=15,scale=360:-2:flags=lanczos,format=yuv420p',
       '-an', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '28', '-movflags', '+faststart',
       outputPath);
-    execFileSync(getFfmpegBin(), args, { stdio: 'ignore', timeout: 45000 });
+    await execFileAsync(getFfmpegBin(), args, { stdio: 'ignore', timeout: 45000 });
     const out = fs.readFileSync(outputPath);
     if (!out || out.length < 500 || detectKind(out) !== 'mp4') throw new Error('MP4 inválido');
     return out;
@@ -611,7 +613,7 @@ async function bufferToWhatsappMp4(url) {
   if (!buf || buf.length < 500) return null;
   const kind = detectKind(buf, url);
   if (kind === 'unknown') return null;
-  const mp4 = kind === 'mp4' ? buf : convertAnimatedToMp4(buf, kind);
+  const mp4 = kind === 'mp4' ? buf : await convertAnimatedToMp4(buf, kind);
   if (!mp4 || mp4.length < 500 || mp4.length > MAX_BYTES) return null;
   return mp4;
 }
@@ -638,7 +640,12 @@ async function sendWithGif(sock, msg, ctx, text, mentions, query) {
   mentions = mentions || [];
   if (query) {
     try {
-      const buf = await fetchGifBuffer(query);
+      // v7.50: fetch sem timeout pendurava o comando quando o host de GIFs
+      // estava lento (auditoria pública: azarado/brincalhao/chato...). 6s max.
+      const buf = await Promise.race([
+        fetchGifBuffer(query),
+        new Promise(r => setTimeout(() => r(null), Number(process.env.GIF_TIMEOUT_MS || 6000))),
+      ]);
       if (buf) {
         return sock.sendMessage(ctx.remoteJid, {
           video: buf,
