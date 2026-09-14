@@ -176,7 +176,7 @@ module.exports = function registerIncomingGames(registerCase) {
       if (sub === 'iniciar' || sub === 'start' || sub === 'novo') {
         const g = createMinadoGame(args[1] || 'medio');
         minadoDB.set(key, g);
-        await m.react('🎮');
+        m.react('🎮');
         return m.reply(`🎮 Partida iniciada!\n\n${renderMinado(g)}\n\nUsa *${uso} abrir A1* para jogar.`);
       }
       if (!game) return m.reply(`Não tens partida ativa. Usa *${uso} iniciar*.`);
@@ -193,14 +193,14 @@ module.exports = function registerIncomingGames(registerCase) {
         if (result.boom) {
           const board = renderMinado(game, true);
           minadoDB.delete(key);
-          await m.react('💥');
+          m.react('💥');
           return m.reply(`${result.msg}\n\n${board}\n\n💀 Fim de jogo.`);
         }
         if (result.win) {
           const tempo = formatMinadoDuration(Date.now() - game.startedAt);
           const board = renderMinado(game, true);
           minadoDB.delete(key);
-          await m.react('🏆');
+          m.react('🏆');
           return m.reply(`${result.msg}\n⏱️ Tempo: ${tempo}\n\n${board}`);
         }
         return m.reply(`${result.msg}\n\n${renderMinado(game)}`);

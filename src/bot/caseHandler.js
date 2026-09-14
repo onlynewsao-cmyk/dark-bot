@@ -1122,13 +1122,13 @@ function registerManagementCases() {
     const cleanCode = extractCaseCode(code);
 
     // Mostra progresso
-    await m.react('⏳');
+    m.react('⏳');
 
     // Validação de sintaxe
     const validation = validateCase(cleanCode, finalName);
 
     if (!validation.valid) {
-      await m.react('❌');
+      m.react('❌');
       return m.reply(
         `❌ *Erro de compilação:*\n\n` +
         `${validation.errors.join('\n')}\n\n` +
@@ -1147,7 +1147,7 @@ function registerManagementCases() {
     const result = await addDynamicCase(finalName, cleanCode);
 
     if (result.ok) {
-      await m.react('✅');
+      m.react('✅');
       await m.reply(
         `✅ *Case adicionado com sucesso!*\n\n` +
         `📌 Comando: *${prefix}${finalName}*\n` +
@@ -1157,7 +1157,7 @@ function registerManagementCases() {
         `\n🧪 Testa com *${prefix}${finalName}*`
       );
     } else {
-      await m.react('⚠️');
+      m.react('⚠️');
       await m.reply(
         `⚠️ *Case guardado com aviso:*\n${result.error}\n\n` +
         `📝 Formato: ${result.format}\n` +
@@ -1175,7 +1175,7 @@ function registerManagementCases() {
     const src = await getDynamicCaseSource(cmd);
     if (!src) return m.reply(`❌ Case *${prefix}${cmd}* não encontrado.`);
 
-    await m.react('🧪');
+    m.react('🧪');
     const result = validateCase(src, cmd);
 
     let msg = `🧪 *Teste do case: ${prefix}${cmd}*\n\n`;
@@ -1213,7 +1213,7 @@ function registerManagementCases() {
     const cmd = (args[0] || '').toLowerCase().trim();
     if (!cmd) return m.reply('Uso: *' + prefix + 'downcase* <comando>');
 
-    await m.react('🔍');
+    m.react('🔍');
 
     // ═══ 1. CASES DINÂMICOS (DB) ═══
     const dynSrc = await getDynamicCaseSource(cmd);
@@ -1226,7 +1226,7 @@ function registerManagementCases() {
         mimetype: 'application/javascript',
         caption: '📄 *' + prefix + cmd + '* — Case Dinâmico\n📝 Formato: ' + (meta.format || detectFormat(dynSrc)) + '\n📊 Linhas: ' + fullCode.split('\n').length,
       }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
       return;
     }
 
@@ -1243,7 +1243,7 @@ function registerManagementCases() {
         mimetype: 'application/javascript',
         caption: '📄 *' + prefix + cmd + '* — Case (ficheiro)\n📁 Origem: ' + fileSrc.file + ':' + fileSrc.line + '\n📊 Linhas: ' + fileCode.split('\n').length + aliasLine + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*',
       }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
       return;
     }
 
@@ -1258,7 +1258,7 @@ function registerManagementCases() {
           mimetype: 'application/javascript',
           caption: '📄 *' + prefix + cmd + '* — Case (nativo)\n📊 Linhas: ' + fnStr.split('\n').length + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*\n⚠️ Pode depender de módulos internos (ver notas no topo).',
         }, { quoted: msg });
-        await m.react('✅');
+        m.react('✅');
         return;
       }
     } catch {}
@@ -1276,7 +1276,7 @@ function registerManagementCases() {
             mimetype: 'application/javascript',
             caption: '📄 *' + prefix + cmd + '* — Case (pacote ' + pkgName + ')\n📊 Linhas: ' + fnStr.split('\n').length + '\n\n♻️ Pronto para *' + prefix + 'addcase ' + cmd + '*',
           }, { quoted: msg });
-          await m.react('✅');
+          m.react('✅');
           return;
         }
       } catch {}
@@ -1288,7 +1288,7 @@ function registerManagementCases() {
       if (self) {
         const code = buildCaseExport(cmd, _bodyOf(self.code).body, { origem: 'gestão (caseHandler.js)', ficheiro: 'caseHandler.js', linha: self.line, aliases: self.commands, nota: 'usa funções internas do caseHandler (addDynamicCase, validateCase…) — só para consulta.' });
         await sock.sendMessage(ctx.remoteJid, { document: Buffer.from(code, 'utf8'), fileName: cmd + '_case.js', mimetype: 'application/javascript', caption: '📄 *' + prefix + cmd + '* — Case (gestão)\n📁 caseHandler.js:' + self.line + '\n📊 Linhas: ' + code.split('\n').length }, { quoted: msg });
-        await m.react('✅');
+        m.react('✅');
         return;
       }
     } catch {}
@@ -1308,7 +1308,7 @@ function registerManagementCases() {
   registerCase(['auditcmds', 'audit', 'verificarcmds', 'cmdcheck'], async ({ m, sock, msg, ctx, isOwner, prefix }) => {
     if (!isOwner) return m.reply('🚫 Só o Dono.');
 
-    await m.react('🔍');
+    m.react('🔍');
 
     // Duplicados
     const duplicates = [];
@@ -1377,7 +1377,7 @@ function registerManagementCases() {
     } else {
       await m.reply(r);
     }
-    await m.react('✅');
+    m.react('✅');
   });
 
 

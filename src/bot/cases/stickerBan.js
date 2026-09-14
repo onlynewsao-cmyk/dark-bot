@@ -102,7 +102,7 @@ module.exports = function registerStickerBan(registerCase) {
 
       // aprender com o interruptor desligado não serve de nada — avisa
       const ligado = await antiSticker.estaActivo(ctx.remoteJid);
-      await m.react('🎭');
+      m.react('🎭');
       return m.reply(
         `${r.jaSabia ? '🔁 *Já a conhecia*' : '🎭 *Aprendida*'} — ${id.animated ? 'figurinha animada' : 'figurinha'}.\n\n` +
         `De cada vez que alguém a mandar aqui, eu apago-a.\n` +
@@ -136,7 +136,7 @@ module.exports = function registerStickerBan(registerCase) {
         hash: id?.hash || id?.hashEnc || '', indice,
       });
       if (!r.ok) return m.reply(`⚠️ ${r.motivo}`);
-      await m.react('🧹');
+      m.react('🧹');
       return m.reply('🧹 *Esquecida* — essa figurinha volta a poder entrar neste grupo.');
     }, true);
 

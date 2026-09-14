@@ -227,6 +227,24 @@ Module.prototype.require = function (id) {
   await collected.get('admins')({ ...gbase, m: {}, ctx: { isGroup: false }, args: [], command: 'admins' });
   C('admins: PV recusado', /Só em grupos/.test(got), got);
 
+  // ── 13. v7.58: react colado (disparo imediato, sem await de config) ──
+  const RX = require('../src/bot/reactions');
+  let rxSent = [];
+  const rxsock = { sendMessage: async (j, c) => { rxSent.push(c); return { key: { id: 'x' } }; } };
+  const rxmsg = { key: { remoteJid: 'g@g.us', id: 'M1', participant: 'u@s.whatsapp.net' } };
+  await RX.react(rxsock, rxmsg, '⚡');
+  C('react: payload reactionMessage', rxSent.length === 1 && rxSent[0].react?.text === '⚡' && rxSent[0].react?.key === rxmsg.key, JSON.stringify(rxSent[0]));
+  rxSent = [];
+  await RX.reactStart(rxsock, rxmsg, 'menu');
+  C('reactStart: menu não reage', rxSent.length === 0);
+  await RX.reactStart(rxsock, rxmsg, 'sticker');
+  C('reactStart: sticker reage 🎨', rxSent.length === 1 && rxSent[0].react?.text === '🎨', JSON.stringify(rxSent[0]));
+  rxSent = [];
+  await RX.reactSuccess(rxsock, rxmsg, 'sticker');
+  await RX.reactError(rxsock, rxmsg, 'sticker');
+  C('reactSuccess/Error: ✅/❌', rxSent.length === 2 && rxSent[0].react?.text === '✅' && rxSent[1].react?.text === '❌');
+  C('getProcessingEmoji: play→🎵, xyz→⏳', RX.getProcessingEmoji('play') === '🎵' && RX.getProcessingEmoji('xyz') === '⏳');
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

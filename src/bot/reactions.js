@@ -47,16 +47,29 @@ function getErrorEmoji(commandName) {
  * Reage à mensagem com emoji apropriado
  */
 async function reactionsAtivas() {
-  try { const v = await require('./botConfigCache').get('reactions_enabled', true); return !(v === false || v === 'false'); } catch { return true; }
+  if (Date.now() - _reaTs < 10000) return _reaOn;
+  refreshReaFlag();
+  return _reaOn;
 }
-async function react(sock, msg, emoji) {
-  // v7.35: respeita o interruptor "Auto-reações" do dashboard (reactions_enabled)
-  if (!(await reactionsAtivas())) return;
+// v7.58: cache em memória do interruptor "Auto-reações" (dashboard) —
+// o react dispara IMEDIATO sem await de config no caminho; a flag
+// refresca em fundo a cada 10s (efeito do toggle ≤10s).
+let _reaOn = true, _reaTs = 0;
+function refreshReaFlag() {
+  _reaTs = Date.now(); // evita stampede
   try {
-    await sock.sendMessage(msg.key.remoteJid, {
-      react: { text: emoji, key: msg.key }
-    });
-  } catch (e) { /* ignora */ }
+    require('./botConfigCache').get('reactions_enabled', true).then(
+      v => { _reaOn = !(v === false || v === 'false'); },
+      () => { _reaOn = true; },
+    );
+  } catch { _reaOn = true; }
+}
+function react(sock, msg, emoji) {
+  if (Date.now() - _reaTs >= 10000) refreshReaFlag(); // fundo, sem await
+  if (!_reaOn) return Promise.resolve();
+  return sock.sendMessage(msg.key.remoteJid, {
+    react: { text: emoji, key: msg.key }
+  }).catch(() => {});
 }
 
 // Comandos que NUNCA devem ter reação de ⏳ (são rápidos e de texto)
@@ -77,15 +90,15 @@ const NO_REACT_CMDS = new Set([
 async function reactStart(sock, msg, commandName) {
   // Não reage em comandos de texto/menu (são imediatos)
   if (NO_REACT_CMDS.has((commandName || '').toLowerCase())) return;
-  await react(sock, msg, getProcessingEmoji(commandName));
+  react(sock, msg, getProcessingEmoji(commandName));
 }
 
 async function reactSuccess(sock, msg, commandName) {
-  await react(sock, msg, getSuccessEmoji(commandName));
+  react(sock, msg, getSuccessEmoji(commandName));
 }
 
 async function reactError(sock, msg, commandName) {
-  await react(sock, msg, getErrorEmoji(commandName));
+  react(sock, msg, getErrorEmoji(commandName));
 }
 
 async function reactClear(sock, msg) {

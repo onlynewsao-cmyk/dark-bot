@@ -1111,7 +1111,7 @@ module.exports = {
 
     if (!srcMsg) return reply(sock, msg, ctx, '👾 Envie mídia com *!figubug* para gerar um sticker lendário.');
 
-    await react(sock, msg, '👾');
+    react(sock, msg, '👾');
     try {
       const buffer = await mediaHandler.downloadFromMessage(srcMsg);
       const isAnimated = !!(srcMsg.message?.videoMessage || quoted?.videoMessage);
@@ -1127,16 +1127,16 @@ module.exports = {
 
       // Envia como sticker mas com flag de visualização única as vezes ou alta prioridade
       await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-      await react(sock, msg, '✨');
+      react(sock, msg, '✨');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, `❌ ${e.message}`);
     }
   },
 
   async figubug2({ sock, msg, ctx, args, config }) {
     const prompt = args.join(' ').trim() || `DARK BOT logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
-    await react(sock, msg, '🎨');
+    react(sock, msg, '🎨');
     try {
       const img = await ai.generateImage(prompt);
       const stk = await stickerMaker.create(img, {
@@ -1148,9 +1148,9 @@ module.exports = {
         ...(await getStickerWatermarkConfig(config, ctx)),
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ figubug2 falhou: ' + e.message);
     }
   },
@@ -1696,7 +1696,7 @@ module.exports = {
     const last = Number(parts[parts.length - 1]);
     const qtd = Math.min(Number.isFinite(last) && last > 0 ? last : 1, 5);
     const search = Number.isFinite(last) ? parts.slice(0, -1).join(' ') : q;
-    await react(sock, msg, '🔎');
+    react(sock, msg, '🔎');
 
     // 1.º — MyInstants (fonte viva de áudios meme em 2026)
     try {
@@ -1713,7 +1713,7 @@ module.exports = {
             await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', fileName: `${item.name || 'audiomeme'}.mp3`, ptt: true }, { quoted: msg });
           }
         }
-        await react(sock, msg, '✅');
+        react(sock, msg, '✅');
         return;
       }
     } catch (e) { console.log('[audiomeme] myinstants falhou:', e.message?.slice(0, 60)); }
@@ -1726,9 +1726,9 @@ module.exports = {
       for (const item of list) {
         await sock.sendMessage(ctx.remoteJid, { audio: { url: item.download_url }, mimetype: 'audio/mpeg', fileName: `${item.title || 'audiomeme'}.mp3`, ptt: false }, { quoted: msg });
       }
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return;
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '🔊 Nenhum áudio meme encontrado. Tenta outro termo (ex: audiomeme gato).'); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '🔊 Nenhum áudio meme encontrado. Tenta outro termo (ex: audiomeme gato).'); }
   },
   async ameme(a) { return module.exports.audiomeme(a); },
 
@@ -1738,7 +1738,7 @@ module.exports = {
     let [busca, qtd] = raw.split('|');
     busca = (busca || '').trim();
     const limite = Math.max(1, Math.min(10, Number(qtd) || 1));
-    await react(sock, msg, '🖼️');
+    react(sock, msg, '🖼️');
     try {
       const data = await mediaHandler.fetchJson(`https://systemzone.store/api/search/gimage2?query=${encodeURIComponent(busca)}&limite=${limite}&apikey=freekey`, 30000);
       const arr = data?.resultados || data?.results || [];
@@ -1746,21 +1746,21 @@ module.exports = {
       for (let i = 0; i < Math.min(arr.length, limite); i++) {
         await sock.sendMessage(ctx.remoteJid, { image: { url: arr[i].url }, caption: `╭━〔 🖼️ DARK IMAGE 〕━╮\n┃ Busca: ${busca}\n┃ ${i + 1}/${Math.min(arr.length, limite)}\n┃ ${arr[i].title || ''}\n╰━━━━━━━━━━━━╯` }, { quoted: msg });
       }
-      await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Não encontrei imagens.'); }
+      react(sock, msg, '✅');
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Não encontrei imagens.'); }
   },
   async img(a) { return module.exports.gimage(a); },
 
   async neymar({ sock, msg, ctx, args }) {
     const text = args.join(' ').trim();
     if (!text) return reply(sock, msg, ctx, '✍️ Use: neymar Salve família Dark');
-    await react(sock, msg, '✍️');
+    react(sock, msg, '✍️');
     try {
       const data = await mediaHandler.fetchJson(`https://systemzone.store/v1/placas/neymar-placa?texto=${encodeURIComponent(text)}`, 30000);
       if (!data?.status || !data?.imagem) throw new Error('API falhou');
       await sock.sendMessage(ctx.remoteJid, { image: { url: data.imagem }, caption: `╭━〔 ⚽ NEYMAR DARK 〕━╮\n┃ ${text}\n╰━━━━━━━━━━━━╯` }, { quoted: msg });
-      await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Erro ao gerar placa.'); }
+      react(sock, msg, '✅');
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Erro ao gerar placa.'); }
   },
   async placaneymar(a) { return module.exports.neymar(a); },
 
@@ -2847,7 +2847,7 @@ module.exports = {
       || quoted.imageMessage || quoted.videoMessage || quoted.audioMessage || quoted.documentMessage;
     if (!mediaMsg) return reply(sock, msg, ctx, '📁 Responde/envias uma mídia com este comando para fazer upload.');
     const name = args.join(' ').trim() || `media_${Date.now()}`;
-    await react(sock, msg, '⏳');
+    react(sock, msg, '⏳');
     try {
       const buf  = await mediaHandler.downloadFromMessage({ message: { imageMessage: mediaMsg, videoMessage: mediaMsg, audioMessage: mediaMsg } });
       if (!buf?.length) throw new Error('Mídia vazia');
@@ -2870,7 +2870,7 @@ module.exports = {
           { name, type, url: result.secure_url, publicId: result.public_id, size: result.bytes || 0 },
           { upsert: true, new: true }
         );
-        await react(sock, msg, '✅');
+        react(sock, msg, '✅');
         return reply(sock, msg, ctx, `✅ *Mídia guardada!*\n\n📂 Nome: *${name}*\n☁️ Cloudinary\n🔗 URL: ${result.secure_url}\n\nUsa: *!mediadown ${name}*`);
       }
       if (buf.length > 10 * 1024 * 1024) throw new Error('Mídia >10MB — a nuvem do bot aceita até 10MB (usa !compress ou configura o Cloudinary)');
@@ -2880,9 +2880,9 @@ module.exports = {
         { name, type: pick, mime, size: buf.length, data: buf, ownerNumber: ctx.senderNumber || '' },
         { upsert: true, new: true }
       );
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ *Mídia guardada!*\n\n📂 Nome: *${name}*\n🤖 Nuvem do bot (MongoDB)\n📦 ${(buf.length / 1024).toFixed(0)} KB\n\nUsa: *!mediadown ${name}*`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Upload falhou: ' + e.message); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Upload falhou: ' + e.message); }
   },
 
   async mediadown({ sock, msg, ctx, args }) {
@@ -2893,7 +2893,7 @@ module.exports = {
       const q = { name: { $regex: new RegExp('^' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } };
       const CloudMedia = require('../database/models/CloudMedia');
       const local = await CloudMedia.findOne(q).lean().catch(() => null);
-      await react(sock, msg, '⏳');
+      react(sock, msg, '⏳');
       if (local && local.data && local.data.length) {
         const buf = Buffer.from(local.data);
         const payload = local.type === 'image'
@@ -2904,7 +2904,7 @@ module.exports = {
           ? { audio: buf, mimetype: local.mime || 'audio/mpeg' }
           : { document: buf, fileName: local.name, mimetype: local.mime || 'application/octet-stream' };
         await sock.sendMessage(ctx.remoteJid, payload, { quoted: msg });
-        await react(sock, msg, '✅');
+        react(sock, msg, '✅');
         return;
       }
       const Media = require('../database/models/Media');
@@ -2918,8 +2918,8 @@ module.exports = {
         ? { audio: { url: media.url }, mimetype: 'audio/mpeg' }
         : { document: { url: media.url }, fileName: media.name };
       await sock.sendMessage(ctx.remoteJid, payload, { quoted: msg });
-      await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
+      react(sock, msg, '✅');
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
   },
 
   async medialist({ sock, msg, ctx, isOwner }) {
@@ -2945,7 +2945,7 @@ module.exports = {
   // Qualidade: 10-100 para imagens (padrão 60), 360/480/720 para vídeo
   async compress({ sock, msg, ctx, args, isOwner }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só o Dono.');
-    await react(sock, msg, '⏳');
+    react(sock, msg, '⏳');
     try {
       const compressor = require('./compressor');
       const mediaHandler = require('./mediaHandler');
@@ -2979,9 +2979,9 @@ module.exports = {
         await sock.sendMessage(ctx.remoteJid, { audio: compressed, mimetype: 'audio/mpeg', ptt: false, caption }, { quoted: msg });
       }
 
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ Compressão falhou: ' + e.message);
     }
   },
@@ -3040,7 +3040,7 @@ module.exports = {
       `╚═━═━═━═━═━═━═━═━═━═᳀`
     );
 
-    await react(sock, msg, '⏳');
+    react(sock, msg, '⏳');
 
     try {
       const SZ = 'https://api.siputzx.my.id/api';
@@ -3113,7 +3113,7 @@ module.exports = {
           content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
         }]}],
       });
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
 
     } catch (e) {
       // Fallback: envia individualmente
@@ -3130,11 +3130,11 @@ module.exports = {
             }, { quoted: msg });
             await new Promise(r => setTimeout(r, 500));
           }
-          await react(sock, msg, '✅');
+          react(sock, msg, '✅');
           return;
         }
       } catch {}
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ Pinterest falhou. Tente de novo.');
     }
   },
@@ -3144,7 +3144,7 @@ module.exports = {
     const localConfig = cfg || config;
     const url = args.join(' ').trim();
     if (!url || !/^https?/i.test(url)) return reply(sock, msg, ctx, `🎨 Uso: ${(cfg||config).bot.prefix}pinsticker <url da imagem>`);
-    await react(sock, msg, '⏳');
+    react(sock, msg, '⏳');
     try {
       const buf = await mediaHandler.fetchBuffer(url);
       if (!buf || buf.length < 500) throw new Error('imagem vazia');
@@ -3157,9 +3157,9 @@ module.exports = {
         full:      true,   // sfull — preenche formato completo sem cortar
       });
       await sock.sendMessage(ctx.remoteJid, { sticker: stk });
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ Falha ao criar sticker: ' + e.message);
     }
   },
@@ -3186,7 +3186,7 @@ module.exports = {
       ], { botName: localConfig.bot.name })
     );
 
-    await react(sock, msg, t.react || '⏳');
+    react(sock, msg, t.react || '⏳');
     // Título do PACOTE (como "Neymar" na imagem) — não o nome do canal
     const packName = String(query).replace(/\s+/g, ' ').trim().slice(0, 32) || 'DARK PACK';
     const wmMod = require('./stickerWm');
@@ -3303,13 +3303,13 @@ module.exports = {
         text: RE.renderBlock(t, 'PINPACKS', doneLines, { botName: localConfig.bot.name }),
       }, { quoted: msg });
 
-      await react(sock, msg, t.react || '✅');
+      react(sock, msg, t.react || '✅');
     } catch (e) {
       await sock.sendMessage(ctx.remoteJid, {
         text: RE.renderBlock(t, 'ERRO', ['❌ ' + e.message], { botName: localConfig.bot.name }),
         edit: progMsg.key,
       });
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
     }
   },
 
@@ -3319,7 +3319,7 @@ module.exports = {
     const packId = args[0]?.trim();
     if (!packId || !_packCache.has(packId)) return reply(sock, msg, ctx, '❌ Pack expirado. Usa !pinpacks <nome> para criar um novo.');
     const { stickers, info } = _packCache.get(packId);
-    await react(sock, msg, '📦');
+    react(sock, msg, '📦');
     for (let i = 0; i < stickers.length; i++) {
       await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i], packId: packId, isPremium: false });
       // Sem delay — WhatsApp agrupa como pack instantaneamente
@@ -3334,7 +3334,7 @@ module.exports = {
   async pinvd({ sock, msg, ctx, args }) {
     const query = args.join(' ').trim();
     if (!query) return reply(sock, msg, ctx, '🎬 Use: !pinvd <nome>\nEx: !pinvd anime fight scene');
-    await react(sock, msg, '⏳');
+    react(sock, msg, '⏳');
     try {
       const results = await downloader.pinterestSearch(query);
       if (!results?.length) throw new Error('Sem resultados');
@@ -3347,7 +3347,7 @@ module.exports = {
           const r = await downloader.pinterest(firstUrl);
           if (r?.url) {
             await sendVideoFromUrl(sock, ctx.remoteJid, r.buffer || r.url, `🎬 *${query}*`, msg, { title: query });
-            await react(sock, msg, '✅'); return;
+            react(sock, msg, '✅'); return;
           }
         }
         throw new Error('Nenhum vídeo MP4 encontrado. Tenta com url directa: !pinmp4 <url>');
@@ -3356,8 +3356,8 @@ module.exports = {
         await sendVideoFromUrl(sock, ctx.remoteJid, vid.url, `🎬 *${query}*`, msg, { title: query });
         await new Promise(r => setTimeout(r, 800));
       }
-      await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
+      react(sock, msg, '✅');
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ ' + e.message); }
   },
 
   // !rank — ranking geral de aura/coins do grupo
@@ -3436,7 +3436,7 @@ module.exports = {
     const episode = parts[1] || '1';
     const lang = parts[2] || 'pt-BR';
     if (!query) return reply(sock, msg, ctx, '📺 Informe o nome do anime. Ex: animedl Naruto | 1');
-    await react(sock, msg, '📺');
+    react(sock, msg, '📺');
     try {
       const apiUrl = fillAnimeApiTemplate(tpl, { query, episode, lang });
       const data = await mediaHandler.fetchJson(apiUrl, 45000);
@@ -3455,9 +3455,9 @@ module.exports = {
       } else {
         await sendVideoFromUrl(sock, ctx.remoteJid, mediaUrl, caption, msg, { title, safeMp4: false });
       }
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, `❌ Anime download falhou: ${e.message}\nVerifique se a API retorna JSON com link MP4/M3U8.`);
     }
   },
@@ -3595,13 +3595,13 @@ module.exports = {
     if (!AUDIO_EFFECTS[effect]) return module.exports.menuaudio({ sock, msg, ctx });
     const src = getQuotedAudioMessage(msg);
     if (!src) return reply(sock, msg, ctx, `🎧 Responda/marque um áudio com *${effect}*.`);
-    await react(sock, msg, '🎛️');
+    react(sock, msg, '🎛️');
     try {
       const input = await mediaHandler.downloadFromMessage(src);
       const out = await processAudioEffect(input, AUDIO_EFFECTS[effect], effect);
       await sock.sendMessage(ctx.remoteJid, { audio: out, mimetype: 'audio/mpeg', fileName: `dark-${effect}.mp3`, ptt: false }, { quoted: msg });
-      await react(sock, msg, '✅');
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, `❌ Efeito falhou: ${e.message}`); }
+      react(sock, msg, '✅');
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, `❌ Efeito falhou: ${e.message}`); }
   },
   async bass(a) { a.args = ['bass', ...(a.args || [])]; return module.exports.audiofx(a); },
   async bass2(a) { a.args = ['bass2', ...(a.args || [])]; return module.exports.audiofx(a); },
@@ -3690,7 +3690,7 @@ module.exports = {
   async anime({ sock, msg, ctx, args }) {
     const query = args.join(' ').trim();
     if (!query) return reply(sock, msg, ctx, '❌ Digite o nome do anime.\nEx: anime Naruto');
-    await react(sock, msg, '📺');
+    react(sock, msg, '📺');
     try {
       const data = await mediaHandler.fetchJson(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=1`, 20000);
       const anime = data?.data?.[0];
@@ -3731,10 +3731,10 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
       const img = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || anime.images?.webp?.large_image_url;
       if (img) await sock.sendMessage(ctx.remoteJid, { image: { url: img }, caption: msgTxt }, { quoted: msg });
       else await reply(sock, msg, ctx, msgTxt);
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
       console.error('[ANIME]', e.message);
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ Erro ao buscar anime. Tente outro nome.');
     }
   },
@@ -3744,7 +3744,7 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
   async animeeps({ sock, msg, ctx, args }) {
     const query = args.join(' ').trim();
     if (!query) return reply(sock, msg, ctx, '📺 Use: animeeps Naruto\nMostra episódios/lista legal via MyAnimeList/Jikan.');
-    await react(sock, msg, '📺');
+    react(sock, msg, '📺');
     try {
       const search = await mediaHandler.fetchJson(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=1`, 20000);
       const anime = search?.data?.[0];
@@ -3764,9 +3764,9 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
       const img = anime.images?.jpg?.image_url || anime.images?.webp?.image_url;
       if (img) await sock.sendMessage(ctx.remoteJid, { image: { url: img }, caption: text }, { quoted: msg });
       else await reply(sock, msg, ctx, text);
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
     } catch (e) {
-      await react(sock, msg, '❌');
+      react(sock, msg, '❌');
       return reply(sock, msg, ctx, '❌ Erro ao buscar episódios do anime.');
     }
   },
@@ -3788,19 +3788,19 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
     const text = args.join(' ').trim();
     if (!text) return reply(sock, msg, ctx, '📘 Use: fbpost sua legenda/texto');
-    await react(sock, msg, '📘');
+    react(sock, msg, '📘');
     try {
       const r = await facebookPublisher.publishText(text);
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ Post publicado no Facebook.\n${facebookPublisher.resultLink(r)}`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook post falhou: ' + e.message); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook post falhou: ' + e.message); }
   },
 
   async fbfoto({ sock, msg, ctx, args, isOwner }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
     const caption = args.join(' ').trim();
     const urlArg = args.find(a => /^https?:\/\//i.test(a));
-    await react(sock, msg, '📸');
+    react(sock, msg, '📸');
     try {
       let payload = { caption };
       if (urlArg) payload.url = urlArg;
@@ -3810,9 +3810,9 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
         payload.buffer = media.buffer; payload.fileName = 'dark-facebook-photo.jpg';
       }
       const r = await facebookPublisher.publishPhoto(payload);
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ Foto publicada no Facebook.\n${facebookPublisher.resultLink(r)}`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook foto falhou: ' + e.message); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook foto falhou: ' + e.message); }
   },
   async fbphoto(a) { return module.exports.fbfoto(a); },
 
@@ -3820,7 +3820,7 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
     const description = args.join(' ').trim();
     const urlArg = args.find(a => /^https?:\/\//i.test(a));
-    await react(sock, msg, '🎬');
+    react(sock, msg, '🎬');
     try {
       let payload = { description };
       if (urlArg) payload.url = urlArg;
@@ -3830,16 +3830,16 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
         payload.buffer = media.buffer; payload.fileName = 'dark-facebook-video.mp4';
       }
       const r = await facebookPublisher.publishVideo(payload);
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ Vídeo publicado no Facebook.\n${facebookPublisher.resultLink(r)}`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook vídeo falhou: ' + e.message); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook vídeo falhou: ' + e.message); }
   },
 
   async fbstory({ sock, msg, ctx, args, isOwner }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
     const caption = args.join(' ').trim();
     const urlArg = args.find(a => /^https?:\/\//i.test(a));
-    await react(sock, msg, '📲');
+    react(sock, msg, '📲');
     try {
       let r;
       if (urlArg) {
@@ -3852,9 +3852,9 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
           ? await facebookPublisher.publishVideoStory({ description: caption, buffer: media.buffer })
           : await facebookPublisher.publishPhotoStory({ caption, buffer: media.buffer });
       }
-      await react(sock, msg, '✅');
+      react(sock, msg, '✅');
       return reply(sock, msg, ctx, `✅ Story enviado/tentado no Facebook.\n${facebookPublisher.resultLink(r)}${r.storyWarning ? '\n⚠️ Story endpoint avisou: ' + r.storyWarning : ''}`);
-    } catch (e) { await react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook story falhou: ' + e.message); }
+    } catch (e) { react(sock, msg, '❌'); return reply(sock, msg, ctx, '❌ Facebook story falhou: ' + e.message); }
   },
 
   async fbstatus({ sock, msg, ctx, isOwner }) {

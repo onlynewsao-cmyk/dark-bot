@@ -99,7 +99,7 @@ module.exports = function registerIncomingTools(registerCase) {
     if (midia.buf.length > 100 * 1024 * 1024) return m.reply('❌ Mídia demasiado grande (máx. 100 MB).');
     const mime = midia.inner?.mimetype || 'application/octet-stream';
     const { name } = extDe(mime, midia.inner);
-    await m.react('⏳');
+    m.react('⏳');
     // 1) catbox.moe (sem key) 2) 0x0.st (sem key)
     const tentativas = [
       async () => {
@@ -127,11 +127,11 @@ module.exports = function registerIncomingTools(registerCase) {
     for (const up of tentativas) {
       try {
         const url = await up();
-        await m.react('✅');
+        m.react('✅');
         return m.reply(`🔗 *TO URL*\n\n${url}\n\n📦 ${(midia.buf.length / 1024).toFixed(0)} KB • ${mime}`);
       } catch {}
     }
-    await m.react('❌');
+    m.react('❌');
     return m.reply('❌ Falha ao enviar para os hosts gratuitos. Tenta novamente.');
   });
 
@@ -154,7 +154,7 @@ module.exports = function registerIncomingTools(registerCase) {
       return m.reply('*Responde à mensagem de alguém para usar este comando!*');
     }
     try {
-      await m.react('🎭');
+      m.react('🎭');
       const msgId = 'BAE5' + crypto.randomBytes(13).toString('hex').toUpperCase();
       await sock.sendMessage(m.chat, { text: resposta }, {
         quoted: {
@@ -162,10 +162,10 @@ module.exports = function registerIncomingTools(registerCase) {
           message: { conversation: textoFake },
         },
       });
-      await m.react('✅');
+      m.react('✅');
     } catch (e) {
       console.error('[fakechat]', e.message?.slice(0, 80));
-      await m.react('❌');
+      m.react('❌');
       return m.reply('*Erro ao criar fake chat.*');
     }
   });
@@ -182,7 +182,7 @@ module.exports = function registerIncomingTools(registerCase) {
     ['Vénus gira ao contrário', 'É o único planeta que roda no sentido horário visto de cima.'],
   ];
   registerCase(['fdc', 'fatos', 'curiosidade'], async ({ m, sock, msg }) => {
-    await m.react('🤔');
+    m.react('🤔');
     try {
       const axios = require('axios');
       const { data } = await axios.get('https://zone.api.br/api/fatosdesconhecidos', { timeout: 25000 });
@@ -194,11 +194,11 @@ module.exports = function registerIncomingTools(registerCase) {
       } else {
         await m.reply(legenda);
       }
-      await m.react('☝️');
+      m.react('☝️');
     } catch (e) {
       const [titulo, conteudo] = FATOS_OFFLINE[Math.floor(Math.random() * FATOS_OFFLINE.length)];
       await m.reply(`╔━᳀『 *FATOS DESCONHECIDOS* (offline) 』═᳀\n\n⌬ *${titulo}*\n\n${conteudo}\n\n╚━═━═━═━═━═━═━═━═━═᳀`);
-      await m.react('☝️');
+      m.react('☝️');
     }
   });
 
@@ -209,7 +209,7 @@ module.exports = function registerIncomingTools(registerCase) {
     const pergunta = partes[0];
     const imagemUrl = partes[1] || null;
     if (!pergunta) return m.reply(`Uso: ${prefix}${command} <pergunta>`);
-    await m.react('🤔');
+    m.react('🤔');
     try {
       const axios = require('axios');
       const params = { apikey: zoneKey(), text: pergunta };
@@ -217,7 +217,7 @@ module.exports = function registerIncomingTools(registerCase) {
       const { data } = await axios.get('https://zone.api.br/api/ia/grok-4-5', { params, timeout: 60000 });
       if (data?.status && data?.text) {
         await sock.sendMessage(m.chat, { text: String(data.text).slice(0, 4000) }, { quoted: msg });
-        await m.react('✅');
+        m.react('✅');
         return;
       }
       throw new Error('API sem resposta');
@@ -230,9 +230,9 @@ module.exports = function registerIncomingTools(registerCase) {
       const out = typeof r === 'string' ? r : (r?.text || r?.reply || '');
       if (!out) throw new Error('IA sem resposta');
       await sock.sendMessage(m.chat, { text: `🤖 *Grok (fallback DARK)*\n\n${String(out).slice(0, 4000)}` }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
     } catch (e2) {
-      await m.react('❌');
+      m.react('❌');
       return m.reply('❌ Erro no Grok. Tenta novamente.');
     }
   });
@@ -244,7 +244,7 @@ module.exports = function registerIncomingTools(registerCase) {
     }
     const [large, small] = text.split('|').map(s => s?.trim());
     if (!large || !small) return m.reply('❌ Usa o formato:\nTexto grande|Texto pequeno');
-    await m.react('🎵');
+    m.react('🎵');
     try {
       const axios = require('axios');
       const sz = systemzone();
@@ -257,10 +257,10 @@ module.exports = function registerIncomingTools(registerCase) {
         image: { url: data.imagem },
         caption: `🎵 *PHOTO OXY TIKTOK*\n\n🔰 Texto principal: ${large}\n🔹 Texto secundário: ${small}`,
       }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
     } catch (e) {
       console.error('[tiktokphoto]', e.message?.slice(0, 80));
-      await m.react('❌');
+      m.react('❌');
       return m.reply('❌ Erro ao criar TikTok.');
     }
   });
@@ -270,7 +270,7 @@ module.exports = function registerIncomingTools(registerCase) {
     if (!text?.trim()) {
       return m.reply('❌ Diz o que queres transformar em PDF.\n\nExemplo:\n.pdf Cria um currículo para João, 20 anos, com experiência em programação');
     }
-    await m.react('⏳');
+    m.react('⏳');
     let conteudo;
     try {
       const ai = require('../ai');
@@ -282,7 +282,7 @@ module.exports = function registerIncomingTools(registerCase) {
       conteudo = (typeof r === 'string' ? r : (r?.text || r?.reply || '')).toString().trim();
       if (!conteudo) throw new Error('IA sem conteúdo');
     } catch (e) {
-      await m.react('❌');
+      m.react('❌');
       return m.reply('❌ Não foi possível gerar o conteúdo.');
     }
     const limpo = conteudo
@@ -301,7 +301,7 @@ module.exports = function registerIncomingTools(registerCase) {
           fileName: `documento_${Date.now()}.txt`,
           caption: '📄 PDF indisponível neste servidor — segue em TXT.',
         }, { quoted: msg });
-        await m.react('✅');
+        m.react('✅');
         return;
       }
       const doc = new PDFDocument({ size: 'A4', margins: { top: 50, bottom: 50, left: 50, right: 50 } });
@@ -319,10 +319,10 @@ module.exports = function registerIncomingTools(registerCase) {
         document: pdfBuf, mimetype: 'application/pdf', fileName: nome,
         caption: '📄 PDF gerado com sucesso!',
       }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
     } catch (e) {
       console.error('[pdf]', e.message?.slice(0, 80));
-      await m.react('❌');
+      m.react('❌');
       return m.reply('❌ Erro ao criar o PDF.');
     }
   });
@@ -337,7 +337,7 @@ module.exports = function registerIncomingTools(registerCase) {
     }
     if (midia.buf.length > 5 * 1024 * 1024) return m.reply('❌ Imagem demasiado grande! Máximo 5 MB.');
     await m.reply('⏳ A processar imagem...');
-    await m.react('⏳');
+    m.react('⏳');
     async function enhance(buf, method) {
       const form = new FormData();
       form.append('model_version', '1');
@@ -358,10 +358,10 @@ module.exports = function registerIncomingTools(registerCase) {
       try { out = await enhance(midia.buf, method); }
       catch { out = await enhance(midia.buf, 'recolor'); } // fallback do snippet original
       await sock.sendMessage(m.chat, { image: out, caption: '✨ Qualidade melhorada!' }, { quoted: msg });
-      await m.react('✅');
+      m.react('✅');
     } catch (e) {
       console.error('[upscale]', e.message?.slice(0, 80));
-      await m.react('❌');
+      m.react('❌');
       return m.reply('❌ Falha ao processar a imagem. Tenta outra foto.');
     }
   }
@@ -381,7 +381,7 @@ module.exports = function registerIncomingTools(registerCase) {
     }
     s.images.push(midia.buf);
     editTouch(userId);
-    await m.react('✅');
+    m.react('✅');
     return m.reply(
       `╔━᳀『 *Seleção de Imagens* 』═᳀\n` +
       `⌬ *Imagem ${s.images.length} adicionada!*\n` +
@@ -396,7 +396,7 @@ module.exports = function registerIncomingTools(registerCase) {
     const s = editSessions.get(userId);
     if (s?.timer) clearTimeout(s.timer);
     editSessions.delete(userId);
-    await m.react('🗑️');
+    m.react('🗑️');
     return m.reply('Seleção de imagens limpa!');
   });
 
@@ -415,7 +415,7 @@ module.exports = function registerIncomingTools(registerCase) {
     }
     const prompt = String(text || '').trim();
     if (!prompt) return m.reply(`Diz o que queres editar!\nExemplo: *${prefix}edit faz ela sorrir*`);
-    await m.react('🤔');
+    m.react('🤔');
     let proc = null;
     try { proc = await sock.sendMessage(m.chat, { text: '*A iniciar edição...*' }, { quoted: msg }); } catch {}
     async function progresso(t) {
@@ -462,10 +462,10 @@ module.exports = function registerIncomingTools(registerCase) {
         image: { url: result.imagem },
         caption: `╔━᳀『 *DARK EDIT* 』═᳀\n⌬ *Imagens usadas:* ${usadas.length}\n⌬ *Prompt:* ${prompt.slice(0, 200)}\n╚━═━═━═━═━═━═━═━═━═᳀`,
       }, { quoted: msg });
-      await m.react('😮‍💨');
+      m.react('😮‍💨');
     } catch (e) {
       console.error('[edit]', e.message?.slice(0, 80));
-      await m.react('👎');
+      m.react('👎');
       return m.reply('Erro ao editar imagem: ' + (e?.message || 'tenta novamente'));
     }
   });
@@ -480,14 +480,14 @@ module.exports = function registerIncomingTools(registerCase) {
     if (!/^\d+$/.test(uid)) return m.reply('🫣 Isso não parece um ID válido... usa só números!');
     const token = nyxToken();
     if (!token) return m.reply('⚠️ Serviço Free Fire não configurado.\nO dono precisa definir *NYX_FF_TOKEN* no servidor.');
-    await m.react('⏳');
+    m.react('⏳');
     try {
       const axios = require('axios');
       const { data } = await axios.get('https://nyxlikesff.store/info', {
         params: { uid, token }, timeout: 25000,
       });
       if (data?.status === 'erro') {
-        await m.react('❌');
+        m.react('❌');
         return m.reply(`💔 *Não consegui consultar...*\n\n_${data.mensagem || data.message || 'Algo correu mal.'}_`);
       }
       const fmt = (n) => Number(n ?? 0).toLocaleString('pt-BR');
@@ -507,10 +507,10 @@ module.exports = function registerIncomingTools(registerCase) {
         (data.biography ? `\n📝 *Bio:* ${data.biography}` : '') +
         `\n\n━━━━━━━━━━━━━━━━\n🕸️ *DARK BOT*`
       );
-      await m.react('💖');
+      m.react('💖');
     } catch (e) {
       console.error('[infoff]', e.message?.slice(0, 80));
-      await m.react('❌');
+      m.react('❌');
       return m.reply('😵 Falha ao consultar. Tenta mais tarde!');
     }
   });
@@ -547,7 +547,7 @@ module.exports = function registerIncomingTools(registerCase) {
           `├ ⭐ *Enviados:* +${enviadas.toLocaleString('pt-BR')}\n` +
           `└ 🔥 *Depois:* ${depois.toLocaleString('pt-BR')}\n\n━━━━━━━━━━━━━━━━\n🕸️ *DARK BOT*`
         );
-        await m.react('💖');
+        m.react('💖');
         return;
       }
       return m.reply('💔 Ops... algo correu mal. Tenta de novo! 🥺');

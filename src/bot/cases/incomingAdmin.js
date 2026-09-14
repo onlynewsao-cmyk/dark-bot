@@ -75,7 +75,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     };
     try {
       await sock.sendMessage(ctx.remoteJid, { delete: key });
-      await m.react('🗑️');
+      m.react('🗑️');
       return m.reply('🗑️ Status apagado.');
     } catch (e) {
       console.error('[delstts]', e.message?.slice(0, 80));
@@ -93,7 +93,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     const hora = parseHora(args[0]);
     if (!hora) return m.reply(`*Formato inválido, usa HH:MM* ❌\nExemplo: ${prefix}${command} ${kind === 'abertura' ? '06:00' : '23:00'}`);
     await setGS(ctx.remoteJid, kind === 'abertura' ? { aberturaHora: hora } : { fechamentoHora: hora });
-    await m.react('⏰');
+    m.react('⏰');
     return m.reply(kind === 'abertura'
       ? `*🔓 O grupo vai ABRIR às ${hora}* (Luanda, todos os dias)`
       : `*🔒 O grupo vai FECHAR às ${hora}* (Luanda, todos os dias)`);
@@ -116,7 +116,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     try { admin = isOwner || await isAdminFn(); } catch {}
     if (!admin) return m.reply('🚫 Precisas ser *administrador*.');
     await setGS(ctx.remoteJid, { aberturaHora: '', fechamentoHora: '' });
-    await m.react('✅');
+    m.react('✅');
     return m.reply('🗑️ Horários de abrir/fechar *removidos*.');
   });
 
@@ -136,14 +136,14 @@ module.exports = function registerIncomingAdmin(registerCase) {
         return m.reply('❌ Preciso ser *administrador* do grupo (a punição é ban).');
       }
       await setGS(ctx.remoteJid, { antifoba: ligar });
-      await m.react(ligar ? '✅' : '🚫');
+      m.react(ligar ? '✅' : '🚫');
       return m.reply(ligar
         ? `🟢 *ANTI-FOBADOS ATIVADO*\n\nDivulgação oculta = apaga + bane.\nDDIs na blacklist: ${(gs?.fobaBlacklist?.length ? gs.fobaBlacklist.join(', ') : '63')}`
         : '🔴 *ANTI-FOBADOS DESATIVADO*');
     }
     if (['off', 'desativar', 'desligar', '0'].includes(acao)) {
       await setGS(ctx.remoteJid, { antifoba: false });
-      await m.react('🚫');
+      m.react('🚫');
       return m.reply('🔴 *ANTI-FOBADOS DESATIVADO*');
     }
     const lista = gs?.fobaBlacklist?.length ? gs.fobaBlacklist.join(', ') : '63 (padrão)';
@@ -204,7 +204,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
       if (!ligar) {
         try { require('../autoApresentar').cancelarPendenciasDoGrupo(ctx.remoteJid); } catch {}
       }
-      await m.react(ligar ? '✅' : '🚫');
+      m.react(ligar ? '✅' : '🚫');
       const autoAP = require('../autoApresentar');
       return m.reply(ligar
         ? `🟢 *AUTO-APRESENTAÇÃO ATIVADA*\n\n⏰ Prazo: ${autoAP.PRAZO_MINUTOS} minutos\n🔔 Alertas: a cada 1 minuto\n🚫 Punição: remoção automática`
@@ -213,7 +213,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     if (['off', 'desativar', 'desligar', '0'].includes(acao)) {
       await setGS(ctx.remoteJid, { autoapresentar: false });
       try { require('../autoApresentar').cancelarPendenciasDoGrupo(ctx.remoteJid); } catch {}
-      await m.react('🚫');
+      m.react('🚫');
       return m.reply('🔴 *AUTO-APRESENTAÇÃO DESATIVADA*');
     }
     const autoAP = require('../autoApresentar');

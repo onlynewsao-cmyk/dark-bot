@@ -26,17 +26,17 @@ module.exports = function registerChamadaVoz(registerCase) {
     if (!isOwner) return reply('Ligar só quando o Dark pede. 😌 Mas podes mandar-me áudio que eu respondo.');
     if (voip.activa(ctx.remoteJid)) return reply('Já estamos em chamada. Diz *' + prefix + 'tocar <música>* ou *' + prefix + 'desligar*.');
 
-    await react('📞');
+    react('📞');
     const aviso = await sock.sendMessage(ctx.remoteJid, { text: grupo ? 'A ligar para o grupo… entrem! 📞 (máx. 6 pessoas)' : 'A ligar… atende aí! 📞' }, { quoted: msg });
     const r = await voip.ligar(sock, ctx.remoteJid);
     const editar = (t) => sock.sendMessage(ctx.remoteJid, { text: t, edit: aviso?.key }).catch(() => sock.sendMessage(ctx.remoteJid, { text: t }));
 
     if (!r.ok) {
-      await react('❌');
+      react('❌');
       if (/noutra chamada|limite|espera \d+s/.test(r.motivo)) return editar('Calma, Dark 😅 ' + r.motivo + '. É para não levarmos restrição outra vez.');
       return editar(/atendeu|recusou/.test(r.motivo) ? 'Não atendeste… fica para a próxima. 😕' : 'Não consegui ligar agora. ' + (isOwner ? '(' + r.motivo + ')' : ''));
     }
-    await react('✅');
+    react('✅');
     await editar((grupo ? 'Chamada de grupo aberta! ' : 'Estou na chamada! 🎧 ') + `Pede uma música com *${prefix}tocar nome* ou diz-me o que quiseres ouvir. *${prefix}desligar* para terminar.`);
     // ela cumprimenta na própria chamada
     try {
@@ -48,18 +48,18 @@ module.exports = function registerChamadaVoz(registerCase) {
   registerCase(['tocar', 'tocarcall', 'playcall', 'calltocar'], async ({ sock, msg, ctx, text, reply, react, prefix }) => {
     if (!voip.activa(ctx.remoteJid)) return reply(`Primeiro liga-me: *${prefix}call*. Depois é só pedir a música. 📞`);
     if (!text) return reply(`Qual música? Ex: *${prefix}tocar Shakira Waka Waka*`);
-    await react('🔎');
+    react('🔎');
     const st = await sock.sendMessage(ctx.remoteJid, { text: `A procurar "${text}"… um segundo. 🎵` }, { quoted: msg });
     const editar = (t) => sock.sendMessage(ctx.remoteJid, { text: t, edit: st?.key }).catch(() => sock.sendMessage(ctx.remoteJid, { text: t }));
     try {
       const r = await voip.tocarMusica(sock, ctx.remoteJid, text);
-      if (!r.ok) { await react('❌'); return editar(/achei/.test(r.motivo) ? 'Não achei essa música. Tenta com o nome do artista. 😕' : /activa|ligada/.test(r.motivo) ? 'A chamada caiu. Liga outra vez com *' + prefix + 'call*.' : 'Não consegui tocar essa agora.'); }
-      await react('🎶');
+      if (!r.ok) { react('❌'); return editar(/achei/.test(r.motivo) ? 'Não achei essa música. Tenta com o nome do artista. 😕' : /activa|ligada/.test(r.motivo) ? 'A chamada caiu. Liga outra vez com *' + prefix + 'call*.' : 'Não consegui tocar essa agora.'); }
+      react('🎶');
       const m = Math.floor((r.dur || 0) / 60), s = String((r.dur || 0) % 60).padStart(2, '0');
       await editar(`🎶 A tocar agora: *${r.titulo}*${r.dur ? ` (${m}:${s})` : ''}\n\n*${prefix}pararmusica* para parar · *${prefix}tocar outra* para trocar`);
     } catch (e) {
       console.warn('[tocar]', e.message?.slice(0, 80));
-      await react('❌');
+      react('❌');
       await editar('Deu erro a tocar. Vê se a chamada ainda está ligada e tenta outra música.');
     }
   });
@@ -67,16 +67,16 @@ module.exports = function registerChamadaVoz(registerCase) {
   registerCase(['fala', 'falacall', 'dizcall', 'falanacall'], async ({ sock, ctx, text, reply, react, prefix }) => {
     if (!voip.activa(ctx.remoteJid)) return reply(`Não estou em chamada aqui. *${prefix}call* primeiro.`);
     if (!text) return reply(`O que queres que eu diga na chamada? Ex: *${prefix}fala bom dia a todos*`);
-    await react('🗣️');
+    react('🗣️');
     const r = await voip.falar(sock, ctx.remoteJid, text);
     if (!r.ok) return reply('Não consegui falar agora — a chamada ainda está ligada?');
-    await react('✅');
+    react('✅');
   });
 
   registerCase(['pararmusica', 'paramusica', 'stopcall', 'pausa', 'para'], async ({ sock, ctx, reply, react, prefix }) => {
     if (!voip.activa(ctx.remoteJid)) return reply('Não há nada a tocar — não estamos em chamada.');
     voip.parar(sock, ctx.remoteJid);
-    await react('⏹️');
+    react('⏹️');
     return reply(`Parei. Queres outra? *${prefix}tocar nome* 🎵`);
   }, true);
 
@@ -87,7 +87,7 @@ module.exports = function registerChamadaVoz(registerCase) {
       return reply('Não estamos em chamada.');
     }
     await voip.desligar(sock, ctx.remoteJid);
-    await react('📴');
+    react('📴');
     return reply('Desliguei. Foi bom ouvir-te. 🖤');
   }, true);
 
