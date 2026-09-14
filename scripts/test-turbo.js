@@ -371,6 +371,27 @@ Module.prototype.require = function (id) {
   await collected.get('likesff')({ m: { reply: async t => { likeGot = t; } }, text: '', prefix: '!', command: 'likesff' });
   C('likesff: sem UID mostra uso', /ENVIAR LIKES FF/.test(likeGot) && likeGot.includes('likesff'), likeGot.slice(0, 80));
 
+  // ── 18. v7.63: Aura de volta (IA viva + revoltada) ──
+  const AI = require('../src/bot/ai.js');
+  C('ia: groq sem llamas mortas', !AI.GROQ_MODELS.some(m => /llama-3\.[13]-/.test(m)));
+  C('ia: groq gpt-oss primeiro', AI.GROQ_MODELS[0] === 'openai/gpt-oss-120b');
+  C('ia: gemini 3.7 no topo', AI.GEMINI_MODELS[0] === 'gemini-3.7-flash');
+  C('ia: openai ligado', typeof AI.chatOpenAI === 'function' && AI.OPENAI_MODELS.includes('gpt-4o-mini'));
+  const cfgIA = require('../src/config.js');
+  const temChaveIA = ['groqApiKey', 'geminiApiKey', 'openrouterApiKey', 'openaiApiKey', 'huggingfaceKey', 'cerebrasApiKey', 'apifreellmKey'].some(k => cfgIA.ai[k]);
+  if (temChaveIA) C('ia: sem chave diz Northflank', true, 'skip (há chaves)');
+  else { const msc = await AI.chat('ping'); C('ia: sem chave diz Northflank', msc.includes('Northflank') && !msc.includes('Render'), msc.slice(0, 60)); }
+  const AH = require('../src/aura/auraHuman.js');
+  AH.setMood('revoltada', 'teste', 'g-turbo@s.whatsapp.net');
+  const moodR = AH.getMood('g-turbo@s.whatsapp.net');
+  C('aura: revoltada válida', moodR.mood === 'revoltada' && moodR.intensity === 8);
+  AH.setMood('humor_que_nao_existe', '', 'g-turbo2@s.whatsapp.net');
+  C('aura: inválido cai normal', AH.getMood('g-turbo2@s.whatsapp.net').mood === 'normal');
+  AH.clearMood('g-turbo@s.whatsapp.net');
+  C('aura: clearMood limpa', AH.getMood('g-turbo@s.whatsapp.net').mood === 'normal');
+  const promptR = AH.buildAuraSystemPrompt({ userName: 'Teste', mood: 'revoltada' });
+  C('aura: prompt revoltada', promptR.includes('REVOLTADA'));
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

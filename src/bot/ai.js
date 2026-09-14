@@ -12,15 +12,16 @@ const botConfigCache = require('./botConfigCache');
 // ─────────────────────────────────────────────
 // MODELOS (Julho 2026)
 // ─────────────────────────────────────────────
-// v6.42: testados contra a API real.
-//   gemma2-9b-it                              → decommissioned
-//   meta-llama/llama-4-scout-17b-16e-instruct → does not exist
+// v7.63: 16/08/2026 a Groq reformou os Llama (404) — substitutos oficiais:
+//   llama-3.3-70b-versatile → openai/gpt-oss-120b ou qwen/qwen3.6-27b
+//   llama-3.1-8b-instant    → openai/gpt-oss-20b
+// Catálogo vivo (console.groq.com/docs/deprecations, 09/2026).
 const GROQ_MODELS = [
-  'llama-3.3-70b-versatile',   // ✅ o que melhor segue instruções
-  'llama-3.1-8b-instant',      // ✅ mais rápido
-  'openai/gpt-oss-120b',       // ✅
-  'openai/gpt-oss-20b',        // ✅
-  'qwen/qwen3.6-27b',          // ✅
+  'openai/gpt-oss-120b',       // ✅ principal (substitui o 70b)
+  'openai/gpt-oss-20b',        // ✅ mais rápido (substitui o 8b)
+  'qwen/qwen3.6-27b',          // ✅ alternativa Groq
+  'qwen/qwen3.8-27b',          // ✅ catálogo actual
+  'groq/compound-mini',        // ✅ catálogo actual
 ];
 // v6.41: modelos actualizados — os antigos deixaram de existir nesta chave.
 //   gemini-1.5-flash → 404 (removido da v1beta)
@@ -29,11 +30,19 @@ const GROQ_MODELS = [
 // Os aliases "-latest" apontam sempre para a versão estável actual e não
 // partem quando a Google reforma um modelo. Testados: HTTP 200.
 const GEMINI_MODELS = [
-  'gemini-flash-latest',       // ✅ principal
-  'gemini-3.5-flash',          // ✅ fallback
+  'gemini-3.7-flash',          // ✅ v7.63: GA 13/08/2026 (workhorse actual)
+  'gemini-3.6-flash',          // ✅ v7.63: GA 21/07/2026
+  'gemini-flash-latest',       // ✅ alias → 3.5 (05/2026)
+  'gemini-3.5-flash',          // ✅ GA 19/05/2026
   'gemini-flash-lite-latest',  // ✅ mais leve/rápido
   'gemini-3.5-flash-lite',     // ✅
-  'gemini-2.0-flash',          // ⚠️ quota esgotada — fica por último
+];
+// v7.63: gemini-2.0-flash removido (quota esgotada; o discovery volta
+// a pô-lo se reviver na API). Changelog: ai.google.dev/gemini-api/docs/changelog
+// v7.63: OpenAI (a chave existia no config mas NUNCA era usada!)
+const OPENAI_MODELS = [
+  'gpt-4o-mini',               // ✅ barato e rápido
+  'gpt-4o',                    // ✅ fallback
 ];
 // v6.42: nomes corrigidos (os antigos nem existiam na conta).
 // ⚠️ A conta Cerebras devolve HTTP 402 "Payment required" em TODOS os
@@ -441,12 +450,35 @@ async function chatRouter(messages, system) {
     temperature: 0.75, max_tokens: 2000,
   }, {
     Authorization: `Bearer ${config.ai.openrouterApiKey}`,
-    'HTTP-Referer': config.appUrl || 'https://render.com',
+    'HTTP-Referer': config.appUrl || 'https://northflank.com',
     'X-Title': config.bot.name || 'DARK BOT',
   });
   const out = data.choices?.[0]?.message?.content;
   if (!out) throw new Error('sem resposta');
   return stripThinking(out);
+}
+
+// ─────────────────────────────────────────────
+// OPENAI (v7.63 — a chave existia, a função não)
+// ─────────────────────────────────────────────
+async function chatOpenAI(messages, system) {
+  if (!config.ai.openaiApiKey) throw new Error('sem chave');
+  let lastErr;
+  for (const model of OPENAI_MODELS) {
+    try {
+      const data = await post('https://api.openai.com/v1/chat/completions', {
+        model,
+        messages: [{ role: 'system', content: system }, ...messages],
+        temperature: 0.75, max_tokens: 2000,
+      }, { Authorization: `Bearer ${config.ai.openaiApiKey}` });
+      const out = data.choices?.[0]?.message?.content;
+      if (out) return stripThinking(out);
+    } catch (e) {
+      lastErr = e;
+      if (/401|invalid.*key/i.test(e.message)) break;
+    }
+  }
+  throw lastErr || new Error('sem resposta');
 }
 
 // ─────────────────────────────────────────────
@@ -467,11 +499,15 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     userRole     = 'free',
   } = memoryOpts;
 
+  // v7.63: conta TODAS as chaves que a cadeia tenta (antes, ter só
+  // HuggingFace/Cerebras/ApiFreeLLM dizia "sem chave" por engano).
   const hasAny = !!(
     config.ai.groqApiKey || config.ai.geminiApiKey ||
-    config.ai.openrouterApiKey || config.ai.openaiApiKey
+    config.ai.openrouterApiKey || config.ai.openaiApiKey ||
+    config.ai.huggingfaceKey || config.ai.cerebrasApiKey ||
+    config.ai.apifreellmKey
   );
-  if (!hasAny) return '❌ IA sem chave. Configure GROQ_API_KEY no Render.';
+  if (!hasAny) return '❌ IA sem chave. Configure GROQ_API_KEY na Northflank.';
 
   // Contexto web se necessário
   let finalPrompt = prompt;
@@ -527,14 +563,14 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try { return await withTimeout(chatRouter(messages, system), TIMEOUT); }
     catch (e) { providerFail('openrouter', e); console.warn('[IA] Router:', shortErr(e)); }
   }
-  // 7. Fallback público
-  try {
-    const r = await withTimeout(
-      mediaHandler.fetchJson(`https://api.popcat.xyz/chatbot?msg=${encodeURIComponent(prompt)}&owner=${encodeURIComponent(config.owner.name)}&botname=${encodeURIComponent(config.bot.name)}`),
-      6000
-    );
-    if (r?.response && !/timed\s*out/i.test(r.response)) return r.response;
-  } catch {}
+  // 7. OpenAI (pago — último recurso antes de desistir)
+  if (config.ai.openaiApiKey && providerUp('openai')) {
+    try { return await withTimeout(chatOpenAI(messages, system), TIMEOUT); }
+    catch (e) { providerFail('openai', e); console.warn('[IA] OpenAI:', shortErr(e)); }
+  }
+  // v7.63: SEM fallback público — o PopCat morreu ("Timed Out" sempre),
+  // o Pollinations exige chave e o DuckDuckGo mete captcha anti-bot.
+  // Falhar rápido para as respostas de personalidade (offlineResponses).
 
   return '❌ IA offline agora. Tente de novo.';
 }
@@ -1125,6 +1161,7 @@ module.exports = {
   chat,
   chatGroq,
   chatGemini,
+  chatOpenAI,
   chatWithImage,
   chatWithDocument,
   describeImage,
@@ -1138,6 +1175,7 @@ module.exports = {
   buildSystemPrompt,
   GROQ_MODELS,
   GEMINI_MODELS,
+  OPENAI_MODELS,
   getGeminiModels,
   stripThinking,
 };

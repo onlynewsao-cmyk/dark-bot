@@ -130,9 +130,9 @@ function getMood(jid) {
  * (usado por comandos do Dono do género "fica feliz").
  */
 function setMood(mood, reason = '', jid = null) {
-  const validMoods = ['normal', 'feliz', 'triste', 'com_raiva', 'animada', 'sonolenta', 'provocante', 'cansada'];
+  const validMoods = ['normal', 'feliz', 'triste', 'com_raiva', 'animada', 'sonolenta', 'provocante', 'cansada', 'revoltada']; // v7.63: +revoltada
   const m = validMoods.includes(mood) ? mood : 'normal';
-  const intensity = m === 'com_raiva' ? 8 : m === 'feliz' ? 7 : 5;
+  const intensity = (m === 'com_raiva' || m === 'revoltada') ? 8 : m === 'feliz' ? 7 : 5;
   const since = new Date();
 
   if (jid) {
@@ -338,6 +338,7 @@ O Dark é o teu. Os outros são pessoas com quem convives.`;
     sonolenta: 'Estás sonolenta e preguiçosa...',
     provocante: 'Estás provocante e brincalhona...',
     cansada: 'Estás cansada, com pouca energia.',
+    revoltada: 'Estás REVOLTADA: respondes atravessado, com ironia e atitude, não levas desaforo para casa e mandas bocas. Mas ao teu Dark és sempre leal — com ele a revolta vira brincadeira carinhosa.',
   };
   const moodBlock = moodMap[mood] || moodMap.normal;
 

@@ -1026,6 +1026,17 @@ async function _handleInner(sock, msg) {
       await sock.sendMessage(ctx.remoteJid, { text: '_sorri_ ...voltei meu Dark 🖤' }, { quoted: msg });
       return true;
     }
+    // v7.63: humor revoltada — "aura fica revoltada" / "aura acalma-te"
+    if (/aura.*(fica|fique|entra em).{0,12}revoltad/.test(t)) {
+      aura.setMood('revoltada', 'ordem do Dark', ctx.remoteJid);
+      await sock.sendMessage(ctx.remoteJid, { text: '_revira os olhos_ 😤 Pronto, agora aguenta-me... Tô REVOLTADA!' }, { quoted: msg });
+      return true;
+    }
+    if (/aura.*(acalma|sossega|volta ao normal|bom humor)/.test(t) && /revoltad|raiva|mau humor/.test(t + ' ' + (aura.getMood(ctx.remoteJid).mood || ''))) {
+      aura.clearMood(ctx.remoteJid);
+      await sock.sendMessage(ctx.remoteJid, { text: '_suspira_ ...tá bem, já passou. Voltei ao normal 🖤' }, { quoted: msg });
+      return true;
+    }
     // ── v6.67: BUG DO ECO ────────────────────────────────────
     // A regex era:  /aura.*(manda|envia).*áudio|voz|fala/
     // O `|` tem precedência mínima, por isso isto lia-se como
