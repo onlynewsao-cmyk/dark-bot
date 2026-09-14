@@ -117,7 +117,7 @@ module.exports = function registerDownloads2(registerCase) {
   });
 
   // ═══ TWITTER ═══
-  registerCase(['twitter', 'tw', 'twitterdl'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  registerCase(['twitter', 'tw', 'x', 'twitterdl'], async ({ sock, msg, ctx, args, prefix, reply }) => {
     const url = args.join(' ').trim();
     if (!url) return reply(`🐦 Uso: \`${prefix}twitter <url>\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
@@ -497,5 +497,42 @@ module.exports = function registerDownloads2(registerCase) {
       } catch {}
     }
     return sock.sendMessage(ctx.remoteJid, { text: textBody }, { quoted: msg });
+  });
+
+  // ── statusvideo (v7.55: vídeo pronto pro status, ≤30s; VIP por defeito) ──
+  registerCase(['statusvideo', 'statusvid', 'stv'], async ({ sock, msg, quoted, ctx, args, prefix, reply }) => {
+    const url = args.join(' ').trim();
+    const qm = quoted?.message || {};
+    const quotedMedia = quoted && qm.videoMessage;
+    const ownMedia = !quoted && msg.message?.videoMessage;
+    try {
+      let buf = null;
+      if (quotedMedia || ownMedia) {
+        const mediaHandler = require('../mediaHandler');
+        buf = await mediaHandler.downloadFromMessage(quotedMedia ? quoted.msg : msg);
+      } else if (url) {
+        const r = await require('../ytdl').getVideo(url, '480');
+        buf = r.buffer;
+      } else {
+        return reply(`📱 Uso: responde a um vídeo com \`${prefix}statusvideo\` ou envia \`${prefix}statusvideo <url>\``);
+      }
+      if (!buf?.length) throw new Error('vídeo vazio');
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
+      const execFileAsync = require('util').promisify(require('child_process').execFile);
+      let ff = 'ffmpeg';
+      try { ff = require('ffmpeg-static') || 'ffmpeg'; } catch {}
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'darkbot-stv-'));
+      try {
+        const inp = path.join(dir, 'in.mp4');
+        const out = path.join(dir, 'status.mp4');
+        fs.writeFileSync(inp, buf);
+        await execFileAsync(ff, ['-y', '-i', inp, '-t', '30', '-c:v', 'libx264', '-preset', 'veryfast', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', out], { timeout: 180000 });
+        const outBuf = fs.readFileSync(out);
+        if (!outBuf?.length) throw new Error('corte vazio');
+        await sock.sendMessage(ctx.remoteJid, { video: outBuf, caption: '📱 Pronto pro status (≤30s)' }, { quoted: msg });
+      } finally { try { fs.rmSync(dir, { recursive: true, force: true }); } catch {} }
+    } catch (e) { return reply('❌ StatusVideo: ' + (e.message || e)); }
   });
 };

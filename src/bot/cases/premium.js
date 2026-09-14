@@ -249,4 +249,45 @@ module.exports = function registerPremiumCases(registerCase) {
       );
     }
   });
+
+  // ── blacklist (v7.55: estava no menu do dono mas sem implementação) ──
+  registerCase(['blacklist', 'banuser'], async ({ m, args, isOwner }) => {
+    if (!isOwner) return m.reply('🚫 Só o *dono*.');
+    const num = String(args[0] || '').replace(/\D/g, '');
+    const list = (await botConfigCache.get('blacklist', [])) || [];
+    if (!num) {
+      if (!list.length) return m.reply('🚫 Blacklist vazia.\nUso: `!blacklist <número>`');
+      return m.reply(`🚫 *Blacklist (${list.length}):*\n${list.map(n => '• ' + n).join('\n')}`);
+    }
+    if (!list.map(String).includes(num)) {
+      list.push(num);
+      await botConfigCache.set('blacklist', list);
+    }
+    return m.reply(`🚫 *${num}* bloqueado do bot.`);
+  });
+
+  registerCase(['unblacklist', 'desbanir'], async ({ m, args, isOwner }) => {
+    if (!isOwner) return m.reply('🚫 Só o *dono*.');
+    const num = String(args[0] || '').replace(/\D/g, '');
+    if (!num) return m.reply('❌ Uso: `!unblacklist <número>`');
+    const list = ((await botConfigCache.get('blacklist', [])) || []).filter(n => String(n) !== num);
+    await botConfigCache.set('blacklist', list);
+    return m.reply(`✅ *${num}* removido da blacklist.`);
+  });
+
+  // ── setpremium (v7.55: estava no menu do dono mas sem implementação) ──
+  registerCase(['setpremium', 'darpremium'], async ({ m, args, isOwner }) => {
+    if (!isOwner) return m.reply('🚫 Só o *dono*.');
+    const num = String(args[0] || '').replace(/\D/g, '');
+    const dias = Math.max(1, parseInt(args[1], 10) || 30);
+    if (!num || num.length < 9) return m.reply('❌ Uso: `!setpremium <número> [dias]`\nEx: `!setpremium 244923456789 30`');
+    const User = require('../../database/models/User');
+    const u = await User.findOne({ whatsappNumber: num });
+    if (!u) return m.reply('❌ Utilizador não encontrado. Ele precisa falar com o bot primeiro.');
+    u.role = 'premium';
+    u.premiumUntil = new Date(Date.now() + dias * 86400000);
+    await u.save();
+    try { require('../hotCache').forgetUser(num); } catch {}
+    return m.reply(`⭐ *${num}* agora é Premium por *${dias} dias*.`);
+  });
 };

@@ -15,7 +15,7 @@ Module.prototype.require = function (id) {
   if (/models[\\/]User/.test(s)) return { ...fullModels, findOne: () => { N_USER++; return w({ whatsappNumber: '1', role: 'free' }); } };
   if (/models[\\/]GroupSettings/.test(s)) return { ...fullModels, findOne: () => { N_GS++; return w({ groupJid: 'g', antispam: false }); } };
   if (/models[\\/]/.test(s)) return fullModels;
-  if (s.endsWith('botConfigCache')) return { get: async (k, d) => d, set: async () => {} };
+  if (s.endsWith('botConfigCache')) { const _m = global.__turboCfg || (global.__turboCfg = {}); return { get: async (k, d) => (k in _m ? _m[k] : d), set: async (k, v) => { _m[k] = v; } }; }
   return orig.apply(this, arguments);
 };
 (async () => {
@@ -142,6 +142,45 @@ Module.prototype.require = function (id) {
   stop();
   const stop2 = h.pensando(null, null);
   C('pensando: sem sock não rebenta', typeof stop2 === 'function');
+
+  // ── 10. v7.55: comandos fantasma implementados ──
+  const collected = new Map();
+  const RC = (names, fn) => names.forEach(n => collected.set(n, fn));
+  require('../src/bot/cases/info.js')(RC);
+  require('../src/bot/cases/premium.js')(RC);
+  require('../src/bot/cases/random.js')(RC);
+  require('../src/bot/cases/downloads2.js')(RC);
+  require('../src/bot/cases/stickers.js')(RC);
+  require('../src/bot/cases/audioAdmin2.js')(RC);
+  for (const c of ['info', 'restart', 'blacklist', 'unblacklist', 'setpremium', 'qrcode', 'horoscopo', 'decrypt', 'statusvideo', 'figura', 'x', 'bass']) C('reg: ' + c, collected.has(c));
+  let got = '';
+  await collected.get('info')({ prefix: '!', reply: async t => { got = t; } });
+  C('info: mostra versão+uptime', got.includes(require('../package.json').version) && got.includes('Uptime'), got.slice(0, 40));
+  await collected.get('restart')({ isOwner: false, reply: async t => { got = t; } });
+  C('restart: nega não-dono', /dono/i.test(got));
+  process.env.DARK_NO_EXIT = '1';
+  await collected.get('restart')({ isOwner: true, reply: async t => { got = t; } });
+  delete process.env.DARK_NO_EXIT;
+  C('restart: dono confirmado sem sair', /reiniciar/i.test(got));
+  const mrep = [];
+  const mm = { reply: async t => mrep.push(t) };
+  await collected.get('blacklist')({ m: mm, args: ['999000111'], isOwner: true });
+  await collected.get('blacklist')({ m: mm, args: [], isOwner: true });
+  C('blacklist: adiciona e lista', mrep[1].includes('999000111'), mrep[1].slice(0, 40));
+  await collected.get('unblacklist')({ m: mm, args: ['999000111'], isOwner: true });
+  C('blacklist: remove', /removido/.test(mrep[2]));
+  let img = null;
+  const fakeSock = { sendMessage: async (jid, content) => { img = content.image; return {}; } };
+  await collected.get('qrcode')({ sock: fakeSock, msg: {}, ctx: { remoteJid: 'x' }, text: 'dark-test', reply: async () => {} });
+  C('qrcode: gera PNG', Buffer.isBuffer(img) && img[0] === 0x89 && img[1] === 0x50, img?.length + 'B');
+  await collected.get('horoscopo')({ text: 'leão', reply: async t => { got = t; } });
+  C('horoscopo: leão resolve', got.includes('Leao') && got.includes('Sorte'));
+  await collected.get('horoscopo')({ text: 'xyz', reply: async t => { got = t; } });
+  C('horoscopo: inválido mostra uso', /Uso/.test(got));
+  await collected.get('decrypt')({ args: [], isOwner: false, reply: async t => { got = t; } });
+  C('decrypt: mostra formatos', got.includes('.ehi') && got.includes('bdnet'));
+  await collected.get('statusvideo')({ sock: fakeSock, msg: { message: {} }, quoted: null, ctx: {}, args: [], prefix: '!', reply: async t => { got = t; } });
+  C('statusvideo: sem mídia mostra uso', /Uso/.test(got));
 
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);

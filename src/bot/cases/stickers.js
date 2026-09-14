@@ -75,7 +75,7 @@ module.exports = function registerStickerCases(registerCase) {
   });
 
   // ── !figubug2 — Sticker IA ────────────────────────────────────────
-  registerCase(['figubug2', 'aisticker', 'iatig'], async ({ m, sock, ctx, args, reply, react }) => {
+  registerCase(['figubug2', 'aisticker', 'iatig', 'figura'], async ({ m, sock, ctx, args, reply, react }) => { // v7.55: 'figura' estava no menu
     const prompt = args.join(' ').trim() || `DARK BOT logo sticker, cyberpunk purple neon, ${ctx.pushName}`;
     react('🎨');
     try {

@@ -25,6 +25,13 @@ async function tiktok(url) {
     if (cobaltUrl) return { title: 'TikTok', url: cobaltUrl };
   } catch (e) {}
 
+  // v7.55: fallback yt-dlp (TikWM oscila/rate-limit; yt-dlp extrai TikTok sem login)
+  try {
+    const dl = require('../downloader');
+    const r = await dl.ytdlpSocialVideo(url, 'TikTok HD');
+    if (r) return r;
+  } catch (e) { console.log('[TT] yt-dlp falhou:', e.message?.slice(0, 80)); }
+
   throw new Error('❌ Não consegui baixar o TikTok.');
 }
 

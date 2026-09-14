@@ -327,6 +327,16 @@ function categorize(cmd) {
     antifoba:'admin', antifobados:'admin', anticarente:'admin',
     fobadd:'admin', fobdel:'admin', fobalista:'admin',
     autoapresentar:'admin', autoapresentacao:'admin', apresentacao:'admin',
+    // v7.55: comandos fantasma implementados (todos fora de 'outros')
+    botinfo:'info', sobre:'info',
+    reiniciar:'owner', shutdown:'owner',
+    desbanir:'admin',
+    setpremium:'owner', darpremium:'owner',
+    qrcode:'texto', qr:'texto', gerarqr:'texto',
+    signo:'texto', zodiaco:'texto',
+    decrypt:'texto', vpndec:'texto', vpninfo:'texto',
+    statusvid:'downloads', stv:'downloads',
+    x:'downloads',
   };
   if (OVERRIDES[c]) return OVERRIDES[c];
   // Downloads

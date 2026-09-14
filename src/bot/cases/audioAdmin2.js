@@ -18,6 +18,7 @@ async function tReply(sock, msg, ctx, title, lines) {
 const AUDIO_FILTERS = {
   bass: 'bass=g=20', bass2: 'bass=g=30', bass3: 'bass=g=40',
   grave: 'bass=g=15,f=80', grave2: 'bass=g=25,f=60', grave3: 'bass=g=35,f=40',
+  bass: 'bass=g=20,f=90', bass2: 'bass=g=30,f=70', bass3: 'bass=g=40,f=50', // v7.55: estava no menu
   reverb: 'aecho=0.8:0.9:1000:0.3', reverb2: 'aecho=0.8:0.9:1500:0.4', reverb3: 'aecho=0.8:0.9:2000:0.5',
   '8d': 'apulsator=hz=0.125', '8d2': 'apulsator=hz=0.15', '8d3': 'apulsator=hz=0.2',
   slowed: 'atempo=0.8', slowed2: 'atempo=0.7', slowed3: 'atempo=0.6',

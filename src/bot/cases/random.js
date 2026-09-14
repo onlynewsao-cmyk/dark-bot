@@ -227,4 +227,58 @@ module.exports = function registerRandomCases(registerCase) {
     const hidden = text.split('').map(c => c + '\u200B\u200C\u200D').join('');
     return reply(`🕵️ *Mensagem oculta:* ||${text}||\n\n_(arrasta para ver)_`);
   });
+
+  // ── qrcode (v7.55: estava no menu mas sem implementação) ──
+  registerCase(['qrcode', 'qr', 'gerarqr'], async ({ sock, msg, ctx, text, reply }) => {
+    const t = String(text || '').trim();
+    if (!t) return reply('🔳 Uso: `!qrcode <texto ou link>`');
+    if (t.length > 500) return reply('❌ Texto demasiado longo (máx 500 caracteres).');
+    try {
+      const QR = require('qrcode');
+      const buf = await QR.toBuffer(t, { width: 512, margin: 2 });
+      await sock.sendMessage(ctx.remoteJid, { image: buf, caption: `🔳 QR Code` }, { quoted: msg });
+    } catch (e) { return reply('❌ Falha ao gerar QR: ' + (e.message || e)); }
+  });
+
+  // ── horóscopo offline (v7.55: estava no menu mas sem implementação) ──
+  const SIGNOS = {
+    aries: ['21/03–19/04', 'Fogo'], touro: ['20/04–20/05', 'Terra'],
+    gemeos: ['21/05–20/06', 'Ar'], cancer: ['21/06–22/07', 'Água'],
+    leao: ['23/07–22/08', 'Fogo'], virgem: ['23/08–22/09', 'Terra'],
+    libra: ['23/09–22/10', 'Ar'], escorpiao: ['23/10–21/11', 'Água'],
+    sagitario: ['22/11–21/12', 'Fogo'], capricornio: ['22/12–19/01', 'Terra'],
+    aquario: ['20/01–18/02', 'Ar'], peixes: ['19/02–20/03', 'Água'],
+  };
+  registerCase(['horoscopo', 'signo', 'zodiaco'], async ({ text, reply }) => {
+    const s = String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const key = Object.keys(SIGNOS).find(k => s.includes(k));
+    if (!key) return reply('🔮 Uso: `!horoscopo <signo>`\nEx: `!horoscopo leão`');
+    const day = new Date().toISOString().slice(0, 10);
+    let h = 0;
+    for (const c of (day + key)) h = ((h * 31) + c.charCodeAt(0)) >>> 0;
+    const cores = ['vermelho', 'dourado', 'azul', 'verde', 'roxo', 'preto', 'branco', 'laranja'];
+    const humores = ['em alta ⚡', 'equilibrado ⚖️', 'criativo 🎨', 'focado 🎯', 'leve 🍃', 'intenso 🔥'];
+    const nome = key[0].toUpperCase() + key.slice(1);
+    return reply(`🔮 *${nome}* (${SIGNOS[key][0]})\nElemento: ${SIGNOS[key][1]}\n\n🍀 Sorte: *${h % 100}*\n🎨 Cor: *${cores[h % cores.length]}*\n😌 Humor: *${humores[(h >> 3) % humores.length]}*`);
+  });
+
+  // ── decrypt info (v7.55: `decrypt <uri>` já é interceptado no commandHandler;
+  // este case responde ao `.decrypt` seco que o menu anuncia) ──
+  registerCase(['decrypt', 'vpndec', 'vpninfo'], async ({ args, isOwner, reply }) => {
+    const botConfigCache = require('../botConfigCache');
+    const sub = String(args[0] || '').toLowerCase();
+    if (sub === 'on' || sub === 'off') {
+      if (!isOwner) return reply('🚫 Só o *dono*.');
+      await botConfigCache.set('auto_decrypt_enabled', sub === 'on');
+      return reply(sub === 'on' ? '🔓 Descriptografia automática *ligada*.' : '🔒 Descriptografia automática *desligada*.');
+    }
+    const auto = await botConfigCache.get('auto_decrypt_enabled', true);
+    return reply(
+      `🔓 *VPN DECRYPT* — auto: ${auto ? 'ON ✅' : 'OFF ❌'}\n\n` +
+      `📁 Envia ficheiro: .ehi .hat .npv4 .ovpn .json .txt…\n` +
+      `🔗 Ou cola URI: bdnet:// vmess:// vless:// trojan:// ss:// wyrvpn://…\n` +
+      `💡 Ou directo: \`!vpn <uri>\`\n\n` +
+      `Descriptografo sozinho quando reconhecer o formato.`
+    );
+  });
 };

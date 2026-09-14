@@ -324,4 +324,28 @@ module.exports = function registerInfoCases(registerCase) {
     ];
     return reply(linhas.join('\n'));
   });
+
+  // ── case 'info' (v7.55: estava no menu mas sem implementação) ──
+  registerCase(['info', 'botinfo', 'sobre'], async ({ prefix, reply }) => {
+    const pkg = require('../../../package.json');
+    const up = Math.floor(process.uptime());
+    const hh = String(Math.floor(up / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((up % 3600) / 60)).padStart(2, '0');
+    const ss = String(up % 60).padStart(2, '0');
+    const ram = (process.memoryUsage().heapUsed / 1048576).toFixed(0);
+    return reply(
+      `🌑 *${config.bot.name}* — v${pkg.version}\n` +
+      `⏱️ Uptime: ${hh}:${mm}:${ss}   🧠 RAM: ${ram} MB\n` +
+      `⌨️ Prefixo: \`${prefix}\`   👑 Dono: ${config.owner?.name || 'Dark'}\n\n` +
+      `Digita \`${prefix}menu\` para ver tudo.`
+    );
+  });
+
+  // ── case 'restart' (v7.55: só dono; o host sobe o processo sozinho) ──
+  registerCase(['restart', 'reiniciar', 'shutdown'], async ({ isOwner, reply }) => {
+    if (!isOwner) return reply('🚫 Só o *dono* pode reiniciar o bot.');
+    await reply('♻️ A reiniciar… volto já já. 🌑');
+    if (process.env.NODE_ENV === 'test' || process.env.DARK_NO_EXIT === '1') return;
+    setTimeout(() => process.exit(1), 1200);
+  });
 };
