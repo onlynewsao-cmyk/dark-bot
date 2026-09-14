@@ -709,7 +709,7 @@ module.exports = function registerGroupCases(registerCase) {
     const nome = String(args[0] || '').toLowerCase();
     if (!nome) {
       const linhas = MG.MODES.map(mo => `${gs[mo.field] === false ? '❌' : '✅'} \`${mo.name}\` — ${mo.label} (${mo.desc})`);
-      return reply(`🎛️ *MODOS DO GRUPO*\n\n${linhas.join('\n')}\n\nUsa: \`${prefix}modo <nome> on|off\`\nEx: \`${prefix}modo downloads off\`\n\n_Admin, menus e nucleares funcionam sempre._`);
+      return reply(`🎛️ *MODOS DO GRUPO*\n\n${linhas.join('\n')}\n\nUsa: \`${prefix}modo <nome> on|off\`\nEx: \`${prefix}modo brincadeiras off\`\n\n_📥 Downloads, admin, menus e nucleares funcionam sempre._`);
     }
     const achado = MG.findMode(nome);
     if (!achado) return reply(`❌ Modo desconhecido: \`${nome}\`\nVê a lista com \`${prefix}modo\``);

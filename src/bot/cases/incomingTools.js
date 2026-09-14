@@ -185,7 +185,7 @@ module.exports = function registerIncomingTools(registerCase) {
     m.react('🤔');
     try {
       const axios = require('axios');
-      const { data } = await axios.get('https://zone.api.br/api/fatosdesconhecidos', { timeout: 25000 });
+      const { data } = await axios.get('https://zone.api.br/api/fatosdesconhecidos', { timeout: 4000 }); // v7.62: API lenta → fallback offline a tempo
       const res = data?.resultado;
       if (!data?.status || !res) throw new Error('API sem dados');
       const legenda = `╔━᳀『 *FATOS DESCONHECIDOS* 』═᳀\n\n⌬ *${res.titulo || 'Curiosidade'}*\n\n${res.conteudo || ''}\n\n╚━═━═━═━═━═━═━═━═━═᳀`;
@@ -515,7 +515,7 @@ module.exports = function registerIncomingTools(registerCase) {
     }
   });
 
-  registerCase(['like', 'enviarlike', 'darflw'], async ({ m, text, prefix, command }) => {
+  registerCase(['like', 'enviarlike', 'darflw', 'likesff', 'likeff', 'fflike', 'likefree'], async ({ m, text, prefix, command }) => {
     const uid = String(text || '').trim();
     if (!uid) return m.reply(`💖 *ENVIAR LIKES FF*\n\nUso: ${prefix + command} <UID>\nExemplo: ${prefix + command} 6514303752`);
     if (!/^\d+$/.test(uid)) return m.reply('🫣 Isso não parece um ID válido... usa só números!');

@@ -10,10 +10,11 @@
  * Fail-open: campo ausente/undefined = ATIVO (nada parte em grupos
  * antigos). Categorias admin/owner/info/outros NUNCA são barradas
  * (gestão, menus e nucleares funcionam sempre).
+ * v7.62: DOWNLOADS também nunca são barrados — play, vídeos e os
+ * principais funcionam sempre em todos os grupos.
  */
 
 const MODES = [
-  { name: 'downloads',    field: 'modeDownloads',  label: '📥 Downloads',    desc: 'play, tiktok, música, vídeos',       aliases: ['dl', 'download', 'musica', 'música'] },
   { name: 'stickers',     field: 'modeStickers',   label: '🎨 Stickers',     desc: 'figurinhas, attp, toimg',            aliases: ['sticker', 'fig', 'figurinhas'] },
   { name: 'ia',           field: 'modeIa',         label: '🧠 IA & Web',     desc: 'gpt, imagem, pesquisar, resumir',    aliases: ['ai'] },
   { name: 'jogos',        field: 'modeJogos',      label: '🎮 Jogos',        desc: 'ppt, quiz, forca, minado',           aliases: ['jogo', 'game', 'games'] },
@@ -26,9 +27,9 @@ const MODES = [
   { name: 'brincadeiras', field: 'modeZoeira',     label: '😂 Brincadeiras', desc: 'zoeira, memes, ship, radar',        aliases: ['brincadeira', 'zoeira', 'fun', 'memes'] },
 ];
 
-// categoria do submenu → modo (admin/owner/info/outros = sempre livres)
+// categoria do submenu → modo (admin/owner/info/outros/downloads = sempre livres)
 const CAT2MODE = {
-  downloads: 'downloads', stickers: 'stickers', ia: 'ia', jogos: 'jogos',
+  stickers: 'stickers', ia: 'ia', jogos: 'jogos',
   economia: 'economia', interacoes: 'interacoes', texto: 'texto',
   search: 'search', audio: 'audio', logos: 'logos', zoeira: 'brincadeiras',
 };

@@ -316,7 +316,7 @@ const infoHandlers = {
   async zipbot({ sock, msg, ctx }) {
     return reply(sock, msg, ctx, `🗜️ *ZIPBOT*\n\nO código-fonte está no GitHub:\ngithub.com/onlynewsao-cmyk/dark-bot`);
   },
-  async likeff({ sock, msg, ctx }) {
+  async likebot({ sock, msg, ctx }) {
     const e = await _eco(ctx);
     e.reputation = (e.reputation || 0) + 1; await e.save();
     return reply(sock, msg, ctx, `👍 *LIKE*\n\nReputação: *+${fmt(e.reputation)}*`);
