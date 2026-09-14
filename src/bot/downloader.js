@@ -22,7 +22,7 @@ const {
   systemZoneTwitter,
   tikwmDownload, spotifydownDownload,
   siputzxPinterest, siputzxPinterestSearch,
-  fetchMediaBuffer,
+  fetchMediaBuffer, searchYoutube,
 } = require('./dl/helpers');
 
 function safeTitle(name = 'media') {
@@ -238,6 +238,12 @@ async function downloadAudioFile(query, { bitrate = '128k', label = 'áudio', ti
       }
     }
   } catch (e) { console.log('[DL-AUDIO] SystemZone falhou:', e.message); }
+  // v7.54: fallback yt-dlp direto (SystemZone com 404) — aceita URL ou termo
+  try {
+    const mediaUrl = await searchYoutube(query);
+    console.log('[DL-AUDIO] fallback yt-dlp:', mediaUrl);
+    return await ytdlpAudio({ url: mediaUrl, title: String(query) }, bitrate, label, timeoutMs);
+  } catch (e2) { console.log('[DL-AUDIO] yt-dlp falhou:', e2.message); }
   throw new Error('❌ Não consegui entregar o áudio agora pela SystemKey. Tente outro termo/link ou verifique SYSTEMZONE_API_KEY.');
 }
 
@@ -263,6 +269,12 @@ async function downloadVideoFile(query, { height = 720, label = '720p', timeoutM
       }
     }
   } catch (e) { console.log('[DL-VIDEO] SystemZone falhou:', e.message); }
+  // v7.54: fallback yt-dlp direto (SystemZone com 404) — aceita URL ou termo
+  try {
+    const mediaUrl = await searchYoutube(query);
+    console.log('[DL-VIDEO] fallback yt-dlp:', mediaUrl);
+    return await ytdlpVideo({ url: mediaUrl, title: String(query) }, height, label, timeoutMs);
+  } catch (e2) { console.log('[DL-VIDEO] yt-dlp falhou:', e2.message); }
   throw new Error('❌ Não consegui entregar o vídeo agora pela SystemKey. Tente outro termo/link ou verifique SYSTEMZONE_API_KEY.');
 }
 
@@ -355,7 +367,14 @@ async function spotify(queryOrUrl) {
       return { title: spotResult.title, url: spotResult.url, author: spotResult.author };
     }
   }
-  const query = isUrl(queryOrUrl) ? queryOrUrl : `${queryOrUrl} audio`;
+  let query = isUrl(queryOrUrl) ? queryOrUrl : `${queryOrUrl} audio`;
+  if (/spotify\.com/.test(String(queryOrUrl))) {
+    // v7.54: resolve "artista — título" via oEmbed (sem auth) para o fallback acertar na música
+    try {
+      const oe = await mediaHandler.fetchJson('https://open.spotify.com/oembed?url=' + encodeURIComponent(queryOrUrl), 15000);
+      if (oe?.title) query = `${oe.author_name || ''} ${oe.title} audio`.trim();
+    } catch {}
+  }
   try { return await downloadAudioFile(query, { bitrate: '160k', label: 'Spotify fallback' }); }
   catch { return downloadAudioFile(String(queryOrUrl).replace(/https?:\/\/\S+/g, '').trim() || 'spotify', { bitrate: '160k', label: 'Spotify fallback' }); }
 }
