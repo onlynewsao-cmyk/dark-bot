@@ -641,6 +641,18 @@ async function _handleInner(sock, msg) {
       return meta;
     }).catch(() => null);
   }
+  // ── v7.72: PREFIXO AUTO (estilo System Zero) — dizer "prefixo"/
+  // "prefixos" (a palavra sozinha) mostra o cartão com botão de copiar.
+  // Corre antes do gate de aluguel: é funil (info pública).
+  if (!prefixInfo && !pareceComando(text) && require('./prefixCard').RE_PREFIXO_WORD.test(text || '')) {
+    try {
+      const pc = require('./prefixCard');
+      const custom = ctx.isGroup ? await pc.isCustomGroupPrefix(msg, ctx.remoteJid) : false;
+      await pc.sendPrefixCard(sock, ctx.remoteJid, { prefix, custom }, msg);
+      return true;
+    } catch (e) { console.warn('[Prefixo auto]', e.message?.slice(0, 60)); }
+  }
+
   if (ctx.isGroup && !isOwner) {
     const GroupSettings = require('../database/models/GroupSettings');
 

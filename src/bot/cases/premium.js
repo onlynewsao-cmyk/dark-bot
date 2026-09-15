@@ -169,14 +169,11 @@ module.exports = function registerPremiumCases(registerCase) {
     );
   });
 
-  // ── !prefixo — ver prefixo actual ─────────────────────────
-  registerCase(['prefixo', 'prefixos', 'getprefix'], async ({ prefix, reply }) => {
-    return reply(
-      `🔑 *Prefixo actual: *${prefix}**\n\n` +
-      `Todos os comandos começam com *${prefix}*\n` +
-      `Ex: *${prefix}menu* · *${prefix}play* · *${prefix}ia*\n\n` +
-      `_Só o Dono pode mudar: ${prefix}setprefix <novo>_`
-    );
+  // ── !prefixo — ver prefixo actual (cartão System-style, v7.72) ──
+  registerCase(['prefixo', 'prefixos', 'getprefix'], async ({ sock, msg, ctx, prefix }) => {
+    const pc = require('../prefixCard');
+    const custom = ctx.isGroup ? await pc.isCustomGroupPrefix(msg, ctx.remoteJid) : false;
+    return pc.sendPrefixCard(sock, ctx.remoteJid, { prefix, custom }, msg);
   });
 
   // ── !maiscmds — painel de mais comandos (admin/vip/dono) ───
