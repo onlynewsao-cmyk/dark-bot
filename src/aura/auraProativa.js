@@ -18,17 +18,27 @@
  *     o grupo está quieto há muito.
  *   • Ritmo humano:
  *       - noite (23h–7h) não incomoda ninguém
- *       - intervalo mínimo por chat (padrão 120 min, configurável)
- *       - no máximo 1 mensagem espontânea por tick (5 min)
+ *       - intervalo mínimo por chat (padrão 45 min no nível viva, configurável)
+ *       - no máximo 1-2 mensagens espontâneas por tick (5 min)
  *       - probabilidades baixas — uma pessoa não fala sempre
- *   • Territórios: só onde ELA existe — grupos acordados
- *     (auraMode='aura') e o PV do Dono (sempre acordada).
+ *   • Territórios (v7.71): onde ELA existe — TODOS os grupos menos os
+ *     que o Dark mandou dormir (auraMode='sleep') + o PV do Dono.
+ *     Antes só falava nos grupos explicitamente invocados — como o
+ *     "acordada por defeito" (v6.93) não grava nada na base, ela
+ *     ficava muda em todo o lado. Só fala onde VIU actividade
+ *     recente — grupo morto continua em paz.
+ *   • Humor manda (v7.71): feliz/animada fala mais; cansada/
+ *     sonolenta quase não se chega; com raiva fala pouco.
+ *   • Reacções espontâneas (v7.71): às vezes só reage a uma
+ *     mensagem recente com um emoji — presença sem spam.
+ *   • Níveis de vida (v7.71): calma / normal / viva.
  *   • Respeita os modos do cérebro (mudo) e o interruptor geral
  *     ai_auto_enabled do dashboard.
  *
  * Config (via dashboard → IA, ou /api/settings):
  *   aura_proactive_enabled      (padrão: true)
- *   aura_proactive_min_minutes  (padrão: 120)
+ *   aura_proactive_min_minutes  (padrão: o do nível; força manual)
+ *   aura_proactive_nivel        (calma|normal|viva — padrão: viva)
  */
 
 const config = require('../config');
@@ -45,6 +55,34 @@ let _getSock = null;
 let _timer = null;
 const _ultima = new Map();          // jid → ts da última mensagem espontânea
 const _MAX_ULTIMAS = 200;
+const _reagidas = new Set();        // ids de msgs onde já reagiu (não repete)
+const _MAX_REAGIDAS = 300;
+
+// ── v7.71: NÍVEIS DE VIDA ─────────────────────────────────────
+// calma = a v6.83 de sempre; viva = ela solta (com limites anti-spam).
+const NIVEIS = {
+  calma:  { comentario: 0.08, silencio: 0.35, minMin: 120, porTick: 1, reacao: 0.10 },
+  normal: { comentario: 0.15, silencio: 0.40, minMin: 60,  porTick: 1, reacao: 0.20 },
+  viva:   { comentario: 0.25, silencio: 0.45, minMin: 45,  porTick: 2, reacao: 0.30 },
+};
+async function _nivel() {
+  try {
+    const bcc = require('../bot/botConfigCache');
+    const n = String(await bcc.get('aura_proactive_nivel', 'viva')).toLowerCase().trim();
+    return NIVEIS[n] || NIVEIS.viva;
+  } catch { return NIVEIS.viva; }
+}
+
+// ── v7.71: o HUMOR manda na iniciativa ─────────────────────────
+const MULT_HUMOR = {
+  feliz: 1.5, animada: 1.5, provocante: 1.2, normal: 1,
+  triste: 0.7, com_raiva: 0.5, revoltada: 0.5, cansada: 0.3, sonolenta: 0.3,
+};
+function _multHumor(mood) { return MULT_HUMOR[mood] ?? 1; }
+function _humorDe(jid) {
+  try { return require('./auraHuman').getMood(jid).mood || 'normal'; }
+  catch { return 'normal'; }
+}
 
 // ── Config ────────────────────────────────────────────────────
 async function _enabled() {
@@ -55,12 +93,12 @@ async function _enabled() {
   } catch { return true; }
 }
 
-async function _minMinutos() {
+async function _minMinutos(padrao = MIN_MINUTOS_PADRAO) {
   try {
     const bcc = require('../bot/botConfigCache');
-    const v = Number(await bcc.get('aura_proactive_min_minutes', MIN_MINUTOS_PADRAO));
-    return Number.isFinite(v) && v >= 10 ? v : MIN_MINUTOS_PADRAO;
-  } catch { return MIN_MINUTOS_PADRAO; }
+    const v = Number(await bcc.get('aura_proactive_min_minutes', padrao));
+    return Number.isFinite(v) && v >= 10 ? v : padrao;
+  } catch { return padrao; }
 }
 
 // ── Ritmo humano ──────────────────────────────────────────────
@@ -79,7 +117,8 @@ async function _chatsAcordados() {
   const chats = [];
   try {
     const GroupSettings = require('../database/models/GroupSettings');
-    const gs = await GroupSettings.find({ auraMode: 'aura' })
+    // v7.71: todos os grupos MENOS os que o Dark mandou dormir.
+    const gs = await GroupSettings.find({ auraMode: { $ne: 'sleep' } })
       .select('groupJid groupName').lean().catch(() => []);
     for (const g of gs || []) {
       if (g.groupJid) chats.push({ jid: g.groupJid, tipo: 'grupo', nome: g.groupName || '' });
@@ -125,12 +164,40 @@ function _minutosSemDono(pvJid, agora = Date.now()) {
 }
 
 // ── Decisão (como uma pessoa: às vezes fala, às vezes não) ────
-function _decidirGrupo(ambiente, sorte) {
+// v7.71: mult = multiplicador do humor; probs = nível de vida.
+function _decidirGrupo(ambiente, sorte, mult = 1, probs = null) {
+  const P = probs || { silencio: P_SILENCIO, comentario: P_COMENTARIO };
   if (!ambiente.msgs.length) return null;          // nunca viu nada ali → nada a dizer
   if (ambiente.silencioMin >= SILENCIO_GRUPO_MIN) {
-    return sorte < P_SILENCIO ? 'quebrar_silencio' : null;
+    return sorte < P.silencio * mult ? 'quebrar_silencio' : null;
   }
-  return sorte < P_COMENTARIO ? 'comentario' : null;
+  return sorte < P.comentario * mult ? 'comentario' : null;
+}
+
+// ── v7.71: REACÇÃO espontânea ──────────────────────────────────
+// Uma mensagem recente (<10 min) num grupo acordado, sem repetir.
+// Devolve {jid, emoji, id} ou null.
+async function _reagirEspontaneo(sock, gruposJid, agora = Date.now()) {
+  try {
+    const { messageCache } = require('../bot/messageListener');
+    let best = null, bestTs = 0;
+    for (const [, msg] of messageCache) {
+      if (!msg || msg.key?.fromMe) continue;
+      if (!gruposJid.includes(msg.key.remoteJid)) continue;
+      if (_reagidas.has(msg.key.id)) continue;
+      const ts = _tsMs(msg.messageTimestamp);
+      if (agora - ts > 10 * 60 * 1000) continue;
+      if (ts > bestTs) { best = msg; bestTs = ts; }
+    }
+    if (!best) return null;
+    const texto = best.message?.conversation || best.message?.extendedTextMessage?.text || '';
+    let emoji = '👀';
+    try { emoji = require('./auraDecide').escolherReacao(texto || 'fixe'); } catch {}
+    if (_reagidas.size >= _MAX_REAGIDAS) _reagidas.delete(_reagidas.values().next().value);
+    _reagidas.add(best.key.id);
+    await sock.sendMessage(best.key.remoteJid, { react: { text: emoji, key: best.key } }).catch(() => {});
+    return { jid: best.key.remoteJid, emoji, id: best.key.id };
+  } catch { return null; }
 }
 
 // ── O que dizer (IA na persona dela, sobre o que ela viu) ─────
@@ -200,19 +267,25 @@ async function tick(opts = {}) {
     if (!sock?.user) return { ok: false, motivo: 'sem sessão' };
     if (_eNoite(agora)) return { ok: false, motivo: 'é noite' };
 
-    const minMs = (await _minMinutos()) * 60000;
+    const nivel = await _nivel();
+    const minMs = (await _minMinutos(nivel.minMin)) * 60000;
     const chats = await _chatsAcordados();
     const candidatos = [];
+    const gruposParaReacao = [];
 
     for (const c of chats) {
-      if (agora - (_ultima.get(c.jid) || 0) < minMs) continue;
+      let mudo = false;
       try {
-        if (require('./auraBrain').modos(c.jid).mudo) continue;   // ela própria se calou
+        if (require('./auraBrain').modos(c.jid).mudo) mudo = true;   // ela própria se calou
       } catch {}
+      if (mudo) continue;
+      if (c.tipo === 'grupo') gruposParaReacao.push(c.jid);
+      if (agora - (_ultima.get(c.jid) || 0) < minMs) continue;
 
       if (c.tipo === 'grupo') {
         const amb = _contextoGrupo(c.jid, agora);
-        const modo = _decidirGrupo(amb, sorte);
+        const mult = _multHumor(_humorDe(c.jid));   // v7.71: o humor manda
+        const modo = _decidirGrupo(amb, sorte, mult, nivel);
         if (modo) candidatos.push({ chat: c, modo, resumo: amb.resumo });
       } else {
         const ausente = _minutosSemDono(c.jid, agora);
@@ -234,16 +307,32 @@ async function tick(opts = {}) {
       }
     }
 
-    if (!candidatos.length) return { ok: false, motivo: 'nada a dizer' };
+    // v7.71: reacção espontânea — presença leve, independente de falar.
+    // opts.sorteReacao existe para os testes serem determinísticos.
+    let reagiu = null;
+    if ((opts.sorteReacao ?? Math.random()) < nivel.reacao && gruposParaReacao.length) {
+      reagiu = await _reagirEspontaneo(sock, gruposParaReacao, agora);
+    }
 
-    // Uma pessoa fala UMA vez — não dispara para todos os chats ao mesmo tempo
-    const escolha = candidatos[Math.floor((opts.sorte2 ?? Math.random()) * candidatos.length)];
-    const texto = opts.texto || await _gerarTexto(escolha);
-    if (!texto) return { ok: false, motivo: 'IA calada' };
+    if (!candidatos.length) {
+      if (reagiu) return { ok: true, modo: 'reacao', reagiu };
+      return { ok: false, motivo: 'nada a dizer' };
+    }
 
-    await sock.sendMessage(escolha.chat.jid, { text: texto });
-    _registar(escolha.chat.jid, agora);
-    return { ok: true, jid: escolha.chat.jid, modo: escolha.modo, texto };
+    // Uma pessoa não dispara para todo o lado — no máx. porTick chats.
+    const falas = [];
+    const pool = [...candidatos];
+    while (falas.length < nivel.porTick && pool.length) {
+      const escolha = pool.splice(Math.floor((opts.sorte2 ?? Math.random()) * pool.length), 1)[0];
+      const texto = opts.texto || await _gerarTexto(escolha);
+      if (!texto) continue;
+      await sock.sendMessage(escolha.chat.jid, { text: texto });
+      _registar(escolha.chat.jid, agora);
+      falas.push({ jid: escolha.chat.jid, modo: escolha.modo, texto });
+    }
+    if (!falas.length && !reagiu) return { ok: false, motivo: 'IA calada' };
+    if (!falas.length) return { ok: true, modo: 'reacao', reagiu };
+    return { ok: true, jid: falas[0].jid, modo: falas[0].modo, texto: falas[0].texto, total: falas.length, falas, reagiu };
   } catch (e) {
     return { ok: false, motivo: String(e?.message || e).slice(0, 120) };
   }
@@ -262,11 +351,12 @@ function parar() {
   if (_timer) { clearInterval(_timer); _timer = null; }
 }
 
-function limparLimites() { _ultima.clear(); }
+function limparLimites() { _ultima.clear(); _reagidas.clear(); }
 
 module.exports = {
   arrancar, parar, tick, limparLimites,
   _decidirGrupo, _eNoite, _contextoGrupo, _minutosSemDono,
+  _nivel, _multHumor, NIVEIS,
   P_SILENCIO, P_COMENTARIO, P_PV,
   SILENCIO_GRUPO_MIN, DONO_AUSENTE_MIN, MIN_MINUTOS_PADRAO,
 };

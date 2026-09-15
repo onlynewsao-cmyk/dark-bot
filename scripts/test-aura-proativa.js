@@ -23,8 +23,9 @@ const config = require('../src/config');
 const GRUPO = '120363000000@g.us';
 const PV_DONO = config.owner.number + '@s.whatsapp.net';
 
-let failed = 0;
+let failed = 0, total = 0;
 function ok(name, cond, extra) {
+  total++;
   if (cond) console.log('  ✅', name);
   else { failed++; console.log('  ❌', name, extra || ''); }
 }
@@ -137,8 +138,55 @@ const NOITE = new Date(); NOITE.setHours(23, 30, 0, 0);  // 23h30 — noite
   r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.5, texto: 'x' });
   ok('conversa activa + sorte normal → deixa a conversa fluir', r.ok === false, JSON.stringify(r));
 
+  console.log('\n═══ 9. TERRITÓRIO (v7.71) — todos menos quem dorme ═══');
+  let _filtro = null;
+  GroupSettings.find = (f) => { _filtro = f; return { select: () => ({ lean: async () => [] }) }; };
+  await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.99, sorteReacao: 0.99 });
+  ok('query exclui grupos adormecidos (sleep)', !!(_filtro && _filtro.auraMode && _filtro.auraMode.$ne === 'sleep'), JSON.stringify(_filtro));
+
+  console.log('\n═══ 10. HUMOR MANDA (v7.71) ═══');
+  const human = require('../src/aura/auraHuman');
+  ok('mult feliz > normal > sonolenta', proativa._multHumor('feliz') === 1.5 && proativa._multHumor('normal') === 1 && proativa._multHumor('sonolenta') === 0.3);
+  ok('decisão respeita mult (sonolenta cala)', proativa._decidirGrupo({ msgs: [{}], silencioMin: 60 }, 0.2, 0.3, proativa.NIVEIS.viva) === null);
+  ok('decisão respeita mult (normal fala)', proativa._decidirGrupo({ msgs: [{}], silencioMin: 60 }, 0.2, 1, proativa.NIVEIS.viva) === 'quebrar_silencio');
+  proativa.limparLimites();
+  messageCache.clear();
+  gruposAcordados([{ groupJid: GRUPO, groupName: 'Grupo Teste' }]);
+  messageCache.set('mh', _msg('mh', GRUPO, 'e então?', DIA.getTime() - 60 * 60000));
+  human.setMood('sonolenta', 'teste', GRUPO);
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.2, sorteReacao: 0.99, texto: 'x' });
+  ok('sonolenta + sorte média → fica quieta', r.ok === false, JSON.stringify(r));
+  human.setMood('normal', '', GRUPO);
+  proativa.limparLimites();
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.2, sorteReacao: 0.99, texto: 'x' });
+  ok('humor normal → volta a falar', r.ok === true && r.modo === 'quebrar_silencio', JSON.stringify(r));
+
+  console.log('\n═══ 11. REACÇÃO ESPONTÂNEA (v7.71) ═══');
+  proativa.limparLimites();
+  enviados.length = 0;
+  messageCache.clear();
+  messageCache.set('mr', _msg('mr', GRUPO, 'que dia top, adorei', DIA.getTime() - 2 * 60000));
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.99, sorteReacao: 0.01 });
+  ok('só reage (sem texto)', r.ok === true && r.modo === 'reacao' && r.reagiu?.jid === GRUPO, JSON.stringify(r));
+  ok('react enviado ao grupo', enviados.length === 1 && enviados[0].jid === GRUPO && enviados[0].text === undefined, JSON.stringify(enviados));
+  const n1 = enviados.length;
+  r = await proativa.tick({ sock, agora: DIA.getTime() + 60000, sorte: 0.99, sorteReacao: 0.01 });
+  ok('não repete reacção na mesma msg', enviados.length === n1, JSON.stringify(r));
+
+  console.log('\n═══ 12. NÍVEL DE VIDA (v7.71) ═══');
+  await bcc.set('aura_proactive_nivel', 'calma');
+  proativa.limparLimites();
+  messageCache.clear();
+  messageCache.set('mn', _msg('mn', GRUPO, 'activa agora', DIA.getTime() - 2 * 60000));
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.2, sorteReacao: 0.99, texto: 'x' });
+  ok('nível calma + conversa activa → não se mete', r.ok === false, JSON.stringify(r));
+  await bcc.set('aura_proactive_nivel', 'viva');
+  proativa.limparLimites();
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.2, sorteReacao: 0.99, texto: 'x' });
+  ok('nível viva + mesma sorte → comenta', r.ok === true && r.modo === 'comentario', JSON.stringify(r));
+
   console.log('\n══════════════════════════════════════════════════');
-  if (failed === 0) console.log('🎉 AURA PROATIVA: 22 OK / 0 FALHOU');
-  else console.log(`FALHOU: ${failed}`);
+  if (failed === 0) console.log(`🎉 AURA PROATIVA: ${total} OK / 0 FALHOU`);
+  else console.log(`AURA PROATIVA: ${total - failed} OK / ${failed} FALHOU`);
   process.exit(failed === 0 ? 0 : 1);
 })().catch(e => { console.error('ERRO:', e); process.exit(1); });
