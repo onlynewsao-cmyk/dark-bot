@@ -510,6 +510,21 @@ Module.prototype.require = function (id) {
   await BCC.set('rent_pay', {});
   C('rent: card interativo', fsT21.readFileSync('src/bot/cases/rental2.js', 'utf8').includes('Escolher Plano'));
 
+  // ── 23. v7.68: cartão fatura nativo (orderMessage) ──
+  const _ord = RT.buildPedidoOrder({ orderNum: '75115581', title: 'Fatura via Pix', total1000: 15000, currency: 'BRL', body: 'MENSAL · 30 dias\nPedido DARK-75115581', sellerJid: 'x@s.whatsapp.net', thumb: null });
+  const _om = _ord.orderMessage;
+  C('order: campos', _om.orderId === '75115581' && _om.itemCount === 1 && _om.totalAmount1000 === 15000 && _om.totalCurrencyCode === 'BRL' && _om.orderTitle === 'Fatura via Pix' && _om.messageVersion === 1 && /^[0-9a-f]{32}$/.test(_om.token) && !('thumbnail' in _om));
+  C('order: com thumb', 'thumbnail' in RT.buildPedidoOrder({ orderNum: '1', title: 'F', total1000: 1, currency: 'BRL', body: 'b', sellerJid: 's', thumb: Buffer.alloc(10) }).orderMessage);
+  const _th = await RT.getOrderThumb();
+  C('order: thumb logo', _th === null || Buffer.isBuffer(_th));
+  let ordRelay = null, ordTxt = '';
+  const ordSock = { user: { id: 'bot@s.whatsapp.net' }, sendMessage: async () => {}, relayMessage: async (j, m) => { ordRelay = m; } };
+  const ordMsg = { key: { remoteJid: 'g@g.us', fromMe: false, id: 'M' }, message: { conversation: '!alugar' } };
+  await collected.get('alugar')({ sock: ordSock, msg: ordMsg, ctx: gctx, args: ['plano:semanal'], isOwner: false, config: cfgR, reply: async t => { ordTxt = t; } });
+  const _got = ordRelay?.orderMessage;
+  C('order: pedido envia cartão', !!_got && _got.itemCount === 1 && /^\d{8}$/.test(_got.orderId) && ordTxt.includes('PEDIDO') && ((ordTxt.match(/DARK-\d{8}/) || [])[0] || '').replace(/\D/g, '') === _got.orderId);
+  RT._pedidos.clear();
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

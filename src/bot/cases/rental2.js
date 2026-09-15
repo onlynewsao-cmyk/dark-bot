@@ -158,6 +158,41 @@ async function findPedido(ref) {
   } catch { return null; }
 }
 
+// v7.68: cartão NATIVO de fatura (orderMessage) — igual ao do System Zero:
+// "PEDIDO N.º … / Fatura via Pix / Quantidade: 1 / Total … / Ver encomenda".
+// É só visual (o pagamento confirma-se com !paguei/!ativar).
+function buildPedidoOrder({ orderNum, title, total1000, currency, body, sellerJid, thumb }) {
+  const { proto } = require('@systemzero/baileys');
+  const orderMessage = {
+    orderId: String(orderNum || ''),
+    itemCount: 1,
+    status: proto.Message.OrderMessage.OrderStatus.INQUIRY,
+    surface: proto.Message.OrderMessage.OrderSurface.CATALOG,
+    message: String(body || ''),
+    orderTitle: String(title || 'Fatura'),
+    sellerJid: String(sellerJid || ''),
+    token: require('crypto').randomBytes(16).toString('hex'),
+    totalAmount1000: Math.round(+total1000 || 0),
+    totalCurrencyCode: String(currency || 'BRL'),
+    messageVersion: 1,
+  };
+  if (thumb?.length) orderMessage.thumbnail = thumb;
+  return { orderMessage };
+}
+
+let _orderThumbCache = null; // null = não tentado; Buffer | false
+async function getOrderThumb() {
+  if (_orderThumbCache !== null) return _orderThumbCache || null;
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const logo = fs.readFileSync(path.join(__dirname, '..', '..', 'public', 'img', 'logo.jpg'));
+    const sharp = require('sharp');
+    _orderThumbCache = await sharp(logo).resize(96, 96, { fit: 'cover' }).jpeg({ quality: 70 }).toBuffer();
+  } catch { _orderThumbCache = false; }
+  return _orderThumbCache || null;
+}
+
 module.exports = function registerRental2(registerCase) {
 
   // ═══ ALUGAR COM CARROSSEL DE PLANOS ═══
@@ -282,6 +317,26 @@ module.exports = function registerRental2(registerCase) {
         `\n` +
         (payLines.length ? `*Como pagar:*\n${payLines.join('\n')}\n\n` : `📲 Pagamento: fala com o dono: wa.me/${ownerNum}\n\n`) +
         `Depois de pagar: *${p}paguei ${ref}*`;
+      // v7.68: tenta primeiro o cartão NATIVO de fatura; se falhar cai no
+      // cartão interativo e depois em texto (cadeia intacta).
+      try {
+        const { generateWAMessageFromContent } = require('@systemzero/baileys');
+        let cardCur = 'BRL', cardTitle = 'Fatura via Pix', cardTotal = brl;
+        if ((pay.mcIban || pay.mcExpress) && kz > 0) { cardCur = 'AOA'; cardTitle = 'Fatura Multicaixa'; cardTotal = kz; }
+        else if (!(pay.pix && brl > 0) && kz > 0) { cardCur = 'AOA'; cardTitle = 'Fatura'; cardTotal = kz; }
+        const sellerJid = sock.user?.id || '';
+        if (!sellerJid) throw new Error('sem seller');
+        const thumb = await getOrderThumb().catch(() => null);
+        const content = buildPedidoOrder({
+          orderNum: ref.replace(/\D/g, ''), title: cardTitle,
+          total1000: Math.round(cardTotal * 1000), currency: cardCur,
+          body: `${plan.nome} · ${plan.dias} dias\nPedido ${ref}`,
+          sellerJid, thumb,
+        });
+        const om = generateWAMessageFromContent(ctx.remoteJid, content, { userJid: sock.user?.id, quoted: msg });
+        await sock.relayMessage(ctx.remoteJid, om.message, { messageId: om.key.id });
+        return reply(pedidoTxt);
+      } catch {}
       try {
         const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
         const m = generateWAMessageFromContent(ctx.remoteJid, {
@@ -743,3 +798,5 @@ module.exports.findPedido = findPedido;
 module.exports.savePedido = savePedido;
 module.exports.isSubDono = isSubDono;
 module.exports._pedidos = _pedidos;
+module.exports.buildPedidoOrder = buildPedidoOrder;
+module.exports.getOrderThumb = getOrderThumb;
