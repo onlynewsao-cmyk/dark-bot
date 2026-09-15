@@ -525,6 +525,49 @@ Module.prototype.require = function (id) {
   C('order: pedido envia cartão', !!_got && _got.itemCount === 1 && /^\d{8}$/.test(_got.orderId) && ordTxt.includes('PEDIDO') && ((ordTxt.match(/DARK-\d{8}/) || [])[0] || '').replace(/\D/g, '') === _got.orderId);
   RT._pedidos.clear();
 
+  // ── 24. v7.69: comprovativo, pixcode, expiração ──
+  const MH = require('../src/bot/mediaHandler.js');
+  const _dlOrig = MH.downloadFromMessage;
+  MH.downloadFromMessage = async () => Buffer.alloc(200, 3);
+  let ped2 = '';
+  await collected.get('alugar')({ sock: alSock, msg: {}, ctx: gctx, args: ['plano:trimestral'], isOwner: false, config: cfgR, reply: async t => { ped2 = t; } });
+  const _ref2 = (ped2.match(/DARK-\d{8}/) || [])[0];
+  let ownImg = null, pag2 = '';
+  const pagImgSock = { sendMessage: async (j, m) => { if (String(j).startsWith('244900000001')) ownImg = m; } };
+  const pagImgMsg = { key: { remoteJid: 'g@g.us', fromMe: false, id: 'M2' }, message: { imageMessage: { caption: `!paguei ${_ref2}` } } };
+  await collected.get('paguei')({ sock: pagImgSock, msg: pagImgMsg, ctx: gctx, args: [_ref2], config: cfgR, reply: async t => { pag2 = t; } });
+  MH.downloadFromMessage = _dlOrig;
+  C('rent: paguei com foto', !!_ref2 && Buffer.isBuffer(ownImg?.image) && String(ownImg.caption || '').includes(_ref2) && pag2.includes('comprovativo') && RT._pedidos.get(_ref2)?.paid?.receipt === true);
+  await collected.get('setpagamento')({ ctx: gctx, args: ['pixcode', 'CODIGO-PIX-123'], isOwner: true, config: cfgR, reply: async () => {} });
+  C('rent: pixcode', (await BCC.get('rent_pay', {})).pixCode === 'CODIGO-PIX-123');
+  let ped3 = '';
+  await collected.get('alugar')({ sock: alSock, msg: {}, ctx: gctx, args: ['plano:semanal'], isOwner: false, config: cfgR, reply: async t => { ped3 = t; } });
+  C('rent: pedido mostra pixcode', ped3.includes('copia-e-cola') && ped3.includes('CODIGO-PIX-123'));
+  await BCC.set('rent_pay', {});
+  const _now = Date.now(), _D = 86400000;
+  const _gsRows = [
+    { groupJid: 'w3@g.us', groupName: 'W3', isHosted: true, hostedUntil: new Date(_now + 2 * _D) },
+    { groupJid: 'w1@g.us', groupName: 'W1', isHosted: true, hostedUntil: new Date(_now + 12 * 3600000) },
+    { groupJid: 'exp@g.us', groupName: 'EX', isHosted: true, hostedUntil: new Date(_now - _D) },
+    { groupJid: 'ok@g.us', groupName: 'OK', isHosted: true, hostedUntil: new Date(_now + 30 * _D) },
+  ];
+  global.__gsFake = {
+    findOne: () => w(null),
+    find: () => w(_gsRows),
+    findOneAndUpdate: async (q, u) => { const r = _gsRows.find(x => x.groupJid === q.groupJid); if (r && u) Object.assign(r, u); return null; },
+  };
+  delete require.cache[require.resolve('../src/bot/cases/rental2.js')];
+  const RT2 = require('../src/bot/cases/rental2.js');
+  const _sent = [];
+  const _expSock = { sendMessage: async (j, m) => { _sent.push([j, m.text || '']); } };
+  const _rExp1 = await RT2.checkExpiries(_expSock);
+  const _t3 = (_sent.find(s => s[0] === 'w3@g.us') || [])[1] || '', _t1 = (_sent.find(s => s[0] === 'w1@g.us') || [])[1] || '', _te = (_sent.find(s => s[0] === 'exp@g.us') || [])[1] || '';
+  C('rent: expira avisa', _rExp1.warned3.includes('w3@g.us') && _rExp1.warned1.includes('w1@g.us') && _rExp1.expired.includes('exp@g.us') && _t3.includes('2 dias') && _t1.includes('1 dia') && _te.includes('EXPIRADO') && !_sent.some(s => s[0] === 'ok@g.us') && _gsRows.find(x => x.groupJid === 'exp@g.us').isHosted === false);
+  const _n0 = _sent.length;
+  await RT2.checkExpiries(_expSock);
+  C('rent: expira sem duplicar', _sent.length === _n0);
+  RT._pedidos.clear();
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

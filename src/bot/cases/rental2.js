@@ -96,6 +96,7 @@ async function getPayData() {
   const d = await botConfigCache.get('rent_pay', {}).catch(() => ({}));
   return {
     pix: String(d.pix || ''), pixNome: String(d.pixNome || ''),
+    pixCode: String(d.pixCode || ''),
     mcIban: String(d.mcIban || ''), mcNome: String(d.mcNome || ''), mcExpress: String(d.mcExpress || ''),
   };
 }
@@ -107,6 +108,7 @@ function mkPedidoRef() {
 function pedidoNotes(p) {
   let n = `grupo:${p.groupJid}|plano:${p.planId}|dias:${p.dias}|kz:${p.amountKz}|brl:${p.brl}|gnome:${String(p.groupName || '').replace(/[|]/g, ' ').slice(0, 60)}`;
   if (p.paid) n += `|pago:${p.paid.by}:${p.paid.ts}:${String(p.paid.obs || '').replace(/[|]/g, ' ').slice(0, 100)}`;
+  if (p.paid?.receipt) n += '|rec:1'; // v7.69: comprovativo recebido
   return n;
 }
 
@@ -124,7 +126,7 @@ function pedidoFromDoc(d) {
     groupJid: kv.grupo, groupName: kv.gnome || '',
     byNumber: d.whatsappNumber || '', byName: d.username || '',
     status: d.status || 'pendente', ts: d.createdAt ? new Date(d.createdAt).getTime() : Date.now(),
-    paid: kv.pago ? { by: String(kv.pago).split(':')[0] || '', ts: +String(kv.pago).split(':')[1] || 0, obs: String(kv.pago).split(':').slice(2).join(':') } : null,
+    paid: kv.pago ? { by: String(kv.pago).split(':')[0] || '', ts: +String(kv.pago).split(':')[1] || 0, obs: String(kv.pago).split(':').slice(2).join(':'), receipt: kv.rec === '1' } : null,
   };
 }
 
@@ -306,6 +308,7 @@ module.exports = function registerRental2(registerCase) {
       });
       const payLines = [];
       if (pay.pix) payLines.push(`🔑 Pix: *${pay.pix}*${pay.pixNome ? ` (${pay.pixNome})` : ''} → ${fmtBrl(brl)}`);
+      if (pay.pixCode) payLines.push(`📋 Pix copia-e-cola:\n${pay.pixCode}`);
       if (pay.mcIban) payLines.push(`🏦 IBAN: *${pay.mcIban}*${pay.mcNome ? ` (${pay.mcNome})` : ''} → ${fmtKz(kz)}`);
       if (pay.mcExpress) payLines.push(`📲 Multicaixa Express: *${pay.mcExpress}* → ${fmtKz(kz)}`);
       const pedidoTxt =
@@ -646,24 +649,40 @@ module.exports = function registerRental2(registerCase) {
     if (!ped) return reply('❌ Pedido não encontrado. Confere o número.');
     if (ped.status === 'aprovado') return reply('✅ Este pedido *já foi aprovado*.');
     const obs = args.slice(1).join(' ').slice(0, 100);
-    ped.paid = { by: ctx.senderNumber, name: ctx.pushName || '', ts: Date.now(), obs };
+    ped.paid = { by: ctx.senderNumber, name: ctx.pushName || '', ts: Date.now(), obs, receipt: false };
     ped.status = 'pendente';
-    await savePedido(ped);
     const plan = RENTAL_PLANS.find(x => x.id === ped.planId);
     const ownerNum = String(localConfig.owner.number || '').replace(/\D/g, '');
-    if (ownerNum) {
-      await sock.sendMessage(`${ownerNum}@s.whatsapp.net`, {
-        text:
-          `💰 *PAGAMENTO AVISADO*\n\n` +
-          `🧾 Pedido: *${ref}*\n` +
-          `📦 Plano: *${plan ? plan.nome : ped.planId}* (${ped.dias} dias)\n` +
-          `💰 Valor: *${fmtKz(ped.amountKz)}*${ped.brl > 0 ? ` · *${fmtBrl(ped.brl)}*` : ''}\n` +
-          `🏠 Grupo: ${ped.groupName || ped.groupJid}\n` +
-          `👤 Avisado por: ${ctx.pushName || ''} (${ctx.senderNumber})${obs ? `\n📝 Obs: ${obs}` : ''}\n\n` +
-          `✅ Para ativar: *${p}ativar ${ref}*`,
-      }).catch(() => {});
+    const ownerTxt =
+      `💰 *PAGAMENTO AVISADO*\n\n` +
+      `🧾 Pedido: *${ref}*\n` +
+      `📦 Plano: *${plan ? plan.nome : ped.planId}* (${ped.dias} dias)\n` +
+      `💰 Valor: *${fmtKz(ped.amountKz)}*${ped.brl > 0 ? ` · *${fmtBrl(ped.brl)}*` : ''}\n` +
+      `🏠 Grupo: ${ped.groupName || ped.groupJid}\n` +
+      `👤 Avisado por: ${ctx.pushName || ''} (${ctx.senderNumber})${obs ? `\n📝 Obs: ${obs}` : ''}\n\n` +
+      `✅ Para ativar: *${p}ativar ${ref}*`;
+    // v7.69: comprovativo por foto (directa ou respondida) → segue para o PV do dono.
+    let receiptOk = false;
+    try {
+      const raw = msg?.message || {};
+      const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
+      const imgSrc = raw.imageMessage ? msg : (quoted?.imageMessage ? { key: msg.key, message: quoted } : null);
+      if (imgSrc && ownerNum) {
+        const buf = await require('../mediaHandler').downloadFromMessage(imgSrc);
+        if (buf?.length) {
+          await sock.sendMessage(`${ownerNum}@s.whatsapp.net`, { image: buf, caption: `📎 Comprovativo\n\n${ownerTxt}` });
+          receiptOk = true;
+        }
+      }
+    } catch {}
+    ped.paid.receipt = receiptOk;
+    await savePedido(ped);
+    if (!receiptOk && ownerNum) {
+      await sock.sendMessage(`${ownerNum}@s.whatsapp.net`, { text: ownerTxt }).catch(() => {});
     }
-    return reply(`✅ Pagamento de *${ref}* registado!\n👑 O dono foi avisado e ativa em breve.`);
+    return reply(receiptOk
+      ? `✅ Pagamento de *${ref}* + 📎 *comprovativo* enviados!\n👑 O dono foi avisado e ativa em breve.`
+      : `✅ Pagamento de *${ref}* registado!\n👑 O dono foi avisado e ativa em breve.\n📎 Dica: responde com a *foto do comprovativo* + *${p}paguei ${ref}*.`);
   });
 
   // ═══ v7.67 ATIVAR — dono aprova o pedido e o grupo liga ═══
@@ -725,7 +744,7 @@ module.exports = function registerRental2(registerCase) {
     const rows = [...all.values()]
       .sort((a, b) => (b.ts || 0) - (a.ts || 0))
       .slice(0, 20)
-      .map(q => `${q.paid ? '💰' : '⏳'} *${q.reference}* — ${q.planId} ${q.dias}d — ${q.groupName || q.groupJid}${q.paid ? ` — pago? avisa ${q.paid.by}` : ''}`);
+      .map(q => `${q.paid ? '💰' : '⏳'} *${q.reference}* — ${q.planId} ${q.dias}d — ${q.groupName || q.groupJid}${q.paid?.receipt ? ' 📎' : ''}${q.paid ? ` — pago? avisa ${q.paid.by}` : ''}`);
     return reply(`🧾 *PEDIDOS PENDENTES (${all.size})*\n\n${rows.join('\n')}\n\n✅ Aprovar: *${p}ativar DARK-12345678*`);
   });
 
@@ -762,9 +781,11 @@ module.exports = function registerRental2(registerCase) {
       return reply(
         `💳 *DADOS DE PAGAMENTO*\n\n` +
         `🔑 Pix: ${d.pix ? `*${d.pix}*${d.pixNome ? ` (${d.pixNome})` : ''}` : '—'}\n` +
+        `📋 Pix código: ${d.pixCode ? '✅ definido' : '—'}\n` +
         `🏦 IBAN: ${d.mcIban ? `*${d.mcIban}*${d.mcNome ? ` (${d.mcNome})` : ''}` : '—'}\n` +
         `📲 Express: ${d.mcExpress || '—'}\n\n` +
         `*${p}setpagamento pix <chave> [nome]*\n` +
+        `*${p}setpagamento pixcode <código copia-e-cola>*\n` +
         `*${p}setpagamento mc <iban> [nome]*\n` +
         `*${p}setpagamento express <número>*`,
       );
@@ -773,6 +794,9 @@ module.exports = function registerRental2(registerCase) {
     if (sub === 'pix') {
       if (!args[1]) return reply('Uso: *!setpagamento pix <chave> [nome]*');
       cur.pix = args[1]; cur.pixNome = args.slice(2).join(' ').slice(0, 60);
+    } else if (sub === 'pixcode' || sub === 'cola') {
+      if (!args[1]) return reply('Uso: *!setpagamento pixcode <código>*');
+      cur.pixCode = args.slice(1).join(' ').slice(0, 500);
     } else if (sub === 'mc' || sub === 'iban') {
       if (!args[1]) return reply('Uso: *!setpagamento mc <iban> [nome]*');
       cur.mcIban = args[1]; cur.mcNome = args.slice(2).join(' ').slice(0, 60);
@@ -780,12 +804,71 @@ module.exports = function registerRental2(registerCase) {
       if (!args[1]) return reply('Uso: *!setpagamento express <número>*');
       cur.mcExpress = args[1];
     } else if (sub === 'limpar' || sub === 'off') {
-      for (const k of ['pix', 'pixNome', 'mcIban', 'mcNome', 'mcExpress']) delete cur[k];
-    } else return reply('❌ Usa: *pix*, *mc*, *express* ou *limpar*.');
+      for (const k of ['pix', 'pixNome', 'pixCode', 'mcIban', 'mcNome', 'mcExpress']) delete cur[k];
+    } else return reply('❌ Usa: *pix*, *pixcode*, *mc*, *express* ou *limpar*.');
     await botConfigCache.set('rent_pay', cur).catch(() => {});
     return reply('✅ Dados de pagamento atualizados.');
   });
 };
+
+// ── v7.69: avisos de expiração (3d + 1d + expirou) ──
+// Corre a cada 30min (arrancarRental, ligado no boot). Sem schema novo:
+// o "já avisei" vive em memória por data de expiração (restart pode
+// repetir 1 aviso — inofensivo); expirado desliga-se sozinho (1x natural).
+const _expiryWarned = new Set();
+function _warnKey(jid, untilIso, tag) { return `${jid}|${untilIso}|${tag}`; }
+
+async function checkExpiries(sock) {
+  const out = { warned3: [], warned1: [], expired: [] };
+  let groups = [];
+  try {
+    groups = await GroupSettings.find({ isHosted: true }).lean().catch(() => []);
+  } catch { return out; }
+  const now = Date.now();
+  const D = 86400000;
+  for (const g of groups || []) {
+    try {
+      if (!g?.groupJid || !g?.hostedUntil || g.isHosted === false) continue;
+      const untilMs = new Date(g.hostedUntil).getTime();
+      if (!Number.isFinite(untilMs)) continue;
+      const left = untilMs - now;
+      const jid = g.groupJid;
+      const untilIso = new Date(untilMs).toISOString();
+      const gname = g.groupName || '';
+      if (left <= 0) {
+        await GroupSettings.findOneAndUpdate({ groupJid: jid }, { isHosted: false }).catch(() => {});
+        try { require('../hotCache').forgetGroup(jid); } catch {}
+        if (sock) await sock.sendMessage(jid, { text: `🔴 *ALUGUEL EXPIRADO*\n\n${gname ? `🏠 ${gname}\n` : ''}Os comandos voltaram a bloquear.\n\n💎 Reativa com *!alugar* — renovar soma dias novos.` }).catch(() => {});
+        out.expired.push(jid);
+        continue;
+      }
+      const days = Math.ceil(left / D);
+      const k1 = _warnKey(jid, untilIso, 'd1'), k3 = _warnKey(jid, untilIso, 'd3');
+      if (days <= 1 && !_expiryWarned.has(k1)) {
+        _expiryWarned.add(k1); _expiryWarned.add(k3); // d1 enviado → d3 nunca mais faz sentido
+        if (sock) await sock.sendMessage(jid, { text: `⏰ *ALUGUEL A EXPIRAR*\n\n${gname ? `🏠 ${gname}\n` : ''}⚠️ Resta *menos de 1 dia* (expira ${new Date(untilMs).toLocaleDateString('pt-PT')}).\n\n🔄 Renova com *!alugar* para não ficar sem bot.` }).catch(() => {});
+        out.warned1.push(jid);
+      } else if (days <= 3 && !_expiryWarned.has(k3) && !_expiryWarned.has(k1)) {
+        _expiryWarned.add(k3);
+        if (sock) await sock.sendMessage(jid, { text: `⏰ *ALUGUEL A EXPIRAR*\n\n${gname ? `🏠 ${gname}\n` : ''}📅 Restam *${days} dias* (expira ${new Date(untilMs).toLocaleDateString('pt-PT')}).\n\n🔄 Renova com *!alugar* — soma aos dias que restam.` }).catch(() => {});
+        out.warned3.push(jid);
+      }
+    } catch {}
+  }
+  if (_expiryWarned.size > 2000) _expiryWarned.clear();
+  return out;
+}
+
+let _rentTimer = null;
+function arrancarRental(getSock, intervalMs = 30 * 60 * 1000) {
+  if (_rentTimer) return;
+  _rentTimer = setInterval(() => {
+    try { const sock = getSock?.(); if (sock) checkExpiries(sock).catch(() => {}); } catch {}
+  }, intervalMs);
+  _rentTimer.unref?.();
+  console.log('🏠 Watcher de aluguel activo — avisos de expiração');
+}
+function pararRental() { if (_rentTimer) { clearInterval(_rentTimer); _rentTimer = null; } }
 
 // v7.67: exports p/ gate (commandHandler) e testes.
 module.exports.GATE_ALLOW = GATE_ALLOW;
@@ -800,3 +883,6 @@ module.exports.isSubDono = isSubDono;
 module.exports._pedidos = _pedidos;
 module.exports.buildPedidoOrder = buildPedidoOrder;
 module.exports.getOrderThumb = getOrderThumb;
+module.exports.checkExpiries = checkExpiries;
+module.exports.arrancarRental = arrancarRental;
+module.exports.pararRental = pararRental;
