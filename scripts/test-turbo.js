@@ -431,6 +431,18 @@ Module.prototype.require = function (id) {
   await collected.get('shazam')({ sock: {}, msg: { message: {} }, ctx: { remoteJid: 'x' }, args: [], prefix: '!', reply: async t => { shGot = t; }, react: () => {} });
   C('shazam: sem args mostra uso', shGot.includes('shazam <trecho'));
 
+  // ── 20. v7.65: arsenal (Tavily, STT backup, needsWeb) ──
+  C('web: pesquisar dispara', AI.needsWeb('pesquisa sobre tubarões') === true);
+  C('web: procurar dispara', AI.needsWeb('procura o resultado do jogo') === true);
+  C('web: conversa não dispara', AI.needsWeb('oi tudo bem contigo') === false);
+  C('web: preço dispara', AI.needsWeb('quanto custa o pão') === true);
+  if (cfgIA.ai.tavilyKey) C('tavily: sem chave (skip)', true, 'skip (há chave)');
+  else { let tErr = ''; try { await AI.searchTavily('x'); } catch (e) { tErr = e.message; } C('tavily: sem chave falha rápido', /sem chave Tavily/.test(tErr)); }
+  let sttErr = '';
+  try { await AI.transcribeAudio(Buffer.alloc(50)); } catch (e) { sttErr = e.message; }
+  C('stt: áudio vazio valida', /áudio vazio/.test(sttErr));
+  C('stt: whisper exportado', typeof AI.transcribeWhisper === 'function');
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

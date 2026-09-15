@@ -240,7 +240,7 @@ function needsWeb(text = '') {
   // v7.42: ela vai à net antes de responder sempre que a pergunta depende
   // de estar ACTUALIZADA (actualidade, quem é/está, preços, versões,
   // resultados, "ainda", "já saiu", anos recentes).
-  return /\b(hoje|agora|atual|actual|atualmente|actualmente|not[ií]cia|recente|[uú]ltim[oa]s?|202[4-9]|angola|luanda|mundo|futebol|jogo de|pre[çc]o|custa|quanto est[aá]|cota[çc][ãa]o|d[óo]lar|kwanza|tempo|clima|resultado|evento|quem [ée] o (presidente|ministro|treinador|campe[ãa]o)|ainda (existe|est[aá]|vive)|j[áa] saiu|lan[çc]ou|vers[ãa]o (nova|mais recente)|morreu|faleceu|ganhou|elei[çc]|guerra|greve|festival)\b/i.test(text);
+  return /\b(hoje|agora|atual|actual|atualmente|actualmente|not[ií]cia|recente|[uú]ltim[oa]s?|202[4-9]|angola|luanda|mundo|futebol|jogo de|pre[çc]o|custa|quanto est[aá]|cota[çc][ãa]o|d[óo]lar|kwanza|tempo|clima|resultado|evento|quem [ée] o (presidente|ministro|treinador|campe[ãa]o)|ainda (existe|est[aá]|vive)|j[áa] saiu|lan[çc]ou|vers[ãa]o (nova|mais recente)|morreu|faleceu|ganhou|elei[çc]|guerra|greve|festival|pesquis\w*|busc\w*|procur\w*|investig\w*)\b/i.test(text);
 }
 
 async function fastFetch(url, ms = 5000) {
@@ -264,6 +264,19 @@ async function getWebContext(prompt) {
   const key = 'web:' + prompt.slice(0, 100).toLowerCase();
   const cached = newsCache.get(key);
   if (cached && Date.now() - cached.ts < NEWS_TTL) return cached.v;
+
+  // v7.65: Tavily primeiro (resposta + fontes) — a chave estava parada
+  // no config sem nunca ser usada no caminho da Aura; RSS de fallback.
+  if (config.ai.tavilyKey) {
+    try {
+      const tv = await withTimeout(searchTavily(prompt.slice(0, 300), 5), 4500);
+      if (tv && tv !== 'Sem resultados') {
+        const v = `[INFO ACTUAL — ${new Date().toLocaleDateString('pt-PT')}]\n${tv}\n[/INFO]`;
+        newsCache.set(key, { ts: Date.now(), v });
+        return v;
+      }
+    } catch (e) { console.warn('[Web] Tavily falhou:', shortErr(e)); }
+  }
 
   const parts = [];
   const feeds = [
@@ -640,7 +653,22 @@ async function generateImage(prompt) {
  * @param {string} [language] — código da língua (pt, en, etc.)
  * @returns {string} texto transcrito
  */
+// v7.65: Whisper (Groq) → AssemblyAI como backup (a chave estava parada,
+// só usada nas chamadas).
 async function transcribeAudio(audioBuffer, language = 'pt') {
+  if (!audioBuffer || audioBuffer.length < 100) throw new Error('áudio vazio');
+  try {
+    return await transcribeWhisper(audioBuffer, language);
+  } catch (e) {
+    if (config.ai.assemblyaiKey) {
+      console.warn('[STT] Whisper falhou, AssemblyAI:', String(e?.message || '').slice(0, 60));
+      return transcribeAssemblyAI(audioBuffer, language);
+    }
+    throw e;
+  }
+}
+
+async function transcribeWhisper(audioBuffer, language = 'pt') {
   if (!config.ai.groqApiKey) throw new Error('sem chave Groq para Whisper');
   if (!audioBuffer || audioBuffer.length < 100) throw new Error('áudio vazio');
   
@@ -1168,6 +1196,8 @@ module.exports = {
   detectImageMime,
   toImageBuffers,
   transcribeAudio,
+  transcribeWhisper, // v7.65
+  needsWeb, // v7.65
   generateImage,
   getWebContext,
   getPrettyNewsDigest,

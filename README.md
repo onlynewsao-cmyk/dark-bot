@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.64.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.65.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.65** 🧰 | **Arsenal da Aura** — Tavily a sério nas respostas (RSS de fallback); transcrição Whisper→AssemblyAI; `needsWeb` dispara em pesquisar/buscar/procurar |
 | **v7.64** 🖼️ | **`!setmenu` persistente** — mídia guardada no Mongo (sobrevive a restarts); painel avisa ⚠️ se o ficheiro se perdeu; **Twitter/IG** com routing vídeo/foto corrigido; **Kwai** por scrape direto; **`!shazam`** com fallback grátis + áudio citado via Whisper |
 | **v7.63** 🌹 | **Aura de volta** — Groq sem os Llama mortos (gpt-oss primeiro), Gemini 3.7/3.6, OpenAI ligado, fallback PopCat morto removido; humor novo **`revoltada`** ("aura fica revoltada") |
 | **v7.62** 📥 | **Comandos principais livres** — downloads/play/vídeo funcionam sempre (fora dos modos); `!like` ganha aliases `likesff`, `likeff`, `fflike`, `likefree`; nativo `likeff`→`likebot`; `!fdc` com fallback offline em 4s |
