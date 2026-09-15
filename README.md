@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.69.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.70.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.70** ☀️ | **PV nunca dorme** — cliente no privado recebe SEMPRE resposta (vontade e `[SILENCIO]` não calam); só flood extremo silencia; resposta de cortesia com `!menu` |
 | **v7.69** 📎 | **Funil rende mais** — `!paguei` aceita foto do comprovativo (segue p/ o dono); Pix copia-e-cola no pedido; avisos de expiração 3d/1d + desligar expirados |
 | **v7.68** 🧾 | **Fatura nativa** — pedido `!alugar plano:X` gera cartão `orderMessage` (PEDIDO N.º / Fatura / Total / Ver encomenda) com fallback interativo→texto |
 | **v7.67** 🏠 | **Aluguer System-Zero** — cartão `!alugar` com foto + lista de planos; pedidos `DARK-N` com Multicaixa/Pix; `!paguei`→avisa dono→`!ativar`; gate duro em grupo sem ativação; trial 7 dias; `!setpreco`/`!setpagamento` |

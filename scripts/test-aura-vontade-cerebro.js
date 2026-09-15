@@ -26,6 +26,15 @@ const r3 = vont.interpretarResposta('Tá bom Dark, faço já. [REAGIR:🖤]');
 check('texto + REAGIR → mantém texto', !r3.silencio && r3.reagir === '🖤' && r3.texto === 'Tá bom Dark, faço já.');
 check('instrução menciona [SILENCIO]', /\[SILENCIO\]/.test(vont.instrucao({ isGroup: true, sat: 0.6 })));
 
+console.log('\n═══ PV NUNCA DORME (v7.70) ═══');
+check('PV cliente força resposta', vont.forcarRespostaPV({ isOwner: false, isGroup: false, sat: 0.3 }) === true);
+check('PV cliente saturado (sat<0.9) ainda força', vont.forcarRespostaPV({ isOwner: false, isGroup: false, sat: 0.85 }) === true);
+check('PV dono não força', vont.forcarRespostaPV({ isOwner: true, isGroup: false, sat: 0 }) === false);
+check('grupo não força', vont.forcarRespostaPV({ isOwner: false, isGroup: true, sat: 0 }) === false);
+check('flood extremo (sat≥0.9) não força', vont.forcarRespostaPV({ isOwner: false, isGroup: false, sat: 0.95 }) === false);
+check('instrução PV cliente proíbe SILENCIO', /responde SEMPRE/.test(vont.instrucao({ isOwner: false, isGroup: false, sat: 0 })));
+check('instrução grupo não leva a regra do PV', !/responde SEMPRE/.test(vont.instrucao({ isGroup: true, sat: 0.6 })));
+
 console.log('\n═══ CÉREBRO ═══');
 const fOwner = cer.ferramentasParaPrompt({ isOwner: true, isGroup: true });
 const fFree = cer.ferramentasParaPrompt({ isOwner: false, isAdmin: false, isVip: false, isGroup: true });
@@ -69,6 +78,8 @@ check('interpreta APRENDI_GRUPO', i3.factosGrupo[0] === 'aqui só se fala de fut
   check('handler: vontade após deveResponder', /vont\.querResponder\(/.test(src));
   check('handler: cérebro no prompt', /cer\.ferramentasParaPrompt\(/.test(src) && /cer\.saberParaPrompt\(/.test(src));
   check('handler: interpreta SILENCIO/FAZ/APRENDI', /vont\.interpretarResposta\(finalAnswer\)/.test(src) && /cer\.executarAcoes\(/.test(src) && /cer\.aprender\(/.test(src));
+  check('handler: forca resposta no PV (vontade + SILENCIO)', (src.match(/forcarRespostaPV/g) || []).length >= 2);
+  check('handler: fallback de cortesia no PV', /Estou aqui! 👋/.test(src));
   console.log(`\n${fail ? '💥' : '🎉'} AURA VONTADE+CÉREBRO: ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);
 })();

@@ -98,6 +98,16 @@ function querResponder({ jid, num, texto = '', isOwner = false, isGroup = false,
 const RE_SILENCIO = /\[\s*(SILENCIO|SILÊNCIO|IGNORAR|NAO RESPONDO|NÃO RESPONDO)\s*\]/i;
 const RE_REAGIR = /\[\s*REAGIR\s*:\s*([^\]\s]{1,8})\s*\]/i;
 
+/**
+ * v7.70 — PV NUNCA DORME. No privado com um cliente (não-dono), a Aura
+ * responde SEMPRE: nem a vontade própria nem o [SILENCIO] da IA a podem
+ * calar. Só flood extremo (sat ≥ 0.9) mantém o direito ao silêncio, como
+ * protecção anti-abuso. Grupos e PV do dono: comportamento inalterado.
+ */
+function forcarRespostaPV({ isOwner = false, isGroup = false, sat = 0 } = {}) {
+  return !isOwner && !isGroup && Number(sat) < 0.9;
+}
+
 /** Lê a resposta da IA; devolve {silencio, reagir, texto} com marcadores removidos. */
 function interpretarResposta(resposta) {
   const r = String(resposta || '');
@@ -120,9 +130,10 @@ function instrucao({ isOwner = false, isGroup = false, sat = 0, mood = 'normal' 
   else if (sat >= 0.5) linhas.push(`Esta pessoa está a encher-te (${Math.round(sat * 100)}% de saturação) — tens toda a legitimidade de a ignorar ou de ser seca.`);
   if (mood === 'com_raiva' || mood === 'cansada' || mood === 'sonolenta') linhas.push(`Estás ${mood.replace('_', ' ')}: menos paciência, respostas mais curtas ou nenhuma.`);
   if (isGroup) linhas.push('Num grupo, calar-te é normal — uma pessoa não comenta tudo.');
+  if (!isOwner && !isGroup) linhas.push('Estás no privado com um cliente: responde SEMPRE — nunca uses [SILENCIO] nem só [REAGIR]; uma resposta curta é melhor que nenhuma.');
   return linhas.join('\n');
 }
 
 function limpar() { _hist.clear(); }
 
-module.exports = { registar, saturacao, querResponder, interpretarResposta, instrucao, limpar, RE_SILENCIO, RE_REAGIR };
+module.exports = { registar, saturacao, querResponder, interpretarResposta, instrucao, limpar, forcarRespostaPV, RE_SILENCIO, RE_REAGIR };

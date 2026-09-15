@@ -1694,7 +1694,8 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                 mood: require('../aura/auraHuman').getMood(ctx.remoteJid).mood,
                 perguntaDirecta: /\?/.test(text) || isBotMentioned || isReplyToBot,
               });
-              if (!q.responde) {
+              // v7.70: PV de cliente nunca dorme — a vontade só a cala fora do PV comercial (ou em flood extremo).
+              if (!q.responde && !vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) })) {
                 if (q.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: q.reagir, key: msg.key } }).catch(() => {});
                 _contaMsg(ctx.remoteJid);
                 return false;
@@ -2335,16 +2336,20 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         const vont = require('../aura/auraVontade');
         const cer = require('../aura/auraCerebro');
         const v = vont.interpretarResposta(finalAnswer);
-        if (v.silencio) {
+        // v7.70: PV de cliente nunca dorme — o [SILENCIO] da IA vira resposta de cortesia (salvo flood extremo).
+        const _pvForca = vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) });
+        if (v.silencio && !_pvForca) {
           if (v.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
           console.log('[Aura] escolheu não responder');
           return true;
         }
-        if (v.reagir && v.texto.length < 2) {
+        if (v.reagir && v.texto.length < 2 && !_pvForca) {
           await sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
           return true;
         }
-        finalAnswer = v.texto;
+        finalAnswer = (_pvForca && (v.silencio || v.texto.length < 2))
+          ? `Estou aqui! 👋 Diz-me o que precisas — ou escreve *${ctx.prefix || '!'}menu* para veres tudo o que sei fazer.`
+          : v.texto;
         const c = cer.interpretar(finalAnswer);
         finalAnswer = c.texto;
         _acoesIA = c.acoes;
