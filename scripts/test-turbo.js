@@ -468,6 +468,48 @@ Module.prototype.require = function (id) {
   const digest = await AI.getPrettyNewsDigest('');
   C('news: digest resolve <5s', typeof digest === 'string' && digest.includes('DARK NEWS') && (Date.now() - dgT0) < 5000, `${Date.now() - dgT0}ms`);
 
+  // ── 22. v7.67: aluguel system-zero (gate, planos, pedidos) ──
+  global.__gsFake = { findOne: () => w(null), findOneAndUpdate: async () => null };
+  const RT = require('../src/bot/cases/rental2.js');
+  C('gate: funil passa', RT.gateAllows('!alugar', '!') && RT.gateAllows('*trial', '*') && RT.gateAllows('!planos x', '!') && RT.gateAllows('!statusalugar', '!') && RT.gateAllows('!paguei DARK-1', '!') && RT.gateAllows('!vip', '!'));
+  C('gate: resto bloqueia', !RT.gateAllows('!menu', '!') && !RT.gateAllows('!play x', '!') && !RT.gateAllows('!ping', '!') && !RT.gateAllows('olá', '!'));
+  C('rent: 5 planos trial 7d', RT.RENTAL_PLANS.length === 5 && RT.RENTAL_PLANS[0].dias === 7 && RT.RENTAL_PLANS.every(p => Number.isFinite(p.kz) && Number.isFinite(p.brl)));
+  const _pr0 = await RT.getPrices();
+  C('rent: precoTxt', RT.precoTxt('trial', _pr0) === 'Grátis' && RT.precoTxt('mensal', _pr0).includes('Kz') && RT.precoTxt('mensal', _pr0).includes('R$'));
+  const _r1 = RT.mkPedidoRef(), _r2 = RT.mkPedidoRef();
+  C('rent: ref pedido', /^DARK-\d{8}$/.test(_r1) && _r1 !== _r2);
+  C('setmenu: alvo alugar', SM.resolveTarget('alugar').key === 'menu_alugar');
+  RT(RC);
+  const cfgR = { bot: { prefix: '!', name: 'DARK BOT' }, owner: { number: '244900000001' } };
+  const gctx = { isGroup: true, remoteJid: 'g@g.us', groupName: 'GT', senderNumber: '244911111111', pushName: 'Zeca' };
+  let setpGot = '';
+  await collected.get('setpreco')({ ctx: gctx, args: ['mensal', '6000', '20'], isOwner: true, config: cfgR, reply: async t => { setpGot = t; } });
+  const _pr1 = await RT.getPrices();
+  C('rent: setpreco', /6000/.test(setpGot.replace(/\D/g, m => m === '6' || m === '0' ? m : '')) && _pr1.mensal.kz === 6000 && _pr1.mensal.brl === 20);
+  await collected.get('setpagamento')({ ctx: gctx, args: ['pix', 'chave123', 'Zeca'], isOwner: true, config: cfgR, reply: async () => {} });
+  const _pay0 = await BCC.get('rent_pay', {});
+  C('rent: setpagamento', _pay0.pix === 'chave123' && _pay0.pixNome === 'Zeca');
+  let alGot = '';
+  const alSock = { user: { id: 'x' }, sendMessage: async (j, m) => { alGot = m.text || m.caption || ''; } };
+  await collected.get('alugar')({ sock: alSock, msg: {}, ctx: gctx, args: [], isOwner: false, config: cfgR, reply: async () => {} });
+  C('rent: cartão fallback', alGot.includes('ALUGUEL') && alGot.includes('TRIAL') && alGot.includes('MENSAL') && alGot.includes('plano:mensal'));
+  let pedGot = '';
+  await collected.get('alugar')({ sock: alSock, msg: {}, ctx: gctx, args: ['plano:mensal'], isOwner: false, config: cfgR, reply: async t => { pedGot = t; } });
+  const _ref = (pedGot.match(/DARK-\d{8}/) || [])[0];
+  C('rent: pedido criado', pedGot.includes('PEDIDO') && !!_ref && RT._pedidos.has(_ref) && pedGot.includes('Kz') && pedGot.includes('chave123'));
+  let ownerGot = '', pagGot = '';
+  const pagSock = { sendMessage: async (j, m) => { if (String(j).startsWith('244900000001')) ownerGot = m.text || ''; } };
+  await collected.get('paguei')({ sock: pagSock, msg: {}, ctx: gctx, args: [_ref, 'ref123'], config: cfgR, reply: async t => { pagGot = t; } });
+  C('rent: paguei avisa dono', pagGot.includes('registado') && ownerGot.includes(_ref) && ownerGot.includes('!ativar'));
+  let atvGot = '', grpGot = '';
+  const atvSock = { sendMessage: async (j, m) => { if (j === 'g@g.us') grpGot = m.text || ''; } };
+  await collected.get('ativar')({ sock: atvSock, msg: {}, ctx: gctx, args: [_ref], isOwner: true, config: cfgR, reply: async t => { atvGot = t; } });
+  C('rent: ativar liga grupo', atvGot.includes('aprovado') && grpGot.includes('ALUGUEL ATIVADO'));
+  RT._pedidos.delete(_ref);
+  await BCC.set('rent_preco', {});
+  await BCC.set('rent_pay', {});
+  C('rent: card interativo', fsT21.readFileSync('src/bot/cases/rental2.js', 'utf8').includes('Escolher Plano'));
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

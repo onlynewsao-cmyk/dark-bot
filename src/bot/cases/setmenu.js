@@ -48,6 +48,8 @@ const TARGETS = {
   interacoes: 'menuinteracoes', 'interações': 'menuinteracoes', interacao: 'menuinteracoes',
   brincadeiras: 'menuinteracoes', brincadeira: 'menuinteracoes',
   alteradores: 'alteradores', audio: 'alteradores',
+  // v7.67: foto do cartão de aluguel (!alugar).
+  alugar: 'menu_alugar', rent: 'menu_alugar',
 };
 
 function resolveTarget(alias) {
@@ -109,7 +111,7 @@ function cache() { return require('../botConfigCache'); }
 async function showPanel(prefix, reply) {
   const c = cache();
   // v7.66: órfãs removidas (menudiversao/menufamilia/brincadeiras nunca apareciam); novas: menuzoeira/menutexto/menusearch/menudono.
-  const keys = ['menu', 'menu_downloads', 'menu_stickers', 'menujogos', 'menueconomia', 'menuia', 'menugrupo', 'menustatus', 'menulogos', 'menuinteracoes', 'alteradores', 'menuzoeira', 'menutexto', 'menusearch', 'menudono'];
+  const keys = ['menu', 'menu_downloads', 'menu_stickers', 'menujogos', 'menueconomia', 'menuia', 'menugrupo', 'menustatus', 'menulogos', 'menuinteracoes', 'alteradores', 'menuzoeira', 'menutexto', 'menusearch', 'menudono', 'menu_alugar'];
   const rows = await Promise.all(keys.map(async (k) => {
     const t = await c.get(`menu_media_${k}_type`, 'none').catch(() => 'none');
     const u = await c.get(`menu_media_${k}_url`, '').catch(() => '');

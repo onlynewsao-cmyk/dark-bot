@@ -257,6 +257,9 @@ function categorize(cmd) {
     cancelrent:'economia', listrents:'economia', alugar:'economia', hospedar:'economia',
     statusalugar:'economia', desalugar:'economia', estender:'economia',
     meualuguel:'economia', gruposalugados:'economia',
+    paguei:'economia', pagar:'economia', pedido:'economia', pedidos:'economia',
+    ativar:'economia', setpreco:'economia', 'setpreço':'economia',
+    setpagamento:'economia', setpag:'economia',
     // v7.6b — ECONOMIA & RPG limpo: donos/cheats saem, miscategorizados vão ao sítio
     dar:'owner', forjar:'owner',
     rpgadd:'owner', rpgremove:'owner', rpgsetlevel:'owner',

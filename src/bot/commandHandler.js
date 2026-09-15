@@ -363,13 +363,15 @@ async function _avisoSemAluguel(sock, msg, ctx) {
     if (_avisoAluguelTs.size > 500) _avisoAluguelTs.clear(); // fuga de memória
     if (agora - (_avisoAluguelTs.get(k) || 0) < AVISO_ALUGUEL_MS) return;
     _avisoAluguelTs.set(k, agora);
-    const donoNum = String(config.owner?.number || '').replace(/\D/g, '');
+    // v7.67: texto estilo System Zero — funil directo para o !alugar.
+    const pfx = ctx?.prefix || '!';
+    const bName = config.bot?.name || 'DARK BOT';
     await sock.sendMessage(ctx.remoteJid, {
       text:
-        '🤖 *Assistente DARK*\n' +
-        'Este grupo não tem aluguel activo, por isso os comandos completos ficam bloqueados.\n\n' +
-        (donoNum ? `📲 Para activar fala com o Dono: wa.me/${donoNum}\n` : '') +
-        '💬 No privado do bot respondo a qualquer pessoa, sempre.',
+        '🔷 O bot não está *ativado* neste grupo.\n' +
+        '\n' +
+        `Digite *${pfx}alugar* para ver os planos e ativar o ${bName} aqui.\n` +
+        `🆓 Ou *${pfx}trial* para 7 dias grátis.`,
     }, { quoted: msg }).catch(() => {});
   } catch (_) {}
 }
@@ -674,11 +676,20 @@ async function _handleInner(sock, msg) {
       // grupo+pessoa, para não virar spam). Os comandos continuam
       // bloqueados — o aviso É a ajuda da assistente.
       if (!checkIsPremium(uCheck)) {
-        // v7.36: o aviso só faz sentido quando a pessoa TENTOU um comando.
-        // Antes disparava em qualquer mensagem (conversa normal) de cada
-        // membro → parecia spam e "respondia a toda a gente".
-        if (prefixInfo || pareceComando(text)) await _avisoSemAluguel(sock, msg, ctx);
-        return false;
+        // v7.67: gate duro estilo System Zero — em grupo sem ativação SÓ
+        // o funil de aluguel passa (alugar/trial/planos/paguei…); o resto
+        // leva o aviso e fica bloqueado.
+        let _gateOpen = false;
+        try { _gateOpen = require('./cases/rental2').gateAllows(text, prefix); } catch {}
+        if (_gateOpen) {
+          // passa — o case do funil trata do resto
+        } else {
+          // v7.36: o aviso só faz sentido quando a pessoa TENTOU um comando.
+          // Antes disparava em qualquer mensagem (conversa normal) de cada
+          // membro → parecia spam e "respondia a toda a gente".
+          if (prefixInfo || pareceComando(text)) await _avisoSemAluguel(sock, msg, ctx);
+          return false;
+        }
       }
     }
     // Trial activo → verifica limite de 500 cmds
