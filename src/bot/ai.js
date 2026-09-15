@@ -600,14 +600,17 @@ async function getPrettyNewsDigest(topic = '') {
     ['Tecnologia', 'https://news.google.com/rss/search?q=tecnologia+OR+IA&hl=pt-PT&gl=AO'],
     ['Desporto',   'https://news.google.com/rss/search?q=futebol+OR+desporto&hl=pt-PT&gl=AO'],
   ];
-  const blocks = [];
-  for (const [label, url] of feeds) {
+  // v7.66: fetches em paralelo — sequencial era 4×4s=16s no pior caso
+  // (o audit tem teto 5s e o utilizador real também não espera 16s).
+  // Promise.all preserva a ordem dos blocos.
+  const results = await Promise.all(feeds.map(async ([label, url]) => {
     try {
       const xml   = await fastFetch(url, 4000);
       const items = parseNews(xml, q ? 8 : 4);
-      if (items.length) blocks.push(`*${label}*\n${items.join('\n')}`);
-    } catch {}
-  }
+      return items.length ? `*${label}*\n${items.join('\n')}` : '';
+    } catch { return ''; }
+  }));
+  const blocks = results.filter(Boolean);
   return `📰 *DARK NEWS*  🕒 ${now}\n\n${blocks.join('\n\n') || 'Sem notícias agora.'}\n\n_via Google News RSS_`;
 }
 

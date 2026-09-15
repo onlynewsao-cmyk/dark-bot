@@ -7,6 +7,17 @@
 
 const sd = require('../submenuData');
 
+// v7.66: categoria dynSub → chave do !setmenu (menu_media_<key>_*).
+// Todas as chaves do setmenu têm de aparecer em ALGUM submenu —
+// chaves órfãs = "defini e nada".
+const CATEGORY_TARGET = {
+  downloads: 'menu_downloads', stickers: 'menu_stickers', ia: 'menuia',
+  admin: 'menugrupo', jogos: 'menujogos', economia: 'menueconomia',
+  interacoes: 'menuinteracoes', audio: 'alteradores', info: 'menustatus',
+  texto: 'menutexto', search: 'menusearch', logos: 'menulogos',
+  zoeira: 'menuzoeira', owner: 'menudono',
+};
+
 async function dynSub(sock, msg, ctx, config, category) {
   const meta = sd.SUBMENU_META[category];
   if (!meta) return;
@@ -66,6 +77,21 @@ async function dynSub(sock, msg, ctx, config, category) {
     id: `${p}${it.cmd}`,
   }));
   
+  // v7.66: mídia do !setmenu (era ignorada — "defini e nada").
+  const target = CATEGORY_TARGET[category] || '';
+  let _mmBuf = null, _mmType = 'none';
+  if (target) {
+    try {
+      const bcc = require('../botConfigCache');
+      const _mmUrl = await bcc.get(`menu_media_${target}_url`, '').catch(() => '');
+      _mmType = await bcc.get(`menu_media_${target}_type`, 'none').catch(() => 'none');
+      if (_mmUrl && _mmType && _mmType !== 'none') {
+        _mmBuf = await nativeCommands.getMenuMediaBuf(target, _mmUrl).catch(() => null);
+        if (!_mmBuf?.length) { _mmBuf = null; _mmType = 'none'; }
+      }
+    } catch { _mmBuf = null; _mmType = 'none'; }
+  }
+
   let sent = false;
   if (rows.length) {
     try {
@@ -74,11 +100,24 @@ async function dynSub(sock, msg, ctx, config, category) {
         title: `${t.icon || '🕸️'} ${meta.title}`,
         sections: [{ title: `${t.icon || '🕸️'} AÇÕES DIRECTAS`, rows }],
       };
+      let dynHeader = { title: '', hasMediaAttachment: false };
+      if (_mmBuf?.length) {
+        try {
+          const { prepareWAMessageMedia } = require('@systemzero/baileys');
+          if (_mmType === 'image') {
+            const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
+            if (_mm?.imageMessage) dynHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
+          } else {
+            const _mm = await prepareWAMessageMedia({ video: _mmBuf, gifPlayback: _mmType === 'gif' }, { upload: sock.waUploadToServer });
+            if (_mm?.videoMessage) dynHeader = { title: '', hasMediaAttachment: true, videoMessage: _mm.videoMessage };
+          }
+        } catch {}
+      }
       const m = generateWAMessageFromContent(ctx.remoteJid, {
         interactiveMessage: proto.Message.InteractiveMessage.fromObject({
           body: proto.Message.InteractiveMessage.Body.fromObject({ text: textBody }),
           footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `${t.icon || '🕸️'} ${botName} · ${roleInfo.cargo}` }),
-          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+          header: proto.Message.InteractiveMessage.Header.fromObject(dynHeader),
           nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
             buttons: [{ name: 'single_select', buttonParamsJson: JSON.stringify(listParams) }],
           }),
@@ -97,7 +136,22 @@ async function dynSub(sock, msg, ctx, config, category) {
   
   if (!sent) {
     const footer = `\n\n> ${t.icon || '🕸️'} ${roleInfo.cargo} · VIP: ${roleInfo.vip}`;
-    await sock.sendMessage(ctx.remoteJid, { text: textBody + footer }, { quoted: msg });
+    const fullText = textBody + footer;
+    // v7.66: com mídia — legenda só se o texto couber (limite WA ~1024);
+    // texto longo: mídia primeiro + texto completo a seguir (nada é cortado).
+    if (_mmBuf?.length && _mmType && _mmType !== 'none') {
+      const mediaMsg = _mmType === 'image'
+        ? { image: _mmBuf }
+        : { video: _mmBuf, mimetype: 'video/mp4', ...(_mmType === 'gif' ? { gifPlayback: true } : {}) };
+      if (fullText.length <= 950) {
+        await sock.sendMessage(ctx.remoteJid, { ...mediaMsg, caption: fullText }, { quoted: msg });
+      } else {
+        await sock.sendMessage(ctx.remoteJid, { ...mediaMsg, caption: `${meta.title} · ${botName}` }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { text: fullText }, { quoted: msg });
+      }
+    } else {
+      await sock.sendMessage(ctx.remoteJid, { text: fullText }, { quoted: msg });
+    }
   }
 }
 
@@ -241,3 +295,6 @@ module.exports = function registerDynamicSubmenus(registerCase) {
     return false; // → cai no nativeCommands.menu18 / cmdsocultos
   });
 };
+
+// v7.66: mapa categoria→chave do !setmenu (testes).
+module.exports.CATEGORY_TARGET = CATEGORY_TARGET;

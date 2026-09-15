@@ -31,14 +31,22 @@ const TARGETS = {
   stickers: 'menu_stickers', sticker: 'menu_stickers', fig: 'menu_stickers', figurinhas: 'menu_stickers',
   jogos: 'menujogos', jogo: 'menujogos', game: 'menujogos',
   economia: 'menueconomia', eco: 'menueconomia', coins: 'menueconomia',
-  diversao: 'menudiversao', 'diversão': 'menudiversao', div: 'menudiversao', zoeira: 'menudiversao',
+  // v7.66: diversao/zoeira iam para 'menudiversao', chave ÓRFÃ (nenhum
+  // submenu a lia) = "defini e nada". Agora cada alvo aparece algures.
+  diversao: 'menuinteracoes', 'diversão': 'menuinteracoes', div: 'menuinteracoes',
+  zoeira: 'menuzoeira', medidores: 'menuzoeira',
+  texto: 'menutexto', utilidades: 'menutexto',
+  search: 'menusearch', pesquisa: 'menusearch', stalk: 'menusearch',
+  dono: 'menudono', owner: 'menudono',
   ia: 'menuia', ai: 'menuia',
   grupo: 'menugrupo', grupos: 'menugrupo', adm: 'menugrupo', admin: 'menugrupo',
   status: 'menustatus', info: 'menustatus',
   logos: 'menulogos', logo: 'menulogos',
-  familia: 'menufamilia', 'família': 'menufamilia', family: 'menufamilia',
+  // v7.66: menufamilia/brincadeiras eram chaves ÓRFÃS (os comandos vão
+  // dar à categoria 'interacoes') — fundidas em menuinteracoes.
+  familia: 'menuinteracoes', 'família': 'menuinteracoes', family: 'menuinteracoes',
   interacoes: 'menuinteracoes', 'interações': 'menuinteracoes', interacao: 'menuinteracoes',
-  brincadeiras: 'brincadeiras', brincadeira: 'brincadeiras',
+  brincadeiras: 'menuinteracoes', brincadeira: 'menuinteracoes',
   alteradores: 'alteradores', audio: 'alteradores',
 };
 
@@ -100,7 +108,8 @@ function cache() { return require('../botConfigCache'); }
 
 async function showPanel(prefix, reply) {
   const c = cache();
-  const keys = ['menu', 'menu_downloads', 'menu_stickers', 'menujogos', 'menueconomia', 'menudiversao', 'menuia', 'menugrupo', 'menustatus', 'menulogos', 'menufamilia', 'menuinteracoes', 'brincadeiras', 'alteradores'];
+  // v7.66: órfãs removidas (menudiversao/menufamilia/brincadeiras nunca apareciam); novas: menuzoeira/menutexto/menusearch/menudono.
+  const keys = ['menu', 'menu_downloads', 'menu_stickers', 'menujogos', 'menueconomia', 'menuia', 'menugrupo', 'menustatus', 'menulogos', 'menuinteracoes', 'alteradores', 'menuzoeira', 'menutexto', 'menusearch', 'menudono'];
   const rows = await Promise.all(keys.map(async (k) => {
     const t = await c.get(`menu_media_${k}_type`, 'none').catch(() => 'none');
     const u = await c.get(`menu_media_${k}_url`, '').catch(() => '');

@@ -443,6 +443,31 @@ Module.prototype.require = function (id) {
   C('stt: áudio vazio valida', /áudio vazio/.test(sttErr));
   C('stt: whisper exportado', typeof AI.transcribeWhisper === 'function');
 
+  // ── 21. v7.66: !setmenu aparece (dynSub + header + órfãs) ──
+  const CT = require('../src/bot/cases/dynamicSubmenus.js').CATEGORY_TARGET;
+  C('dynsub: mapa base', CT.ia === 'menuia' && CT.downloads === 'menu_downloads' && CT.admin === 'menugrupo' && CT.audio === 'alteradores' && CT.info === 'menustatus' && CT.stickers === 'menu_stickers' && CT.jogos === 'menujogos' && CT.economia === 'menueconomia' && CT.interacoes === 'menuinteracoes' && CT.logos === 'menulogos');
+  C('dynsub: mapa novos', CT.zoeira === 'menuzoeira' && CT.texto === 'menutexto' && CT.search === 'menusearch' && CT.owner === 'menudono');
+  C('setmenu: novos alvos', SM.resolveTarget('zoeira').key === 'menuzoeira' && SM.resolveTarget('texto').key === 'menutexto' && SM.resolveTarget('search').key === 'menusearch' && SM.resolveTarget('dono').key === 'menudono' && SM.resolveTarget('menuia').key === 'menuia');
+  C('setmenu: órfãs fundidas', SM.resolveTarget('diversao').key === 'menuinteracoes' && SM.resolveTarget('familia').key === 'menuinteracoes' && SM.resolveTarget('brincadeiras').key === 'menuinteracoes');
+  await collected.get('setmenu')({ isOwner: true, args: [], prefix: '!', reply: async t => { panelGot = t; } });
+  C('setmenu: painel sem órfãs', !panelGot.includes('menudiversao') && !panelGot.includes('menufamilia') && !panelGot.includes('brincadeiras') && panelGot.includes('menuzoeira') && panelGot.includes('menutexto') && panelGot.includes('menusearch') && panelGot.includes('menudono'));
+  C('sendMenuWithMedia exportado', typeof NC.sendMenuWithMedia === 'function');
+  C('helpers não poluem catálogo', !Object.keys(NC).includes('sendMenuWithMedia') && !Object.keys(NC).includes('getMenuMediaBuf'));
+  const fsT21 = require('fs');
+  C('header interativo usa mídia', fsT21.readFileSync('src/bot/nativeCommands.js', 'utf8').includes('fromObject(subMediaHeader)') && fsT21.readFileSync('src/bot/cases/dynamicSubmenus.js', 'utf8').includes('fromObject(dynHeader)'));
+  await BCC.set('menu_media__turbow_url', 'local:menu-media/_turbow.jpg?v=1');
+  await BCC.set('menu_media__turbow_type', 'image');
+  await BCC.set('menu_media__turbow_bin', Buffer.alloc(300, 5).toString('base64'));
+  const wSent = [];
+  await NC.sendMenuWithMedia({ sendMessage: async (j, m) => { wSent.push(m); } }, {}, { remoteJid: 'x' }, 'TEXTO-MENU', '_turbow');
+  C('envio com foto', wSent.length === 1 && Buffer.isBuffer(wSent[0].image) && String(wSent[0].caption || '').includes('TEXTO-MENU'));
+  await BCC.set('menu_media__turbow_url', '');
+  await BCC.set('menu_media__turbow_type', 'none');
+  await BCC.set('menu_media__turbow_bin', '');
+  const dgT0 = Date.now();
+  const digest = await AI.getPrettyNewsDigest('');
+  C('news: digest resolve <5s', typeof digest === 'string' && digest.includes('DARK NEWS') && (Date.now() - dgT0) < 5000, `${Date.now() - dgT0}ms`);
+
   console.log(`\nTURBO: ${ok} OK / ${fail} FAIL`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

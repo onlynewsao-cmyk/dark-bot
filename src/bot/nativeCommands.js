@@ -642,9 +642,9 @@ const selCmds = allowed.filter(it => it.sel === true);
           footer: proto.Message.InteractiveMessage.Footer.fromObject({
             text: `${t.icon} ${botName}`,
           }),
-          header: proto.Message.InteractiveMessage.Header.fromObject({
-            title: '', hasMediaAttachment: false,
-          }),
+          // v7.66: o subMediaHeader era calculado mas NUNCA usado (header
+          // hardcoded sem mídia) — !setmenu <submenu> não aparecia.
+          header: proto.Message.InteractiveMessage.Header.fromObject(subMediaHeader),
           nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
             buttons: [{
               name: 'single_select',
@@ -823,11 +823,15 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
   
   if (!items.length) return reply(sock, msg, ctx, meta.icon + ' Sem comandos nesta categoria.');
   
+  // v7.66: 'menu_'+category gerava chaves erradas (menu_ia, menu_admin…)
+  // que o !setmenu nunca escreve — usa o mesmo mapa do dynSub.
+  let _ct = null;
+  try { _ct = require('./cases/dynamicSubmenus').CATEGORY_TARGET; } catch {}
   return sendStyledCommandList(sock, msg, ctx, config, {
     title: meta.title,
     subtitle: meta.sub,
     buttonText: meta.btn,
-    target: 'menu_' + category,
+    target: (_ct && _ct[category]) || ('menu_' + category),
     items,
   });
 }
@@ -1216,7 +1220,7 @@ module.exports = {
   async brincadeiras({ sock, msg, ctx, config: cfg }) {
     const localConfig = cfg || config;
     return sendStyledCommandList(sock, msg, ctx, localConfig, {
-      title: '🕸️ BRINCADEIRAS & DIVERSÃO', target: 'brincadeiras',
+      title: '🕸️ BRINCADEIRAS & DIVERSÃO', target: 'menuinteracoes',
       subtitle: 'Diversão, zoeira e interações para grupo.',
       buttonText: '🕸️ Abrir',
       items: [
@@ -1591,7 +1595,7 @@ module.exports = {
 
   async menufamilia({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
-      title: '👨‍👩‍👧 FAMÍLIA', target: 'menufamilia',
+      title: '👨‍👩‍👧 FAMÍLIA', target: 'menuinteracoes',
       subtitle: 'Casamento • Família • Laços',
       buttonText: '👨‍👩‍👧 Selecionar',
       items: [
@@ -1610,7 +1614,7 @@ module.exports = {
   // ── !menudiversao ─────────────────────────────────────────────────────
   async menudiversao({ sock, msg, ctx, config: cfg }) {
     return sendStyledCommandList(sock, msg, ctx, cfg || config, {
-      title: '😂 DIVERSÃO & ZOEIRA', target: 'menudiversao',
+      title: '😂 DIVERSÃO & ZOEIRA', target: 'menuinteracoes',
       subtitle: 'Medidores • Brincadeiras • Interações',
       buttonText: '😂 Selecionar',
       items: [
@@ -3908,3 +3912,5 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
 // do nativeCommands são varridos como comandos (audit-org-comandos,
 // submenu). Não-enumerável: invisível para Object.keys, acessível direto.
 Object.defineProperty(module.exports, 'getMenuMediaBuf', { value: getMenuMediaBuf, enumerable: false });
+// v7.66: dynSub (submenus dinâmicos) reutiliza o envio com mídia.
+Object.defineProperty(module.exports, 'sendMenuWithMedia', { value: sendMenuWithMedia, enumerable: false });
