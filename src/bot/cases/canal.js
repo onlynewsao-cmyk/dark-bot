@@ -29,15 +29,27 @@ function fmtResult(r) {
 
 module.exports = function registerCanalCases(registerCase) {
   registerCase(['canal', 'canais', 'channel'], async ({ sock, m, msg, ctx, args, text, prefix, isOwner, reply }) => {
-    const sub = String(args[0] || '').toLowerCase();
-    const resto = (text || '').slice((args[0] || '').length).trim();
+    let sub = String(args[0] || '').toLowerCase();
+    let resto = (text || '').slice((args[0] || '').length).trim();
     const C = canais();
+    // v7.76 SUPER — alvo por comando: `!canal @2 postar ...` / `!canal @loja stats`
+    let alvoRef = null;
+    if (/^[@#]/.test(sub) && args[1]) {
+      alvoRef = await C.resolverRef(sub).catch(() => null);
+      if (!alvoRef) return reply(`❌ Não achei o canal \`${args[0]}\`. Vê: \`${prefix}canal lista\``);
+      const i0 = (text || '').indexOf(args[0]);
+      const i1 = (text || '').indexOf(args[1], i0 + String(args[0]).length);
+      resto = (text || '').slice(i1 + String(args[1]).length).trim();
+      sub = String(args[1] || '').toLowerCase();
+    }
+    const escolherAlvo = async () => alvoRef || alvoMeu();
 
     const HELP =
       `📢 *AURA CANAIS* ⚡\n\n` +
       `*Leitura (todos):*\n` +
       `• \`${prefix}canal meu\` — qual o canal ativo\n` +
       `• \`${prefix}canal lista\` — todos os canais\n` +
+      `• \`${prefix}canal painel\` — dashboard: seguidores + agendados\n` +
       `• \`${prefix}canal info\` — dados do canal\n` +
       `• \`${prefix}canal stats\` — estatísticas\n` +
       `• \`${prefix}canal agenda\` — posts agendados\n` +
@@ -57,7 +69,10 @@ module.exports = function registerCanalCases(registerCase) {
       `• \`${prefix}canal perguntar <pergunta> | <op1> | <op2>\`\n` +
       `• \`${prefix}canal seguir <link>\` — segue um canal\n` +
       `• \`${prefix}canal deixar\` — deixa o canal adotado\n` +
-      `• \`${prefix}canal apagar SIM\` — ⚠️ apaga o canal`;
+      `• \`${prefix}canal apagar SIM\` — ⚠️ apaga o canal\n\n` +
+      `*Multi-canal (SUPER):*\n` +
+      `• \`${prefix}canal @<nº|nome> <comando>\` — age noutro canal sem trocar o ativo\n` +
+      `• \`${prefix}super <texto>\` — publica em *todos* os canais (+ \`grupos\` avisa os grupos)`;
 
     if (!sub) {
       const meu = await C.meuCanal().catch(() => null);
@@ -72,17 +87,17 @@ module.exports = function registerCanalCases(registerCase) {
       return reply(`📌 *${meu.name || 'Canal'}*\n🆔 \`${meu.jid}\`\n📝 ${meu.description || '—'}\n🔗 ${meu.invite || '—'}`);
     }
     if (sub === 'info') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       return reply(fmtResult(await C.infoCanal(sock, alvo)));
     }
     if (sub === 'stats' || sub === 'estatisticas') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       return reply(fmtResult(await C.estatisticasCanal(sock, alvo)));
     }
     if (sub === 'agenda') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       try {
         const ag = require('../../aura/auraAgenda');
@@ -93,7 +108,7 @@ module.exports = function registerCanalCases(registerCase) {
       } catch (e) { return reply('❌ Agendamento indisponível: ' + String(e?.message || e).slice(0, 80)); }
     }
     if (sub === 'respostas') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       return reply(fmtResult(await C.lerRespostasCanal(sock, alvo)));
     }
@@ -104,11 +119,18 @@ module.exports = function registerCanalCases(registerCase) {
       return reply(`📢 *CANAIS* (${d.lista.length}):\n\n${linhas.join('\n')}`);
     }
 
+    if (sub === 'painel' || sub === 'dashboard' || sub === 'meta') {
+      const p = await C.painelCanais(sock).catch(() => null);
+      if (!p || p.ok === false) return reply(`📌 Nenhum canal adotado.\nCria: \`${prefix}canal criar Nome | Descrição\`\nOu adota: \`${prefix}canal adotar <link>\``);
+      const linhas = p.canais.map((c, i) => `${c.ativo ? '📌' : '•'} *${i + 1}. ${c.name}*${c.ativo ? ' _(ativo)_' : ''}\n   👥 ${c.seguidores ?? '?'} seguidores · 🗓️ ${c.agendados} agendado${c.agendados === 1 ? '' : 's'}\n   🆔 \`${c.jid}\``);
+      return reply(`📊 *PAINEL* (${p.canais.length} ${p.canais.length === 1 ? 'canal' : 'canais'}):\n\n${linhas.join('\n')}\n\n💡 Age em qualquer um sem trocar o ativo: \`${prefix}canal @<nº|nome> <comando>\``);
+    }
+
     // ── escrita: só dono ──
     if (!isOwner) return reply('🚫 Só o *dono* pode gerir canais.');
 
     if (sub === 'postar' || sub === 'publicar' || sub === 'post') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       // v7.73 PRO: respondeu a foto/vídeo? publica a mídia (resto = legenda)
       const raw = m.msg?.message || msg?.message || {};
@@ -128,7 +150,7 @@ module.exports = function registerCanalCases(registerCase) {
       return reply(fmtResult(await C.postarCanal(sock, alvo, resto)));
     }
     if (sub === 'divulgar' || sub === 'partilhar' || sub === 'crosspost') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       const raw = m.msg?.message || msg?.message || {};
       const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -136,7 +158,7 @@ module.exports = function registerCanalCases(registerCase) {
       return reply(fmtResult(await C.divulgarNoCanal(sock, { message: quoted }, alvo)));
     }
     if (sub === 'resumo' || sub === 'resumir') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       if (!ctx.isGroup) return reply(`❓ Corre este comando *dentro do grupo* que queres resumir.`);
       return reply(fmtResult(await C.resumoGrupoParaCanal(sock, ctx.remoteJid, alvo)));
@@ -159,18 +181,18 @@ module.exports = function registerCanalCases(registerCase) {
     }
     if (sub === 'nome' || sub === 'renomear') {
       if (!resto) return reply(`❓ Usa: \`${prefix}canal nome <novo nome>\``);
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       return reply(fmtResult(await C.renomearCanal(sock, alvo, resto)));
     }
     if (sub === 'desc' || sub === 'descricao' || sub === 'descrever') {
       if (!resto) return reply(`❓ Usa: \`${prefix}canal desc <nova descrição>\``);
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       return reply(fmtResult(await C.descreverCanal(sock, alvo, resto)));
     }
     if (sub === 'foto') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       const raw = m.msg?.message || msg?.message || {};
       const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -184,7 +206,7 @@ module.exports = function registerCanalCases(registerCase) {
     }
     if (sub === 'agendar') {
       if (!resto) return reply(`❓ Usa: \`${prefix}canal agendar <pedido>\`\nEx: \`${prefix}canal agendar notícias de hora em hora\``);
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       try {
         const ag = require('../../aura/auraAgenda');
@@ -192,7 +214,7 @@ module.exports = function registerCanalCases(registerCase) {
       } catch (e) { return reply('❌ Agendamento indisponível: ' + String(e?.message || e).slice(0, 80)); }
     }
     if (sub === 'parar') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       try {
         const ag = require('../../aura/auraAgenda');
@@ -201,7 +223,7 @@ module.exports = function registerCanalCases(registerCase) {
     }
     if (sub === 'perguntar' || sub === 'enquete' || sub === 'poll') {
       if (!resto) return reply(`❓ Usa: \`${prefix}canal perguntar <pergunta> | <op1> | <op2>\``);
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       return reply(fmtResult(await C.perguntarSeguidores(sock, alvo, resto)));
     }
@@ -210,18 +232,18 @@ module.exports = function registerCanalCases(registerCase) {
       return reply(fmtResult(await C.aceitarConviteCanal(sock, resto, ctx)));
     }
     if (sub === 'deixar' || sub === 'sair') {
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       const r = await C.deixarCanal(sock, alvo);
-      if (r?.ok !== false) { try { await C.guardarCanal(null); } catch {} }
+      if (r?.ok !== false) { try { if (alvoRef) await C.esquecerCanal(alvo); else await C.guardarCanal(null); } catch {} }
       return reply(fmtResult(r));
     }
     if (sub === 'apagar' || sub === 'deletar') {
       if (resto.toUpperCase() !== 'SIM') return reply(`⚠️ Isto *APAGA o canal* para sempre!\nConfirma: \`${prefix}canal apagar SIM\``);
-      const alvo = await alvoMeu();
+      const alvo = await escolherAlvo();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       const r = await C.apagarCanal(sock, alvo);
-      if (r?.ok !== false) { try { await C.guardarCanal(null); } catch {} }
+      if (r?.ok !== false) { try { if (alvoRef) await C.esquecerCanal(alvo); else await C.guardarCanal(null); } catch {} }
       return reply(fmtResult(r));
     }
     return reply(`❓ Subcomando desconhecido: \`${sub}\`\nVê: \`${prefix}canal\``);

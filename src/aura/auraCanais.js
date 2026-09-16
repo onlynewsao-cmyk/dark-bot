@@ -916,6 +916,106 @@ async function aceitarConviteCanal(sock, texto, ctx) {
   return { ok: false, msg: 'Manda o link do canal (whatsapp.com/channel/…) que eu entro já.' };
 }
 
+/**
+ * v7.76 SUPER — resolve referência de canal: nº da lista (1-based),
+ * parte do nome ou jid → jid, ou null se não achar.
+ */
+async function resolverRef(ref) {
+  const d = await _lerCanais();
+  if (!d.lista.length) return null;
+  const t = String(ref || '').trim().toLowerCase().replace(/^[@#]/, '');
+  if (/^\d+$/.test(t)) return d.lista[parseInt(t, 10) - 1]?.jid || null;
+  if (!t) return null;
+  return d.lista.find(c => (c.name || '').toLowerCase().includes(t) || String(c.jid).toLowerCase().includes(t))?.jid || null;
+}
+
+/**
+ * v7.76 SUPER — esquece um canal QUALQUER da lista (não só o ativo).
+ * Usado pelo `!canal @x deixar/apagar`.
+ */
+async function esquecerCanal(jid) {
+  const d = await _lerCanais();
+  d.lista = d.lista.filter(c => c.jid !== jid);
+  if (d.ativo === jid) d.ativo = d.lista[0]?.jid || null;
+  await _gravarCanais(d);
+  return { ok: true };
+}
+
+/**
+ * v7.76 SUPER — publica o MESMO conteúdo em TODOS os canais adotados.
+ * payload: { texto } | { buf, kind, caption } | { quoted: { message } }
+ * opts: { comGrupos, pausaCanaisMs = 1500, pausaGruposMs = 3000 }
+ * Devolve relatório por destino (não pára no primeiro erro).
+ */
+async function superPostar(sock, payload = {}, opts = {}) {
+  const d = await _lerCanais();
+  if (!d.lista.length) return { ok: false, msg: 'Sem canais adotados.' };
+  const tipo = payload.buf ? 'midia' : payload.quoted ? 'citada' : 'texto';
+  if (tipo === 'texto' && !String(payload.texto || '').trim()) return { ok: false, msg: 'Sem texto.' };
+  const pausaC = opts.pausaCanaisMs ?? 1500;
+  const resultados = [];
+  let enviados = 0;
+  for (const c of d.lista) {
+    let r;
+    try {
+      if (tipo === 'midia') r = await postarMidiaCanal(sock, c.jid, payload.buf, payload.kind || 'image', payload.caption || '');
+      else if (tipo === 'citada') r = await divulgarNoCanal(sock, JSON.parse(JSON.stringify(payload.quoted)), c.jid);
+      else r = await postarCanal(sock, c.jid, payload.texto);
+    } catch (e) { r = { ok: false, msg: String(e?.message || e).slice(0, 60) }; }
+    if (r?.ok !== false) enviados++;
+    resultados.push({ jid: c.jid, name: c.name || 'Canal', ok: r?.ok !== false, msg: r?.ok === false ? (r.msg || 'falhou') : '' });
+    if (pausaC > 0) await new Promise(rr => setTimeout(rr, pausaC));
+  }
+  let grupos = null;
+  if (opts.comGrupos) {
+    const gs = (await meusGrupos(sock, true)).slice(0, 10);
+    let envG = 0, falhaG = 0;
+    const pausaG = opts.pausaGruposMs ?? 3000;
+    for (const g of gs) {
+      try {
+        if (tipo === 'midia') {
+          const cap = payload.caption || undefined;
+          if (payload.kind === 'video') await sock.sendMessage(g.id, { video: payload.buf, caption: cap });
+          else await sock.sendMessage(g.id, { image: payload.buf, caption: cap });
+        } else if (tipo === 'citada') {
+          const rr = await divulgarNoCanal(sock, JSON.parse(JSON.stringify(payload.quoted)), g.id);
+          if (rr?.ok === false) throw new Error(rr.msg || 'falhou');
+        } else {
+          await sock.sendMessage(g.id, { text: payload.texto });
+        }
+        envG++;
+      } catch { falhaG++; }
+      if (pausaG > 0) await new Promise(rr => setTimeout(rr, pausaG));
+    }
+    grupos = { total: gs.length, enviados: envG, falhou: falhaG };
+  }
+  return { ok: enviados > 0, total: d.lista.length, enviados, resultados, grupos };
+}
+
+/**
+ * v7.76 SUPER — painel estilo Meta: cada canal com seguidores + agendados.
+ */
+async function painelCanais(sock) {
+  const d = await _lerCanais();
+  if (!d.lista.length) return { ok: false, msg: 'Sem canais adotados.' };
+  let ag = null;
+  try { ag = require('./auraAgenda'); } catch {}
+  const canais = [];
+  for (const c of d.lista) {
+    let seguidores = null;
+    if (typeof sock?.newsletterMetadata === 'function') {
+      try {
+        const meta = await sock.newsletterMetadata('jid', c.jid);
+        if (typeof meta?.subscribers === 'number') seguidores = meta.subscribers;
+      } catch {}
+    }
+    let agendados = 0;
+    if (ag) { try { agendados = (await ag.listar(c.jid))?.length || 0; } catch {} }
+    canais.push({ jid: c.jid, name: c.name || 'Canal', ativo: c.jid === d.ativo, seguidores, agendados });
+  }
+  return { ok: true, canais };
+}
+
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
   postarMidiaCanal, divulgarNoCanal, resumoGrupoParaCanal,
@@ -926,5 +1026,6 @@ module.exports = {
   adotarCanal, parsePergunta, perguntarSeguidores, lerRespostasCanal,
   enviarStickersCanal, enviarPackCanal,
   criarCanalSeguro, parseCriacaoCanal, aceitarConviteCanal,
+  resolverRef, esquecerCanal, superPostar, painelCanais, // v7.76 SUPER
   RE_GRUPO, RE_CANAL,
 };

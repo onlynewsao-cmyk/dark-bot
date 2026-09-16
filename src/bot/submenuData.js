@@ -343,6 +343,7 @@ function categorize(cmd) {
     eadmin:'admin', checkadm:'admin', veradmin:'admin', // v7.57
     modo:'admin', modos:'admin', // v7.60
     canal:'owner', canais:'owner', channel:'owner', // v7.60
+    super:'owner', blast:'owner', superpost:'owner', // v7.76 SUPER
     setmenu:'owner', definirmenu:'owner', menumedia:'owner', // v7.60
     auraset:'owner', aurapainel:'owner', setaura:'owner', // v7.74
     backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
