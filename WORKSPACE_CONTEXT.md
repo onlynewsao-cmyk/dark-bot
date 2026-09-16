@@ -1,5 +1,16 @@
 # DARK BOT — Contexto de trabalho local
 
+## Correcção seguinte — atendimento dos grupos como PV
+
+Pedido: fazer a AURA voltar a responder nos grupos após acordar. Regressão local reproduzida com `ai_auto_enabled=false`; causa em produção não confirmada sem logs/URL.
+
+- Grupo acordado + chamada directa/continuação/convite atende mesmo com iniciativa automática off, como o PV. Sem alterações a aluguer, bloqueios ou anti-link.
+- Pontuação em “Aura, oi” corrigida; caminhos de acordar abrem a janela de conversa e validam sucesso.
+- Novo `auraDelivery.js`: acompanha resposta entregue, evita que reacção seja tratada como resposta ao atendimento directo e devolve aviso de falha sem stack. Transporte indisponível ainda pode impedir entrega.
+- Corrigida variável indefinida na composição do prompt temporal/tamanho da AURA.
+- 15 scripts npm seleccionados passaram; E2E 37, entrega 14, contextual 54. Testes com serviços simulados; sem deploy verificado.
+- Aviso fornecido “ANTI-LINK-EASY” não é o texto nativo DARKSHIELD; nenhuma moderação externa foi desactivada.
+
 ## Ajuste final e autorização de push — 16/09/2026
 
 O dono pediu para não limitar a AURA por receio de spam e autorizou o push para `onlynewsao-cmyk/darknet-tunnel`, branch `main`.

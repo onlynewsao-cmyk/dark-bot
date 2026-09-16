@@ -629,7 +629,7 @@ async function auraRespond(text, ctx = {}) {
   // v7.40: ela sabe SEMPRE que dia/hora é e adapta o tamanho ao pedido
   try {
     const uni = require('./auraUniversal');
-    systemPrompt += '\n\n' + uni.blocoTemporal() + '\n' + uni.blocoTamanho(prompt);
+    systemPrompt += '\n\n' + uni.blocoTemporal() + '\n' + uni.blocoTamanho(text);
   } catch {}
   if (consciencia) {
     systemPrompt += '\n\n' + String(consciencia).slice(0, 6500); // v7.37: cabe o cérebro (ferramentas + saber)

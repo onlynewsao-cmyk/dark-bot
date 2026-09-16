@@ -83,3 +83,18 @@ Antes de produção: rever o diff, configurar providers fora do Git, testar com 
 ## Ajuste final solicitado pelo dono
 
 Retirados os limites artificiais da participação AURA (45 segundos / 30 minutos) e o silêncio por saturação em conversas dirigidas/convidadas. Conservados: parar/dormir, isolamento, permissões, deduplicação de eventos e limites técnicos de memória. O modo continua contextual; não activa publicidade, broadcast nem relatórios automáticos. Maior volume pode aumentar custo de IA e provocar restrições da plataforma WhatsApp.
+
+## Correcção: grupos atendem como o PV (16/09/2026)
+
+Reproduzido localmente: com `ai_auto_enabled=false`, a confirmação de acordar funcionava, mas as mensagens seguintes ficavam barradas antes da geração. Não é uma confirmação da configuração do servidor do utilizador, que não foi consultado.
+
+- O toggle de iniciativa automática já não bloqueia atendimento solicitado num grupo acordado: nome/menção/reply, janela de conversa activa ou convite para participar. Conversas alheias não passam a receber respostas indiscriminadas.
+- `Aura, oi` e saudações com pontuação são reconhecidas. Os caminhos de acordar centralizam a confirmação do modo e abertura da janela; gravações falhadas não anunciam sucesso.
+- Envios concluídos são acompanhados por `auraDelivery.js`. Reacções não contam como resposta textual; falhas inesperadas recebem aviso sem stack/segredos, desde que o transporte WhatsApp permita enviar. Não se duplica o aviso se já houve uma resposta entregue.
+- O privado continua no mesmo caminho. Utilizadores/grupos bloqueados, aluguer e moderação não foram desactivados.
+- Corrigida uma referência indefinida (`prompt` em vez de `text`) na composição do contexto temporal/tamanho em `auraHuman`.
+- O aviso “ANTI-LINK-EASY” fornecido pelo utilizador não corresponde ao aviso nativo `DARKSHIELD ANTI-LINK v2`. Não foi alterada uma eventual moderação de outro bot. O anti-link próprio ignora mensagens `fromMe` da AURA.
+
+Validação final: **15 scripts npm seleccionados passaram**. `test:e2e`: **37 verificações**, incluindo a sequência da captura com auto-IA off e teste de aviso por excepção; `test:auradelivery`: **14 verificações**; `test:auracontextual`: **54 verificações**. Dependências instaladas com scripts de instalação desactivados; modelos de dados, WhatsApp e IA simulados nos testes de fluxo. Nenhuma sessão WhatsApp real ou provider de IA de produção foi usado.
+
+Logs: `/home/user/revisao-dark-bot/grupos-*.log`. A regressão foi observada antes da correcção em `grupos-antes.log`; resultados finais em `grupos-resultados.tsv`. A suite completa não foi executada. Push desta correcção segue o fluxo autorizado; deploy e comportamento real ainda precisam de confirmação no serviço.

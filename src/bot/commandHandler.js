@@ -1488,6 +1488,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     AURA_TRIGGERS.includes(textLower) ||
     AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
     textLower.startsWith('aura ') ||
+    /^(?:(?:oi|ol[aá]|bom dia|boa tarde|boa noite)[, ]+)?aura\b[,:!?]?/i.test(textLower) ||
     /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) ||
     (botNameLower.length > 3 && textLower.includes(botNameLower))
   );
@@ -1500,12 +1501,22 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // O PV deve continuar a responder mesmo que o toggle de IA de grupos
   // esteja desligado. Antes um ai_auto_enabled=false silenciava a AURA
   // também no privado, embora o PV fosse anunciado como sempre ativo.
-  const aiActive = !ctx.isGroup || aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
+  const _autoIA = aiAutoOn === true || aiAutoOn === 'true' || aiAutoOn === 'on' || aiAutoOn === 1 || aiAutoOn === '1';
 
   // ── v6.43: modo do chat (AURA acordada vs assistente profissional) ──
   const _auraModes = require('../aura/auraModes');
   const _auraAwakeHere = await _auraModes.isAuraAwake(ctx.remoteJid, { isGroup: ctx.isGroup })
     .catch(() => false);
+
+  // O toggle de iniciativa automática não pode calar atendimento solicitado.
+  // Equivalente ao PV quando o grupo está acordado e há nome/reply/conversa/convite.
+  // Dormir, bloqueios de utilizador/grupo e aluguer mantêm os seus gates.
+  const _atendimentoPedido = _auraAwakeHere && (
+    isAuraTrigger || isBotMentioned || isReplyToBot ||
+    require('../aura/auraTalk').estaAFalar(ctx.remoteJid, ctx.senderNumber) ||
+    require('../aura/auraContextual').activa(ctx.remoteJid)
+  );
+  const aiActive = !ctx.isGroup || _autoIA || _atendimentoPedido;
 
   // Contexto/resumos/verificação têm um caminho de leitura, sem executar acções da IA.
   if (aiActive && (!ctx.isGroup || _auraAwakeHere) && text && !prefixInfo && !pareceComando(text)) {
@@ -1560,6 +1571,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         const r = await _auraModes.invokeAura(ctx.remoteJid, {
           groupName: ctx.groupName || '', invokedBy: ctx.senderNumber || '',
         });
+        if (!r.ok) {
+          await sock.sendMessage(ctx.remoteJid, { text: 'Não consegui acordar neste grupo agora. Tenta novamente.' }, { quoted: msg });
+          return true;
+        }
         const resposta = r.already
           ? _intent.pick(_intent.WAKE_ALREADY)
           : _intent.pick(_intent.WAKE_REPLIES);
@@ -1570,6 +1585,10 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
       if (intencao === _intent.INTENT_SLEEP) {
         const r = await _auraModes.dismissAura(ctx.remoteJid);
+        if (!r.ok) {
+          await sock.sendMessage(ctx.remoteJid, { text: 'Não consegui guardar o modo de descanso agora. Tenta novamente.' }, { quoted: msg });
+          return true;
+        }
         const resposta = r.already
           ? _intent.pick(_intent.SLEEP_ALREADY)
           : _intent.pick(_intent.SLEEP_REPLIES);
@@ -1653,6 +1672,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     if (_auraReplySeen.size > 3000) {
       for (const [k, ts] of _auraReplySeen) if (_nowAura - ts > AURA_SEEN_TTL_MS) _auraReplySeen.delete(k);
     }
+    const _sockAntesAura = sock;
+    const _auraEntrega = require('../aura/auraDelivery').acompanhar(sock);
+    sock = _auraEntrega.sock;
     try {
       let cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
       try {
@@ -2669,7 +2691,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       // fora — ela acabava por escrever texto na mesma. Agora reage mesmo:
       // mensagens que não pedem resposta (kkk, top, isso) levam só um emoji.
       // Respeita o modo "não reajas" do chat e nunca engole respostas longas.
-      if (_formato === 'reacao' && !pediuAudio && finalAnswer.length < 120) {
+      if (_formato === 'reacao' && !_forcarContextual() && !pediuAudio && finalAnswer.length < 120) {
         let _semReagir = false;
         try { _semReagir = !!require('../aura/auraBrain').modos(ctx.remoteJid).semReagir; } catch {}
         if (!_semReagir) {
@@ -2771,10 +2793,23 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         } catch (e) { /* silêncio */ }
       }
       
+      if (!_auraEntrega.respondeu() && _forcarContextual()) {
+        await sock.sendMessage(ctx.remoteJid, { text: require('../aura/auraDelivery').TEXTO_FALHA }, { quoted: msg });
+      }
       return true;
 
     } catch (e) {
-      console.warn('[Aura v6.39]', e.message?.slice(0, 80));
+      // Diagnóstico sem expor o texto da conversa ou segredos do erro.
+      console.warn('[Aura v6.39]', JSON.stringify({ etapa: 'resposta', chat: ctx.isGroup ? 'grupo' : 'pv', id: String(msg.key?.id || '').slice(0, 64), erro: e?.name || 'Error' }));
+      if (_auraEntrega.respondeu()) return true;
+      if (_forcarContextual()) {
+        try {
+          await sock.sendMessage(ctx.remoteJid, { text: require('../aura/auraDelivery').TEXTO_FALHA }, { quoted: msg });
+          return true;
+        } catch { console.warn('[Aura entrega] Não foi possível entregar o aviso de falha.'); }
+      }
+    } finally {
+      sock = _sockAntesAura;
     }
   }
   // Sticker em mídia

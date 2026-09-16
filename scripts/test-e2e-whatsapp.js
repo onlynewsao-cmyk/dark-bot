@@ -246,6 +246,66 @@ const check = (nome, cond, extra = '') => {
   human.auraRespond = antigos.respond;
   vontade.querResponder = antigos.quer;
 
+  // ── Regressão: acorda mas não conversa quando IA automática está off ──
+  console.log('\n▸ Grupos como PV — sequência da captura, com auto-IA desligada');
+  const decide = require('../src/aura/auraDecide');
+  const oldFormat = decide.comoResponder;
+  const oldChatGroup = aiMod.chat;
+  const oldAuto = DB.config.ai_auto_enabled;
+  DB.config.ai_auto_enabled = false;
+  decide.comoResponder = () => 'texto';
+  let geracoes = 0;
+  aiMod.chat = async () => { geracoes++; return 'MODELO_OK: estou a acompanhar a conversa.'; };
+  await enviar('Aura dorme', OWNER, G1);
+  const wakeGroup = await enviar('Aura acordar', OWNER, G1);
+  check('Acordar confirma presença com auto-IA off', /Acordei|acordada/.test(wakeGroup), wakeGroup);
+  for (const frase of ['Oi', 'Vamos continuar', 'Aura vamos']) {
+    const r = await enviar(frase, OWNER, G1);
+    check('Auto-IA off não bloqueia atendimento: ' + frase, /MODELO_OK/.test(r), r);
+  }
+  const membroDirecto = await enviar('Aura, oi', FREE, G1);
+  check('Membro chama Aura com vírgula no grupo autorizado', /MODELO_OK/.test(membroDirecto), membroDirecto);
+  check('Motor IA foi alcançado nas quatro mensagens', geracoes >= 4, geracoes);
+  require('../src/aura/auraTalk').parou(G2, FREE); // sem conversa anterior activa neste chat
+  const unrelated = await enviar('A entrega está confirmada', FREE, G2);
+  check('Não passa a responder a todas as conversas dos outros', !unrelated, unrelated);
+  // Mesma geração e entrega do PV; convite continua a funcionar sem auto-IA.
+  const pvOff = await enviar('Oi', OWNER, OWNER + '@s.whatsapp.net');
+  check('PV mantém atendimento com auto-IA off', /MODELO_OK/.test(pvOff), pvOff);
+  require('../src/aura/auraTalk').parou(G1, FREE);
+  await enviar('Aura interage com todos', OWNER, G1);
+  const membroConvidado = await enviar('A minha ideia é reunir a equipa', FREE, G1);
+  check('Convite permite participação sem nome e sem auto-IA', /MODELO_OK/.test(membroConvidado), membroConvidado);
+  DB.config.disabled_users = [FREE];
+  const bloqueado = await enviar('Aura, oi', FREE, G1);
+  check('Atendimento não contorna utilizador bloqueado', !bloqueado, bloqueado);
+  DB.config.disabled_users = [];
+  const oldEnabled = DB.groups.get(G1).botEnabled;
+  DB.groups.get(G1).botEnabled = false;
+  const grupoOff = await enviar('Aura, oi', FREE, G1);
+  check('Atendimento não contorna bot desactivado no grupo', !grupoOff, grupoOff);
+  DB.groups.get(G1).botEnabled = oldEnabled;
+  const al = require('../src/bot/antiLink');
+  check('Anti-link próprio não apaga mensagem enviada pela AURA', !(await al.check(sock, { key: { remoteJid: G1, fromMe: true }, message: { conversation: 'https://example.org/fonte' } })));
+  check('Oi/Vamos continuar não são links', !al.detectLink('Oi Vamos continuar Aura vamos', 'all_links').hit);
+  // Oi directo não desaparece como uma reacção probabilística.
+  decide.comoResponder = () => 'reacao';
+  const oiComReacao = await enviar('Oi', OWNER, G1);
+  check('Atendimento dirigido não é trocado por apenas reacção', /MODELO_OK/.test(oiComReacao), oiComReacao);
+  decide.comoResponder = () => 'texto';
+  // Excepção na geração não pode deixar a pessoa no vazio.
+  const realRespond = human.auraRespond;
+  human.auraRespond = async () => { throw new Error('FALHA_SIMULADA_NAO_VAZAR'); };
+  const falhaGrupo = await enviar('Aura quero conversar contigo', OWNER, G1);
+  check('Falha técnica devolve aviso útil, não silêncio nem stack', /não consegui|falha|problema/i.test(falhaGrupo) && !/FALHA_SIMULADA/.test(falhaGrupo), falhaGrupo);
+  human.auraRespond = realRespond;
+  await enviar('Aura dorme', OWNER, G1);
+  const dormida = await enviar('Aura vamos', OWNER, G1);
+  check('Dormir não é ultrapassado pelo atendimento com auto-IA off', !dormida, dormida);
+  DB.config.ai_auto_enabled = oldAuto;
+  decide.comoResponder = oldFormat;
+  aiMod.chat = oldChatGroup;
+
   // ── 6. Performance ────────────────────────────────────────
   console.log('\n▸ Performance');
   const t0 = Date.now();

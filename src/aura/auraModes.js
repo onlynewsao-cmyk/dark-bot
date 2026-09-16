@@ -118,6 +118,13 @@ async function isAuraInvoked(remoteJid, opts) {
   } catch { return false; }
 }
 
+// Todos os caminhos de acordar abrem a mesma janela de conversa.
+function confirmarAcordada(jid, invokedBy) {
+  _cache.set(jid, { mode: MODE_AURA, ts: Date.now() });
+  if (invokedBy) require('./auraTalk').marcarFala(jid, invokedBy);
+  require('./auraBrain').setModo(jid, 'mudo', false);
+}
+
 /**
  * Invoca a AURA original num grupo. SÓ o Dono Supremo.
  * @returns {Promise<{ok:boolean, already?:boolean, reason?:string}>}
@@ -131,7 +138,7 @@ async function invokeAura(remoteJid, { groupName = '', invokedBy = '' } = {}) {
     const gs = await GroupSettings.findOne({ groupJid: jid }).catch(() => null);
 
     if (gs?.auraMode === MODE_AURA) {
-      invalidate(jid);
+      confirmarAcordada(jid, invokedBy);
       return { ok: true, already: true };
     }
 
@@ -148,7 +155,7 @@ async function invokeAura(remoteJid, { groupName = '', invokedBy = '' } = {}) {
       { upsert: true }
     );
 
-    invalidate(jid);
+    confirmarAcordada(jid, invokedBy);
     return { ok: true, already: false };
   } catch (e) {
     return { ok: false, reason: e.message || 'erro na base de dados' };
@@ -171,7 +178,8 @@ async function dismissAura(remoteJid) {
       { upsert: true }
     );
 
-    invalidate(jid);
+    _cache.set(jid, { mode: MODE_SLEEP, ts: Date.now() });
+    require('./auraContextual').parar(jid);
     return { ok: true, already };
   } catch (e) {
     return { ok: false, reason: e.message || 'erro na base de dados' };
