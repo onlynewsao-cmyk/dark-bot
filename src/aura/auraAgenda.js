@@ -37,6 +37,8 @@ const TEMAS = {
 function detectarTema(texto) {
   const t = String(texto || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // v7.73 PRO: resumo do grupo → canal
+  if (/\bresumo.*grupo|resumir o grupo|resumo diario do grupo\b/.test(t)) return 'resumo_grupo';
   if (/\borac|reza|prece\b/.test(t)) return 'oracoes';
   if (/\bconselho/.test(t)) return 'conselhos';
   if (/\bdica/.test(t)) return 'dicas';
@@ -54,6 +56,11 @@ function detectarTema(texto) {
 function detectarIntervalo(texto) {
   const t = String(texto || '').toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  // v7.73 PRO: "2x ao dia" / "3x por hora" (a ajuda já prometia isto)
+  const nxd = t.match(/(\d+)\s*x\s*(ao|por)?\s*dia/);
+  if (nxd) return Math.max(30, Math.round(1440 / Math.max(1, parseInt(nxd[1], 10))));
+  const nxh = t.match(/(\d+)\s*x\s*(ao|por)?\s*hora/);
+  if (nxh) return Math.max(15, Math.round(60 / Math.max(1, parseInt(nxh[1], 10))));
   const mh = t.match(/de (\d+) em (\d+) horas?/) || t.match(/cada (\d+) horas?/);
   if (mh) return Math.max(1, parseInt(mh[1], 10)) * 60;
   const mm = t.match(/de (\d+) em (\d+) minutos?/) || t.match(/cada (\d+) minutos?/);
@@ -88,12 +95,15 @@ async function _gravar(lista) {
 }
 
 /** Cria (ou substitui) a agenda deste chat. */
-async function criar(pedido, { jid }) {
+async function criar(pedido, { jid, fonte = null }) {
   const tema = detectarTema(pedido);
+  if (tema === 'resumo_grupo' && !fonte) {
+    return { ok: false, msg: 'O resumo do grupo agenda-se DENTRO do grupo: abre o grupo e manda o comando lá.' };
+  }
   const intervaloMin = detectarIntervalo(pedido);
   const lista = (await _ler()).filter(a => !(a.jid === jid && a.tema === tema));
   lista.push({
-    jid, tema, intervaloMin,
+    jid, tema, intervaloMin, fonte: fonte || null,
     proxima: Date.now() + intervaloMin * 60 * 1000,
     criadaEm: Date.now(),
   });
@@ -123,6 +133,12 @@ async function listar(jid) {
 /** Gera o conteúdo com a IA e publica. */
 async function _publicar(a, sock) {
   try {
+    // v7.73 PRO: resumo do grupo-fonte → canal
+    if (a.tema === 'resumo_grupo' && a.fonte) {
+      const C = require('./auraCanais');
+      await C.resumoGrupoParaCanal(sock, a.fonte, a.jid);
+      return;
+    }
     const ai = require('../bot/ai');
     const desc = TEMAS[a.tema] || TEMAS.daily;
     const sys = 'És a AURA, assistente do DARK BOT. Escreves posts curtos para WhatsApp, em português de Angola, com emojis a sério e formatação (*negrito*). Só o post, sem introduções nem aspas.';
@@ -170,4 +186,4 @@ function parar_tudo() {
   if (_timer) { clearInterval(_timer); _timer = null; }
 }
 
-module.exports = { criar, parar, listar, arrancar, parar_tudo, detectarTema, detectarIntervalo, TEMAS, _tick };
+module.exports = { criar, parar, listar, arrancar, parar_tudo, detectarTema, detectarIntervalo, TEMAS, _tick, _publicar };

@@ -175,6 +175,56 @@ async function postarCanal(sock, jid, texto) {
 }
 
 /**
+ * v7.73 PRO — publica FOTO/VÍDEO com legenda no canal.
+ * (postarCanal é só texto.)
+ */
+async function postarMidiaCanal(sock, jid, buf, kind = 'image', caption = '') {
+  if (!buf || buf.length < 500) return { ok: false, msg: 'Não consegui ler a mídia.' };
+  try {
+    const cap = caption || undefined;
+    if (kind === 'video') await sock.sendMessage(jid, { video: buf, caption: cap });
+    else await sock.sendMessage(jid, { image: buf, caption: cap });
+    return { ok: true, msg: 'Publiquei no canal. 📢' };
+  } catch (e) { return { ok: false, msg: 'Não consegui publicar: ' + String(e?.message || e).slice(0, 80) }; }
+}
+
+/**
+ * v7.73 PRO — DIVULGAR: cross-post grupo→canal. Reencaminha a mensagem
+ * citada (texto, foto, vídeo, sticker, doc) para o canal, com ID novo
+ * e marca "reencaminhada". Sem a espera de 5–9 s do reencaminhar
+ * multi-grupo (aqui é 1 destino explícito).
+ */
+async function divulgarNoCanal(sock, quotedMsg, jid) {
+  const conteudo = quotedMsg?.message;
+  if (!conteudo) return { ok: false, msg: 'Responde à mensagem que queres divulgar no canal.' };
+  const real = _desembrulhar(conteudo);
+  const tipo = Object.keys(real)[0];
+  try {
+    if (tipo === 'conversation' && typeof real[tipo] === 'string') {
+      return postarCanal(sock, jid, real[tipo]);
+    }
+    if (tipo && real[tipo] && typeof real[tipo] === 'object') {
+      real[tipo].contextInfo = {
+        ...(real[tipo].contextInfo || {}),
+        isForwarded: true,
+        forwardingScore: Math.max(1, (real[tipo].contextInfo?.forwardingScore || 0) + 1),
+      };
+    }
+    await sock.relayMessage(jid, real, { messageId: undefined });
+    return { ok: true, msg: 'Divulguei no canal. 📢' };
+  } catch (e) { return { ok: false, msg: 'Não consegui divulgar: ' + String(e?.message || e).slice(0, 80) }; }
+}
+
+/** Desembrulha mensagens efémeras / view-once, senão o reenvio sai vazio. */
+function _desembrulhar(conteudo) {
+  return conteudo.ephemeralMessage?.message
+    || conteudo.viewOnceMessage?.message
+    || conteudo.viewOnceMessageV2?.message
+    || conteudo.documentWithCaptionMessage?.message
+    || conteudo;
+}
+
+/**
  * Reencaminha uma mensagem para vários destinos.
  *
  * Gera ID novo por destino (ver nota no topo) e marca como reencaminhada.
@@ -185,12 +235,7 @@ async function reencaminhar(sock, msg, destinos = []) {
   const conteudo = msg?.message;
   if (!conteudo) return { ok: false, enviados: 0, msg: 'Essa mensagem não tem conteúdo que eu consiga reencaminhar.' };
 
-  // desembrulha mensagens efémeras / view-once, senão o reenvio sai vazio
-  const real = conteudo.ephemeralMessage?.message
-    || conteudo.viewOnceMessage?.message
-    || conteudo.viewOnceMessageV2?.message
-    || conteudo.documentWithCaptionMessage?.message
-    || conteudo;
+  const real = _desembrulhar(conteudo);
 
   // marca "reencaminhada", como a app faz
   const tipo = Object.keys(real)[0];
@@ -250,27 +295,79 @@ async function meusGrupos(sock, soAdmin = false) {
 // ═══════════════════════════════════════════════════════════
 
 const CHAVE_CANAL = 'aura_canal';
+const CHAVE_CANAIS = 'aura_canais';   // v7.73 PRO: { lista: [...], ativo: jid }
+const MAX_CANAIS = 10;
 let _meuCanalCache = null;
 
-/** Guarda o canal do bot (jid, name, invite, description). */
-async function guardarCanal(dados) {
-  _meuCanalCache = dados || null;
+/** Lê { lista, ativo }; migra o canal único da v7.10 se for preciso. */
+async function _lerCanais() {
   try {
     const cache = require('../bot/botConfigCache');
-    await cache.set(CHAVE_CANAL, dados || null);
-  } catch { /* sem BD não persiste, mas fica em memória */ }
+    const d = await cache.get(CHAVE_CANAIS, null);
+    if (d && Array.isArray(d.lista)) return { lista: d.lista, ativo: d.ativo || null };
+    const uno = await cache.get(CHAVE_CANAL, null);
+    if (uno?.jid) {
+      const mig = { lista: [uno], ativo: uno.jid };
+      await cache.set(CHAVE_CANAIS, mig).catch(() => {});
+      return mig;
+    }
+  } catch {}
+  return { lista: [], ativo: null };
 }
 
-/** O canal do bot (guardado), ou null. */
+async function _gravarCanais(d) {
+  _meuCanalCache = null;
+  try {
+    await require('../bot/botConfigCache').set(CHAVE_CANAIS, d);
+  } catch { /* sem BD não persiste */ }
+}
+
+/**
+ * Guarda o canal do bot (jid, name, invite, description) — vira o ATIVO.
+ * guardarCanal(null) remove o ativo da lista (usado ao apagar/deixar).
+ */
+async function guardarCanal(dados) {
+  const d = await _lerCanais();
+  if (!dados?.jid) {
+    d.lista = d.lista.filter(c => c.jid !== d.ativo);
+    d.ativo = d.lista[0]?.jid || null;
+  } else {
+    d.lista = [dados, ...d.lista.filter(c => c.jid !== dados.jid)].slice(0, MAX_CANAIS);
+    d.ativo = dados.jid;
+  }
+  await _gravarCanais(d);
+}
+
+/** O canal ATIVO do bot, ou null. */
 async function meuCanal() {
   if (_meuCanalCache) return _meuCanalCache;
-  try {
-    const cache = require('../bot/botConfigCache');
-    const d = await cache.get(CHAVE_CANAL, null);
-    if (d && d.jid) _meuCanalCache = d;
-    return _meuCanalCache;
-  } catch { return null; }
+  const d = await _lerCanais();
+  const ativo = d.lista.find(c => c.jid === d.ativo) || d.lista[0] || null;
+  if (ativo) _meuCanalCache = ativo;
+  return ativo;
 }
+
+/** v7.73 PRO — lista todos os canais + qual está ativo. */
+async function listarCanais() {
+  return _lerCanais();
+}
+
+/** v7.73 PRO — muda o canal ativo (nº da lista, nome ou jid). */
+async function ativarCanal(ref) {
+  const d = await _lerCanais();
+  if (!d.lista.length) return { ok: false, msg: 'Não há canais guardados.' };
+  const t = String(ref || '').trim().toLowerCase();
+  const ach = /^\d+$/.test(t)
+    ? d.lista[parseInt(t, 10) - 1]
+    : d.lista.find(c => (c.name || '').toLowerCase().includes(t) || String(c.jid).toLowerCase().includes(t));
+  if (!ach) return { ok: false, msg: 'Não achei esse canal. Vê a lista primeiro.' };
+  d.ativo = ach.jid;
+  await _gravarCanais(d);
+  return { ok: true, msg: `Canal ativo: *${ach.name || ach.jid}* 📌`, jid: ach.jid };
+}
+
+/** Limpa o cache em memória (testes). */
+function _limparCacheCanais() { _meuCanalCache = null; }
 
 /** Garante o sufixo @newsletter num jid de canal. */
 function normJid(id) {
@@ -444,6 +541,30 @@ async function estatisticasCanal(sock, alvo) {
   } catch (e) {
     return { ok: false, msg: `Não consegui ler as estatísticas: ${String(e?.message || e).slice(0, 80)}` };
   }
+}
+
+/**
+ * v7.73 PRO — RESUMO: lê a conversa recente do grupo, a IA resume e
+ * publica no canal. `gerar`/`ler` são injectáveis (testes).
+ */
+async function resumoGrupoParaCanal(sock, grupoJid, canalJid, { gerar = null, ler = null } = {}) {
+  let msgs = [];
+  try {
+    msgs = ler ? await ler(grupoJid) : require('./auraHistorico').mensagensDoGrupo(grupoJid, 30);
+  } catch {}
+  msgs = (msgs || []).filter(m => m?.texto);
+  if (!msgs.length) return { ok: false, msg: 'Ainda não vi conversa suficiente nesse grupo para resumir.' };
+  const bloco = msgs.slice(0, 20)
+    .map(m => `${m.nome || 'alguém'}: ${String(m.texto).slice(0, 120)}`)
+    .join('\n');
+  const sys = 'És a AURA, assistente do DARK BOT. Escreves resumos curtos para canal de WhatsApp, em português de Angola, com emojis a sério e formatação (*negrito*). Só o resumo, sem introduções.';
+  try {
+    const gerarFn = gerar || ((p, s) => require('../bot/ai').chat(p, s, { userRole: 'owner' }, false));
+    const texto = await gerarFn(`Resume esta conversa de grupo em 5 linhas: temas, destaques e quem participou mais:\n${bloco}`, sys);
+    if (!texto?.trim()) return { ok: false, msg: 'A IA ficou calada — tenta de novo.' };
+    await sock.sendMessage(canalJid, { text: `📰 *RESUMO DO GRUPO*\n\n${texto.trim()}` });
+    return { ok: true, msg: 'Resumo publicado no canal. 📰' };
+  } catch (e) { return { ok: false, msg: 'Não consegui resumir: ' + String(e?.message || e).slice(0, 80) }; }
 }
 
 /** Apaga o canal do bot. DESTRUTIVO — só o Dono chega aqui. */
@@ -797,8 +918,9 @@ async function aceitarConviteCanal(sock, texto, ctx) {
 
 module.exports = {
   extrairConvite, entrarPorLink, reagirTudoCanal, postarCanal,
+  postarMidiaCanal, divulgarNoCanal, resumoGrupoParaCanal,
   reencaminhar, meusGrupos, resolverCanal, resolverAlvo, infoCanal, deixarCanal,
-  guardarCanal, meuCanal, normJid,
+  guardarCanal, meuCanal, listarCanais, ativarCanal, _limparCacheCanais, normJid,
   renomearCanal, descreverCanal, fotoCanal, tirarFotoCanal,
   estatisticasCanal, apagarCanal,
   adotarCanal, parsePergunta, perguntarSeguidores, lerRespostasCanal,

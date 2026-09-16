@@ -36,13 +36,17 @@ module.exports = function registerCanalCases(registerCase) {
     const HELP =
       `📢 *AURA CANAIS* ⚡\n\n` +
       `*Leitura (todos):*\n` +
-      `• \`${prefix}canal meu\` — qual o canal adotado\n` +
+      `• \`${prefix}canal meu\` — qual o canal ativo\n` +
+      `• \`${prefix}canal lista\` — todos os canais\n` +
       `• \`${prefix}canal info\` — dados do canal\n` +
       `• \`${prefix}canal stats\` — estatísticas\n` +
       `• \`${prefix}canal agenda\` — posts agendados\n` +
       `• \`${prefix}canal respostas\` — respostas dos seguidores\n\n` +
       `*Escrita (só dono):*\n` +
-      `• \`${prefix}canal postar <texto>\` — publica agora\n` +
+      `• \`${prefix}canal postar <texto>\` — publica agora (ou responde a foto/vídeo)\n` +
+      `• \`${prefix}canal divulgar\` — (responde a msg) divulga no canal\n` +
+      `• \`${prefix}canal resumo\` — (no grupo) resume e publica\n` +
+      `• \`${prefix}canal usar <n>\` — muda o canal ativo\n` +
       `• \`${prefix}canal criar <nome> | <descrição>\` — cria canal\n` +
       `• \`${prefix}canal adotar <link>\` — adota um canal teu\n` +
       `• \`${prefix}canal nome <novo nome>\`\n` +
@@ -93,15 +97,53 @@ module.exports = function registerCanalCases(registerCase) {
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
       return reply(fmtResult(await C.lerRespostasCanal(sock, alvo)));
     }
+    if (sub === 'lista' || sub === 'listar') {
+      const d = await C.listarCanais().catch(() => null);
+      if (!d?.lista?.length) return reply(`📌 Nenhum canal adotado.\nCria: \`${prefix}canal criar Nome | Descrição\`\nOu adota: \`${prefix}canal adotar <link>\``);
+      const linhas = d.lista.map((c, i) => `${c.jid === d.ativo ? '📌' : '•'} *${i + 1}. ${c.name || 'Canal'}*\n   🆔 \`${c.jid}\``);
+      return reply(`📢 *CANAIS* (${d.lista.length}):\n\n${linhas.join('\n')}`);
+    }
 
     // ── escrita: só dono ──
     if (!isOwner) return reply('🚫 Só o *dono* pode gerir canais.');
 
     if (sub === 'postar' || sub === 'publicar' || sub === 'post') {
-      if (!resto) return reply(`❓ Usa: \`${prefix}canal postar <texto>\``);
       const alvo = await alvoMeu();
       if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
+      // v7.73 PRO: respondeu a foto/vídeo? publica a mídia (resto = legenda)
+      const raw = m.msg?.message || msg?.message || {};
+      const q = raw.extendedTextMessage?.contextInfo?.quotedMessage;
+      const midia = raw.imageMessage ? { k: 'image', m: (m.msg || msg) }
+        : raw.videoMessage ? { k: 'video', m: (m.msg || msg) }
+        : q?.imageMessage ? { k: 'image', m: { message: q } }
+        : q?.videoMessage ? { k: 'video', m: { message: q } } : null;
+      if (midia) {
+        try {
+          const mh = require('../mediaHandler');
+          const buf = await mh.downloadFromMessage(midia.m);
+          return reply(fmtResult(await C.postarMidiaCanal(sock, alvo, buf, midia.k, resto)));
+        } catch (e) { return reply('❌ Não consegui ler a mídia: ' + String(e?.message || e).slice(0, 80)); }
+      }
+      if (!resto) return reply(`❓ Usa: \`${prefix}canal postar <texto>\``);
       return reply(fmtResult(await C.postarCanal(sock, alvo, resto)));
+    }
+    if (sub === 'divulgar' || sub === 'partilhar' || sub === 'crosspost') {
+      const alvo = await alvoMeu();
+      if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
+      const raw = m.msg?.message || msg?.message || {};
+      const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
+      if (!quoted) return reply(`❓ Responde à mensagem com \`${prefix}canal divulgar\``);
+      return reply(fmtResult(await C.divulgarNoCanal(sock, { message: quoted }, alvo)));
+    }
+    if (sub === 'resumo' || sub === 'resumir') {
+      const alvo = await alvoMeu();
+      if (!alvo) return reply(`❌ Sem canal adotado. \`${prefix}canal adotar <link>\``);
+      if (!ctx.isGroup) return reply(`❓ Corre este comando *dentro do grupo* que queres resumir.`);
+      return reply(fmtResult(await C.resumoGrupoParaCanal(sock, ctx.remoteJid, alvo)));
+    }
+    if (sub === 'usar' || sub === 'ativo' || sub === 'ativar' || sub === 'mudar') {
+      if (!resto) return reply(`❓ Usa: \`${prefix}canal usar <nº|nome>\`\nVê: \`${prefix}canal lista\``);
+      return reply(fmtResult(await C.ativarCanal(resto)));
     }
     if (sub === 'criar') {
       const [nome, desc] = resto.split('|').map(s => s.trim());
@@ -146,7 +188,7 @@ module.exports = function registerCanalCases(registerCase) {
       if (!alvo) return reply(`❌ Sem canal adotado.`);
       try {
         const ag = require('../../aura/auraAgenda');
-        return reply(fmtResult(await ag.criar(resto, { jid: alvo })));
+        return reply(fmtResult(await ag.criar(resto, { jid: alvo, fonte: ctx.isGroup ? ctx.remoteJid : null })));
       } catch (e) { return reply('❌ Agendamento indisponível: ' + String(e?.message || e).slice(0, 80)); }
     }
     if (sub === 'parar') {
@@ -170,7 +212,9 @@ module.exports = function registerCanalCases(registerCase) {
     if (sub === 'deixar' || sub === 'sair') {
       const alvo = await alvoMeu();
       if (!alvo) return reply(`❌ Sem canal adotado.`);
-      return reply(fmtResult(await C.deixarCanal(sock, alvo)));
+      const r = await C.deixarCanal(sock, alvo);
+      if (r?.ok !== false) { try { await C.guardarCanal(null); } catch {} }
+      return reply(fmtResult(r));
     }
     if (sub === 'apagar' || sub === 'deletar') {
       if (resto.toUpperCase() !== 'SIM') return reply(`⚠️ Isto *APAGA o canal* para sempre!\nConfirma: \`${prefix}canal apagar SIM\``);
