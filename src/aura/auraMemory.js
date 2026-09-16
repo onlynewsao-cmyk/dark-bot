@@ -83,4 +83,29 @@ async function guardarMedia(numero, resumo) {
   return guardar(numero, resumo, { importante: imp });
 }
 
-module.exports = { eImportante, guardar, guardarMedia, lembrar, paraPrompt };
+/** v7.74 — quantos factos/recentes há sobre alguém (p/ !auraset memoria). */
+async function contar(numero) {
+  const num = _k(numero);
+  const out = { importante: 0, recente: 0 };
+  try {
+    const BotConfig = require('../database/models/BotConfig');
+    const doc = await BotConfig.findOne({ key: 'aura_facts_' + num }).lean().catch(() => null);
+    if (Array.isArray(doc?.value)) out.importante = doc.value.length;
+  } catch {}
+  const slot = _leve.get(num);
+  if (slot) out.recente = (slot.itens || []).filter(x => Date.now() - x.ts < HORA).length;
+  return out;
+}
+
+/** v7.74 — esquece TUDO sobre alguém (factos + recente). */
+async function esquecer(numero) {
+  const num = _k(numero);
+  _leve.delete(num);
+  try {
+    const BotConfig = require('../database/models/BotConfig');
+    await BotConfig.deleteOne({ key: 'aura_facts_' + num }).catch(() => {});
+  } catch {}
+  return true;
+}
+
+module.exports = { eImportante, guardar, guardarMedia, lembrar, paraPrompt, contar, esquecer };

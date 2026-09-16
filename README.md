@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.73.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.74.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.74** ⚡ | **CENTRAL DA AURA** — `!auraset`: painel IA/voz/humor/memória/proativa/presença; voz por chat, nível de vida, humor, `memoria`/`esquecer`, `acorda`/`dorme` |
 | **v7.73** 📢 | **CANAIS PRO** — `divulgar` (cross-post grupo→canal), `postar` com foto/vídeo, multi-canal (`lista`/`usar`), `resumo` do grupo no canal, agenda `Nx ao dia` |
 | **v7.72** 🔑 | **PREFIXO AUTO** — dizer "prefixo" mostra o cartão System-style com botão de copiar; `!prefixo` usa o mesmo cartão; funciona até sem aluguel (funil) |
 | **v7.71** 💭 | **AURA VIVA** — fala sozinha em todos os grupos (menos os adormecidos); humor manda na iniciativa; reacções espontâneas; níveis calma/normal/viva |
