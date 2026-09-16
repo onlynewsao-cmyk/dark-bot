@@ -22,7 +22,10 @@
  * MODOS:
  *   smart (padrão) — WA + Telegram + Discord + encurtadores + IP
  *   wa             — só convites de WhatsApp
- *   all            — QUALQUER link (http/www/ofuscado/IP)
+ *   all            — qualquer link NÃO permitido (http/www/ofuscado/IP)
+ *
+ * PERMITIDOS: plataformas oficiais de linkPolicy.DEFAULT_ALLOWED + whitelist
+ * adicional do grupo. Cada URL é verificado pelo hostname, nunca por substring.
  *
  * ACÇÕES:
  *   warn   — apaga + avisa progressivamente (padrão)
@@ -39,6 +42,7 @@
 'use strict';
 
 const config = require('../config');
+const linkPolicy = require('./linkPolicy');
 const GroupSettings = require('../database/models/GroupSettings');
 
 // ─────────────────────────────────────────────
@@ -82,13 +86,16 @@ function deobfuscate(text) {
  * @param {string} text — texto da mensagem
  * @param {string} mode — 'smart' | 'whatsapp_only' | 'all_links'
  * @param {boolean} strict — também detecta ofuscação (smart+)
+ * @param {string[]} whitelist — domínios adicionais permitidos pelo grupo
  * @returns {{hit: boolean, kind: string}}
  */
-function detectLink(text, mode = 'smart', strict = true) {
-  const raw = String(text || '');
+function detectLink(text, mode = 'smart', strict = true, whitelist = []) {
+  const original = String(text || '');
+  const canonical = strict ? deobfuscate(original) : original;
+  const domains = [...linkPolicy.DEFAULT_ALLOWED, ...(Array.isArray(whitelist) ? whitelist : [])];
+  const raw = linkPolicy.excludeAllowed(canonical, domains);
   if (!raw.trim()) return { hit: false, kind: '' };
-
-  const t = strict ? `${raw}\n${deobfuscate(raw)}` : raw;
+  const t = raw;
 
   if (mode === 'whatsapp_only') {
     return RE_WA.test(t) ? { hit: true, kind: 'whatsapp' } : { hit: false, kind: '' };
@@ -112,7 +119,7 @@ function detectLink(text, mode = 'smart', strict = true) {
   // Se o texto foi alterado pela limpeza E revela um link/domínio → flag.
   if (strict) {
     const deob = deobfuscate(raw);
-    if (deob !== raw) {
+    if (canonical !== original) {
       if (/\bh\s*t\s*t\s*p/i.test(raw)) return { hit: true, kind: 'obfuscated' };
       if (RE_WA.test(deob)) return { hit: true, kind: 'obfuscated' };
       if (RE_HTTP.test(deob)) return { hit: true, kind: 'obfuscated' };
@@ -132,16 +139,9 @@ function detectLink(text, mode = 'smart', strict = true) {
   return { hit: false, kind: '' };
 }
 
-/**
- * Domínio na whitelist? (match parcial, ex: 'youtube.com' cobre youtu.be? não — só substring)
- */
+/** Todos os URLs devem ter hostname permitido; um URL permitido não isenta os restantes. */
 function isWhitelisted(text, whitelist = []) {
-  if (!Array.isArray(whitelist) || !whitelist.length) return false;
-  const lower = String(text || '').toLowerCase();
-  return whitelist.some((d) => {
-    const dom = String(d || '').toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-    return dom.length > 2 && lower.includes(dom);
-  });
+  return linkPolicy.allWhitelisted(deobfuscate(text), whitelist);
 }
 
 // ─────────────────────────────────────────────
@@ -259,7 +259,7 @@ async function check(sock, msg) {
     if (ownerNum && senderNum === ownerNum) return false; // dono imune
 
     // Config do grupo
-    const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
+    const gs = (await require('./hotCache').getGroupSettings(msg, remoteJid)) || {}; // v7.52: 1 query/msg partilhada
     // v7.35: interruptor global do dashboard (antilink_enabled) — liga em todos os grupos
     // que não desligaram explicitamente; se o grupo definiu, o grupo manda.
     let ativo = !!gs?.antilink;
@@ -279,11 +279,8 @@ async function check(sock, msg) {
 
     const mode = gs.antilinkMode || 'smart';
     const strict = gs.antilinkStrict !== false;
-    const detection = detectLink(text, mode, strict);
+    const detection = detectLink(text, mode, strict, gs.antilinkWhitelist || []);
     if (!detection.hit) return false;
-
-    // Whitelist por domínio
-    if (isWhitelisted(text, gs.antilinkWhitelist || [])) return false;
 
     // Metadados do grupo
     const meta = await getGroupMeta(sock, remoteJid);
@@ -309,10 +306,12 @@ async function check(sock, msg) {
     const doDelete = gs.antilinkDeleteMsg !== false;
     const doNotify = gs.antilinkNotify !== false;
 
+    let deleted = false;
     // Apaga a mensagem (em todas as acções, se activado)
     if (doDelete) {
       try {
         await sock.sendMessage(remoteJid, { delete: msg.key });
+        deleted = true;
         await bumpStats(remoteJid, 'deleted');
       } catch {}
     }
@@ -331,36 +330,32 @@ async function check(sock, msg) {
       http: 'link', domain: 'domínio', obfuscated: 'link ofuscado',
     }[detection.kind] || 'link';
 
-    // Kick directo OU avisos esgotados
+    // Só anuncia remoção depois de o WhatsApp confirmar a operação.
     if (action === 'kick' || w >= maxWarns) {
+      let removed = false;
+      try {
+        const result = await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove');
+        const records = Array.isArray(result) ? result : [];
+        removed = records.length > 0 && records.every(r => String(r.status) === '200');
+        if (removed) {
+          await bumpStats(remoteJid, 'kicks');
+          try { require('./liveBroadcaster').antilinkAction({ user: senderNum, action: 'kick', type: kindLabel, group: remoteJid }); } catch {}
+        }
+      } catch (e) { console.warn('[DarkShield] Falha ao remover:', e.name || 'Error'); }
       if (doNotify) {
         await sock.sendMessage(remoteJid, {
-          text:
-            `🚫 *DARKSHIELD ANTI-LINK v2* 🕸️\n\n` +
-            `@${senderNum} foi *removido* por enviar ${kindLabel}${w > 1 ? ` (${w}ª infracção)` : ''}.\n\n` +
-            `_Modo: ${mode} · Avisos: ${w}/${maxWarns}_`,
+          text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, kickAttempted: true, removed, extraAllowed: !!gs.antilinkWhitelist?.length }),
           mentions: [senderJid],
         }).catch(() => {});
       }
-      try {
-        await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove');
-        await bumpStats(remoteJid, 'kicks');
-        try { require('./liveBroadcaster').antilinkAction({ user: senderNum, action: 'kick', type: kindLabel, group: remoteJid }); } catch (e) {}
-      } catch (e) {
-        console.warn('[DarkShield] Falha ao remover:', e.message);
-      }
-      resetWarn(senderJid, remoteJid);
+      if (removed) resetWarn(senderJid, remoteJid);
       return true;
     }
 
     // Aviso progressivo
     if (doNotify && canNotify(senderJid, remoteJid)) {
-      const remaining = maxWarns - w;
       await sock.sendMessage(remoteJid, {
-        text:
-          `⚠️ *DARKSHIELD ANTI-LINK v2* 🕸️\n\n` +
-          `@${senderNum}, ${kindLabel}s não são permitidos aqui!\n` +
-          `Aviso *${w}/${maxWarns}* — mais ${remaining} e serás removido.`,
+        text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, extraAllowed: !!gs.antilinkWhitelist?.length }),
         mentions: [senderJid],
       }).catch(() => {});
       await bumpStats(remoteJid, 'warns');

@@ -1,5 +1,15 @@
 # DARK BOT — Contexto de trabalho local
 
+## Anti-link — permissões reais e aviso próprio
+
+Pedido: não remover os links permitidos e usar uma mensagem própria do DARK BOT. Implementada base de domínios de YouTube/Facebook/Kwai/Threads/Spotify/TikTok/Twitter-X/Instagram, com aliases e subdomínios legítimos, em `src/bot/linkPolicy.js`.
+
+- Detecção exclui cada URL permitido e avalia os restantes. Whitelist por hostname, sem bypass por substring ou URL permitido misturado com proibido.
+- Aviso “DARK BOT · ESCUDO DE LINKS”, com plataformas permitidas e estado real das operações. `delete` silencioso e `notify off` preservados.
+- Status/lista do comando anti-link distingue permissões base e adicionais. Nenhuma alteração à configuração de produção ou a outros bots/moderadores.
+- 12 scripts seleccionados passaram; novo teste anti-link: 97 verificações. Sintaxe: 229 JS. Sem teste WhatsApp real ou deploy confirmado.
+- Guia: `docs/ANTILINK_PERMITIDOS.md`.
+
 ## Correcção seguinte — atendimento dos grupos como PV
 
 Pedido: fazer a AURA voltar a responder nos grupos após acordar. Regressão local reproduzida com `ai_auto_enabled=false`; causa em produção não confirmada sem logs/URL.

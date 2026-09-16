@@ -448,10 +448,12 @@ module.exports = function registerGroupCases(registerCase) {
       } else if (['del','remove','rm'].includes(act)) {
         const dom = (args[2] || '').toLowerCase().trim();
         gs.antilinkWhitelist = list.filter((d) => d !== dom); saved = true;
-        extra = `🗑️ *${dom}* removido da whitelist.`;
+        extra = require('../linkPolicy').allowedHost(dom, require('../linkPolicy').DEFAULT_ALLOWED)
+          ? `ℹ️ *${dom}* pertence aos permitidos por padrão e continua autorizado; só foi retirado da lista adicional.`
+          : `🗑️ *${dom}* removido da whitelist adicional.`;
       } else {
         return reply(
-          `📋 *Whitelist de domínios:*\n\n` +
+          `✅ *Permitidos por padrão:* ${require('../linkPolicy').PLATFORM_LABELS}.\n\n📋 *Domínios adicionais:*\n\n` +
           (list.length ? list.map((d, i) => `${i + 1}. ${d}`).join('\n') : '_(vazia)_') +
           `\n\n➕ *${prefix}antilink whitelist add youtube.com*\n➖ *${prefix}antilink whitelist del youtube.com*`
         );
@@ -482,7 +484,8 @@ module.exports = function registerGroupCases(registerCase) {
       `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
-      `📋 Whitelist: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
+      `✅ Base permitida: ${require('../linkPolicy').PLATFORM_LABELS}.\n` +
+      `📋 Whitelist adicional: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
       `📊 Stats: ️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`
     );
   });
