@@ -86,6 +86,8 @@ function _humorDe(jid) {
 
 // ── Config ────────────────────────────────────────────────────
 async function _enabled() {
+  // Participação contextual por defeito: sem timer de mensagens/relatórios espontâneos.
+  if (require('./auraContextual').modoContextual()) return false;
   try {
     const bcc = require('../bot/botConfigCache');
     if (!(await bcc.get('ai_auto_enabled', true))) return false;

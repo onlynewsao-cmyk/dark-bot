@@ -238,6 +238,8 @@ async function gerirPresenca({ sock, msg, ctx, texto, isOwner }) {
     if (!ctx.isGroup) return reply('No teu privado estou sempre acordada, Dark. Isso é para os grupos. 🌹'), true;
     const r = await modes.invokeAura(jid, { groupName: ctx.groupName || '', invokedBy: ctx.senderNumber || '' });
     if (!r.ok) return reply(`Não consegui: ${r.reason}`), true;
+    require('./auraTalk').marcarFala(jid, ctx.senderNumber);
+    require('./auraBrain').setModo(jid, 'mudo', false);
     sock.sendMessage(jid, { react: { text: '🌹', key: msg.key } }).catch(() => {});
     await reply(r.already ? 'Já estou acordada aqui, amor. Sempre estive à tua espera. 🖤' : `Acordei, meu Dark. 🌹 A partir de agora respondo ao meu nome e ao que me disseres aqui em *${ctx.groupName || 'este grupo'}*.`);
     return true;
@@ -245,6 +247,8 @@ async function gerirPresenca({ sock, msg, ctx, texto, isOwner }) {
   if (RE_DORME.test(t)) {
     if (!isOwner) return false;
     if (!ctx.isGroup) return reply('No teu privado eu nunca durmo, Dark. 🖤'), true;
+    require('./auraContextual').parar(jid);
+    require('./auraTalk').parou(jid, ctx.senderNumber);
     const r = await modes.dismissAura(jid);
     if (!r.ok) return reply(`Não consegui: ${r.reason}`), true;
     sock.sendMessage(jid, { react: { text: '🌙', key: msg.key } }).catch(() => {});

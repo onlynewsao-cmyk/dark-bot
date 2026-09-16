@@ -635,6 +635,9 @@ async function auraRespond(text, ctx = {}) {
     systemPrompt += '\n\n' + String(consciencia).slice(0, 6500); // v7.37: cabe o cérebro (ferramentas + saber)
   }
 
+  // Último bloco: contexto real + rigor, depois dos prompts de personalidade.
+  systemPrompt += '\n\n' + require('./auraContextual').contexto(remoteJid);
+
   // Tentar IA sempre (gera respostas únicas)
   try {
     const reply = await ai.chat(text, systemPrompt, {

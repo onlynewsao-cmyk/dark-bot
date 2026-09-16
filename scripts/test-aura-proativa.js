@@ -6,6 +6,8 @@
  */
 'use strict';
 
+// Suite do comportamento legado: iniciativa por timer exige opt-in explícito.
+process.env.AURA_PARTICIPATION = 'proactive';
 process.env.NODE_ENV = 'development';
 process.env.OWNER_NUMBER = '244945280380';
 process.env.BOT_NUMBER = '244949926074';

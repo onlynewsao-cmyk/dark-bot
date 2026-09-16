@@ -212,6 +212,40 @@ const check = (nome, cond, extra = '') => {
   check('Sem emoji', !/\p{Extended_Pictographic}/u.test(resp), resp);
   check('Sem "assistente virtual"/"sou uma IA"', !/assistente virtual|sou uma IA|não tenho opiniões/i.test(resp));
 
+  // ── Contextual: integração pelo handler real, IA/WhatsApp simulados ──
+  console.log('\n▸ AURA contextual — fluxo completo');
+  const contextual = require('../src/aura/auraContextual');
+  const vontade = require('../src/aura/auraVontade');
+  const human = require('../src/aura/auraHuman');
+  const aiMod = require('../src/bot/ai');
+  const antigos = { respond: human.auraRespond, quer: vontade.querResponder, chat: aiMod.chat };
+  human.auraRespond = async () => '[SILENCIO]';
+  vontade.querResponder = () => ({ responde: false, motivo: 'humor simulado' });
+  vontade.limpar();
+  await enviar('aura acorda aqui', OWNER, G1);
+  const continuacao = await enviar('Escolhi a segunda opção', OWNER, G1);
+  check('Acordar abre conversa; humor/SILENCIO não calam continuação', continuacao.length > 0, continuacao);
+  human.auraRespond = antigos.respond;
+  vontade.querResponder = antigos.quer;
+  const convite = await enviar('Aura interage com todos', OWNER, G1);
+  check('Convite chega ao modo contextual pelo handler', contextual.activa(G1) && /sem pausa obrigatória nem prazo automático/.test(convite), convite);
+  human.auraRespond = async () => 'Podemos conversar sobre a reunião da tarde.';
+  const participacao = await enviar('A minha preferência é a reunião à tarde', FREE, G1);
+  check('Após convite, mensagem de membro sem nome/prefixo chega à AURA', /reunião da tarde/.test(participacao), participacao);
+  human.auraRespond = antigos.respond;
+  const cache = require('../src/bot/messageListener').messageCache;
+  const prova = mkMsg('Amanhã planeamos uma reunião às dez.', VIP, G1);
+  cache.set(prova.key.id, prova);
+  let resumoPrompt = '';
+  aiMod.chat = async (p) => { resumoPrompt = p; return 'Plano mencionado pelo participante: reunião às dez [1]. Ainda não é um acontecimento confirmado.'; };
+  const resumo = await enviar('Aura resume o grupo', OWNER, G1);
+  check('Resumo lê cache pelo handler sem executar comandos', /Amanhã planeamos/.test(resumoPrompt) && /Plano mencionado/.test(resumo), resumo);
+  const parou = await enviar('Aura para de interagir', OWNER, G1);
+  check('Parar cancela participação pelo handler', !contextual.activa(G1) && /Fico atenta/.test(parou), parou);
+  aiMod.chat = antigos.chat;
+  human.auraRespond = antigos.respond;
+  vontade.querResponder = antigos.quer;
+
   // ── 6. Performance ────────────────────────────────────────
   console.log('\n▸ Performance');
   const t0 = Date.now();

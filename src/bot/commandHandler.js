@@ -1507,6 +1507,22 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   const _auraAwakeHere = await _auraModes.isAuraAwake(ctx.remoteJid, { isGroup: ctx.isGroup })
     .catch(() => false);
 
+  // Contexto/resumos/verificação têm um caminho de leitura, sem executar acções da IA.
+  if (aiActive && (!ctx.isGroup || _auraAwakeHere) && text && !prefixInfo && !pareceComando(text)) {
+    try {
+      if (await require('../aura/auraContextual').tratar({
+        sock, msg, ctx, texto: text, isOwner,
+        dirigida: isAuraTrigger || isBotMentioned || isReplyToBot,
+      })) return true;
+    } catch (e) {
+      // Nunca deixa um pedido de resumo/verificação cair no executor de comandos.
+      if (require('../aura/auraContextual').pedido(text)) {
+        await sock.sendMessage(ctx.remoteJid, { text: 'Não consegui concluir esse pedido agora. Tenta novamente.' }, { quoted: msg });
+        return true;
+      }
+    }
+  }
+
   // v7.40: acordar/dormir/estado da AURA por CONVERSA ("aura acorda aqui",
   // "aura dorme", "aura estás acordada?"). Substitui os cases .aura/.aurasai/
   // .auramodo/.auragrupos, removidos. Só o dono; os outros seguem normal.
@@ -1605,7 +1621,25 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     }
     if (isAuraTrigger || isReplyToBot || isBotMentioned) talk.marcarFala(ctx.remoteJid, ctx.senderNumber);
   } catch {}
-  const _auraMayReply = isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar;
+  const _citContextual = require('../aura/auraHistorico').citado(msg);
+  const _respostaAOutro = !!(ctx.isGroup && _citContextual?.jid && !isReplyToBot);
+  let _interacaoConvidada = false;
+  if (aiActive && ctx.isGroup && _auraAwakeHere && !prefixInfo && !_pareceCmd) {
+    const bm = require('../aura/auraBrain');
+    const modos = bm.modos(ctx.remoteJid);
+    if (!modos.mudo && !modos.soDono && !bm.estaIgnorado(ctx.remoteJid, ctx.senderNumber)) {
+      _interacaoConvidada = require('../aura/auraContextual').reservarInteracao({
+        jid: ctx.remoteJid, texto: text, respostaAOutro: _respostaAOutro,
+      });
+    }
+  }
+  const _dirigidaContextual = isBotMentioned || isAuraTrigger || isReplyToBot;
+  const _forcarContextual = () => require('../aura/auraVontade').forcarRespostaDirecta({
+    isGroup: ctx.isGroup, dirigida: _dirigidaContextual,
+    emConversa: (grupoAFalar && !_respostaAOutro) || _interacaoConvidada,
+    sat: require('../aura/auraVontade').saturacao(ctx.remoteJid, ctx.senderNumber),
+  });
+  const _auraMayReply = isBotMentioned || replyHasText || replyHasMedia || mentionedWithMedia || auraTriggerActive || isOwnerFreeText || pvDeTodos || grupoAFalar || _interacaoConvidada;
   // Debounce por chat: evita duas respostas simultâneas quando o WhatsApp
   // entrega eventos duplicados ou quando a AURA recebe várias mensagens
   // seguidas. Não interfere com comandos prefixados.
@@ -1673,6 +1707,8 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
 
           const d = decide.deveResponder({
             texto: text,
+            respostaAOutro: _respostaAOutro,
+            interacaoConvidada: _interacaoConvidada,
             isOwner,
             isGroup: ctx.isGroup,
             mencionada: isBotMentioned || isAuraTrigger,
@@ -1707,7 +1743,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
                 perguntaDirecta: /\?/.test(text) || isBotMentioned || isReplyToBot,
               });
               // v7.70: PV de cliente nunca dorme — a vontade só a cala fora do PV comercial (ou em flood extremo).
-              if (!q.responde && !vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) })) {
+              if (!q.responde && !_forcarContextual() && !vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) })) {
                 if (q.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: q.reagir, key: msg.key } }).catch(() => {});
                 _contaMsg(ctx.remoteJid);
                 return false;
@@ -2017,6 +2053,8 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         });
       }
       
+      systemPrompt += '\n\n' + require('../aura/auraContextual').contexto(ctx.remoteJid, msg.key?.id);
+
       // Se há imagem → usa Gemini Vision (a Aura VÊ a foto!)
       // v7.42: "quem promoveu o João?", "quem saiu ontem?", "o que aconteceu aqui hoje?"
       // → linha do tempo do grupo (factos com data), antes da IA inventar.
@@ -2349,7 +2387,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         const cer = require('../aura/auraCerebro');
         const v = vont.interpretarResposta(finalAnswer);
         // v7.70: PV de cliente nunca dorme — o [SILENCIO] da IA vira resposta de cortesia (salvo flood extremo).
-        const _pvForca = vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) });
+        const _pvForca = _forcarContextual() || vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) });
         if (v.silencio && !_pvForca) {
           if (v.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
           console.log('[Aura] escolheu não responder');

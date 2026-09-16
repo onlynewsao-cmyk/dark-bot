@@ -108,6 +108,12 @@ function forcarRespostaPV({ isOwner = false, isGroup = false, sat = 0 } = {}) {
   return !isOwner && !isGroup && Number(sat) < 0.9;
 }
 
+/** Pedido do dono: resposta dirigida sem silêncio por saturação da AURA.
+ * Os filtros de moderação do grupo continuam independentes. */
+function forcarRespostaDirecta({ isGroup = false, dirigida = false, emConversa = false } = {}) {
+  return !isGroup || dirigida || emConversa;
+}
+
 /** Lê a resposta da IA; devolve {silencio, reagir, texto} com marcadores removidos. */
 function interpretarResposta(resposta) {
   const r = String(resposta || '');
@@ -136,4 +142,4 @@ function instrucao({ isOwner = false, isGroup = false, sat = 0, mood = 'normal' 
 
 function limpar() { _hist.clear(); }
 
-module.exports = { registar, saturacao, querResponder, interpretarResposta, instrucao, limpar, forcarRespostaPV, RE_SILENCIO, RE_REAGIR };
+module.exports = { registar, saturacao, querResponder, interpretarResposta, instrucao, limpar, forcarRespostaPV, forcarRespostaDirecta, RE_SILENCIO, RE_REAGIR };

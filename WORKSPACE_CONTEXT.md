@@ -1,5 +1,60 @@
 # DARK BOT — Contexto de trabalho local
 
+## Ajuste final e autorização de push — 16/09/2026
+
+O dono pediu para não limitar a AURA por receio de spam e autorizou o push para `onlynewsao-cmyk/darknet-tunnel`, branch `main`.
+
+- Participação convidada agora sem intervalo de 45s ou expiração de 30 min; pára por pedido/dormir, reinício ou remoção pelo limite técnico de 200 chats.
+- Respostas dirigidas e participação convidada não são caladas pelo limiar de saturação da AURA. Permissões, filtros de moderação e deduplicação mantêm-se.
+- Contexto, resumos só por pedido e verificação de fontes preservados.
+- Autenticação de GitHub usada apenas para transporte; nenhum token no código, documentação ou URL do remote.
+- Estado do push é verificável pelo histórico Git. Não houve validação do deploy ou ligação WhatsApp real.
+- As secções seguintes são fotografias históricas; os limites anteriores já não descrevem o patch final.
+
+## Alteração local posterior à revisão — AURA contextual
+
+**Pedido confirmado pelo utilizador:** atenta/contextual, interagir com os outros quando solicitado e resumos só por pedido. Não usar proactividade automática como padrão.
+
+- Patch local sobre `1292c84`, versão ainda 7.72.0. Agora há alterações de código; a afirmação de código intacto na fotografia de sincronização abaixo deixou de descrever a árvore de trabalho actual.
+- `src/aura/auraContextual.js`: sessões por convite (30 min, mínimo 45s entre admissões), contexto por excertos, resumos com isolamento/autorização e verificação explícita de fontes.
+- Atendimento dirigido não é silenciado por vontade/SILENCIO abaixo do limiar anti-flood. Acordar abre janela de conversa. Nome/reply/janela continuam a distinguir pedidos de conversa alheia.
+- `AURA_PARTICIPATION=contextual` por padrão desactiva o timer espontâneo; `proactive` opta pelo legado. Agendas explícitas existentes não foram removidas.
+- Resumos usam provider de IA, mas não pesquisa web dos excertos (`allowWeb:false`). Verificação de afirmações usa Tavily com URLs; sem fontes admite incerteza.
+- 14 scripts npm seleccionados passaram: syntax, ejs, commands, smoke, roles, auramodes, aurabrain, auravontade, auraaudit, auraproativa, prefixoauto, incoming, e2e e auracontextual. Novo teste: 52 checks; e2e: 21; sintaxe: 227 JS.
+- Sem ligação real, credenciais, commit, push ou deploy. Histórico de mensagens continua parcial/volátil; participação convidada expira e não persiste após restart.
+- Guia de uso, limitações e validação: [docs/AURA_CONTEXTUAL.md](docs/AURA_CONTEXTUAL.md).
+
+## Estado actual — 16/09/2026 (v7.72.0)
+
+Esta secção substitui os dados de sincronização históricos abaixo. O histórico foi preservado, mas não deve ser tomado como estado actual.
+
+- Origem actual: `https://github.com/onlynewsao-cmyk/darknet-tunnel`
+- Workspace: `/home/user/dark-bot`, branch `main`.
+- Commit importado: `1292c84fd56c2793303f4bffa65241aaa91c58c0`.
+- Versão do pacote: **7.72.0**; 446 ficheiros na origem; 226 JS em src; 33 EJS; 20 modelos MongoDB.
+- Código e lockfile intactos; apenas documentação local acrescentada/actualizada. Sem push ou deploy.
+- Dependências instaladas com `npm ci --ignore-scripts --no-fund`.
+- 11 scripts npm seleccionados passaram: syntax, ejs, commands, roles, auramodes, prefixoauto, smoke, planos, casehandler, auraproativa e incoming. EJS também compilado com `ejs.compile`.
+- Auditoria de produção: 12 vulnerabilidades (4 moderadas, 8 altas); sem correcção automática.
+- Nenhuma credencial real configurada; sem ligação WhatsApp ou MongoDB de produção.
+
+### Correcções ao contexto antigo
+
+1. O pacote já não está na v6.92: está na **v7.72.0**.
+2. Os 19 snippets de incoming-cases **já foram integrados**, na v7.47.
+3. Entrada real: `whatsapp.js → messageRouter → commandHandler`, com listener e algumas protecções em paralelo; não é uma cadeia linear listener→router.
+4. `dl/` e `packages/` estão em `src/bot/`, não dentro de `cases/`.
+5. Arranque actual usa o socket principal para chamadas; não reactivar o segundo socket automaticamente.
+6. Aluguer: trial 7 dias, pedidos/fatura/comprovativo, activação manual e watcher. Preços iniciais são placeholders.
+7. AURA: forçar atendimento de clientes no privado abaixo do limiar anti-flood; proactividade com níveis e limites; prefixo automático antes do gate de aluguer.
+8. Os testes seleccionados não comprovam entrega real, disponibilidade de providers ou ausência de falhas de segurança. Rever diagnósticos web e autorização Socket.IO antes de exposição pública.
+
+**Mapa completo e resultados:** [docs/WORKSPACE_REVIEW_2026-09-16.md](docs/WORKSPACE_REVIEW_2026-09-16.md).
+
+---
+
+## Histórico anterior (preservado)
+
 Atualizado em 2026-09-04 após sincronização de `main`.
 
 ## Estado sincronizado

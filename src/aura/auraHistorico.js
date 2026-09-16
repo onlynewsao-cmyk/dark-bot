@@ -49,6 +49,7 @@ function mensagensDoGrupo(grupoJid, limite = 300) {
     if (!txt || txt.length < 2) continue;
     const ts = Number(msg.messageTimestamp) || 0;
     lista.push({
+      id: msg.key.id,
       jid: msg.key.participant || grupoJid,
       nome: msg.pushName || '',
       texto: txt,

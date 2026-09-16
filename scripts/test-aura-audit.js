@@ -213,8 +213,8 @@ const check = (nome, cond, extra = '') => {
 
   const sempre = [
     ['aura tudo bem?', { isOwner: true, isGroup: true }],
-    ['o que achas?', { isOwner: true, isGroup: true }],
-    ['faz um sticker', { isOwner: true, isGroup: true }],
+    ['o que achas?', { isOwner: true, isGroup: true, respostaAoBot: true }],
+    ['faz um sticker', { isOwner: true, isGroup: true, mencionada: true }],
     ['oi', { isOwner: true, isGroup: false }],
     ['seja o que for', { isOwner: true, isGroup: true, mencionada: true }],
     ['qualquer coisa', { isOwner: true, isGroup: true, respostaAoBot: true }],
@@ -232,7 +232,11 @@ const check = (nome, cond, extra = '') => {
   check('Não se mete na conversa dos outros', meteuSe.length === 0,
     meteuSe.map(x => x[0]).join(' | ') || `${nunca.length}/${nunca.length}`);
 
-  // comentário solto: nem sempre, nem nunca
+  const participationBefore = process.env.AURA_PARTICIPATION;
+  process.env.AURA_PARTICIPATION = 'contextual';
+  check('Contextual não interrompe comentário solto', !DEC.deveResponder({ texto: 'que calor hoje', isOwner: true, isGroup: true }).responde);
+  process.env.AURA_PARTICIPATION = 'proactive';
+  // Modo legado explícito — comentário solto: nem sempre, nem nunca
   let n = 0;
   for (let i = 0; i < 200; i++) {
     if (DEC.deveResponder({ texto: 'que calor hoje', isOwner: true, isGroup: true, pessoasNoGrupo: 12, msgsDesdeUltima: 5 }).responde) n++;
@@ -246,6 +250,9 @@ const check = (nome, cond, extra = '') => {
     if (DEC.deveResponder({ texto: 'olha isto', isOwner: true, isGroup: true, pessoasNoGrupo: 2, msgsDesdeUltima: 5 }).responde) p2++;
   }
   check('Mais reservada em grupo grande', g < p2, `grande ${g} < pequeno ${p2}`);
+
+  if (participationBefore === undefined) delete process.env.AURA_PARTICIPATION;
+  else process.env.AURA_PARTICIPATION = participationBefore;
 
   check('Escolhe o formato da resposta', typeof DEC.comoResponder === 'function' &&
     DEC.comoResponder({ texto: 'manda audio', pediuAudio: true }) === 'audio');

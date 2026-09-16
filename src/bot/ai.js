@@ -510,6 +510,7 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     userProfile  = null,
     groupContext  = '',
     userRole     = 'free',
+    allowWeb     = true, // false: síntese de dados privados, nunca pesquisar o histórico
   } = memoryOpts;
 
   // v7.63: conta TODAS as chaves que a cadeia tenta (antes, ter só
@@ -524,7 +525,7 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
 
   // Contexto web se necessário
   let finalPrompt = prompt;
-  if (needsWeb(prompt)) {
+  if (allowWeb && needsWeb(prompt)) {
     try {
       const web = await withTimeout(getWebContext(prompt), 5000);
       if (web) finalPrompt = web + '\n\nPergunta: ' + prompt;
@@ -898,7 +899,7 @@ async function searchTavily(query, maxResults = 5) {
     max_results: maxResults, search_depth: 'basic', include_answer: true,
   });
   const answer = data.answer || '';
-  const results = (data.results || []).map(r => '• ' + r.title + ': ' + (r.content || '').slice(0, 200)).join('\n');
+  const results = (data.results || []).map(r => '• ' + r.title + ': ' + (r.content || '').slice(0, 500) + (r.url ? '\nURL: ' + r.url : '') + (r.published_date ? '\nData: ' + r.published_date : '')).join('\n');
   return answer ? answer + '\n\nFontes:\n' + results : results || 'Sem resultados';
 }
 

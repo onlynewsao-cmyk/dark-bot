@@ -85,6 +85,12 @@ function deveResponder(o = {}) {
     return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0.2 };
   }
 
+  // Uma resposta a outro participante não renova a conversa com a AURA.
+  if (o.respostaAOutro || MENCIONA_OUTRO.test(texto)) {
+    return { responde: false, motivo: 'conversa dirigida a outro participante', chance: 0 };
+  }
+  if (o.interacaoConvidada) return { responde: true, motivo: 'participação contextual autorizada', chance: 1 };
+
   // Grupo acordado: se a pessoa está na conversa com ela, continua
   try {
     const talk = require('./auraTalk');
@@ -95,6 +101,10 @@ function deveResponder(o = {}) {
 
   // ── No grupo, do Dark ─────────────────────────────────────
   if (isOwner) {
+    // Em modo contextual, sem nome/reply/janela, perguntas ao grupo não são para ela.
+    if (require('./auraContextual').modoContextual()) {
+      return { responde: false, motivo: 'atenta; sem chamada directa ou conversa activa', chance: 0 };
+    }
     // pergunta ou ordem dirigida → responde
     if (PERGUNTA_DIRECTA.test(t) || ORDEM.test(t) || t.includes('?')) {
       return { responde: true, motivo: 'pergunta/ordem do Dark', chance: 1 };
