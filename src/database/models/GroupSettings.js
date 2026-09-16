@@ -157,6 +157,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   antitiposMaxWarns: { type: Number, default: 3 },
   antitiposNotify:   { type: Boolean, default: true },
 
+  // ── v7.75 Grupos PRO: modo lento (segundos entre msgs por membro; 0 = off)
+  slowmode: { type: Number, default: 0 },
+
   // ── v7.47 incoming-cases: anti-fobados / auto-apresentação / abrir-fechar ──
   antifoba:       { type: Boolean, default: false },   // divulgação oculta + DDI blacklist (ban imediato)
   fobaBlacklist:  [{ type: String }],                  // DDIs bloqueados à entrada (ex: ['63'])

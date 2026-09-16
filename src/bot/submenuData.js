@@ -345,6 +345,8 @@ function categorize(cmd) {
     canal:'owner', canais:'owner', channel:'owner', // v7.60
     setmenu:'owner', definirmenu:'owner', menumedia:'owner', // v7.60
     auraset:'owner', aurapainel:'owner', setaura:'owner', // v7.74
+    backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
+    slowmode:'admin', modolento:'admin', setwarnlimit:'admin', warnlimit:'admin', // v7.75
     likesff:'info', fflike:'info', likefree:'info', likeff:'info', // v7.62
   };
   if (OVERRIDES[c]) return OVERRIDES[c];

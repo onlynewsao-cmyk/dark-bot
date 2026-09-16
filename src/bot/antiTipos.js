@@ -53,6 +53,11 @@ const MENCAO_MASSA_PADRAO = 8;
 const warns = new Map();           // `${grupo}:${num}` → { count, ts }
 const notifyCd = new Map();        // `${grupo}:${num}` → ts
 const floodHist = new Map();       // `${grupo}:${num}` → [{ hash, ts }]
+// v7.75 PRO: rajada (volume) + slowmode
+const rajadaHist = new Map();      // `${grupo}:${num}` → [{ ts, st }]
+const slowHist = new Map();        // `${grupo}:${num}` → ts da última msg
+const RAJADA_MSGS = 8, RAJADA_JANELA = 10 * 1000;
+const RAJADA_STICKERS = 5, RAJADA_ST_JANELA = 30 * 1000;
 const metaCache = new Map();       // grupo → { meta, ts }
 const META_TTL = 60 * 1000;
 
@@ -136,6 +141,22 @@ function ehFlood(chave, texto) {
   return null;
 }
 
+/**
+ * v7.75 PRO — RAJADA: volume puro, independente do conteúdo.
+ * ≥8 msgs em 10 s (texto, mídia, tudo) → 'rajada';
+ * ≥5 figurinhas em 30 s → 'figurinhas'.
+ * (ehFlood só apanha texto repetido — stickers e rajadas passavam.)
+ */
+function ehRajada(chave, ehSticker, agora = Date.now()) {
+  const arr = (rajadaHist.get(chave) || []).filter(e => agora - e.ts < RAJADA_ST_JANELA);
+  arr.push({ ts: agora, st: !!ehSticker });
+  if (arr.length > 40) arr.splice(0, arr.length - 40);
+  rajadaHist.set(chave, arr);
+  if (arr.filter(e => agora - e.ts < RAJADA_JANELA).length >= RAJADA_MSGS) { rajadaHist.set(chave, []); return 'rajada'; }
+  if (arr.filter(e => e.st).length >= RAJADA_STICKERS) { rajadaHist.set(chave, []); return 'figurinhas'; }
+  return null;
+}
+
 const TOXIC = [
   /\bfilh[oa]s? d[ae] (puta|merda)\b/i, /\bvai(s)? (tomar no c[uú]|pro caralho|te foder|se foder)\b/i,
   /\bfod[ae]-?se\b/i, /\bput[ao] (que (te|o|a) pariu)\b/i, /\bcabr[aã]o\b/i, /\bpaneleir[oa]\b/i,
@@ -188,6 +209,9 @@ function detectar(msg, gs, opts = {}) {
   if (gs.antiflood) {
     const r = ehFlood(chave, texto);
     if (r) return { flag: 'antiflood', motivo: { gigante: 'mensagem gigante', linhas_repetidas: 'linhas repetidas', repetido: 'mesma mensagem repetida' }[r], label: 'ANTI-FLOOD' };
+    // v7.75: rajada conta QUALQUER conteúdo (stickers e mídia incluídos)
+    const rj = ehRajada(chave, keys.includes('stickerMessage'));
+    if (rj) return { flag: 'antiflood', motivo: { rajada: 'rajada de mensagens', figurinhas: 'chuva de figurinhas' }[rj], label: 'ANTI-FLOOD' };
   }
 
   if (gs.antidoc && (keys.includes('documentMessage') || keys.includes('documentWithCaptionMessage')))
@@ -215,6 +239,19 @@ function detectar(msg, gs, opts = {}) {
     if (opts.viewOnce && (m.imageMessage || m.videoMessage) && !opts.senderKnown) return { flag: 'antiporn', motivo: 'media única de desconhecido', label: 'ANTI-PORN' };
   }
 
+  // v7.75 PRO — SLOWMODE: 1 msg por membro a cada N segundos (por último:
+  // violações de conteúdo específicas têm precedência).
+  if (Number(gs.slowmode) > 0) {
+    const lim = Number(gs.slowmode);
+    const agora = Date.now();
+    const last = slowHist.get(chave) || 0;
+    if (agora - last < lim * 1000) {
+      return { flag: 'slowmode', motivo: `modo lento (${lim}s entre mensagens)`, label: 'SLOWMODE' };
+    }
+    slowHist.set(chave, agora);
+    if (slowHist.size > 5000) slowHist.delete(slowHist.keys().next().value);
+  }
+
   return null;
 }
 
@@ -236,7 +273,7 @@ async function check(sock, msg) {
 
     const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
     if (!gs) return false;
-    const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn'].some(f => gs[f]);
+    const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn'].some(f => gs[f]) || Number(gs.slowmode) > 0;
     if (!algumaFlag) return false;
 
     const raw = msg.message || {};
@@ -251,6 +288,20 @@ async function check(sock, msg) {
 
     // apaga sempre
     try { await sock.sendMessage(remoteJid, { delete: msg.key }); } catch {}
+
+    // v7.75 PRO: slowmode só apaga + avisa (sem contar warn/expulsar)
+    if (hit.flag === 'slowmode') {
+      const ksm = `slow:${remoteJid}:${senderNum}`;
+      const lastS = notifyCd.get(ksm) || 0;
+      if (Date.now() - lastS > NOTIFY_COOLDOWN_MS && gs.antitiposNotify !== false) {
+        notifyCd.set(ksm, Date.now());
+        await sock.sendMessage(remoteJid, {
+          text: `⏳ *DARK SLOWMODE* 🕸️\n\n@${senderNum}, devagar: *${hit.motivo}*.`,
+          mentions: [senderJid],
+        }).catch(() => {});
+      }
+      return true;
+    }
 
     const k = `${remoteJid}:${senderNum}`;
     const maxWarns = Number(gs.antitiposMaxWarns) || MAX_WARNS_PADRAO;
@@ -288,4 +339,4 @@ function clearWarnings(groupJid, num) {
   else for (const k of [...warns.keys()]) if (k.startsWith(groupJid + ':')) warns.delete(k);
 }
 
-module.exports = { check, detectar, clearWarnings, ehInvisivel, ehFlood, temPalavra, inner, _reset: () => { warns.clear(); notifyCd.clear(); floodHist.clear(); metaCache.clear(); } };
+module.exports = { check, detectar, clearWarnings, ehInvisivel, ehFlood, ehRajada, temPalavra, inner, _reset: () => { warns.clear(); notifyCd.clear(); floodHist.clear(); rajadaHist.clear(); slowHist.clear(); metaCache.clear(); } };

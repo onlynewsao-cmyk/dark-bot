@@ -5,7 +5,14 @@ const t = (n, c, d = '') => { c ? ok++ : fail++; console.log(`  ${c ? '✅' : '�
 const G = '1@g.us', P = '244900@s.whatsapp.net';
 const mk = (message) => ({ key: { remoteJid: G, participant: P, id: 'x', fromMe: false }, message });
 const ALL = { antistatus: 1, antimencao: 1, antipagamento: 1, antiinvisivel: 1, antiflood: 1, antidoc: 1, antiloc: 1, antifigurinha: 1, antibtn: 1, antipalavra: 1, palavrasProibidas: ['bosta', 'zé'], antitoxic: 1, antiporn: 1 };
-const d = (m, gs = ALL) => at.detectar(mk(m), gs)?.flag || null;
+// v7.75: cada chamada usa um participante fresco (a rajada conta volume por
+// pessoa — 20 testes rápidos na mesma chave disparavam-na). Sequências reais
+// (repetido/rajada/slowmode) passam same=true.
+let _np = 0;
+const d = (m, gs = ALL, same = false) => {
+  const who = same ? P : ('t' + (_np++) + '@s.whatsapp.net');
+  return at.detectar({ key: { remoteJid: G, participant: who, id: 'x' + _np, fromMe: false }, message: m }, gs)?.flag || null;
+};
 
 t('texto normal passa', d({ conversation: 'olá pessoal, tudo bem?' }) === null);
 t('antistatus: statusMentionMessage', d({ statusMentionMessage: {} }) === 'antistatus');
@@ -23,8 +30,20 @@ t('antiinvisivel: acento normal NÃO é zalgo', d({ conversation: 'coração, av
 t('antiflood: gigante', d({ conversation: 'a'.repeat(6001) }) === 'antiflood');
 t('antiflood: 12 linhas iguais', d({ conversation: Array(12).fill('spam').join('\n') }) === 'antiflood');
 at._reset();
-let r = null; for (let i = 0; i < 4; i++) r = d({ conversation: 'compra já' });
+let r = null; for (let i = 0; i < 4; i++) r = d({ conversation: 'compra já' }, ALL, true);
 t('antiflood: 4× a mesma msg em 30s', r === 'antiflood');
+at._reset();
+// v7.75 PRO — rajada (volume) + slowmode
+let rj = null; for (let i = 0; i < 8; i++) rj = d({ conversation: 'msg diferente ' + i }, ALL, true);
+t('antiflood: rajada (8 msgs diferentes em 10s)', rj === 'antiflood');
+at._reset();
+let rs = null; for (let i = 0; i < 5; i++) rs = d({ stickerMessage: {} }, { antiflood: 1 }, true);
+t('antiflood: chuva de figurinhas (5 em 30s)', rs === 'antiflood');
+at._reset();
+t('slowmode desligado → passa', d({ conversation: 'oi' }, { slowmode: 0 }) === null);
+const sl1 = d({ conversation: 'primeira' }, { slowmode: 30 }, true);
+const sl2 = d({ conversation: 'segunda logo' }, { slowmode: 30 }, true);
+t('slowmode: 1.ª passa, 2.ª imediata cai', sl1 === null && sl2 === 'slowmode');
 at._reset();
 t('antidoc', d({ documentMessage: {} }) === 'antidoc');
 t('antidoc dentro de documentWithCaption', d({ documentWithCaptionMessage: { message: { documentMessage: {} } } }) === 'antidoc');
@@ -65,6 +84,16 @@ t('viewOnce desembrulha', d({ viewOnceMessageV2: { message: { documentMessage: {
   sock.groupMetadata = async () => ({ participants: [{ id: '244999@s.whatsapp.net' }, { id: P }] });
   at._reset(); ev.length = 0;
   t('check: bot sem admin → não age', await at.check(sock, m) === false && ev.length === 0);
+  // v7.75 PRO — slowmode no check() (outro grupo: o cache TTL do hotCache é por jid)
+  Model.findOne = () => ({ lean: async () => ({ slowmode: 30 }) });
+  sock.groupMetadata = async () => ({ participants: [{ id: '244999@s.whatsapp.net', admin: 'admin' }, { id: '244901@s.whatsapp.net' }] });
+  at._reset(); ev.length = 0;
+  const G2 = '2@g.us', P2 = '244901@s.whatsapp.net';
+  const mS1 = { key: { remoteJid: G2, participant: P2, id: 'slow1', fromMe: false }, message: { conversation: 'primeira' } };
+  const mS2 = { key: { remoteJid: G2, participant: P2, id: 'slow2', fromMe: false }, message: { conversation: 'segunda' } };
+  const rS1 = await at.check(sock, mS1);
+  const rS2 = await at.check(sock, mS2);
+  t('check slowmode: 1.ª passa, 2.ª apaga+avisa', rS1 === false && rS2 === true && ev.join(',') === 'delete,text', ev.join(','));
   console.log(`\n${fail ? '❌' : '🎉'} ANTI-TIPOS: ${ok} OK / ${fail} FALHOU`);
   process.exit(fail ? 1 : 0);
 })();
