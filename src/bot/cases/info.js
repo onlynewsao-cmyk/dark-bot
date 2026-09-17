@@ -147,7 +147,7 @@ module.exports = function registerInfoCases(registerCase) {
 
     let docs = [];
     try {
-      const GroupMemberActivity = require('../database/models/GroupMemberActivity');
+      const GroupMemberActivity = require('../../database/models/GroupMemberActivity'); // v7.80: path era ../database (não existe — rank nunca mostrava nada)
       docs = await GroupMemberActivity.find({ groupJid: ctx.remoteJid })
         .sort(ehInativo ? { lastMessageAt: 1, messages: 1 } : { messages: -1, lastMessageAt: -1 })
         .limit(10)
@@ -191,6 +191,52 @@ module.exports = function registerInfoCases(registerCase) {
 
     const texto = linhas.join('\n');
     return sock.sendMessage(ctx.remoteJid, { text: texto, mentions }, { quoted: msg });
+  });
+
+  // v7.80: RANK SEMANAL — top da semana ISO atual (weeks.AAAA-WNN), zera sozinho.
+  registerCase(['ranksemanal', 'rankweek', 'topsemana', 'rankdasemana'], async ({ sock, msg, ctx, reply }) => {
+    const t = await getActiveTheme(ctx.remoteJid);
+    const f = t.frame;
+    const b = t.bullet;
+    if (!ctx.isGroup) return reply('👥 O rank semanal é só em *grupos*.');
+    const wk = require('../weekKey').key();
+    let docs = [];
+    try {
+      const GroupMemberActivity = require('../../database/models/GroupMemberActivity');
+      docs = await GroupMemberActivity.find({ groupJid: ctx.remoteJid }).limit(200).lean().catch(() => []);
+    } catch {}
+    const rows = (Array.isArray(docs) ? docs : [])
+      .map(d => ({ d, m: d.weeks?.[wk]?.m || 0, c: d.weeks?.[wk]?.c || 0 }))
+      .filter(r => (r.m + r.c) > 0)
+      .sort((a, b) => (b.m + b.c) - (a.m + a.c))
+      .slice(0, 10);
+    if (!rows.length) {
+      return reply(
+        `${f[0]}${f[4].repeat(24)}${f[1]}\n` +
+        `${f[5]} ${t.icon} ʀᴀɴᴋ sᴇᴍᴀɴᴀʟ ${t.icon}\n` +
+        `${f[2]}${f[4].repeat(24)}${f[3]}\n\n` +
+        `${b} Semana *${wk}* ainda sem movimento. 🕸️\n` +
+        `${b} Quem fala mais até domingo leva o top!\n\n` +
+        `> ${t.vibe}`
+      );
+    }
+    const medalhas = ['🥇', '🥈', '🥉'];
+    const linhas = [
+      `${f[0]}${f[4].repeat(24)}${f[1]}`,
+      `${f[5]} ${t.icon} ʀᴀɴᴋ sᴇᴍᴀɴᴀʟ ${t.icon}`,
+      `${f[2]}${f[4].repeat(24)}${f[3]}`,
+      `${b} 📅 Semana *${wk}*`,
+      '',
+    ];
+    const mentions = [];
+    rows.forEach((r, i) => {
+      const nome = (r.d.pushName || r.d.memberNumber || '?').toString().slice(0, 20);
+      if (r.d.memberJid) mentions.push(r.d.memberJid);
+      const medal = medalhas[i] || `#${i + 1}`;
+      linhas.push(`${b} ${medal} @${r.d.memberNumber || '?'} — ${r.m} msgs · ${r.c} cmds\n${b}    ${nome}`);
+    });
+    linhas.push('', `> ${t.vibe}`);
+    return sock.sendMessage(ctx.remoteJid, { text: linhas.join('\n'), mentions }, { quoted: msg });
   });
 
   // ── hora / data ────────────────────────────────────────────

@@ -3383,11 +3383,13 @@ async function incrementUserCommand(number, ctx = null, commandName = '') {
   if (ctx?.isGroup && ctx.senderJid) {
     try {
       const GroupMemberActivity = require('../database/models/GroupMemberActivity');
+      const wk = require('./weekKey').buildWeekOps('c'); // v7.80: contador semanal
       await GroupMemberActivity.findOneAndUpdate(
         { groupJid: ctx.remoteJid, memberJid: ctx.senderJid },
         {
           $set: { memberNumber: ctx.senderNumber, pushName: ctx.pushName || '', lastCommandAt: new Date(), lastMessageAt: new Date() },
-          $inc: { commands: 1 },
+          $inc: { commands: 1, ...wk.inc },
+          $unset: wk.unset,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );

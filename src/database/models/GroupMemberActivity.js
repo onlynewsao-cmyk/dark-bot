@@ -7,6 +7,7 @@ const GroupMemberActivitySchema = new mongoose.Schema({
   pushName: { type: String, default: '' },
   messages: { type: Number, default: 0 },
   commands: { type: Number, default: 0 },
+  weeks: { type: mongoose.Schema.Types.Mixed, default: {} }, // v7.80: { "AAAA-WNN": { m, c } } — prune rolante
   warnings: { type: Number, default: 0 },
   muted: { type: Boolean, default: false },
   lastMessageAt: { type: Date, default: Date.now, index: true },

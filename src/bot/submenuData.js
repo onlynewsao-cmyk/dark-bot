@@ -69,6 +69,10 @@ function categorize(cmd) {
     facebook:'downloads', tt:'downloads', tw:'downloads',
     fig:'stickers', figurinha:'stickers',
     tikstalk:'search', ttstalk:'search',
+    // v7.79–v7.80: monetização + rank semanal
+    vendas:'economia', receita:'economia', lucro:'economia',
+    rejeitar:'economia', reject:'economia',
+    topsemana:'info',
     blackhzx:'logos', blood:'logos', cemiterio:'logos', ffavatar:'logos',
     themechange:'owner', themes:'owner',
     texto:'texto', submenuRPG:'economia', menurpg:'economia', maiscmds:'owner', menumais:'owner', textosticker:'stickers', fight:'jogos',advanced:'logos',deleting:'logos',emprego:'economia',deepai:'ia',deepsearch:'search',menuaudio:'info', inveja:'zoeira',invejosa:'zoeira',invejoso:'zoeira',invisible:'admin',invite:'admin',pixel:'logos',casal:'interacoes',casamento:'interacoes',nome:'economia',rg:'economia',ficha:'economia', imagem:'ia', stickers:'info', legendasaiu:'admin', legendabv:'admin', textsticker:'stickers', txtsticker:'stickers',

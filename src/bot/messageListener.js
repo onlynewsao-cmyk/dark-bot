@@ -92,12 +92,14 @@ async function onUpsert(sock, m, io) {
     if (isGroup && fromJid) {
       try {
         const now = new Date();
+        const wk = require('./weekKey').buildWeekOps('m', now); // v7.80: contador semanal
         await Promise.all([
           GroupMemberActivity.findOneAndUpdate(
             { groupJid: remoteJid, memberJid: fromJid },
             {
               $set: { memberNumber: fromNumber, pushName: msg.pushName || '', lastMessageAt: now },
-              $inc: { messages: 1 },
+              $inc: { messages: 1, ...wk.inc },
+              $unset: wk.unset,
             },
             { upsert: true, new: true, setDefaultsOnInsert: true }
           ),
