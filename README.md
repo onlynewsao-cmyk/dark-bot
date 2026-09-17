@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.77.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.78.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.78** 📋 | **LISTAS RESTANTES** — myinstants, tiktokstalk, anime e filme com escolha por número; auditoria final (pinterest/pinvd/Aura/portal18 sem títulos — sem lista) |
 | **v7.77** 📋 | **LISTAS COMPLETAS** — play/vídeo/sly/Spotify/SoundCloud/erome/ttks/NPC mostram todos os resultados e o user escolhe o número; sly animado preserva a animação |
 | **v7.76** 🚀 | **CANAL SUPER** — `!super` (um post para todos os canais + `grupos`), alvo por comando `!canal @2 …`, `!canal painel` estilo Meta |
 | **v7.75** 🛡️ | **GRUPOS PRO** — `!backupgp`/`!restoregp` (fotografia da config), `!slowmode` (modo lento), `!setwarnlimit`, antiflood com rajada + chuva de figurinhas |

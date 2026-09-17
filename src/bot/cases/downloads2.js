@@ -445,14 +445,33 @@ module.exports = function registerDownloads2(registerCase) {
     const query = args.join(' ').trim();
     if (!query) return reply(`🔊 Uso: \`${prefix}myinstants <nome do som>\``);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
+    const tocar = async (item) => {
+      const mp3Url = `https://www.myinstants.com${item.mp3}`;
+      const buf = await mediaHandler.fetchBuffer(mp3Url);
+      await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', fileName: item.name + '.mp3', ptt: true }, { quoted: msg });
+    };
     try {
       const axios = require('axios');
       const r = await axios.get(`https://www.myinstants.com/api/search/?term=${encodeURIComponent(query)}`, { timeout: 10000 });
-      const results = r.data?.results;
+      const results = (r.data?.results || []).filter(x => x?.mp3);
       if (!results?.length) throw new Error('Sem resultados');
-      const mp3Url = `https://www.myinstants.com${results[0].mp3}`;
-      const buf = await mediaHandler.fetchBuffer(mp3Url);
-      await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/mpeg', fileName: results[0].name + '.mp3', ptt: true }, { quoted: msg });
+      // v7.78: vários → LISTA; 1 → direto
+      if (results.length > 1) {
+        const lista = require('../listaEscolha');
+        const itens = results.slice(0, 8);
+        await lista.mostrar(sock, msg, ctx, {
+          titulo: `🔊 *${results.length} sons* — ${query.slice(0, 40)}`,
+          linhas: itens.map((x) => `*${String(x.name || '?').slice(0, 55)}*`),
+          itens, tipo: 'myinstants',
+          aoEscolher: async ({ item }) => {
+            await tocar(item);
+            sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+          },
+        });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
+      }
+      await tocar(results[0]);
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'MyInstants: ' + e.message); }
   });
@@ -548,20 +567,27 @@ module.exports = function registerDownloads2(registerCase) {
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
-      const results = await dl.tiktokSearch(user, 3);
+      const results = await dl.tiktokSearch(user, 6);
       if (!results.length) throw new Error('Perfil não encontrado ou sem vídeos públicos');
-      const r = results[0];
-      await sendVideo(sock, ctx.remoteJid, msg, r);
-      if (results.length > 1) {
-        const RE = require('../renderEngine');
-        const t = await RE.getTheme(ctx.remoteJid);
-        const extra = results.slice(1).map((v, i) => `${i + 2}. ${(v.title || 'TikTok').slice(0, 40)} — @${v.author || user}`).join('\n');
-        await reply(RE.renderBlock(t, 'TIKTOK · ' + user.toUpperCase(), [
-          `🎬 Vídeos em alta de *@${user}*:`,
-          extra,
-          `> Usa ${prefix}ttks ${user} para baixar outro`,
-        ], { botName: config.bot.name }));
+      // v7.78: 1 → direto; vários → LISTA (a dica antiga "usa ttks" nunca funcionou)
+      if (results.length === 1) {
+        if (!results[0].url) throw new Error('Sem URL de download');
+        await sendVideo(sock, ctx.remoteJid, msg, results[0]);
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
       }
+      const lista = require('../listaEscolha');
+      const itens = results.filter(v => v.url).slice(0, 8);
+      if (!itens.length) throw new Error('Sem URL de download');
+      await lista.mostrar(sock, msg, ctx, {
+        titulo: `🎬 *Vídeos de @${user}* (${itens.length})`,
+        linhas: itens.map((v) => `*${String(v.title || 'TikTok').slice(0, 50)}*\n   👤 @${v.author || user}${v.duration ? ` • ⏱️ ${v.duration}` : ''}`),
+        itens, tipo: 'ttstalk',
+        aoEscolher: async ({ item }) => {
+          await sendVideo(sock, ctx.remoteJid, msg, item);
+          sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+        },
+      });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'TikTok Stalk: ' + e.message); }
   });

@@ -106,10 +106,7 @@ module.exports = function registerSearch2(registerCase) {
   registerCase(['anime', 'anime2'], async ({ sock, msg, ctx, args, prefix }) => {
     const query = args.join(' ').trim();
     if (!query) return tReply(sock, msg, ctx, '🎌 ANIME', [`Uso: \`${prefix}anime Naruto\``]);
-    try {
-      const d = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=1`);
-      const a = d.data?.[0];
-      if (!a) throw new Error('Anime não encontrado');
+    const detalhe = async (a) => {
       const img = a.images?.jpg?.image_url;
       const text = [
         `🎌 *${a.title}*`,
@@ -121,6 +118,21 @@ module.exports = function registerSearch2(registerCase) {
       ].join('\n');
       if (img) await sock.sendMessage(ctx.remoteJid, { image: { url: img }, caption: text }, { quoted: msg });
       else await tReply(sock, msg, ctx, '🎌 ANIME', text.split('\n'));
+    };
+    try {
+      // v7.78: vários → LISTA; 1 → direto
+      const d = await fetch(`https://api.jikan.moe/v4/anime?q=${encodeURIComponent(query)}&limit=8`);
+      const achados = d.data || [];
+      if (!achados.length) throw new Error('Anime não encontrado');
+      if (achados.length === 1) return detalhe(achados[0]);
+      const lista = require('../listaEscolha');
+      const itens = achados.slice(0, 8);
+      return lista.mostrar(sock, msg, ctx, {
+        titulo: `🎌 *${achados.length} animes* — ${query.slice(0, 40)}`,
+        linhas: itens.map((a) => `*${String(a.title || '?').slice(0, 50)}*\n   📺 ${a.episodes || '?'} eps • ⭐ ${a.score || '?'} • 📅 ${a.year || '?'}`),
+        itens, tipo: 'anime',
+        aoEscolher: async ({ item }) => { await detalhe(item); },
+      });
     } catch (e) {
       return tReply(sock, msg, ctx, '🎌 ANIME', [`❌ ${e.message}`]);
     }
@@ -130,9 +142,7 @@ module.exports = function registerSearch2(registerCase) {
   registerCase(['filme', 'movie'], async ({ sock, msg, ctx, args, prefix }) => {
     const query = args.join(' ').trim();
     if (!query) return tReply(sock, msg, ctx, '🎬 FILME', [`Uso: \`${prefix}filme Inception\``]);
-    try {
-      const d = await fetch(`https://www.omdbapi.com/?t=${encodeURIComponent(query)}&apikey=trilogy`);
-      if (d.Response === 'False') throw new Error(d.Error || 'Filme não encontrado');
+    const detalhe = async (d) => {
       const img = d.Poster && d.Poster !== 'N/A' ? d.Poster : null;
       const text = [
         `🎬 *${d.Title}* (${d.Year})`,
@@ -144,6 +154,29 @@ module.exports = function registerSearch2(registerCase) {
       ].join('\n');
       if (img) await sock.sendMessage(ctx.remoteJid, { image: { url: img }, caption: text }, { quoted: msg });
       else await tReply(sock, msg, ctx, '🎬 FILME', text.split('\n'));
+    };
+    try {
+      // v7.78: pesquisa (s=) → LISTA; 1 → detalhe direto
+      const d = await fetch(`https://www.omdbapi.com/?s=${encodeURIComponent(query)}&apikey=trilogy`);
+      const achados = d.Search || [];
+      if (d.Response === 'False' || !achados.length) throw new Error(d.Error || 'Filme não encontrado');
+      if (achados.length === 1 && achados[0].imdbID) {
+        const full = await fetch(`https://www.omdbapi.com/?i=${achados[0].imdbID}&apikey=trilogy`);
+        if (full.Response !== 'False') return detalhe(full);
+      }
+      const lista = require('../listaEscolha');
+      const itens = achados.filter(a => a?.imdbID).slice(0, 8);
+      if (!itens.length) throw new Error('Filme não encontrado');
+      return lista.mostrar(sock, msg, ctx, {
+        titulo: `🎬 *${achados.length} filmes* — ${query.slice(0, 40)}`,
+        linhas: itens.map((a) => `*${String(a.Title || '?').slice(0, 50)}* (${a.Year || '?'})${a.Type ? `\n   🎭 ${a.Type}` : ''}`),
+        itens, tipo: 'filme',
+        aoEscolher: async ({ item }) => {
+          const full = await fetch(`https://www.omdbapi.com/?i=${item.imdbID}&apikey=trilogy`);
+          if (full.Response === 'False') throw new Error(full.Error || 'Falhou o detalhe');
+          await detalhe(full);
+        },
+      });
     } catch (e) {
       return tReply(sock, msg, ctx, '🎬 FILME', [`❌ ${e.message}`]);
     }
