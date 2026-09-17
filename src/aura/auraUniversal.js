@@ -104,7 +104,7 @@ const SINONIMOS = [
   [/\b(ping|latencia|lento|vivo|online)\b/, ['ping', 'statusbot', 'uptime', 'status']],
   [/\b(noticias|jornal|novidades)\b/, ['noticias', 'news']],
   // v7.81: "o que se passa nos grupos" / "verifica lá e me conta" (caso do print) → digest dos grupos
-  [/\b(o que (acontece|se passa|anda|rolou|rola|tem)|novidades? d|resumo d|digest d|movimento n)\b[^.?!]{0,24}\bgrupos?\b/, ['resumogrupos']],
+  [/\b(o que (acontec\w*|se passa|anda|rolou|rola|tem|passou|ta rolando)|novidades? d|resumo d|digest d|movimento n)\b[^.?!]{0,24}\bgrupos?\b/, ['resumogrupos']],
   [/\bverifica la\b/, ['resumogrupos']],
   [/\bconta\b[^.?!]{0,24}\b(dos grupos|nos grupos|o que)\b/, ['resumogrupos']],
   [/\b(pesquisa|pesquisar|procura|busca|google|wiki)\b/, ['pesquisar', 'google', 'wikipedia', 'wiki', 'gimage']],

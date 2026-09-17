@@ -43,6 +43,17 @@ function _libertar() {
   if (next) next();
 }
 
+// ── v7.82: dedup de mensagens ─────────────────────────────
+// O Baileys re-emite (history-sync 'append', retries de rede). Sem isto
+// a mesma mensagem era processada 2x — e como a IA é estocástica, cada
+// cópia podia seguir um caminho diferente (print: duas respostas
+// contraditórias no mesmo minuto). Chave: chat|id|participante.
+const _vistos = new Set();
+function _chaveMsg(msg) {
+  const k = msg?.key || {};
+  return `${k.remoteJid || ''}|${k.id || ''}|${k.participant || ''}`;
+}
+
 /**
  * v7.27: o número do bot é SUBDONO. As mensagens `fromMe` (escritas no
  * telemóvel onde o bot está ligado) entram no pipeline SÓ quando começam
@@ -79,6 +90,12 @@ function maskJid(jid = '') {
 
 async function _tratarUma(bot, batch, raw) {
   if (!raw?.message) return;
+  if (raw?.key?.id) { // v7.82: re-emissão → ignora (barato, antes do semáforo)
+    const _k = _chaveMsg(raw);
+    if (_vistos.has(_k)) return;
+    _vistos.add(_k);
+    if (_vistos.size > 2000) _vistos.clear();
+  }
   let msg = raw;
   await _adquirir();
   try {
@@ -160,6 +177,9 @@ async function _tratarUma(bot, batch, raw) {
 }
 
 async function process(bot, batch) {
+  // v7.82: só 'notify' é mensagem nova; 'append'/histórico não se responde
+  // (type ausente = testes/chamadas directas → processa na mesma).
+  if (batch && batch.type && batch.type !== 'notify') return;
   const messages = Array.isArray(batch?.messages) ? batch.messages : [];
   if (messages.length <= 1) {
     for (const raw of messages) await _tratarUma(bot, batch, raw);
@@ -177,4 +197,4 @@ async function process(bot, batch) {
   }));
 }
 
-module.exports = { process, isNoise, maskJid };
+module.exports = { process, isNoise, maskJid, _vistos };

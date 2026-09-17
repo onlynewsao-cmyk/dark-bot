@@ -418,6 +418,28 @@ const CAPACIDADES = [
     ],
   },
 
+  // ══ v7.82 — RESUMO DOS GRUPOS / PARTILHAR CONTACTO ══
+  // Determinístico (regex) para a IA não inventar: os dois prints
+  // eram mis-routes do rotearComIA (canal_seguir, falar_com_todos).
+  // Vêm ANTES de entrar_link/reencaminhar para não serem roubadas.
+  {
+    id: 'resumo_grupos', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Contar o que se passa nos grupos (digest: ativos, msgs/sem, top faladores)',
+    gatilhos: [
+      /\bo que\b.{0,30}\bacontec\w*\b.{0,20}\bgrupos?\b/,
+      /\bo que\b.{0,30}\b(se passa|rolou|rola|anda|passou|tem rolado|ta rolando)\b.{0,20}\bgrupos?\b/,
+      /\b(novidades?|resumo|digest|movimento)\b.{0,16}\b(dos?|nos?)\s?(grupos?|gps?)\b/,
+      /\bme conta\b.{0,24}\b(dos grupos|nos grupos|o que)\b/,
+      /\bverifica la\b/,
+    ],
+  },
+  {
+    id: 'partilhar_contacto', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
+    desc: 'Partilhar o contacto de quem pede (cartão vCard + dica)',
+    gatilhos: [
+      /\b(partilha|partilhar|manda|mandar|envia|enviar|passa|passar)\b.{0,24}\b(meu|minha|teu|tua|seu|sua)\s?(contacto|contato|numero|vcard|cartao)\b/,
+    ],
+  },
   // ══ ENTRAR / PARTILHAR (v6.82) ════════════════════════════
   {
     // Um link de convite basta — não é preciso dizer "entra".
@@ -554,6 +576,7 @@ async function rotearComIA(texto, ai) {
   const sys = `És um router de comandos. Lês um pedido em português e escolhes UMA capacidade da lista.
 Responde SÓ em JSON: {"id":"<id ou null>","arg":"<argumento ou vazio>"}
 Se nenhuma servir, devolve {"id":null,"arg":""}. Nunca inventes ids.
+Nunca escolhas por palavra parecida: "grupos" não é canal_seguir/entrar_link (isso é só com LINK de convite); "diga/conta" não é falar_com_todos. Perguntas ("o que", "como", "quando", "quem") quase nunca são ordens — na dúvida, null.
 
 CAPACIDADES:
 ${lista}`;

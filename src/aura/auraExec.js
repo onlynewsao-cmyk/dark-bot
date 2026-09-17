@@ -403,6 +403,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
     }
 
     case 'falar_com_todos': {
+      if (!ctx.isGroup) return { ok: false, msg: null }; // v7.82: no PV não há "todos" — cai para conversa
       const hist = require('./auraHistorico');
       return await hist.falarComTodos(sock, ctx, texto || arg || '', msg);
     }
@@ -453,6 +454,34 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
 
       const r = await canais.reagirTudoCanal(sock, alvo, emoji, 10);
       return r.ok ? { ok: true, msg: r.msg } : { ok: false, msg: r.msg };
+    }
+
+    // ══ v7.82 — RESUMO DOS GRUPOS / PARTILHAR CONTACTO ═══
+    case 'resumo_grupos': {
+      // "verifica lá" sozinho num GRUPO é vago → cai para conversa/universal.
+      const _tn = brain.norm(texto);
+      if (ctx.isGroup && /^\s*verifica la\b/.test(_tn) && !/grupo/.test(_tn)) {
+        return { ok: false, msg: null };
+      }
+      try {
+        const correu = await require('../bot/caseHandler').runCase('resumogrupos', {
+          sock, msg, ctx, args: [], text: '', prefix: '!', command: 'resumogrupos',
+          isOwner, config: require('../config'), reply: (t) => sock.sendMessage(ctx.remoteJid, { text: t }, { quoted: msg }),
+        });
+        if (correu) return { ok: true, silencioso: true }; // o case já respondeu
+        return { ok: false, msg: null };
+      } catch { return { ok: false, msg: null }; }
+    }
+
+    case 'partilhar_contacto': {
+      const num = String(ctx.senderNumber || '').replace(/\D/g, '');
+      if (!num) return { ok: false, msg: null };
+      const nome = String(ctx.pushName || num).slice(0, 40).replace(/\n/g, ' ');
+      const vcard = `BEGIN:VCARD\nVERSION:3.0\nFN:${nome}\nTEL;type=CELL;type=VOICE;waid=${num}:+${num}\nEND:VCARD`;
+      try {
+        await sock.sendMessage(ctx.remoteJid, { contacts: { displayName: nome, contacts: [{ vcard }] } }, { quoted: msg });
+        return { ok: true, msg: 'Aqui tens — reencaminha para o grupo e pede a um admin para te adicionar. 🖤' };
+      } catch { return { ok: false, msg: null }; }
     }
 
     // ══ ENTRAR POR LINK / PARTILHAR (v6.82) ═══════════════
