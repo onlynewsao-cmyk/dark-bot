@@ -103,6 +103,10 @@ const SINONIMOS = [
   [/\b(menu|comandos|ajuda|help|o que sabes fazer)\b/, ['menu', 'help', 'menuadm', 'menudono', 'allmenu']],
   [/\b(ping|latencia|lento|vivo|online)\b/, ['ping', 'statusbot', 'uptime', 'status']],
   [/\b(noticias|jornal|novidades)\b/, ['noticias', 'news']],
+  // v7.81: "o que se passa nos grupos" / "verifica lá e me conta" (caso do print) → digest dos grupos
+  [/\b(o que (acontece|se passa|anda|rolou|rola|tem)|novidades? d|resumo d|digest d|movimento n)\b[^.?!]{0,24}\bgrupos?\b/, ['resumogrupos']],
+  [/\bverifica la\b/, ['resumogrupos']],
+  [/\bconta\b[^.?!]{0,24}\b(dos grupos|nos grupos|o que)\b/, ['resumogrupos']],
   [/\b(pesquisa|pesquisar|procura|busca|google|wiki)\b/, ['pesquisar', 'google', 'wikipedia', 'wiki', 'gimage']],
   [/\b(calcula|calc|conta|quanto e)\b/, ['calc', 'calcular']],
   [/\b(beija|abraca|bate|tapa|mata|casa|casar|namora)\b/, ['beijar', 'abracar', 'bater', 'tapa', 'matar', 'casar', 'namorar']],
@@ -129,6 +133,17 @@ const SINONIMOS = [
 // nunca sugeridos: brincadeiras homónimas ou ruído
 const EXCLUIR = new Set(['aura', 'auramod', 'aurarpg', 'liga', 'lista', 'reverse', 'bot', 'dark']);
 
+// v7.81: comandos-meta só entram se a frase falar do assunto.
+// Sem isto "verifica lá e me conta" caía em `verificarcmds` (prefixo "verifica") → AUDITORIA (caso do print).
+const REQUER = new Map([
+  ['auditcmds', /\b(comandos?|cmds?|cases?|auditoria?|audit)\b/],
+  ['audit', /\b(comandos?|cmds?|cases?|auditoria?|audit)\b/],
+  ['verificarcmds', /\b(comandos?|cmds?|cases?|auditoria?|audit)\b/],
+  ['cmdcheck', /\b(comandos?|cmds?|cases?|auditoria?|audit)\b/],
+  ['listcmds', /\b(comandos?|cmds?|cases?|lista)\b/],
+  ['listcases', /\b(comandos?|cmds?|cases?|lista)\b/],
+]);
+
 function _candidatos(texto, cat, max = 140) {
   const t = norm(texto);
   const palavras = t.split(/[^a-z0-9]+/).filter(w => w.length >= 3);
@@ -147,6 +162,7 @@ function _candidatos(texto, cat, max = 140) {
     }
     if (s) bump(nome, s);
   }
+  for (const [n, re] of REQUER) if (score.has(n) && !re.test(t)) score.delete(n); // v7.81: anti-falso-positivo
   return [...score.entries()].sort((a, b) => b[1] - a[1]).slice(0, max).map(([n]) => n);
 }
 
@@ -162,7 +178,7 @@ async function escolherComando(texto, ai) {
   const sys = `És o router de comandos de um bot de WhatsApp. Recebes um pedido em português e a lista de comandos REAIS disponíveis (nome: descrição).
 Escolhe o comando que executa o pedido e extrai os argumentos que o comando precisa (nome de música, número, texto…).
 Responde SÓ com JSON: {"cmd":"<nome exacto da lista ou null>","args":"<argumentos ou vazio>"}
-Regras: nunca inventes nomes; se a frase é conversa/pergunta e não um pedido de acção, devolve {"cmd":null,"args":""}. Se o pedido é sobre uma mensagem citada (sticker, imagem…), o comando corre sobre ela — args vazio.
+Regras: nunca inventes nomes; se a frase é conversa/pergunta e não um pedido de acção, devolve {"cmd":null,"args":""}. Se NENHUM comando da lista executa o pedido, devolve {"cmd":null,"args":""} — nunca escolhas o menos mau. Se o pedido é sobre uma mensagem citada (sticker, imagem…), o comando corre sobre ela — args vazio.
 
 COMANDOS:
 ${lista}`;
@@ -328,7 +344,7 @@ async function responderComSticker(sock, msg, ctx, tema) {
 }
 
 module.exports = {
-  catalogo, permissao, escolherComando, executarComando,
+  catalogo, permissao, escolherComando, executarComando, _candidatos, REQUER,
   gerirPresenca, RE_ACORDA, RE_DORME, RE_ESTADO,
   agoraTexto, blocoTemporal, quandoFoi, blocoTamanho,
   politicaSticker, responderComSticker,

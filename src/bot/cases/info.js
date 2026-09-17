@@ -239,6 +239,79 @@ module.exports = function registerInfoCases(registerCase) {
     return sock.sendMessage(ctx.remoteJid, { text: linhas.join('\n'), mentions }, { quoted: msg });
   });
 
+  // v7.81: RESUMO DOS GRUPOS — o dono pergunta no PV "o que se passa nos grupos?" e ela CONTA.
+  registerCase(['resumogrupos', 'digestgrupos', 'novidadesgrupos'], async ({ sock, msg, ctx, reply, isOwner }) => {
+    if (!isOwner) return reply('🚫 Só o *dono*.');
+    const t = await getActiveTheme(ctx.remoteJid);
+    const f = t.frame;
+    const b = t.bullet;
+    const head = () => [
+      `${f[0]}${f[4].repeat(24)}${f[1]}`,
+      `${f[5]} ${t.icon} ʀᴇsᴜᴍᴏ ᴅᴏs ɢʀᴜᴘᴏs ${t.icon}`,
+      `${f[2]}${f[4].repeat(24)}${f[3]}`,
+      '',
+    ];
+    const tail = () => ['', `> ${t.vibe}`];
+    const ha = (ts) => {
+      const m = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+      if (m < 1) return 'agora';
+      if (m < 60) return `há ${m}min`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `há ${h}h`;
+      return `há ${Math.floor(h / 24)}d`;
+    };
+    try {
+      const GroupSettings = require('../../database/models/GroupSettings');
+      const GroupMemberActivity = require('../../database/models/GroupMemberActivity');
+      const wk = require('../weekKey').key();
+      const D = 86400000, agora = Date.now();
+      const gdocs = await GroupSettings.find({}).lean().catch(() => []);
+      const ativos = (Array.isArray(gdocs) ? gdocs : [])
+        .filter(g => g?.groupJid && g.lastActivity && (agora - new Date(g.lastActivity).getTime()) < 7 * D)
+        .sort((a, b) => new Date(b.lastActivity) - new Date(a.lastActivity))
+        .slice(0, 8);
+      if (!ativos.length) {
+        return reply([...head(), `${b} Sem movimento nos últimos 7 dias. 🕸️`, ...tail()].join('\n'));
+      }
+      const jids = ativos.map(g => g.groupJid);
+      const gnomes = new Map(ativos.map(g => [g.groupJid, g.groupName || g.groupJid.split('@')[0]]));
+      let mems = [];
+      try { mems = await GroupMemberActivity.find({ groupJid: { $in: jids } }).lean().catch(() => []) || []; } catch {}
+      const porGrupo = new Map();
+      const faladores = [];
+      for (const m of mems) {
+        const n = (m.weeks?.[wk]?.m || 0) + (m.weeks?.[wk]?.c || 0);
+        if (!m?.groupJid) continue;
+        porGrupo.set(m.groupJid, (porGrupo.get(m.groupJid) || 0) + n);
+        if (n > 0) faladores.push({ n, nome: (m.pushName || m.memberNumber || '?').toString().slice(0, 18), g: gnomes.get(m.groupJid) || '?' });
+      }
+      faladores.sort((a, b2) => b2.n - a.n);
+      const estado = (g) => {
+        const hosted = g.isHosted && g.hostedUntil && new Date(g.hostedUntil).getTime() > agora;
+        if (hosted) return '💎';
+        const trial = g.trialExpiresAt && new Date(g.trialExpiresAt).getTime() > agora;
+        if (trial) return '🆓';
+        return '🔴';
+      };
+      const linhas = [...head(), `${b} 📅 Semana *${wk}* · ${ativos.length} grupo(s) com movimento`, ''];
+      ativos.forEach((g, i) => {
+        const nome = String(gnomes.get(g.groupJid) || '?').slice(0, 30);
+        const semana = porGrupo.get(g.groupJid) || 0;
+        linhas.push(`${b} ${estado(g)} *${nome}* — ${semana} msgs/sem · ${ha(new Date(g.lastActivity).getTime())}`);
+      });
+      if (faladores.length) {
+        linhas.push('', `${b} 🗣️ *Top faladores da semana:*`);
+        faladores.slice(0, 5).forEach((x, i) => {
+          linhas.push(`${b}    ${['🥇', '🥈', '🥉', '4.', '5.'][i]} ${x.nome} (${x.n}) — ${x.g.slice(0, 20)}`);
+        });
+      }
+      linhas.push(...tail());
+      return reply(linhas.join('\n'));
+    } catch (e) {
+      return reply([...head(), `${b} Não consegui ler os grupos agora. Tenta de novo. 🕸️`, ...tail()].join('\n'));
+    }
+  });
+
   // ── hora / data ────────────────────────────────────────────
   registerCase(['hora', 'horas', 'data', 'date', 'agora'], async ({ sock, msg, ctx }) => {
     const t = await getActiveTheme(ctx.remoteJid);

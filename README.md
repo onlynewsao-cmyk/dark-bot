@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.80.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.81.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.81** 📣 | **AURA CONTA** — `!resumogrupos` (digest: grupos ativos, msgs/sem, top faladores, estado 💎/🆓/🔴); "verifica lá"/"o que se passa nos grupos" por conversa; guarda anti-falso-positivo no router (audit só se a frase falar de comandos) |
 | **v7.80** 🏆 | **RANK SEMANAL** — `!ranksemanal` (top da semana ISO, zera sozinho, prune rolante sem scheduler) + bugfix `!rankativos` (path inexistente — nunca mostrava nada) |
 | **v7.79** 💰 | **MONETIZAÇÃO PRO** — `!vendas` (receita Kz+R$, por plano, ativos/expirando/trials/pendentes), `!rejeitar` com motivo, `approvedAt` no ativar, dono avisado na expiração |
 | **v7.78** 📋 | **LISTAS RESTANTES** — myinstants, tiktokstalk, anime e filme com escolha por número; auditoria final (pinterest/pinvd/Aura/portal18 sem títulos — sem lista) |
