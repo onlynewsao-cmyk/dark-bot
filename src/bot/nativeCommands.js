@@ -840,6 +840,33 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
 const stickerPack = require('./stickerPack');
 const sendNativeStickerPack = stickerPack.sendNativeStickerPack;
 
+// v7.77: baixa + envia as mídias de UM álbum erome (o escolhido da lista ou URL direta)
+async function eromeBaixarAlbum(sock, msg, ctx, albumUrl, limit, opts = {}) {
+  const replyFn = (t) => sock.sendMessage(ctx.remoteJid, { text: t }, { quoted: msg });
+  try {
+    const erome = require('./erome');
+    const result = await erome.albumToMedia(albumUrl, limit, opts);
+    let sent = 0;
+    for (const m of result.media) {
+      try {
+        if (m.type === 'photo') {
+          await sock.sendMessage(ctx.remoteJid, { image: m.buf, caption: sent === 0 ? '📸 *' + result.name + '*' : '' }, { quoted: msg });
+        } else if (m.type === 'video') {
+          await sock.sendMessage(ctx.remoteJid, { video: m.buf, mimetype: 'video/mp4', caption: '🎬 *' + result.name + '*' }, { quoted: msg });
+        }
+        sent++;
+        await new Promise(r => setTimeout(r, 500));
+      } catch {}
+    }
+    if (!sent) throw new Error('Sem mídias no álbum');
+    await sock.sendMessage(ctx.remoteJid, { text: '✅ *' + sent + ' mídias enviadas*\n📸 ' + result.totalPhotos + ' fotos | 🎬 ' + result.totalVideos + ' vídeos' }, { quoted: msg });
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+  } catch (e) {
+    await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
+    return replyFn('❌ Erome: ' + e.message);
+  }
+}
+
 module.exports = {
   // ============ INFO ============
   async start({ sock, msg, ctx, config: cfg }) {
@@ -2832,27 +2859,29 @@ module.exports = {
     const query = args.filter(a => !/^\d+$/.test(a)).join(' ').trim();
     const limit = parseInt(args.find(a => /^\d+$/.test(a))) || 5;
     if (!query) return reply(sock, msg, ctx, '🔍 Uso: *!erome <nome>* [qtd]');
+    // URL direta de álbum → baixa sem lista
+    if (/erome\.com\/a\//i.test(query)) {
+      return eromeBaixarAlbum(sock, msg, ctx, query, Math.min(limit, 20), {});
+    }
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
     try {
       const erome = require('./erome');
-      const results = await erome.search(query);
+      const results = (await erome.search(query)).filter(r => !erome.isFiltered(r.name, r.url));
       if (!results.length) throw new Error('Nenhum resultado para: ' + query);
-      await sock.sendMessage(ctx.remoteJid, { text: '🔍 *' + results.length + '* resultados para *' + query + '*' }, { quoted: msg });
-      const result = await erome.searchAndDownload(query, Math.min(limit, 20));
-      if (!result.media.length) throw new Error('Sem mídias no álbum');
-      let sent = 0;
-      for (const m of result.media) {
-        try {
-          if (m.type === 'photo') {
-            await sock.sendMessage(ctx.remoteJid, { image: m.buf, caption: sent === 0 ? '📸 *' + result.name + '*' : '' }, { quoted: msg });
-          } else if (m.type === 'video') {
-            await sock.sendMessage(ctx.remoteJid, { video: m.buf, mimetype: 'video/mp4', caption: '🎬 *' + result.name + '*' }, { quoted: msg });
-          }
-          sent++;
-          await new Promise(r => setTimeout(r, 500));
-        } catch {}
+      if (results.length === 1) {
+        return eromeBaixarAlbum(sock, msg, ctx, results[0].url, Math.min(limit, 20), {});
       }
-      await sock.sendMessage(ctx.remoteJid, { text: '✅ *' + sent + ' mídias enviadas*\n📸 ' + result.totalPhotos + ' fotos | 🎬 ' + result.totalVideos + ' vídeos' }, { quoted: msg });
+      // v7.77: LISTA de álbuns — o user escolhe o número
+      const lista = require('./listaEscolha');
+      const itens = results.slice(0, 10);
+      await lista.mostrar(sock, msg, ctx, {
+        titulo: `💎 *${results.length} resultados* — ${query.slice(0, 40)}`,
+        linhas: itens.map((r) => `*${String(r.name || 'Álbum').slice(0, 55)}*${r.type === 'profile' ? '\n   👤 perfil' : ''}`),
+        itens, tipo: 'erome',
+        aoEscolher: async ({ item }) => {
+          await eromeBaixarAlbum(sock, msg, ctx, item.url, Math.min(limit, 20), {});
+        },
+      });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -2864,18 +2893,28 @@ module.exports = {
     const query = args.filter(a => !/^\d+$/.test(a)).join(' ').trim();
     const limit = parseInt(args.find(a => /^\d+$/.test(a))) || 3;
     if (!query) return reply(sock, msg, ctx, '🎬 Uso: *!eromevid <nome>* [qtd]');
+    if (/erome\.com\/a\//i.test(query)) {
+      return eromeBaixarAlbum(sock, msg, ctx, query, Math.min(limit, 10), { videosOnly: true });
+    }
     await sock.sendMessage(ctx.remoteJid, { react: { text: '🎬', key: msg.key } });
     try {
       const erome = require('./erome');
-      const videos = await erome.searchVideos(query, Math.min(limit, 10));
-      if (!videos.length) throw new Error('Nenhum vídeo encontrado');
-      for (const v of videos) {
-        try {
-          await sock.sendMessage(ctx.remoteJid, { video: v.buf, mimetype: 'video/mp4', caption: '🎬 *' + (v.name || query) + '*' }, { quoted: msg });
-          await new Promise(r => setTimeout(r, 500));
-        } catch {}
+      const results = (await erome.search(query)).filter(r => !erome.isFiltered(r.name, r.url));
+      if (!results.length) throw new Error('Nenhum resultado para: ' + query);
+      if (results.length === 1) {
+        return eromeBaixarAlbum(sock, msg, ctx, results[0].url, Math.min(limit, 10), { videosOnly: true });
       }
-      await sock.sendMessage(ctx.remoteJid, { text: '✅ *' + videos.length + ' vídeos enviados*' }, { quoted: msg });
+      // v7.77: LISTA de álbuns — o user escolhe o número
+      const lista = require('./listaEscolha');
+      const itens = results.slice(0, 10);
+      await lista.mostrar(sock, msg, ctx, {
+        titulo: `🎬 *${results.length} resultados* — ${query.slice(0, 40)}`,
+        linhas: itens.map((r) => `*${String(r.name || 'Álbum').slice(0, 55)}*`),
+        itens, tipo: 'eromevid',
+        aoEscolher: async ({ item }) => {
+          await eromeBaixarAlbum(sock, msg, ctx, item.url, Math.min(limit, 10), { videosOnly: true });
+        },
+      });
       await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });

@@ -930,6 +930,22 @@ async function resolverRef(ref) {
 }
 
 /**
+ * v7.77 LISTAS — devolve TODOS os canais que casam com a ref
+ * (nº exato → 1; nome/jid parcial → N). Lista vazia = não achou.
+ */
+async function procurarCanais(ref) {
+  const d = await _lerCanais();
+  if (!d.lista.length) return [];
+  const t = String(ref || '').trim().toLowerCase().replace(/^[@#]/, '');
+  if (!t) return [];
+  if (/^\d+$/.test(t)) {
+    const c = d.lista[parseInt(t, 10) - 1];
+    return c ? [c] : [];
+  }
+  return d.lista.filter(c => (c.name || '').toLowerCase().includes(t) || String(c.jid).toLowerCase().includes(t));
+}
+
+/**
  * v7.76 SUPER — esquece um canal QUALQUER da lista (não só o ativo).
  * Usado pelo `!canal @x deixar/apagar`.
  */
@@ -1027,5 +1043,6 @@ module.exports = {
   enviarStickersCanal, enviarPackCanal,
   criarCanalSeguro, parseCriacaoCanal, aceitarConviteCanal,
   resolverRef, esquecerCanal, superPostar, painelCanais, // v7.76 SUPER
+  procurarCanais, // v7.77 LISTAS
   RE_GRUPO, RE_CANAL,
 };

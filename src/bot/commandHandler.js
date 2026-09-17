@@ -388,11 +388,13 @@ async function _handleInner(sock, msg) {
   const ctx = getSenderInfo(msg);
   try { require('./stickerWm').bind(ctx); } catch {}
 
-  // ── v7.21: resposta por número do cartão de música (som) ─────────
-  // "01"/"02"/"03" (ou 1/2/3) logo após um !som — sem prefixo, mas só
-  // actua se houver um cartão pendente para este chat+utilizador.
+  // ── v7.77: listas com escolha por número (play/sly/spotify/...) ──
+  // Tenta primeiro a lista pendente (ela cede ao !som se o cartão for
+  // mais novo); depois o cartão de música. "1".."10", com ou sem zero.
   try {
-    if (/^0?[1-3](?:\s|$)/.test(text)) {
+    if (/^0?(10|[1-9])(?:\s|$)/.test(text)) {
+      const lista = require('./listaEscolha');
+      if (await lista.tentarNumero(sock, msg, ctx, text)) return true;
       const musicaCard = require('./musicaCard');
       if (await musicaCard.tentarNumero(sock, msg, ctx, text)) return true;
     }

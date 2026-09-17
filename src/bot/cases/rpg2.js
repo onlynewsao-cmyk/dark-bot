@@ -438,7 +438,23 @@ module.exports = function registerRPG2(registerCase) {
 
   // ═══ NPC INTERACTION ═══
   registerCase(['npc', 'falar', 'talk'], async ({ sock, msg, ctx, args }) => {
-    const npcKey = args[0]?.toLowerCase() || P(Object.keys(rpg.NPCS));
+    // v7.77: sem nome → LISTA de NPCs (antes mandava um aleatório)
+    if (!args[0]) {
+      const lista = require('../listaEscolha');
+      const chaves = Object.keys(rpg.NPCS || {});
+      if (!chaves.length) return tReply(sock, msg, ctx, '🗣️ NPC', ['Sem NPCs por aqui.']);
+      const itens = chaves.slice(0, 10);
+      return lista.mostrar(sock, msg, ctx, {
+        titulo: `🗣️ *NPCs* (${chaves.length})`,
+        linhas: itens.map((k) => `${rpg.NPCS[k].emoji || '💬'} *${rpg.NPCS[k].name || k}*`),
+        itens, tipo: 'npc',
+        aoEscolher: async ({ item }) => {
+          const npc = rpg.NPCS[item];
+          await tReply(sock, msg, ctx, `${npc.emoji} ${npc.name}`, [`"${P(npc.dialogues)}"`]);
+        },
+      });
+    }
+    const npcKey = args[0]?.toLowerCase();
     const npc = rpg.NPCS[npcKey] || P(Object.values(rpg.NPCS));
     // v6.62: savePlayer(p) com `p` inexistente — este comando só mostra.
 

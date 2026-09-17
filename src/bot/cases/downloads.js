@@ -75,6 +75,39 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title) {
 // Estrutura EXACTA do código de referência (case 'play'),
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
+
+// ── v7.77: cartão do play (extraído do runPlaySearch p/ reusar na escolha) ──
+async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, toxic, footer) {
+  const { ButtonV2 } = require('@systemzero/baileys/lib/MB.cjs');
+  if (toxic) {
+    await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg);
+    return;
+  }
+  let sent = false;
+  try {
+    const msgBtn = new ButtonV2(sock);
+    msgBtn.setTitle(`${video.title}`.slice(0, 60));
+    msgBtn.setBody(
+      `\u{1F464} ${video.author || 'Desconhecido'}\n` +
+      `\u23F1\uFE0F ${video.duration || '?'} \u2022 \u{1F441}\uFE0F ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +
+      bodyExtra
+    );
+    msgBtn.setFooter(footer);
+    if (video.thumbnail) {
+      try { msgBtn.setThumbnail(video.thumbnail); } catch {}
+    }
+    msgBtn.addButton(`\uD83C\uDFB5 Baixar \u00C1udio (${Q.audio})`, `${prefix}ytd ${video.youtube_url} | ${Q.audio}`);
+    msgBtn.addButton(`\uD83C\uDFAC Baixar V\u00EDdeo (${Q.video}p)`, `${prefix}gyt ${video.youtube_url} | mp4 | ${Q.video}`);
+    await msgBtn.send(m.chat, { quoted: msg });
+    sent = true;
+  } catch (e) {
+    console.warn('[PLAY] ButtonV2 falhou, a usar cascata:', e.message?.slice(0, 80));
+  }
+  if (!sent) {
+    await systemZeroPlay.sendPlayCard(sock, m.chat, video, prefix, msg, bodyExtra.trim());
+  }
+}
+
 async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0, quality = {}) {
   if (!text) return m.reply(`Exemplo: ${prefix + command} Slash Inferno`);
 
@@ -96,51 +129,33 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
       return m.reply('Nenhum resultado encontrado.');
     }
 
-    const video = searchData.resultados[Math.min(resultIndex, searchData.resultados.length - 1)];
+    const resultados = searchData.resultados || [];
     const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ DARK BOT` : '© DARK BOT v6');
+
+    // ── v7.77: !play mostra a LISTA e o user escolhe o número ──
+    if (resultIndex === 0 && resultados.length > 1) {
+      const lista = require('../listaEscolha');
+      const itens = resultados.slice(0, 8);
+      await lista.mostrar(sock, msg, ctx, {
+        titulo: `🎵 *${resultados.length} resultados* — ${String(text).slice(0, 40)}`,
+        linhas: itens.map((v) => `*${String(v.title || '?').slice(0, 55)}*\n   ⏱️ ${v.duration || '?'} • 👤 ${String(v.author || '?').slice(0, 30)}`),
+        itens, tipo: 'play',
+        aoEscolher: async ({ item, idx }) => {
+          await enviarCardPlay(sock, m, msg, item, prefix, Q,
+            `✦ ݁˖ Escolheste o #${idx + 1} ✦ ݁˖\n\n`, quality.toxic, footer);
+        },
+      });
+      sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+      return true;
+    }
+
+    const video = resultados[Math.min(resultIndex, resultados.length - 1)];
     const bodyExtra =
       resultIndex === 0 ? '✦ ݁˖ Selecione o formato desejado. .✦ ݁˖\n\n'
       : resultIndex === 1 ? '✦ ݁˖ Resultado alternativo (#2) ✦ ݁˖\n\n'
       : `✦ ݁˖ Resultado #${resultIndex + 1} ✦ ݁˖\n\n`;
 
-    // ── PLAY: novo card Dark Tóxico (play3 permanece intacto) ──
-    if (quality.toxic) {
-      await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg);
-      sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
-      return true;
-    }
-
-    // ── ButtonV2 (código de referência) ──
-    let sent = false;
-    try {
-      const msgBtn = new ButtonV2(sock);
-
-      msgBtn.setTitle(`${video.title}`.slice(0, 60));
-      msgBtn.setBody(
-        `👤 ${video.author || 'Desconhecido'}\n` +
-        `⏱️ ${video.duration || '?'} • 👁️ ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +
-        bodyExtra
-      );
-      msgBtn.setFooter(footer);
-
-      if (video.thumbnail) {
-        try { msgBtn.setThumbnail(video.thumbnail); } catch {}
-      }
-
-      msgBtn.addButton(`🎵 Baixar Áudio (${Q.audio})`, `${prefix}ytd ${video.youtube_url} | ${Q.audio}`);
-      msgBtn.addButton(`🎬 Baixar Vídeo (${Q.video}p)`, `${prefix}gyt ${video.youtube_url} | mp4 | ${Q.video}`);
-
-      await msgBtn.send(m.chat, { quoted: msg });
-      sent = true;
-    } catch (e) {
-      console.warn('[PLAY] ButtonV2 falhou, a usar cascata:', e.message?.slice(0, 80));
-    }
-
-    // ── Fallback: interactive viewOnce → texto ──
-    if (!sent) {
-      await systemZeroPlay.sendPlayCard(sock, m.chat, video, prefix, msg, bodyExtra.trim());
-    }
-
+    await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, quality.toxic, footer);
     sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
   } catch (e) {
     if (!e.message?.includes('rate-overlimit')) {
@@ -262,42 +277,54 @@ module.exports = function registerDownloadCases(registerCase) {
   // ════════════════════════════════════════════════
   // case 'video' — vídeo HD 720p directo
   // ════════════════════════════════════════════════
-  registerCase(['video', 'vid', 'ytmp4', 'yt4'], async ({
-    sock, msg, ctx, text, prefix, reply, react,
-  }) => {
-    if (!text) return reply(
-      `🎬 *Exemplo:* \`${prefix}video Naruto AMV\`\n\n` +
-      `• \`${prefix}video\`  — 720p HD\n` +
-      `• \`${prefix}video2\` — 1080p FHD`
-    );
+  // v7.77: !video com LISTA — nome → escolhe o número; URL → direto
+  async function runVideoLista({ sock, msg, ctx, text, prefix, reply, react }, maxH, etiqueta) {
     react('⏳');
     try {
-      const r   = await ytdl.getVideo(text, '720');
-      const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 720p HD`;
+      if (!/^https?:\/\//i.test(text || '')) {
+        const achados = await ytdl.searchVideoList(text, 8);
+        if (!achados?.length) throw new Error('Sem resultados');
+        if (achados.length > 1) {
+          const lista = require('../listaEscolha');
+          await lista.mostrar(sock, msg, ctx, {
+            titulo: `🎬 *${achados.length} resultados* — ${String(text).slice(0, 40)}`,
+            linhas: achados.map((v) => `*${String(v.title || '?').slice(0, 55)}*\n   ⏱️ ${v.duration || '?'} • 👤 ${String(v.author || '?').slice(0, 30)}`),
+            itens: achados, tipo: 'video',
+            aoEscolher: async ({ item }) => {
+              const r = await ytdl.getVideo(item.url, maxH);
+              const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 ${etiqueta}`;
+              await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
+              react('✅');
+            },
+          });
+          react('✅');
+          return;
+        }
+      }
+      const r   = await ytdl.getVideo(text, maxH);
+      const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 ${etiqueta}`;
       await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
       react('✅');
     } catch (e) {
       react('❌');
       return reply('❌ Falha no download de vídeo.');
     }
+  }
+
+  registerCase(['video', 'vid', 'ytmp4', 'yt4'], async (a) => {
+    if (!a.text) return a.reply(
+      `🎬 *Exemplo:* \`${a.prefix}video Naruto AMV\`\n\n` +
+      `• \`${a.prefix}video\`  — 720p HD\n` +
+      `• \`${a.prefix}video2\` — 1080p FHD`
+    );
+    return runVideoLista(a, '720', '720p HD');
   });
 
   // ════════════════════════════════════════════════
   // case 'video2' — vídeo FHD 1080p
   // ════════════════════════════════════════════════
-  registerCase(['video2', 'vid2', 'fhd', 'fullhd'], async ({
-    sock, msg, ctx, text, prefix, reply, react,
-  }) => {
-    if (!text) return reply(`🎬 *Full HD (1080p)*\n\nExemplo: \`${prefix}video2 nome do vídeo\``);
-    react('⏳');
-    try {
-      const r   = await ytdl.getVideo(text, '1080');
-      const cap = `🎬 *${r.title}*\n👤 ${r.author || ''} | ⏱️ ${r.duration || '?'} | 📺 1080p FHD`;
-      await sendVideoFile(sock, ctx.remoteJid, msg, r.buffer, cap, r.title);
-      react('✅');
-    } catch (e) {
-      react('❌');
-      return reply('❌ Falha no download FHD.');
-    }
+  registerCase(['video2', 'vid2', 'fhd', 'fullhd'], async (a) => {
+    if (!a.text) return a.reply(`🎬 *Full HD (1080p)*\n\nExemplo: \`${a.prefix}video2 nome do vídeo\``);
+    return runVideoLista(a, '1080', '1080p FHD');
   });
 };

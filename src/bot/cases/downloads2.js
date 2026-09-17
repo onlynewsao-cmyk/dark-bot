@@ -162,6 +162,27 @@ module.exports = function registerDownloads2(registerCase) {
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
+      // v7.77: nome → LISTA de resultados; URL → direto como antes
+      if (!/^https?:\/\//i.test(query)) {
+        const { systemZoneSpotifySearch } = require('../dl/helpers');
+        const achados = await systemZoneSpotifySearch(query, 8);
+        if (!achados?.length) throw new Error('Sem resultados para: ' + query);
+        const lista = require('../listaEscolha');
+        const itens = achados.filter(a => a?.url).slice(0, 8);
+        if (!itens.length) throw new Error('Sem resultados para: ' + query);
+        await lista.mostrar(sock, msg, ctx, {
+          titulo: `💚 *${itens.length} resultados* — ${query.slice(0, 40)}`,
+          linhas: itens.map((a) => `*${String(a.title || a.name || '?').slice(0, 50)}*\n   👤 ${String(a.artist || a.artists || '?').slice(0, 30)}`),
+          itens, tipo: 'spotify',
+          aoEscolher: async ({ item }) => {
+            const r = await dl.spotify(item.url);
+            await sendAudio(sock, ctx.remoteJid, msg, r);
+            sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+          },
+        });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
+      }
       const r = await dl.spotify(query);
       await sendAudio(sock, ctx.remoteJid, msg, r);
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
@@ -175,6 +196,26 @@ module.exports = function registerDownloads2(registerCase) {
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const dl = require('../dl/others');
+      // v7.77: nome → LISTA de resultados; URL → direto como antes
+      if (!/^https?:\/\//i.test(query)) {
+        const { systemZoneSoundCloudSearch } = require('../dl/helpers');
+        const achados = await systemZoneSoundCloudSearch(query);
+        const itens = (achados || []).filter(a => a?.sc_url || a?.url).slice(0, 8);
+        if (!itens.length) throw new Error('Sem resultados para: ' + query);
+        const lista = require('../listaEscolha');
+        await lista.mostrar(sock, msg, ctx, {
+          titulo: `☁️ *${itens.length} resultados* — ${query.slice(0, 40)}`,
+          linhas: itens.map((a) => `*${String(a.title || a.name || '?').slice(0, 50)}*\n   👤 ${String(a.author || a.username || '?').slice(0, 30)}`),
+          itens, tipo: 'soundcloud',
+          aoEscolher: async ({ item }) => {
+            const r = await dl.soundcloud(item.sc_url || item.url);
+            await sendAudio(sock, ctx.remoteJid, msg, r);
+            sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+          },
+        });
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
+      }
       const r = await dl.soundcloud(query);
       await sendAudio(sock, ctx.remoteJid, msg, r);
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
@@ -467,27 +508,30 @@ module.exports = function registerDownloads2(registerCase) {
     sock.sendMessage(ctx.remoteJid, { react: { text: '🔍', key: msg.key } });
     try {
       const dl = require('../dl/others');
-      const results = await dl.tiktokSearch(query, 3);
+      const results = await dl.tiktokSearch(query, 6);
       if (!results.length) throw new Error('Nenhum vídeo encontrado para: ' + query);
-      
+
       sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
-      
-      // Envia o primeiro resultado como vídeo
-      const r = results[0];
-      if (r.url) {
-        await sendVideo(sock, ctx.remoteJid, msg, r);
-      } else {
-        throw new Error('Sem URL de download');
+
+      // Só 1 → baixa direto; vários → LISTA (v7.77)
+      if (results.length === 1) {
+        if (!results[0].url) throw new Error('Sem URL de download');
+        await sendVideo(sock, ctx.remoteJid, msg, results[0]);
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+        return;
       }
-      
-      // Se há mais resultados, informa
-      if (results.length > 1) {
-        const RE = require('../renderEngine');
-        const t = await RE.getTheme(ctx.remoteJid);
-        const extra = results.slice(1).map((v, i) => `${i + 2}. ${v.title?.slice(0, 50) || 'TikTok'} — @${v.author || '?'}`).join('\n');
-        await reply(RE.renderBlock(t, 'TIKTOK', [`🎬 Mais resultados para "${query}":`, extra, `> Usa ${prefix}ttks <número> para baixar outro`], { botName: config.bot.name }));
-      }
-      
+      const lista = require('../listaEscolha');
+      const itens = results.filter(v => v.url).slice(0, 8);
+      if (!itens.length) throw new Error('Sem URL de download');
+      await lista.mostrar(sock, msg, ctx, {
+        titulo: `🎬 *${itens.length} resultados* — ${query.slice(0, 40)}`,
+        linhas: itens.map((v) => `*${String(v.title || 'TikTok').slice(0, 50)}*\n   👤 @${v.author || '?'}${v.duration ? ` • ⏱️ ${v.duration}` : ''}`),
+        itens, tipo: 'ttks',
+        aoEscolher: async ({ item }) => {
+          await sendVideo(sock, ctx.remoteJid, msg, item);
+          sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+        },
+      });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });

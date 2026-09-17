@@ -36,12 +36,12 @@ async function enviarPackCategoria(sock, msg, ctx, query, react) {
 
   const packId = stickerMaker.makePackId ? stickerMaker.makePackId(query) : ('fig-' + Date.now().toString(36));
   const searchName = String(found.title || query).replace(/\s+/g, ' ').trim().slice(0, 40);
-  const stickers = [];
-
-  for (const s of found.stickers.slice(0, 20)) {
+  // v7.77: fetch+conversão em paralelo (6) — sequencial rebentava os 5s
+  const alvos = found.stickers.slice(0, 20);
+  async function converterUm(s) {
     try {
       const buf = await require('../mediaHandler').fetchBuffer(s.url);
-      if (!buf || buf.length < 500) continue;
+      if (!buf || buf.length < 500) return null;
       const stk = await stickerMaker.create(buf, {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV',
@@ -52,8 +52,13 @@ async function enviarPackCategoria(sock, msg, ctx, query, react) {
         packId,
         skipGroupWm: true,
       });
-      if (stk && stk.length > 50) stickers.push(stk);
-    } catch { /* continua com as outras */ }
+      return stk && stk.length > 50 ? stk : null;
+    } catch { return null; }
+  }
+  const stickers = [];
+  for (let i = 0; i < alvos.length; i += 6) {
+    const lote = await Promise.all(alvos.slice(i, i + 6).map(converterUm));
+    for (const stk of lote) if (stk) stickers.push(stk);
   }
 
   if (!stickers.length) throw new Error('Nenhuma figurinha convertida');

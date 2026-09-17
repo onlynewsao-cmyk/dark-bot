@@ -73,6 +73,8 @@ const CHA = 'CHA111@newsletter', CHB = 'CHB222@newsletter', CHC = 'CHC333@newsle
   const got = {};
   const stub = {
     resolverRef: async (ref) => ({ '@2': CHB, '@loja': CHA }[String(ref).toLowerCase()] || null),
+    procurarCanais: async (ref) => { const j = ({ '@2': CHB, '@loja': CHA })[String(ref).toLowerCase()]; return j ? [{ jid: j, name: 'X' }] : []; }, // v7.77
+    listarCanais: async () => ({ lista: [{ jid: CHA, name: 'Loja' }, { jid: CHB, name: 'Memes' }, { jid: CHC, name: 'Oficial' }], ativo: CHC }), // v7.77
     meuCanal: async () => null,
     postarCanal: async (s, j, t) => { got.post = [j, t]; return { ok: true, msg: 'Publiquei.' }; },
     estatisticasCanal: async (s, j) => { got.stats = j; return { ok: true, msg: 'STATS' }; },

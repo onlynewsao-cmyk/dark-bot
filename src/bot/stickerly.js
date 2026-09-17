@@ -115,12 +115,16 @@ async function collectStickers(query, { limit = 30 } = {}) {
   const packs = await searchPacks(query, { size: 40 });
   if (!packs.length) throw new Error('Nenhum pack encontrado para: ' + query);
   const chosen = pickWide(packs, query);
+  // v7.77: packs em paralelo (3× HTTP sequencial → 1×)
+  const details = await Promise.all(chosen.map((p) =>
+    getPack(p.id).then((d) => ({ p, d })).catch(() => null)
+  ));
   const stickers = [];
   const seenUrl = new Set();
-  for (const p of chosen) {
+  for (const row of details) {
+    if (!row) continue;
     if (stickers.length >= limit) break;
-    let detail;
-    try { detail = await getPack(p.id); } catch { continue; }
+    const { p, d: detail } = row;
     for (const s of detail.stickers) {
       if (stickers.length >= limit) break;
       if (!s.url || seenUrl.has(s.url)) continue;

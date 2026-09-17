@@ -124,25 +124,53 @@ function watermarkSvg(text = '') {
   </svg>`);
 }
 
+/* ─── WebP animado? (sticker.ly serve os animados em .webp) ─────── */
+/* VP8X: byte 20 = flags, bit 0x02 = animação. Fallback: chunks ANIM/ANMF. */
+function isAnimatedWebp(buffer) {
+  try {
+    if (!buffer || buffer.length < 24) return false;
+    if (buffer.slice(0, 4).toString() !== 'RIFF') return false;
+    if (buffer.slice(8, 12).toString() !== 'WEBP') return false;
+    if (buffer.slice(12, 16).toString() === 'VP8X' && (buffer[20] & 0x02)) return true;
+    const head = buffer.slice(0, Math.min(buffer.length, 128 * 1024)).toString('latin1');
+    return head.includes('ANMF') || head.includes('ANIM');
+  } catch { return false; }
+}
+
 /* ─── GIF animado → WebP animado 512x512 cover (via sharp) ───── */
+// v7.77: escada de qualidade — o WhatsApp rejeita animado >500KB e os
+// .webp do sticker.ly chegam pesados (saíam com 700KB+). Baixa até caber.
+// effort:1 = metade do tempo de encode (1468→~700ms) com tamanho igual.
 async function gifToWebpSquare(buffer) {
   const sharp = require('sharp');
-
-  // sharp com animated:true processa todos os frames
-  // fit:cover = preenche 512x512 cortando bordas → SEM barras pretas, SEM distorção
-  return sharp(buffer, { animated: true })
-    .resize(512, 512, {
-      fit: 'cover',
-      position: 'centre',
-      withoutEnlargement: false,
-    })
-    .webp({
-      quality: 85,
-      lossless: false,
-      loop: 0,        // loop infinito
-      delay: [],      // mantém delays originais dos frames
-    })
-    .toBuffer();
+  // v7.77: capa frames — anims gigantes (78 frames) demoravam 5s+ sozinhos
+  // e rebentavam o limite. 24 frames ≈ 1–2s de loop: chega p/ sticker.
+  let pages;
+  try {
+    const meta = await sharp(buffer, { animated: true }).metadata();
+    if ((meta.pages || 1) > 24) pages = 24;
+  } catch {}
+  let last = null;
+  for (const q of [70, 45, 25]) {
+    // sharp com animated:true processa todos os frames
+    // fit:cover = preenche 512x512 cortando bordas → SEM barras pretas, SEM distorção
+    last = await sharp(buffer, { animated: true, ...(pages ? { pages } : {}) })
+      .resize(512, 512, {
+        fit: 'cover',
+        position: 'centre',
+        withoutEnlargement: false,
+      })
+      .webp({
+        quality: q,
+        effort: 1,
+        lossless: false,
+        loop: 0,        // loop infinito
+        delay: [],      // mantém delays originais dos frames
+      })
+      .toBuffer();
+    if (last.length <= 470 * 1024) return last; // margem p/ o exif
+  }
+  return last;
 }
 
 /* ─── Vídeo MP4/WebM → WebP animado 512x512 cover (via ffmpeg) ─ */
@@ -270,8 +298,10 @@ async function create(buffer, rawOpts = {}) {
 
   const mime   = detectMime(buffer);
   const isGif  = mime === 'image/gif';
+  // v7.77: webp animado (sticker.ly) ia ao ramo ESTÁTICO e saía foto.
+  const isAnimWebp = mime === 'image/webp' && isAnimatedWebp(buffer);
   const isVid  = isVideo || mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
-  const isAnim = isGif || isVid;
+  const isAnim = isGif || isVid || isAnimWebp;
   // v7.50: isVideo MENTIROSO (imagem com isVideo:true) entrava no pipeline de
   // vídeo e rebentava NATIVO (free(): invalid size) — mata o processo todo sem
   // catch possível (!brat2). Só vídeo REAL vai ao ffmpeg.
@@ -279,8 +309,8 @@ async function create(buffer, rawOpts = {}) {
   // v7.50: webp já animado — só injeta meta (re-encodar achataria a animação).
   if (opts.preAnimated) return injectMeta(buffer, pack, author, idPack, urlPack);
 
-  /* ── GIF animado (processado pelo sharp — sem ffmpeg, sem artefactos) ── */
-  if (isGif) {
+  /* ── GIF / WebP animado (sharp animated — sem ffmpeg, sem artefactos) ── */
+  if (isGif || isAnimWebp) {
     try {
       const webpAnim = await gifToWebpSquare(buffer);
       const out = await injectMeta(webpAnim, pack, author, idPack, urlPack);
@@ -391,10 +421,11 @@ async function createFull(buffer, rawOpts = {}) {
   const { Sticker, StickerTypes } = waSticker();
   const mime = detectMime(buffer);
   const isGif = mime === 'image/gif';
+  const isAnimWebp = mime === 'image/webp' && isAnimatedWebp(buffer); // v7.77
   const isVid = isVideo || mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi';
 
   // v7.50: mesmo guard anti-crash nativo do create().
-  if ((isGif || (isVid && (mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi'))) && FFMPEG_OK) {
+  if ((isGif || isAnimWebp || (isVid && (mime === 'video/mp4' || mime === 'video/webm' || mime === 'video/avi'))) && FFMPEG_OK) {
     try {
       const webp = await videoToWebpFull(buffer);
       const out = await injectMeta(webp, pack, author, idPack, urlPack);
@@ -433,6 +464,7 @@ module.exports = {
   create,
   createFull,
   detectMime,
+  isAnimatedWebp, // v7.77
   FFMPEG_OK,
   makePackId,
   injectMeta,

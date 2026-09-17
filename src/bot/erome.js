@@ -165,6 +165,43 @@ async function getAlbum(url, limit = 10) {
   };
 }
 
+// ─── Baixa as mídias de UM álbum (v7.77: o escolhido da lista) ──
+async function albumToMedia(albumUrl, limit = 5, { videosOnly = false, photosOnly = false } = {}) {
+  const album = await getAlbum(albumUrl, limit * 2);
+  const media = [];
+  if (!videosOnly) {
+    for (const url of album.photos.slice(0, limit)) {
+      try {
+        const buf = await mediaHandler.fetchBuffer(url);
+        if (buf && buf.length > 1000) media.push({ url, buf, type: 'photo' });
+      } catch {}
+    }
+  }
+  if (!photosOnly) {
+    // NOTA: erome vídeos precisam de Referer — axios directo, não mediaHandler
+    const vidLimit = videosOnly ? limit : Math.max(0, limit - media.length);
+    for (const url of album.videos.slice(0, vidLimit)) {
+      try {
+        const r = await axios.get(url, {
+          responseType: 'arraybuffer',
+          timeout: 60000,
+          headers: { ...HEADERS, 'Accept': '*/*', 'Range': 'bytes=0-' },
+        });
+        const buf = Buffer.from(r.data);
+        if (buf && buf.length > 5000) media.push({ url, buf, type: 'video' });
+      } catch {}
+    }
+  }
+  if (!media.length) throw new Error('Sem mídias neste álbum.');
+  return {
+    media,
+    name: album.name,
+    albumUrl,
+    totalPhotos: album.photos.length,
+    totalVideos: album.videos.length,
+  };
+}
+
 // ─── Busca e download completo ──────────────────────────────
 async function searchAndDownload(query, limit = 5) {
   const results = await search(query);
@@ -172,53 +209,11 @@ async function searchAndDownload(query, limit = 5) {
 
   // Tenta múltiplos resultados até encontrar mídia
   for (let i = 0; i < Math.min(results.length, 10); i++) {
-      if (isFiltered(results[i].name, results[i].url)) continue;
-    const album = await getAlbum(results[i].url, limit);
-    if (album.photos.length || album.videos.length) {
-      const media = [];
-
-      // Baixa fotos
-      for (const url of album.photos.slice(0, limit)) {
-        try {
-          const buf = await mediaHandler.fetchBuffer(url);
-          if (buf && buf.length > 1000) {
-            media.push({ url, buf, type: 'photo' });
-          }
-        } catch {}
-      }
-
-      // Baixa vídeos (até o limite)
-      // NOTA: erome vídeos precisam de Referer — axios directo, não mediaHandler
-      const vidLimit = Math.max(0, limit - media.length);
-      for (const url of album.videos.slice(0, vidLimit)) {
-        try {
-          const r = await axios.get(url, {
-            responseType: 'arraybuffer',
-            timeout: 60000,
-            headers: {
-              ...HEADERS,
-              'Accept': '*/*',
-              'Range': 'bytes=0-',
-            },
-          });
-          const buf = Buffer.from(r.data);
-          if (buf && buf.length > 5000) {
-            media.push({ url, buf, type: 'video' });
-          }
-        } catch {}
-      }
-
-      if (media.length) {
-        return {
-          media,
-          name: album.name,
-          source: results[i].name,
-          albumUrl: results[i].url,
-          totalPhotos: album.photos.length,
-          totalVideos: album.videos.length,
-        };
-      }
-    }
+    if (isFiltered(results[i].name, results[i].url)) continue;
+    try {
+      const r = await albumToMedia(results[i].url, limit);
+      return { ...r, source: results[i].name };
+    } catch {}
   }
 
   throw new Error('Nenhuma mídia encontrada nos resultados.');
@@ -230,23 +225,11 @@ async function searchVideos(query, limit = 3) {
   if (!results.length) throw new Error('Nenhum resultado para: ' + query);
 
   for (let i = 0; i < Math.min(results.length, 5); i++) {
-    const album = await getAlbum(results[i].url, limit * 2);
-    if (album.videos.length) {
-      const videos = [];
-      for (const url of album.videos.slice(0, limit)) {
-        try {
-          const r = await axios.get(url, {
-            responseType: 'arraybuffer', timeout: 60000,
-            headers: { ...HEADERS, 'Accept': '*/*' },
-          });
-          const buf = Buffer.from(r.data);
-          if (buf && buf.length > 5000) {
-            videos.push({ url, buf, type: 'video', name: album.name });
-          }
-        } catch {}
-      }
-      if (videos.length) return videos;
-    }
+    if (isFiltered(results[i].name, results[i].url)) continue;
+    try {
+      const r = await albumToMedia(results[i].url, limit, { videosOnly: true });
+      return r.media.map(v => ({ ...v, name: r.name }));
+    } catch {}
   }
 
   throw new Error('Nenhum vídeo encontrado para: ' + query);
@@ -258,22 +241,14 @@ async function searchPhotos(query, limit = 5) {
   if (!results.length) throw new Error('Nenhum resultado para: ' + query);
 
   for (let i = 0; i < Math.min(results.length, 5); i++) {
-    const album = await getAlbum(results[i].url, limit * 2);
-    if (album.photos.length) {
-      const photos = [];
-      for (const url of album.photos.slice(0, limit)) {
-        try {
-          const buf = await mediaHandler.fetchBuffer(url);
-          if (buf && buf.length > 1000) {
-            photos.push({ url, buf, type: 'photo', name: album.name });
-          }
-        } catch {}
-      }
-      if (photos.length) return photos;
-    }
+    if (isFiltered(results[i].name, results[i].url)) continue;
+    try {
+      const r = await albumToMedia(results[i].url, limit, { photosOnly: true });
+      return r.media.map(p => ({ ...p, name: r.name }));
+    } catch {}
   }
 
   throw new Error('Nenhuma foto encontrada para: ' + query);
 }
 
-module.exports = { search, getAlbum, getProfileAlbums, searchAndDownload, searchVideos, searchPhotos, isFiltered };
+module.exports = { search, getAlbum, getProfileAlbums, searchAndDownload, searchVideos, searchPhotos, albumToMedia, isFiltered };

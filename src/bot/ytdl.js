@@ -439,4 +439,19 @@ async function getVideo(query, maxHeight = '720') {
 /** Só busca, sem download */
 async function search(query) { return searchVideo(query); }
 
-module.exports = { getAudio, getVideo, search, searchVideo };
+// v7.77: busca DEVOLVENDO A LISTA (p/ o !video mostrar e o user escolher)
+async function searchVideoList(query, limit = 8) {
+  if (isUrl(query)) return [await searchVideo(query)];
+  const yts = require('yt-search');
+  const res = await yts(query);
+  const vids = (res.videos || []).filter(v => v.seconds > 10 && v.seconds <= MAX_SEC);
+  const pool = vids.length ? vids : (res.videos || []);
+  return pool.slice(0, limit).map(v => ({
+    url: v.url, videoId: v.videoId, title: v.title,
+    author: v.author?.name || '', duration: v.duration?.timestamp || '',
+    seconds: v.seconds || 0,
+    thumb: v.thumbnail || `https://i.ytimg.com/vi/${v.videoId}/hqdefault.jpg`,
+  }));
+}
+
+module.exports = { getAudio, getVideo, search, searchVideo, searchVideoList };

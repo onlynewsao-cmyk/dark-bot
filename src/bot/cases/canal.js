@@ -35,8 +35,18 @@ module.exports = function registerCanalCases(registerCase) {
     // v7.76 SUPER — alvo por comando: `!canal @2 postar ...` / `!canal @loja stats`
     let alvoRef = null;
     if (/^[@#]/.test(sub) && args[1]) {
-      alvoRef = await C.resolverRef(sub).catch(() => null);
-      if (!alvoRef) return reply(`❌ Não achei o canal \`${args[0]}\`. Vê: \`${prefix}canal lista\``);
+      // v7.77: vários casam → lista para desempatar (re-executa com @N)
+      const matches = await C.procurarCanais(sub).catch(() => []);
+      if (!matches?.length) return reply(`❌ Não achei o canal \`${args[0]}\`. Vê: \`${prefix}canal lista\``);
+      if (matches.length > 1) {
+        const d = await C.listarCanais().catch(() => ({ lista: [] }));
+        const linhas = matches.map((mch) => {
+          const n = (d.lista || []).findIndex(c => c.jid === mch.jid) + 1;
+          return `*${n}.* ${mch.name || 'Canal'} _(via \`@${n}\`)_`;
+        });
+        return reply(`🔍 *${matches.length} canais* casam com \`${args[0]}\`:\n\n${linhas.join('\n')}\n\n> Sê específico: \`${prefix}canal @<nº> ${args.slice(1).join(' ')}\``);
+      }
+      alvoRef = matches[0].jid;
       const i0 = (text || '').indexOf(args[0]);
       const i1 = (text || '').indexOf(args[1], i0 + String(args[0]).length);
       resto = (text || '').slice(i1 + String(args[1]).length).trim();
@@ -165,6 +175,18 @@ module.exports = function registerCanalCases(registerCase) {
     }
     if (sub === 'usar' || sub === 'ativo' || sub === 'ativar' || sub === 'mudar') {
       if (!resto) return reply(`❓ Usa: \`${prefix}canal usar <nº|nome>\`\nVê: \`${prefix}canal lista\``);
+      // v7.77: nome ambíguo → lista para desempatar
+      if (!/^\d+$/.test(resto.trim())) {
+        const matches = await C.procurarCanais(resto).catch(() => []);
+        if (matches.length > 1) {
+          const d = await C.listarCanais().catch(() => ({ lista: [] }));
+          const linhas = matches.map((mch) => {
+            const n = (d.lista || []).findIndex(c => c.jid === mch.jid) + 1;
+            return `*${n}.* ${mch.name || 'Canal'}`;
+          });
+          return reply(`🔍 *${matches.length} canais* casam com \`${resto}\`:\n\n${linhas.join('\n')}\n\n> Escolhe: \`${prefix}canal usar <nº>\``);
+        }
+      }
       return reply(fmtResult(await C.ativarCanal(resto)));
     }
     if (sub === 'criar') {
