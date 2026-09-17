@@ -142,6 +142,7 @@ async function savePedido(p) {
         amount: p.amountKz, currency: 'AOA', method: 'multicaixa',
         plan: p.planId, reference: p.reference, status: p.status || 'pendente',
         notes: p.notes,
+        ...(p.approvedAt ? { approvedAt: p.approvedAt } : {}), // v7.79: data de aprovação p/ !vendas
       },
       { upsert: true, new: true },
     );
@@ -712,6 +713,7 @@ module.exports = function registerRental2(registerCase) {
     ).catch(() => null);
     try { require('../hotCache').forgetGroup(ped.groupJid); } catch {}
     ped.status = 'aprovado';
+    ped.approvedAt = new Date(); // v7.79
     await savePedido(ped);
     const plan = RENTAL_PLANS.find(x => x.id === ped.planId);
     await sock.sendMessage(ped.groupJid, {
@@ -723,6 +725,26 @@ module.exports = function registerRental2(registerCase) {
         `🚀 Comandos *ILIMITADOS* ativos!`,
     }).catch(() => {});
     return reply(`✅ *${ref}* aprovado — *${ped.groupName || ped.groupJid}* ativo por *${ped.dias} dias*.`);
+  });
+
+  // ═══ v7.79 REJEITAR — dono recusa o pedido e o grupo é avisado ═══
+  registerCase(['rejeitar', 'recusar', 'reject'], async ({ sock, msg, ctx, args, isOwner, config: cfg, reply }) => {
+    const localConfig = cfg || config;
+    const p = localConfig.bot.prefix;
+    if (!await isSubDono(ctx, isOwner, localConfig)) return reply('🚫 Só o *dono*.');
+    const ref = String(args[0] || '').toUpperCase().trim();
+    if (!/^DARK-\d{8}$/.test(ref)) return reply(`Uso: *${p}rejeitar DARK-12345678* [motivo]`);
+    const ped = await findPedido(ref);
+    if (!ped) return reply('❌ Pedido não encontrado.');
+    if (ped.status === 'aprovado') return reply('❌ Este pedido *já foi aprovado* — usa o painel para estornar.');
+    if (ped.status === 'rejeitado') return reply('❌ Este pedido *já estava rejeitado*.');
+    const motivo = args.slice(1).join(' ').slice(0, 120) || 'Pagamento não confirmado';
+    ped.status = 'rejeitado';
+    await savePedido(ped);
+    await sock.sendMessage(ped.groupJid, {
+      text: `🔴 *PEDIDO RECUSADO*\n\n🧾 Pedido: *${ref}*\n📝 Motivo: ${motivo}\n\n💬 Fala com o dono ou tenta de novo com *${p}alugar*.`,
+    }).catch(() => {});
+    return reply(`🔴 *${ref}* rejeitado — *${ped.groupName || ped.groupJid}* avisado.`);
   });
 
   // ═══ v7.67 PEDIDOS — dono lista pendentes ═══
@@ -746,6 +768,50 @@ module.exports = function registerRental2(registerCase) {
       .slice(0, 20)
       .map(q => `${q.paid ? '💰' : '⏳'} *${q.reference}* — ${q.planId} ${q.dias}d — ${q.groupName || q.groupJid}${q.paid?.receipt ? ' 📎' : ''}${q.paid ? ` — pago? avisa ${q.paid.by}` : ''}`);
     return reply(`🧾 *PEDIDOS PENDENTES (${all.size})*\n\n${rows.join('\n')}\n\n✅ Aprovar: *${p}ativar DARK-12345678*`);
+  });
+
+  // ═══ v7.79 VENDAS — painel de receita do dono ═══
+  registerCase(['vendas', 'faturamento', 'receita', 'lucro'], async ({ ctx, isOwner, config: cfg, reply }) => {
+    const localConfig = cfg || config;
+    const p = localConfig.bot.prefix;
+    if (!await isSubDono(ctx, isOwner, localConfig)) return reply('🚫 Só o *dono*.');
+    const aprovados = await Payment.find({ status: 'aprovado' }).lean().catch(() => []) || [];
+    const pendentes = await Payment.find({ status: 'pendente' }).lean().catch(() => []) || [];
+    let totKz = 0, totBrl = 0, mesKz = 0, mesN = 0;
+    const porPlano = {};
+    const mes0 = new Date(); mes0.setDate(1); mes0.setHours(0, 0, 0, 0);
+    for (const d of aprovados) {
+      const kz = +d.amount || 0; totKz += kz;
+      const m = /brl:([\d.]+)/.exec(String(d.notes || '')); // BRL vive nas notes
+      if (m) totBrl += +m[1] || 0;
+      const pid = d.plan || '?'; porPlano[pid] = (porPlano[pid] || 0) + 1;
+      const ap = d.approvedAt ? new Date(d.approvedAt) : (d.updatedAt ? new Date(d.updatedAt) : null);
+      if (ap && ap >= mes0) { mesN++; mesKz += kz; }
+    }
+    let pagos = 0;
+    for (const d of pendentes) { if (pedidoFromDoc(d)?.paid) pagos++; }
+    for (const q of _pedidos.values()) { // memória pode ter pago ainda não gravado
+      if (q.status === 'pendente' && q.paid && !pendentes.some(d => d.reference === q.reference)) pagos++;
+    }
+    const agora = Date.now();
+    const hosted = await GroupSettings.find({ isHosted: true }).lean().catch(() => []) || [];
+    const ativos = hosted.filter(g => g.hostedUntil && new Date(g.hostedUntil).getTime() > agora);
+    const expirando = ativos.filter(g => new Date(g.hostedUntil).getTime() - agora <= 3 * 86400000);
+    const trials = await GroupSettings.countDocuments({ trialExpiresAt: { $gt: new Date() } }).catch(() => 0);
+    const planoTxt = Object.entries(porPlano).sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `   📦 ${k}: *${v}*`).join('\n');
+    return reply(
+      `💰 *VENDAS — DARK BOT*\n\n` +
+      `💵 Receita total: *${fmtKz(totKz)}*${totBrl > 0 ? ` + *${fmtBrl(totBrl)}*` : ''}\n` +
+      `🧾 Pedidos aprovados: *${aprovados.length}*\n` +
+      (planoTxt ? planoTxt + '\n' : '') +
+      `🆕 Este mês: *${mesN}* (${fmtKz(mesKz)})\n\n` +
+      `🏠 Grupos ativos: *${ativos.length}*` +
+      (expirando.length ? ` (⏰ ${expirando.length} a expirar ≤3d)` : '') + '\n' +
+      `🆓 Trials ativos: *${trials}*\n` +
+      `⏳ Pendentes: *${pendentes.length}*` +
+      (pagos ? ` (💰 ${pagos} pagos a aguardar — *${p}pedidos*)` : ''),
+    );
   });
 
   // ═══ v7.67 SETPRECO — dono define preços (!setpreco mensal 5000 15) ═══
@@ -839,6 +905,10 @@ async function checkExpiries(sock) {
         await GroupSettings.findOneAndUpdate({ groupJid: jid }, { isHosted: false }).catch(() => {});
         try { require('../hotCache').forgetGroup(jid); } catch {}
         if (sock) await sock.sendMessage(jid, { text: `🔴 *ALUGUEL EXPIRADO*\n\n${gname ? `🏠 ${gname}\n` : ''}Os comandos voltaram a bloquear.\n\n💎 Reativa com *!alugar* — renovar soma dias novos.` }).catch(() => {});
+        try { // v7.79: dono também é avisado (pode ir cobrar a renovação)
+          const ownerNum = String(config?.owner?.number || '').replace(/\D/g, '');
+          if (sock && ownerNum) await sock.sendMessage(`${ownerNum}@s.whatsapp.net`, { text: `🔴 *EXPIROU* — ${gname || jid}\n💬 Fala com o grupo para renovar.` }).catch(() => {});
+        } catch {}
         out.expired.push(jid);
         continue;
       }
