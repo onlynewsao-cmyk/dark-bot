@@ -15,32 +15,25 @@
  */
 const linkPolicy = require('./linkPolicy');
 
-const PLATS = [
-  ['youtube', /(youtube\.com|youtu\.be|music\.youtube\.com)$/],
-  ['tiktok', /(tiktok\.com|vm\.tiktok\.com)$/],
-  ['kwai', /(kwai\.com|kw\.ai|kuaishou\.com)$/],
-  ['instagram', /(instagram\.com|instagr\.am)$/],
-  ['facebook', /(facebook\.com|fb\.com|fb\.watch|fb\.me)$/],
-  ['twitter', /(twitter\.com|x\.com|t\.co)$/],
-  ['spotify', /(spotify\.com|spotify\.link)$/],
-  ['soundcloud', /(soundcloud\.com|snd\.sc)$/],
-];
+const EXTRA = [['soundcloud', /(soundcloud\.com|snd\.sc)$/]]; // fora do catálogo do escudo
 
 /** @returns {'youtube'|'tiktok'|...|null} */
 function plataformaDe(url) {
   const h = linkPolicy.host(url);
   if (!h) return null;
-  for (const [nome, re] of PLATS) {
-    if (re.test(h) || h.endsWith('.' + nome + '.com')) return nome;
+  for (const k of linkPolicy.ALL_REDES) {
+    if (linkPolicy.PLATFORMS[k].doms.some(d => h === d || h.endsWith('.' + d))) return k;
   }
+  for (const [nome, re] of EXTRA) if (re.test(h)) return nome;
   return null;
 }
 
-/** Primeiro link suportado num texto. Puro (testável). */
-function primeiroSuportado(texto) {
+/** Primeiro link suportado num texto. Puro (testável). v7.85: respeita as redes do grupo. */
+function primeiroSuportado(texto, redes = null) {
+  const ok = (p) => !Array.isArray(redes) || redes.includes(p);
   for (const u of linkPolicy.links(texto)) {
     const p = plataformaDe(u);
-    if (p) return { url: u, plataforma: p };
+    if (p && ok(p)) return { url: u, plataforma: p };
   }
   return null;
 }
@@ -64,6 +57,9 @@ async function check(sock, msg) {
 
     const gs = (await require('./hotCache').getGroupSettings(msg, jid)) || {};
     if (gs.autoDl === false) return false; // default ON; o grupo desliga se quiser
+    // v7.85: grupo sem redes aceites não tem o que baixar
+    const redes = Array.isArray(gs.antilinkRedes) ? gs.antilinkRedes : null;
+    if (redes && !redes.length) return false;
 
     // comando do bot (qualquer prefixo) não dispara o autoDL
     try {
@@ -71,7 +67,7 @@ async function check(sock, msg) {
       if (await pe.detect(texto, jid)) return false;
     } catch {}
 
-    const achado = primeiroSuportado(texto);
+    const achado = primeiroSuportado(texto, redes);
     if (!achado) return false;
 
     const last = _ultimo.get(jid) || 0;

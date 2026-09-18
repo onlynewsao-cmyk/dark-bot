@@ -437,6 +437,24 @@ module.exports = function registerGroupCases(registerCase) {
       const v = (args[1] || '').toLowerCase();
       if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink autodl on|off*');
       gs.autoDl = v === 'on'; saved = true;
+    } else if (sub === 'redes') {
+      // v7.85 — escudo à medida: que redes sociais este grupo aceita
+      const r = require('../linkPolicy').parseRedes(args.slice(1));
+      if (r.erro) return reply('❌ Rede desconhecida: *' + r.erro + '*\nUse: *' + prefix + 'antilink redes yt tiktok kwai* | *off* | *all*');
+      if (r.redes === null) { delete gs.antilinkRedes; extra = '✅ Redes voltaram ao padrão (todas as oficiais).'; }
+      else if (!r.redes.length) { gs.antilinkRedes = []; extra = '🚫 Este grupo não aceita links de redes sociais.'; }
+      else { gs.antilinkRedes = r.redes; extra = '✅ Redes aceites aqui: *' + r.redes.join(', ') + '*'; }
+      saved = true;
+    } else if (sub === 'grupos') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink grupos on|off*');
+      gs.antilinkGrupos = v === 'on'; saved = true;
+      extra = gs.antilinkGrupos ? '✅ Convites de grupos passam a ser aceites.' : '🚫 Convites de grupos voltam a ser barrados.';
+    } else if (sub === 'canais') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink canais on|off*');
+      gs.antilinkCanais = v === 'on'; saved = true;
+      extra = gs.antilinkCanais ? '✅ Links de canais passam a ser aceites.' : '🚫 Links de canais voltam a ser barrados.';
     } else if (sub === 'vip') {
       const v = (args[1] || '').toLowerCase();
       if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink vip on|off*');
@@ -476,6 +494,9 @@ module.exports = function registerGroupCases(registerCase) {
         `*${prefix}antilink strict on|off* — links ofuscados\n` +
         `*${prefix}antilink vip on|off* — premium imune\n` +
         `*${prefix}antilink autodl on|off* — links aceites baixam sozinhos\n` +
+        `*${prefix}antilink redes <lista|off|all>* — redes sociais aceites aqui\n` +
+        `*${prefix}antilink grupos on|off* — aceitar convites de grupos\n` +
+        `*${prefix}antilink canais on|off* — aceitar links de canais\n` +
         `*${prefix}antilink whitelist add|del|list* — domínios permitidos`
       );
     }
@@ -490,6 +511,7 @@ module.exports = function registerGroupCases(registerCase) {
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
       `🕸️ AutoDL (links aceites baixam sozinhos): *${gs.autoDl !== false ? 'on' : 'off'}*\n` +
+      `🌐 Redes aceites: ${Array.isArray(gs.antilinkRedes) ? (gs.antilinkRedes.length ? gs.antilinkRedes.join(', ') : 'nenhuma') : 'todas'} | Grupos: *${gs.antilinkGrupos ? 'on' : 'off'}* | Canais: *${gs.antilinkCanais ? 'on' : 'off'}*\n` +
       `✅ Base permitida: ${require('../linkPolicy').PLATFORM_LABELS}.\n` +
       `📋 Whitelist adicional: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
       `📊 Stats: ️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`

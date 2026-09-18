@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.84.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.85.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.85** 🎛️ | **ESCUDO À MEDIDA** — `!antilink redes <lista|off|all>`, `!antilink grupos on|off`, `!antilink canais on|off`; o aviso mostra SÓ o que o grupo aceita |
 | **v7.84** 🕸️ | **ESCUDO VIVO** — links permitidos ativam o DARK DL (download automático por grupo, `!antilink autodl off` p/ desligar); aviso do escudo curto e humano; FACTOS no prompt (PV incluído) contra alucinações de links |
 | **v7.83** 👂 | **AURA ATENTA** — destinatário real: sabe se falam COM ela (menção/resposta/vocativo), DELA (3ª pessoa → reacção leve) ou ENTRE SI (cala-se); "aura" como gíria não a chama; prompt mostra quem respondeu a quem, quem marcou quem + excerto citado |
 | **v7.82** 🛡️ | **AURA VERDADE** — router com filtro `notify` + dedup (fim das respostas duplas/contraditórias); capacidades `resumo_grupos` e `partilhar_contacto` (vCard); `falar_com_todos` não corre no PV; router-IA com exemplos negativos; grounding anti-alucinação |

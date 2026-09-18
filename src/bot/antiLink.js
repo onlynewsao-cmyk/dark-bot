@@ -51,6 +51,9 @@ const GroupSettings = require('../database/models/GroupSettings');
 
 // Convites WhatsApp
 const RE_WA = /(chat\.whatsapp\.com\/[a-zA-Z0-9]{6,}|wa\.me\/\d{6,}|whatsapp\.com\/channel\/[a-zA-Z0-9]{6,})/i;
+// v7.85: convites de grupo e links de canal, separados (cada um com a sua permissão)
+const RE_WA_GRUPO = /(chat\.whatsapp\.com\/[a-zA-Z0-9]{6,}|wa\.me\/\d{6,})/i;
+const RE_WA_CANAL = /(whatsapp\.com\/channel\/[a-zA-Z0-9]{6,})/i;
 
 // Telegram
 const RE_TG = /(t\.me\/[a-zA-Z0-9_+]+|telegram\.me\/[a-zA-Z0-9_+]+|telegram\.dog\/[a-zA-Z0-9_+]+)/i;
@@ -89,10 +92,14 @@ function deobfuscate(text) {
  * @param {string[]} whitelist — domínios adicionais permitidos pelo grupo
  * @returns {{hit: boolean, kind: string}}
  */
-function detectLink(text, mode = 'smart', strict = true, whitelist = []) {
+function detectLink(text, mode = 'smart', strict = true, whitelist = [], opts = {}) {
   const original = String(text || '');
-  const canonical = strict ? deobfuscate(original) : original;
-  const domains = [...linkPolicy.DEFAULT_ALLOWED, ...(Array.isArray(whitelist) ? whitelist : [])];
+  let canonical = strict ? deobfuscate(original) : original;
+  // v7.85: o grupo pode permitir convites de grupos e/ou canais do WhatsApp
+  if (opts.waGrupos) canonical = canonical.replace(RE_WA_GRUPO, ' ');
+  if (opts.waCanais) canonical = canonical.replace(RE_WA_CANAL, ' ');
+  const base = Array.isArray(opts.base) ? opts.base : linkPolicy.DEFAULT_ALLOWED;
+  const domains = [...base, ...(Array.isArray(whitelist) ? whitelist : [])];
   const raw = linkPolicy.excludeAllowed(canonical, domains);
   if (!raw.trim()) return { hit: false, kind: '' };
   const t = raw;
@@ -113,6 +120,8 @@ function detectLink(text, mode = 'smart', strict = true, whitelist = []) {
   if (RE_DISCORD.test(t)) return { hit: true, kind: 'discord' };
   if (RE_SHORT.test(t)) return { hit: true, kind: 'shortener' };
   if (RE_SOCIAL.test(t)) return { hit: true, kind: 'social' };
+  // v7.85: sobrou um link de rede que este grupo NÃO aceita → viola
+  if (linkPolicy.links(t).some((u) => linkPolicy.eRede(u))) return { hit: true, kind: 'social' };
   if (RE_IP.test(t) && /:\d{2,5}/.test(t)) return { hit: true, kind: 'ip' };
 
   // Ofuscação = intenção de evasão (hxxp, [.] , "ponto com", espaços).
@@ -279,7 +288,14 @@ async function check(sock, msg) {
 
     const mode = gs.antilinkMode || 'smart';
     const strict = gs.antilinkStrict !== false;
-    const detection = detectLink(text, mode, strict, gs.antilinkWhitelist || []);
+    // v7.85: escudo à medida — redes aceites + grupos/canais do WhatsApp
+    const redes = Array.isArray(gs.antilinkRedes) ? gs.antilinkRedes : null;
+    const aceites = linkPolicy.rotuloPara(redes, { grupos: !!gs.antilinkGrupos, canais: !!gs.antilinkCanais });
+    const detection = detectLink(text, mode, strict, gs.antilinkWhitelist || [], {
+      base: linkPolicy.dominiosPara(redes),
+      waGrupos: !!gs.antilinkGrupos,
+      waCanais: !!gs.antilinkCanais,
+    });
     if (!detection.hit) return false;
 
     // Metadados do grupo
@@ -344,7 +360,7 @@ async function check(sock, msg) {
       } catch (e) { console.warn('[DarkShield] Falha ao remover:', e.name || 'Error'); }
       if (doNotify) {
         await sock.sendMessage(remoteJid, {
-          text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, kickAttempted: true, removed, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false }),
+          text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, kickAttempted: true, removed, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false && !!aceites, aceites }),
           mentions: [senderJid],
         }).catch(() => {});
       }
@@ -355,7 +371,7 @@ async function check(sock, msg) {
     // Aviso progressivo
     if (doNotify && canNotify(senderJid, remoteJid)) {
       await sock.sendMessage(remoteJid, {
-        text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false }),
+        text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false && !!aceites, aceites }),
         mentions: [senderJid],
       }).catch(() => {});
       await bumpStats(remoteJid, 'warns');
