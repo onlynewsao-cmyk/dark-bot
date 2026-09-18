@@ -640,6 +640,55 @@ async function _handleInner(sock, msg) {
     }
   } catch (e) { console.warn('[RulesEngine]', e.message?.slice(0, 60)); }
 
+  // ── v7.95: PERCEPÇÃO — a Aura lembra o que cada pessoa pediu ──────
+  // Corre ANTES dos gates de decisão para que intenções atravessem
+  // mensagens (ex.: «representa-me num sticker» → a foto seguinte
+  // converte sem ninguém escrever comando; «manda em texto» desliga a
+  // voz neste chat até alguém pedir voz de novo).
+  const _perc = (() => { try { return require('../aura/auraPercepcao'); } catch { return null; } })();
+  let _pkAura = '';
+  try {
+    if (_perc) {
+      _pkAura = _perc.chave(ctx.remoteJid, ctx.senderNumber);
+      ctx._auraPk = _pkAura;
+      const _semPrefixo = text && !startsWithAnyPrefix(text, prefixes);
+      if (_semPrefixo) {
+        if (_perc.pedeVoz(text)) { _perc.definirModoTexto(_pkAura, false); }
+        else if (_perc.pedeTexto(text)) { _perc.definirModoTexto(_pkAura, true); }
+      }
+      // STICKER PENDENTE: a próxima foto/vídeo desta pessoa converte já.
+      const _mmP = msg.message || {};
+      if (_perc.temStickerPendente(_pkAura) && (_mmP.imageMessage || _mmP.videoMessage)) {
+        _perc.consumirSticker(_pkAura);
+        try {
+          sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } }).catch(() => {});
+          const _mh = require('./mediaHandler');
+          const _bufP = await _mh.downloadFromMessage(msg).catch(() => null);
+          if (_bufP && _bufP.length > 100) {
+            const _mimeP = stickerMaker.detectMime ? stickerMaker.detectMime(_bufP) : 'image/jpeg';
+            const _stkP = await stickerMaker.create(_bufP, {
+              botName: config.bot.name, ownerName: config.owner.name,
+              userName: ctx.pushName, groupName: ctx.groupName || 'PV',
+              isVideo: !!_mmP.videoMessage || _mimeP === 'image/gif',
+            });
+            if (_stkP && _stkP.length > 50) {
+              await sock.sendMessage(ctx.remoteJid, { sticker: _stkP }, { quoted: msg });
+              sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+              return true;
+            }
+          }
+          throw new Error('mídia não deu para converter');
+        } catch (e) {
+          sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }).catch(() => {});
+          await sock.sendMessage(ctx.remoteJid, {
+            text: `😩 Não consegui transformar essa mídia em sticker — tenta responder-lhe com *${ctx.prefix || '!'}sticker*.`,
+          }, { quoted: msg }).catch(() => {});
+          return true;
+        }
+      }
+    }
+  } catch (e) { console.warn('[Percepção]', e.message?.slice(0, 60)); }
+
   // v6.37: Regras de resposta por tipo de grupo
   // Grupo COM aluguel activo → responde a TODOS
   // Grupo SEM aluguel → só dono, subdono, VIP
@@ -1845,6 +1894,58 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
       const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage || getQuotedMessage(msg)?.stickerMessage);
       if (!isReplyToBot && !auraTriggerActive && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
 
+      // ── v7.95: PERCEPÇÃO — respostas sociais determinísticas (1 só mensagem) ──
+      if (_perc && cleanText && !startsWithAnyPrefix(cleanText, prefixes)) {
+        try {
+          // «qual é o meu @?» / «diz o meu @» — responde o número real + menção
+          if (_perc.perguntaMeuArroba(cleanText)) {
+            const _numP = String(ctx.senderNumber || '').split('@')[0];
+            if (_numP) {
+              await sock.sendMessage(ctx.remoteJid, {
+                text: `O teu @ é @${_numP} 📱💕`,
+                mentions: [`${_numP}@s.whatsapp.net`],
+              }, { quoted: msg }).catch(() => {});
+              return true;
+            }
+          }
+          // «representa-me num sticker» / «transforma-me em figurinha»
+          if (_perc.pedidoStickerProprio(cleanText)) {
+            const _mmS = msg.message || {};
+            const _qS = getQuotedMessage(msg) || {};
+            const _mS = (_mmS.imageMessage || _mmS.videoMessage) ? msg
+              : (_qS.imageMessage || _qS.videoMessage) ? { message: _qS } : null;
+            if (_mS) {
+              // pediu com a mídia junta/citada → converte já
+              try {
+                sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } }).catch(() => {});
+                const _mhS = require('./mediaHandler');
+                const _bufS = await _mhS.downloadFromMessage(_mS).catch(() => null);
+                if (_bufS && _bufS.length > 100) {
+                  const _mimeS = stickerMaker.detectMime ? stickerMaker.detectMime(_bufS) : 'image/jpeg';
+                  const _stkS = await stickerMaker.create(_bufS, {
+                    botName: config.bot.name, ownerName: config.owner.name,
+                    userName: ctx.pushName, groupName: ctx.groupName || 'PV',
+                    isVideo: !!(_mS.message?.videoMessage) || _mimeS === 'image/gif',
+                  });
+                  if (_stkS && _stkS.length > 50) {
+                    await sock.sendMessage(ctx.remoteJid, { sticker: _stkS }, { quoted: msg });
+                    sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+                    return true;
+                  }
+                }
+              } catch (e) { console.warn('[Aura sticker-mim]', e.message?.slice(0, 60)); }
+              // caiu: age como se fosse pedido sem mídia
+            }
+            // sem mídia: marca a intenção — a PRÓXIMA foto/vídeo converte
+            _perc.marcarStickerPendente(_pkAura || _perc.chave(ctx.remoteJid, ctx.senderNumber));
+            await sock.sendMessage(ctx.remoteJid, {
+              text: `Manda a foto/vídeo nos próximos 2 minutos que eu transformo já em sticker pra ti 💕`,
+            }, { quoted: msg }).catch(() => {});
+            return true;
+          }
+        } catch (e) { console.warn('[Percepção social]', e.message?.slice(0, 60)); }
+      }
+
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
         if (isReplyToBot) prompt = '[Alguém respondeu à tua mensagem sem texto — reage naturalmente como pessoa real]';
@@ -2524,7 +2625,13 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         try {
           const imgSearch = require('./imageSearch');
           const falsa = imgSearch.extrairAcaoFalsa(answer || finalAnswer);
-          if (falsa?.tipo === 'imagem' && falsa.termo) {
+          // v7.95: acções de mídia só com sinal do próprio utilizador —
+          // elas deixam de sair "do nada" (sticker/foto surpresa) e a
+          // voz respeita o «manda em texto» deste chat.
+          const _mtA = !!(_perc && _perc.modoTexto(_pkAura || _perc.chave(ctx.remoteJid, ctx.senderNumber)));
+          const _querStickerA = !!(_perc && (_perc.pedidoStickerTema(cleanText || text) || isSticker));
+          const _querImagemA = /\b(?:manda|mande|envia|envie|mostra|cria|crie|faz|tira|gera|desenha)[\wÀ-ÿ]*\b[^.!?\n]{0,18}\b(?:fotos?|imagens?|desenhos?)\b/i.test(cleanText || text);
+          if (falsa?.tipo === 'imagem' && falsa.termo && _querImagemA) {
             const imgs = await imgSearch.buscarImagens(falsa.termo, 1).catch(() => null);
             if (imgs?.length) {
               await sock.sendMessage(ctx.remoteJid, {
@@ -2534,7 +2641,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               return true;
             }
           }
-          if (falsa?.tipo === 'audio') {
+          if (falsa?.tipo === 'audio' && !_mtA) {   // v7.95: nunca em voz quando o chat pediu texto
             const vozMod = require('../aura/auraVoz');
             const cita = vozMod.extrairCitado(msg, groupContext);
             const fala = vozMod.textoParaFalar(falsa.termo || finalAnswer, {
@@ -2548,7 +2655,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
               return true;
             }
           }
-          if (falsa?.tipo === 'sticker' && falsa.termo) {
+          if (falsa?.tipo === 'sticker' && falsa.termo && _querStickerA) {   // v7.95: sticker só se a pessoa pediu
             const imgs = await imgSearch.buscarImagens(falsa.termo, 1).catch(() => null);
             if (imgs?.length) {
               const buf = await mediaHandler.fetchBuffer(imgs[0].url).catch(() => null);
@@ -2740,7 +2847,12 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       let _modoSoAudio = false;
       try { _modoSoAudio = !!require('../aura/auraBrain').modos(ctx.remoteJid).soAudio; } catch {}
 
-      const pediuAudio = _modoSoAudio || _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv));
+      // v7.95: «manda em texto / tem muito barulho» desliga a voz neste
+      // chat (90 min) — só um pedido EXPLÍCITO de voz na própria
+      // mensagem fura o silêncio.
+      const _mtVoz = !!(_perc && _perc.modoTexto(_pkAura || _perc.chave(ctx.remoteJid, ctx.senderNumber)));
+      const pediuAudio = (_modoSoAudio || _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv)))
+        && !(_mtVoz && !_pedidoExplicito);
 
       // v6.81 (bug #2 da auditoria): o formato 'reacao' era calculado e deitado
       // fora — ela acabava por escrever texto na mesma. Agora reage mesmo:
@@ -2809,7 +2921,11 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
       }
       
       // Executa acções de mídia (sem bloquear se falhar)
-      if (actionSticker) {
+      // v7.95: sticker/imagem por iniciativa da IA só sai quando a
+      // PRÓPRIA pessoa pediu — caso contrário a resposta é só texto.
+      const _querStk = !!(_perc && (_perc.pedidoStickerTema(cleanText || text) || isSticker));
+      const _querImg = /\b(?:manda|mande|envia|envie|mostra|cria|crie|faz|tira|gera|desenha)[\wÀ-ÿ]*\b[^.!?\n]{0,18}\b(?:fotos?|imagens?|desenhos?)\b/i.test(cleanText || text);
+      if (actionSticker && _querStk) {
         try {
           const ai2 = require('./ai');
           const desc = actionSticker[1].trim();
@@ -2826,7 +2942,7 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         } catch (e) { /* silêncio — não quebra o fluxo */ }
       }
       
-      if (actionImage) {
+      if (actionImage && _querImg) {
         try {
           const ai2 = require('./ai');
           const desc = actionImage[1].trim();

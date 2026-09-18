@@ -119,6 +119,15 @@ function categorize(cmd) {
     '__change_theme_handler__':'owner',
     _adultsend:'18',
     cmdsocultos:'owner',
+    // v7.86: anti-tipos (modos de conteúdo) — junto dos anti clássicos
+    antifoto:'admin', antivideo:'admin', antiaudio:'admin', antitexto:'admin', anticontacto:'admin',
+    autovisu1:'admin',
+    // v7.93–v7.95: identidade do canal da Aura — gestão do Dono + vitrine pública
+    setcanal:'owner', mudarcanal:'owner', definircanal:'owner', setlinkcanal:'owner',
+    setselo:'owner', setverificado:'owner', setcontacto:'owner', setbio:'owner', setabout:'owner',
+    canalinfo:'info', selo:'info', verificado:'info', contacto:'info',
+    // v7.87: decisão rápida do RPG por mim (gate modorpg)
+    rpgsim:'economia', rpgnao:'economia', 'rpgnão':'economia', rpgescolher:'economia',
     aceitar:'interacoes', aceitarinvocacao:'interacoes', ameme:'interacoes',
     cat:'interacoes', dog:'interacoes', fofocar:'interacoes', hallobat:'interacoes',
     mata:'interacoes', paparico:'interacoes', pet:'interacoes', pickup:'interacoes',

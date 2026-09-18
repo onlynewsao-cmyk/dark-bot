@@ -172,6 +172,26 @@ async function _finalizar(sock, msg, ctx, name, race, cls) {
 
 /** `!rpgstart [Nome] [raça] [classe]` — cria directo ou abre as listas. */
 async function start({ sock, msg, ctx, args, _forcar = false }) {
+  const tokens = (args || []).map(String).filter(Boolean);
+  let race = '', cls = '';
+  if (tokens.length >= 2) {
+    cls = _acharClasse(tokens[tokens.length - 1]);
+    if (cls) tokens.pop();
+  }
+  if (tokens.length >= 1) {
+    race = _acharRaca(tokens[tokens.length - 1]);
+    if (race) tokens.pop();
+  }
+  const name = tokens.join(' ').trim() || ctx.pushName || 'Aventureiro';
+
+  // caminho escrito completo: !rpgstart Nome raça classe
+  // v7.95: o caminho ESCRITO e completo cria/sobrescreve DIRECTO —
+  // quem escreve nome+raça+classe está a fazer reroll de propósito
+  // (contrato v6.89, asserção em test-aura-printbugs2.js). A protecção
+  // «já tens personagem» fica só para o uso acidental (!rpgstart a seco
+  // ou pela lista), onde um toque no bolso apagava a ficha inteira.
+  if (race && cls) return _finalizar(sock, msg, ctx, name, race, cls);
+
   // v7.90: REFAZER pede confirmação por BOTÕES — antes, teclar !rpgstart
   // por engano apagava a personagem inteira sem aviso.
   if (!_forcar) {
@@ -197,20 +217,6 @@ async function start({ sock, msg, ctx, args, _forcar = false }) {
       }
     } catch {}
   }
-  const tokens = (args || []).map(String).filter(Boolean);
-  let race = '', cls = '';
-  if (tokens.length >= 2) {
-    cls = _acharClasse(tokens[tokens.length - 1]);
-    if (cls) tokens.pop();
-  }
-  if (tokens.length >= 1) {
-    race = _acharRaca(tokens[tokens.length - 1]);
-    if (race) tokens.pop();
-  }
-  const name = tokens.join(' ').trim() || ctx.pushName || 'Aventureiro';
-
-  // caminho escrito completo: !rpgstart Nome raça classe
-  if (race && cls) return _finalizar(sock, msg, ctx, name, race, cls);
 
   // só a raça veio → falta a classe (lista de classes)
   if (race) {

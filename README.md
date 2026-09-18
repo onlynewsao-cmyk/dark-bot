@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.94.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.95.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -30,6 +30,7 @@
 | Versão | Destaques |
 |---|---|
 | **v7.94** 🎞️ | **STICKERS ANIMADOS COMPLETOS** — GIF sem cap de 24 frames (escada q 70→6 até caber) e vídeo com TODOS os segundos (padrão 30s, era 8s); novo !setbio (Dono) edita a descrição geral (About) do bot em todo o lado |
+| **v7.95** 🧠 | **AURA COM PERCEPÇÃO** — «representa-me num sticker» marca a intenção e a foto/vídeo seguinte CONVERTE sozinha (2 min, sem reescrever comando); SEM resposta dupla (a dica temática não sai mais ao lado do texto da IA); «manda em texto / tem muito barulho» desliga a voz por 90 min (só «manda voz/áudio» cancela); stickers/imagens por iniciativa da IA só saem quando a pessoa pede; «qual é o meu @?» recebe o número real com menção |
 | **v7.93** 🪪 | **CLIQUE IGUAL AO MENU (fix id) + ID DINÂMICA + PLAY SEM LISTA** — rows usam `id` (o campo que o menu usa; `rowId` quebrava a selecção); !setcanal/!setselo Dono mudam canal ✚ selo verificado em todos os sítios; !setcanal off volta; canalinfo/selo mostram; !play directo de novo |
 | **v7.92** 📋 | **RESULTADOS DENTRO DA LISTA** — corpo curto ("toca ▾ — tens N opções"), os itens aparecem SÓ quando se toca ESCOLHER (feedback da imagem); idem no rpg/ui.escolher |
 | **v7.91** 📋 | **PESQUISAS CLICÁVEIS** — lista single_select (estilo submenu) TODAS as pesquisas: play/video/spotify2/soundcloud/myinstants/ttks/tiktoktxt; stalks (ttstalk/insta/github) deixam de ser cegas: opções 📷 foto / 🔗 link / 🎬 vídeos; clique LISTANUM_n resolve igual ao número |

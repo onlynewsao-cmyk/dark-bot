@@ -136,6 +136,23 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
         const args = a.arg ? a.arg.split(/\s+/) : [];
         const prefix = ctx.prefix || config?.bot?.prefix || '!';
         const fakeCtx = { ...ctx, args, prefix };
+        // v7.95: pediu sticker SEM média/citação → não despeja a dica
+        // do case (dupla resposta: texto da IA + arte temática). Marca
+        // a intenção e a PRÓXIMA foto/vídeo dessa pessoa converte
+        // sozinha — a UX do «representa-me num sticker» fecha o ciclo.
+        if (/^(sticker|s|fig|figurinha|sfull|stickerfull)$/.test(nome)) {
+          const mmA = msg?.message || {};
+          const qA = mmA.extendedTextMessage?.contextInfo?.quotedMessage || {};
+          if (!mmA.imageMessage && !mmA.videoMessage && !qA.imageMessage && !qA.videoMessage) {
+            try {
+              const perc = require('./auraPercepcao');
+              perc.marcarStickerPendente(perc.chave(ctx.remoteJid, ctx.senderNumber));
+            } catch {}
+            out.executadas++;
+            out.respostas.push(`Manda a foto/vídeo nos próximos 2 minutos que eu transformo já em sticker ✅`);
+            continue;
+          }
+        }
         let correu = false;
         if (caseHandler) {
           correu = await caseHandler.runCase(nome, {

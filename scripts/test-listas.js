@@ -140,14 +140,15 @@ const MSG = { key: { id: 'm1', remoteJid: 'G@g.us' } };
   check('canal @ambíguo → desempata', /2 canais/.test(saidas[0] || '') && /Loja Centro/.test(saidas[0] || '') && /@<nº>/.test(saidas[0] || ''), (saidas[0] || '').slice(0, 70));
 
   console.log('\n═══ FLUXOS (lista → número) ═══');
-  // play
+  // play — v7.93: cartão DIRECTO do resultado #1 (sem lista numerada;
+  // a escolha rápida por lista ficou para video/sly, o play tem os
+  // botões de formato no próprio cartão + play2/play3 alternativos)
   store = []; sock = sockMock(store);
   const cP = CTX('P');
   await cmds['play']({ sock, m: { chat: cP.remoteJid, key: MSG.key }, msg: MSG, ctx: cP, text: 'drake', prefix: '!', command: 'play' });
   const tPlay = store.find(c => c.text)?.text || '';
-  check('play mostra 3', tPlay.includes('Musica A') && tPlay.includes('*3.*'), tPlay.slice(0, 60));
-  await lista.tentarNumero(sock, MSG, cP, '2');
-  check('play escolhe #2 → cartão', got.toxic?.[2]?.title === 'Musica B', JSON.stringify(got.toxic?.[2]?.title));
+  check('play envia o cartão da 1.ª música', got.toxic?.[2]?.title === 'Musica A', JSON.stringify(got.toxic?.[2]?.title));
+  check('play não abre lista numerada', !/\*3\.\*/.test(tPlay) && !lista._pendentes.has(lista._key(cP)), tPlay.slice(0, 60));
   // video
   store = []; sock = sockMock(store);
   const cVd = CTX('VD');
