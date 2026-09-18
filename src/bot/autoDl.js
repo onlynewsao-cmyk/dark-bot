@@ -56,7 +56,7 @@ async function check(sock, msg) {
     if (!texto || texto.length < 10) return false;
 
     const gs = (await require('./hotCache').getGroupSettings(msg, jid)) || {};
-    if (gs.autoDl === false) return false; // default ON; o grupo desliga se quiser
+    if (gs.autoDl !== true) return false; // v7.86: default OFF — o grupo liga se quiser
     // v7.85: grupo sem redes aceites não tem o que baixar
     const redes = Array.isArray(gs.antilinkRedes) ? gs.antilinkRedes : null;
     if (redes && !redes.length) return false;

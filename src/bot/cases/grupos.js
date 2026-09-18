@@ -510,7 +510,7 @@ module.exports = function registerGroupCases(registerCase) {
       `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
-      `🕸️ AutoDL (links aceites baixam sozinhos): *${gs.autoDl !== false ? 'on' : 'off'}*\n` +
+      `🕸️ AutoDL (links aceites baixam sozinhos): *${gs.autoDl === true ? 'on' : 'off (padrão)'}* — !antilink autodl on\n` +
       `🌐 Redes aceites: ${Array.isArray(gs.antilinkRedes) ? (gs.antilinkRedes.length ? gs.antilinkRedes.join(', ') : 'nenhuma') : 'todas'} | Grupos: *${gs.antilinkGrupos ? 'on' : 'off'}* | Canais: *${gs.antilinkCanais ? 'on' : 'off'}*\n` +
       `✅ Base permitida: ${require('../linkPolicy').PLATFORM_LABELS}.\n` +
       `📋 Whitelist adicional: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +

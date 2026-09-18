@@ -204,6 +204,7 @@ module.exports = function registerAudioAdmin2(registerCase) {
     'antidemote', 'antiflood', 'antifigurinha', 'antistatus', 'antidoc',
     'antimencao', 'antipagamento', 'antiinvisivel', // v7.46
     'antiloc', 'antifig', 'antibtn', 'antilinkgp', 'antilinkcanal',
+    'antifoto', 'antivideo', 'antiaudio', 'antitexto', 'anticontacto', 'autovisu1', // v7.86
     'antilinkhard', 'antilinksoft', 'antiporn', 'antitoxic', 'antipalavra',
     'autodl', 'automsg', 'autosticker', 'assistente', 'modobn', 'modolite',
     'modoparceria', 'modoraid', 'modorpg', 'invisible', 'banghost',

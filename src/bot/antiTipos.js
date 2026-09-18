@@ -223,6 +223,18 @@ function detectar(msg, gs, opts = {}) {
   if ((gs.antifigurinha || gs.antifig) && keys.includes('stickerMessage'))
     return { flag: 'antifigurinha', motivo: 'figurinha', label: 'ANTI-FIGURINHA' };
 
+  // v7.86 — ANTIS "SÓ APAGA" + foto/vídeo com auto-visu1
+  if (gs.antifoto && keys.includes('imageMessage'))
+    return { flag: 'antifoto', motivo: 'foto', label: 'ANTI-FOTO' };
+  if (gs.antivideo && keys.includes('videoMessage'))
+    return { flag: 'antivideo', motivo: 'vídeo', label: 'ANTI-VÍDEO' };
+  if (gs.antiaudio && keys.includes('audioMessage'))
+    return { flag: 'antiaudio', motivo: 'áudio', label: 'ANTI-ÁUDIO' };
+  if (gs.anticontacto && keys.includes('contactsMessage'))
+    return { flag: 'anticontacto', motivo: 'contacto', label: 'ANTI-CONTACTO' };
+  if (gs.antitexto && (keys.includes('conversation') || keys.includes('extendedTextMessage')))
+    return { flag: 'antitexto', motivo: 'texto', label: 'ANTI-TEXTO' };
+
   if (gs.antibtn && keys.some(k => /^(buttonsMessage|templateMessage|listMessage|interactiveMessage|buttonsResponseMessage|listResponseMessage|templateButtonReplyMessage|interactiveResponseMessage|botInvokeMessage)$/.test(k)))
     return { flag: 'antibtn', motivo: 'mensagem de botões/bot', label: 'ANTI-BOTÕES' };
 
@@ -273,13 +285,17 @@ async function check(sock, msg) {
 
     const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
     if (!gs) return false;
-    const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn'].some(f => gs[f]) || Number(gs.slowmode) > 0;
+    const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn', 'antifoto', 'antivideo', 'antiaudio', 'anticontacto', 'antitexto'].some(f => gs[f]) || Number(gs.slowmode) > 0;
     if (!algumaFlag) return false;
 
     const raw = msg.message || {};
     const viewOnce = !!(raw.viewOnceMessage || raw.viewOnceMessageV2 || raw.viewOnceMessageV2Extension || inner(raw).imageMessage?.viewOnce || inner(raw).videoMessage?.viewOnce);
-    const hit = detectar(msg, gs, { viewOnce, senderKnown: true });
+    let hit = detectar(msg, gs, { viewOnce, senderKnown: true });
     if (!hit) return false;
+    // v7.86: anti-texto não come comandos (!play etc.) — a gestão continua possível
+    if (hit.flag === 'antitexto') {
+      try { if (await require('./prefixEngine').detect(textoDe(inner(raw)), remoteJid)) return false; } catch {}
+    }
 
     const meta = await getMeta(sock, remoteJid);
     if (!meta) return false;
@@ -288,6 +304,31 @@ async function check(sock, msg) {
 
     // apaga sempre
     try { await sock.sendMessage(remoteJid, { delete: msg.key }); } catch {}
+
+    // v7.86 — AUTO-VISU1: anti-foto/vídeo NÃO é só apagar — o bot reenvia em
+    // "ver uma vez", mantém a descrição e marca quem mandou. Sem warn: é
+    // conversão, não castigo. autoVisu1 off → cai no fluxo normal de avisos.
+    if ((hit.flag === 'antifoto' || hit.flag === 'antivideo') && gs.autoVisu1 !== false) {
+      const mi = inner(raw);
+      const cap = mi.imageMessage?.caption || mi.videoMessage?.caption || '';
+      let buf = null;
+      try { buf = await sock.downloadMediaMessage(msg); } catch {}
+      if (buf && buf.length > 1024) {
+        const isVid = hit.flag === 'antivideo';
+        const novaCap = (cap ? cap + '\n' : '') + `📎 ${isVid ? 'vídeo' : 'foto'} de @${senderNum} — visu1`;
+        try {
+          await sock.sendMessage(remoteJid, isVid
+            ? { video: buf, caption: novaCap, viewOnce: true, mentions: [senderJid] }
+            : { image: buf, caption: novaCap, viewOnce: true, mentions: [senderJid] });
+          return true;
+        } catch {}
+      }
+      await sock.sendMessage(remoteJid, {
+        text: `🛡️ @${senderNum}, aqui não pode: *${hit.motivo}* (e não consegui reenviar em visu1).`,
+        mentions: [senderJid],
+      }).catch(() => {});
+      return true;
+    }
 
     // v7.75 PRO: slowmode só apaga + avisa (sem contar warn/expulsar)
     if (hit.flag === 'slowmode') {

@@ -49,6 +49,14 @@ t('antidoc', d({ documentMessage: {} }) === 'antidoc');
 t('antidoc dentro de documentWithCaption', d({ documentWithCaptionMessage: { message: { documentMessage: {} } } }) === 'antidoc');
 t('antiloc', d({ locationMessage: {} }) === 'antiloc');
 t('antifigurinha', d({ stickerMessage: {} }) === 'antifigurinha');
+// v7.86 — antis novos (só apaga) + foto/vídeo p/ visu1
+t('antifoto', d({ imageMessage: {} }, { antifoto: 1 }) === 'antifoto');
+t('antifoto off passa', d({ imageMessage: {} }, {}) === null);
+t('antivideo', d({ videoMessage: {} }, { antivideo: 1 }) === 'antivideo');
+t('antiaudio', d({ audioMessage: {} }, { antiaudio: 1 }) === 'antiaudio');
+t('anticontacto', d({ contactsMessage: {} }, { anticontacto: 1 }) === 'anticontacto');
+t('antitexto apanha texto', d({ conversation: 'bla bla' }, { antitexto: 1 }) === 'antitexto');
+t('antitexto não come foto', d({ imageMessage: {} }, { antitexto: 1 }) === null);
 t('antibtn: buttonsMessage', d({ buttonsMessage: {} }) === 'antibtn');
 t('antibtn: interactiveMessage', d({ interactiveMessage: {} }) === 'antibtn');
 t('antipalavra: "bosta" (com acento no texto)', d({ conversation: 'isto é uma BÓSTA' }) === 'antipalavra');
