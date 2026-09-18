@@ -22,7 +22,7 @@ const sock = {
       try {
         const p = JSON.parse(b.buttonParamsJson || '{}');
         if (p.id) BTNS.push(p.id);
-        for (const s of p.sections || []) for (const r of s.rows || []) ROWS.push(r.rowId);
+        for (const s of p.sections || []) for (const r of s.rows || []) ROWS.push(r.id);
       } catch {}
     }
     return {};

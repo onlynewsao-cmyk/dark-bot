@@ -13,7 +13,7 @@ const sock = {
     OUT.push(im?.body?.text || '[INTERACTIVO]');
     ROWS = [];
     for (const b of im?.nativeFlowMessage?.buttons || []) {
-      try { for (const s of JSON.parse(b.buttonParamsJson || '{}').sections || []) for (const r of s.rows || []) { ROWS.push(r.rowId); ROWS.push(r.title + '|' + (r.description || '')); } } catch {}
+      try { for (const s of JSON.parse(b.buttonParamsJson || '{}').sections || []) for (const r of s.rows || []) { ROWS.push(r.id); ROWS.push(r.title + '|' + (r.description || '')); } } catch {}
     }
     return {};
   },

@@ -57,7 +57,7 @@ async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens 
       const partes = String(linhas[i]).split('\n');
       rows.push({
         title: limpa(partes[0]).slice(0, 24) || `Opção ${i + 1}`,
-        rowId: `LISTANUM_${i + 1}`,
+        id: `LISTANUM_${i + 1}`,   // v7.93: o campo CERTO do single_select novo é `id` (como no menu). `rowId` deixava as rows sem selector.
         description: limpa(partes.slice(1).join(' ')).slice(0, 72),
       });
     }

@@ -131,24 +131,6 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
 
     const resultados = searchData.resultados || [];
     const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ DARK BOT` : '© DARK BOT v6');
-
-    // ── v7.77: !play mostra a LISTA e o user escolhe o número ──
-    if (resultIndex === 0 && resultados.length > 1) {
-      const lista = require('../listaEscolha');
-      const itens = resultados.slice(0, 8);
-      await lista.mostrar(sock, msg, ctx, {
-        titulo: `🎵 *${resultados.length} resultados* — ${String(text).slice(0, 40)}`,
-        linhas: itens.map((v) => `*${String(v.title || '?').slice(0, 55)}*\n   ⏱️ ${v.duration || '?'} • 👤 ${String(v.author || '?').slice(0, 30)}`),
-        itens, tipo: 'play',
-        aoEscolher: async ({ item, idx }) => {
-          await enviarCardPlay(sock, m, msg, item, prefix, Q,
-            `✦ ݁˖ Escolheste o #${idx + 1} ✦ ݁˖\n\n`, quality.toxic, footer);
-        },
-      });
-      sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
-      return true;
-    }
-
     const video = resultados[Math.min(resultIndex, resultados.length - 1)];
     const bodyExtra =
       resultIndex === 0 ? '✦ ݁˖ Selecione o formato desejado. .✦ ݁˖\n\n'

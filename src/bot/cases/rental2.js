@@ -400,7 +400,7 @@ module.exports = function registerRental2(registerCase) {
       { title: '🆓 Trial 7 dias grátis', description: '500 cmds/dia · sem cartão', id: `${p}trial` },
       { title: '📊 Estado do aluguel', description: 'Ver dias restantes', id: `${p}statusalugar` },
     );
-    const channelUrl = await botConfigCache.get('channel_url', '').catch(() => '');
+    const channelUrl = await require('../identidadeCanal').canalLink();
     const channelBtn = channelUrl
       ? { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '📢 Canal Oficial', url: channelUrl, merchant_url: channelUrl }) }
       : { name: 'cta_url', buttonParamsJson: JSON.stringify({ display_text: '📲 Falar com o Dono', url: `https://wa.me/${ownerNum}`, merchant_url: `https://wa.me/${ownerNum}` }) };

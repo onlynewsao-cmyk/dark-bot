@@ -70,7 +70,7 @@ async function escolher(sock, msg, ctx, { titulo, subtitulo, linhas = [], opcoes
   _pend.set(ctx.senderNumber, { tok, tipo: 'sel', expira: Date.now() + expira, dados: { onEscolha, n: opcoes.length } });
   const rows = opcoes.map((o, i) => ({
     title: String(o.label).slice(0, 24),
-    rowId: `RPGSEL_${tok}_${i}`,
+    id: `RPGSEL_${tok}_${i}`,   // v7.93: `id` (formato do menu) — com rowId a lista abria mas não seleccionava.
     description: String(o.desc || '').slice(0, 72),
   }));
   const numerado = opcoes.map((o, i) => `${i + 1}. ${o.label}${o.desc ? ' — ' + o.desc : ''}`).join('\n');

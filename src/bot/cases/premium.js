@@ -20,7 +20,7 @@ module.exports = function registerPremiumCases(registerCase) {
   }) => {
     const ownerNum   = String(config.owner.number || '').replace(/\D/g, '');
     const ownerLink  = `https://wa.me/${ownerNum}`;
-    const channelUrl = config.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D';
+    const channelUrl = await require('../identidadeCanal').canalLink();
 
     const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
     const path = require('path');

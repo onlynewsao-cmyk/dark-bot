@@ -344,7 +344,7 @@ const infoHandlers = {
     return reply(sock, msg, ctx, `💤 *BOT EM DESCANSO?*\n\nO bot continua online 24/7. Para desligar a AURA num grupo: *auraoff*`);
   },
   async ca({ sock, msg, ctx }) {
-    return reply(sock, msg, ctx, `📡 *CANAL DARK NET*\n\n${config.channelUrl || 'https://whatsapp.com/channel/0029VbC8voN4Y9lszc9VuT2D'}`);
+    return reply(sock, msg, ctx, `📡 *CANAL DARK NET*\n\n${await require('../identidadeCanal').canalLink()}`);
   },
   async menualt({ sock, msg, ctx }) { return reply(sock, msg, ctx, `📋 Menu completo: *menu*\nDono: *menudono* · 18+: *menu18*`); },
   async menubn({ sock, msg, ctx }) { return reply(sock, msg, ctx, `🔘 Modo de botões: *buttonmode*\nVisual: *menustyle*`); },
