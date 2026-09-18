@@ -113,6 +113,9 @@ async function bootstrap() {
   }
   await seedDefaults(conn);
 
+  // v7.88: o mundo RPG recomeça do zero (uma vez) — toda a gente se regista de novo
+  require('./bot/rpg/reset788').run().catch(() => {});
+
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server, { cors: { origin: '*' } });

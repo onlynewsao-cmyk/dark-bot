@@ -58,10 +58,19 @@ async function verificar(cmd, ctx = {}) {
   if (!RPG_CMDS.has(c) || LIVRE_TUDO.has(c)) return null;
 
   if (ctx.isGroup) {
-    let gs = null;
-    try { gs = await rapido(require('../hotCache').getGroupSettings(ctx._msg || null, ctx.remoteJid)); } catch { return null; }
-    if (gs === TIMEOUT) return null;
-    if (gs && !gs.modorpg) return MSG_MODO;
+    // v7.88: a comunidade DARK VILLE É o mundo internacional — sempre aberto.
+    let aberto = false;
+    try {
+      const com = require('./community');
+      const st = await rapido(com.loadState());
+      if (st !== TIMEOUT) aberto = com.isCommunityGroup(ctx.remoteJid);
+    } catch {}
+    if (!aberto) {
+      let gs = null;
+      try { gs = await rapido(require('../hotCache').getGroupSettings(ctx._msg || null, ctx.remoteJid)); } catch { return null; }
+      if (gs === TIMEOUT) return null;
+      if (gs && !gs.modorpg) return MSG_MODO;
+    }
   }
 
   if (LIVRE_CHAR.has(c)) return null;

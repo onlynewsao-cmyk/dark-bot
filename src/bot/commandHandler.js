@@ -3123,6 +3123,15 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
         if (commandName.length < 3 || commonWords.has(commandName)) {
           return false;
         }
+        // v7.88: se o comando EXISTE (correu por outro prefixo/path), silêncio —
+        // sugerir "rpgstart" a quem escreveu "rpgstart" era o vacilo da imagem.
+        const tudoCmds = new Set([
+          ...Object.keys(nativeCommands || {}),
+          ...Object.keys(packageCommands || {}),
+          ...[...caseHandler.CASES.keys()],
+        ]);
+        if (tudoCmds.has(commandName)) return false;
+
         // Calcular distância Levenshtein simples para sugestão
         const allCmds = [
           ...Object.keys(nativeCommands || {}),

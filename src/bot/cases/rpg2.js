@@ -376,6 +376,22 @@ module.exports = function registerRPG2(registerCase) {
         `💰 -1000 coins`,
       ]);
     }
+    // v7.88: entrar numa guilda/clã local existente (RPG de um só grupo)
+    if (args[0] === 'entrar') {
+      const name = args.slice(1).join(' ').trim();
+      if (!name) return tReply(sock, msg, ctx, '🏰 GUILDA', ['Uso: !guilda entrar <nome>']);
+      if (p.guild) return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Já estás na guilda *${p.guild}*.`]);
+      let existe = false;
+      try {
+        const RPGPlayer = require('../../database/models/RPGPlayer');
+        existe = !!(await RPGPlayer.findOne({ guild: name }));
+      } catch {}
+      if (!existe) return tReply(sock, msg, ctx, '🏰 GUILDA', [`❌ Não existe a guilda *${name}* neste mundo.`, '> Cria-a com !guilda criar ' + name]);
+      p.guild = name;
+      if (!p.title) p.title = 'Membro';
+      await rpg.savePlayer(p);
+      return tReply(sock, msg, ctx, '🏰 BEM-VINDO', [`⚔️ Entraste na guilda *${name}*. Bom combate, ${p.name}.`]);
+    }
     if (p.guild) {
       await rpg.savePlayer(p);
 

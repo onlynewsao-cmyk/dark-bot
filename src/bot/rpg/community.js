@@ -1083,7 +1083,18 @@ async function adoptGroupAs(sock, groupType, groupJid, ownerJid) {
   return { ok: true, jid: groupJid, nome: def.name, emoji: def.emoji, desc: def.desc, acoes };
 }
 
+/** v7.88 — o grupo pertence à comunidade DARK VILLE (mundo internacional)? */
+function isCommunityGroup(jid) {
+  const j = String(jid || '');
+  if (!j) return false;
+  if (_communityJid && j === _communityJid) return true;
+  for (const v of _groupCache.values()) if (String(v || '') === j) return true;
+  for (const v of _clanGroups.values()) if (String(v || '') === j) return true;
+  return false;
+}
+
 module.exports = {
+  isCommunityGroup,
   COMMUNITY_GROUPS,
   COMMUNITY_RULES,
   EVENTS,

@@ -306,6 +306,27 @@ module.exports = function registerRPGCommunity(registerCase) {
 
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
 
+    // v7.88 — RPG DE UM SÓ GRUPO: sem comunidade DARK VILLE, o clã nasce
+    // LOCAL (vive neste grupo, sem subgrupo do WhatsApp) — mesmos custos/título.
+    let temComunidade = false;
+    try { temComunidade = !!(await community.loadState())?.communityJid; } catch {}
+
+    if (!temComunidade) {
+      p.coins -= 5000;
+      p.guild = clanName;
+      p.title = 'Líder do Clã';
+      await rpg.savePlayer(p);
+      await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      return tReply(sock, msg, ctx, '🏰 CLÃ CRIADO — MODO LOCAL', [
+        `📛 Nome: *${clanName}*`,
+        `👑 Líder: @${ctx.senderJid.split('@')[0]}`,
+        '🏠 Base: *este grupo* (RPG de um só grupo)',
+        '💰 Custo: 5000 berries',
+        '',
+        '> Membros entram com *!guilda entrar ' + clanName + '* — o clã é deste grupo.',
+      ]);
+    }
+
     try {
       const result = await community.createClanGroup(sock, clanName, ctx.senderJid);
 

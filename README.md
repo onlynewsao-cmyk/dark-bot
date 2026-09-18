@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.87.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.88.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.88** 🌱 | **RPG RESET + MUNDO DUPLO** — reset único de todas as personagens (todos se registam de novo); comunidade DARK VILLE = mundo internacional sempre aberto; grupos normais = RPG de um só grupo (clã local, !guilda entrar); sugestão de comando não vacila |
 | **v7.87** 🌍 | **RPG MUNDO FECHADO** — grupo sem `!modorpg on` = mundo fechado; sem personagem só o portal/vitrine funcionam; criação marca `started` |
 | **v7.86** 👁️ | **AUTO-VISU1 + ANTIS COMPLETOS** — anti-foto/vídeo convertem em "ver uma vez" (mantém descrição, marca quem mandou); antifoto/antivideo/antiaudio/antitexto/anticontacto/autovisu1; AutoDL agora padrão OFF |
 | **v7.85** 🎛️ | **ESCUDO À MEDIDA** — `!antilink redes <lista|off|all>`, `!antilink grupos on|off`, `!antilink canais on|off`; o aviso mostra SÓ o que o grupo aceita |
