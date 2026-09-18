@@ -66,7 +66,11 @@ function mensagensDoGrupo(grupoJid, limite = 300) {
 function citado(msg) {
   const ci = msg?.message?.extendedTextMessage?.contextInfo ||
              msg?.message?.imageMessage?.contextInfo ||
-             msg?.message?.videoMessage?.contextInfo;
+             msg?.message?.videoMessage?.contextInfo ||
+             msg?.message?.stickerMessage?.contextInfo || // v7.83: paridade com isReplyToBot
+             msg?.message?.audioMessage?.contextInfo ||
+             msg?.message?.buttonsResponseMessage?.contextInfo ||
+             msg?.message?.interactiveResponseMessage?.contextInfo;
   if (!ci) return null;
   const quoted = ci.quotedMessage;
   const txt = textoDaMsg({ message: quoted }) || '';

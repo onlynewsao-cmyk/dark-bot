@@ -1729,6 +1729,22 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
           const decide = require('../aura/auraDecide');
           const nPessoas = ctx.groupMeta?.participants?.length || 0;
 
+          // v7.83: DESTINATÁRIO — quem fala com quem (paraMim/sobreMim/menções/resposta).
+          if (!ctx.dest) {
+            try {
+              const DD = require('../aura/auraDestinatario');
+              const _botName = String(config?.bot?.name || '').toLowerCase().trim();
+              ctx.dest = DD.analisar({
+                texto: text,
+                mentionedJid: allMentioned || [],
+                quotedParticipant: ctxParticipant || '',
+                quotedTexto: (require('../aura/auraIdentidade').autorCitado(msg)?.texto || ''),
+                botNum, botLid,
+                tambemEu: _botName.length > 3 ? [_botName] : [],
+                resolverNome: (j) => { try { return require('../aura/auraHistorico').nomeDoJid(j, ctx.remoteJid); } catch { return null; } },
+              });
+            } catch { ctx.dest = null; }
+          }
           const d = decide.deveResponder({
             texto: text,
             respostaAOutro: _respostaAOutro,
@@ -1742,7 +1758,9 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
             msgsDesdeUltima: _msgsDesdeAura(ctx.remoteJid),
             senderNumber: ctx.senderNumber,
             remoteJid: ctx.remoteJid,
+            dest: ctx.dest || null, // v7.83
           });
+          ctx._tomLeve = !!d.leve; // v7.83: falam DELA (indirecto) → resposta leve
           // v7.40: STICKER solto em grupo não puxa resposta (nem do Dark) —
           // só se for resposta a ela ou menção. No PV responde normal.
           if (d.responde && ctx.isGroup && msg.message?.stickerMessage && !isBotMentioned && !isReplyToBot) {
@@ -2327,6 +2345,14 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
                 sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber),
                 mood: require('../aura/auraHuman').getMood(ctx.remoteJid).mood,
               }));
+              // v7.83: DESTINATÁRIO — ela vê quem respondeu a quem e quem marcou quem.
+              try {
+                if (ctx.dest) {
+                  const DD = require('../aura/auraDestinatario');
+                  partes.push(DD.blocoParaPrompt(ctx.dest));
+                  if (ctx._tomLeve) partes.push('TOM: falam DE ti, não CONTIGO — reage leve e breve (1 linha, ou só um emoji se bastar). Não faças perguntas nem puxes conversa.');
+                }
+              } catch {}
             } catch (e) { console.warn('[Aura cerebro]', e.message?.slice(0, 60)); }
             _consciencia = partes.join('\n\n');
             // Aprende com correcções: "não faças isso" vira regra

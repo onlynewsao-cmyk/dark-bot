@@ -64,18 +64,30 @@ function deveResponder(o = {}) {
   const {
     texto = '', isOwner = false, isGroup = false,
     mencionada = false, respostaAoBot = false, temMedia = false,
-    pessoasNoGrupo = 0, msgsDesdeUltima = 0,
+    pessoasNoGrupo = 0, msgsDesdeUltima = 0, dest = null,
   } = o;
 
   const t = norm(texto);
 
   // ── SEMPRE responde ───────────────────────────────────────
-  if (mencionada) return { responde: true, motivo: 'mencionada', chance: 1 };
-  if (respostaAoBot) return { responde: true, motivo: 'responderam-lhe', chance: 1 };
-  if (CHAMA_NOME.test(t)) return { responde: true, motivo: 'chamaram-na', chance: 1 };
-
-  // PV é conversa a dois — responde sempre
-  if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
+  // ── v7.83: DESTINATÁRIO real (jids + vocativo + gíria) manda sobre heurísticas ──
+  if (dest) {
+    if (dest.paraMim) return { responde: true, motivo: 'falam com ela (' + dest.motivos.join(' + ') + ')', chance: 1 };
+    if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
+    // Indirecto: falam DELA (3ª pessoa) → reage leve, não puxa conversa.
+    if (dest.sobreMim) return { responde: true, motivo: 'falam dela (indirecto)', chance: 0.85, leve: true };
+    // Dirigida a outro: marcou alguém ou respondeu a alguém (jids reais).
+    if ((dest.mencoes && dest.mencoes.length) || o.respostaAOutro) {
+      return { responde: false, motivo: 'dirigida a outro participante', chance: 0 };
+    }
+    // Cai nas regras abaixo (saudação ao grupo, janela talk, dono...).
+  } else {
+    if (mencionada) return { responde: true, motivo: 'mencionada', chance: 1 };
+    if (respostaAoBot) return { responde: true, motivo: 'responderam-lhe', chance: 1 };
+    if (CHAMA_NOME.test(t)) return { responde: true, motivo: 'chamaram-na', chance: 1 };
+    // PV é conversa a dois — responde sempre
+    if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
+  }
 
   // v6.93: saudação AO GRUPO ("bom dia malta") nunca a puxa — nem no meio
   // de uma conversa com ela (a janela auraTalk não conta como menção).
