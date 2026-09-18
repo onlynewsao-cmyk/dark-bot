@@ -143,15 +143,20 @@ function isAnimatedWebp(buffer) {
 // effort:1 = metade do tempo de encode (1468→~700ms) com tamanho igual.
 async function gifToWebpSquare(buffer) {
   const sharp = require('sharp');
-  // v7.77: capa frames — anims gigantes (78 frames) demoravam 5s+ sozinhos
-  // e rebentavam o limite. 24 frames ≈ 1–2s de loop: chega p/ sticker.
-  let pages;
+  // v7.94: ANIMAÇÃO COMPLETA — o corte de 24 frames engolava o resto dos
+  // segundos. Agora mantemos os frames TODOS (tecto generoso 200 ≈ 20s) e
+  // a escada de qualidade adapta-se ao nº de frames: quanto maior a anim,
+  // menos passos = encode tão rápido como antes. Nunca mexe na duração.
+  let pages = undefined, qs = [70, 45, 25];
   try {
     const meta = await sharp(buffer, { animated: true }).metadata();
-    if ((meta.pages || 1) > 24) pages = 24;
+    const np = meta.pages || 1;
+    if (np > 200) pages = 200;           // tecto generoso (~20s)
+    if (np > 90) qs = [22];              // anim longa: 1 passo só (encode rápido, tamanho por baixo)
+    else if (np > 45) qs = [50, 28, 12];
   } catch {}
   let last = null;
-  for (const q of [70, 45, 25]) {
+  for (const q of qs) {
     // sharp com animated:true processa todos os frames
     // fit:cover = preenche 512x512 cortando bordas → SEM barras pretas, SEM distorção
     last = await sharp(buffer, { animated: true, ...(pages ? { pages } : {}) })
@@ -174,7 +179,7 @@ async function gifToWebpSquare(buffer) {
 }
 
 /* ─── Vídeo MP4/WebM → WebP animado 512x512 cover (via ffmpeg) ─ */
-async function videoToWebpSquare(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
+async function videoToWebpSquare(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 30)) { // v7.94: todos os segundos (era 8s)
   const tmp     = path.join(os.tmpdir(), `stk_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const inFile  = `${tmp}.in`;
   const outFile = `${tmp}.webp`;
@@ -383,7 +388,7 @@ async function imageToWebpFull(buffer, watermarkText = '') {
   return img.webp({ quality: 90, lossless: false }).toBuffer();
 }
 
-async function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 8)) {
+async function videoToWebpFull(inputBuf, maxSec = Number(process.env.STICKER_VIDEO_MAX_SEC || 30)) { // v7.94: idem
   const tmp = path.join(os.tmpdir(), `stkfull_${Date.now()}_${Math.random().toString(36).slice(2)}`);
   const inFile = `${tmp}.in`;
   const outFile = `${tmp}.webp`;

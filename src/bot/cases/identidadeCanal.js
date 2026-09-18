@@ -57,6 +57,21 @@ module.exports = function registerIdentidade(registerCase) {
     }
   });
 
+  // v7.94 — DESCRIÇÃO GERAL (About/estado) do bot: aparece em todo o lado
+  registerCase(['setbio', 'setabout', 'setdescgeral'], async ({ sock, msg, ctx, args, isOwner }) => {
+    if (!isOwner) return sock.sendMessage(ctx.remoteJid, { text: '🚫 Só o *Dono* edita a descrição geral.' }, { quoted: msg });
+    const texto = args.join(' ').trim();
+    try {
+      if (!texto || texto === 'off' || texto === 'padrao' || texto === 'padrão') {
+        return sock.sendMessage(ctx.remoteJid, { text: '❌ Uso: `!setbio <texto da descrição geral>` — fica visível no perfil do bot.' }, { quoted: msg });
+      }
+      await sock.updateProfileStatus(texto);
+      return sock.sendMessage(ctx.remoteJid, { text: `✅ *DESCRIÇÃO GERAL ACTUALIZADA*\n\n"${texto}"\n\n> Visível no perfil do bot {{E em todo o lado onde o número aparece}}.` }, { quoted: msg });
+    } catch (e) {
+      return sock.sendMessage(ctx.remoteJid, { text: '❌ Falha ao editar a descrição: ' + e.message }, { quoted: msg });
+    }
+  });
+
   registerCase(['selo', 'verificado', 'contacto'], async ({ sock, msg, ctx }) => {
     const id = require('../identidadeCanal');
     const s = await id.selo();

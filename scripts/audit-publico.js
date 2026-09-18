@@ -54,7 +54,8 @@ async function run(cmd, free) {
   try {
     const ran = await Promise.race([
       ch.runCase(cmd, { sock, msg, ctx, args: [], text: '', q: '', prefix: '!', isOwner: !free, reply, command: cmd, from: ctx.remoteJid, sender: ctx.senderJid, config }),
-      new Promise(r => setTimeout(() => r('timeout'), 5000)),
+      // v7.94: categorias de figurinhas = rede (Sticker.ly) + encode animado — 15s
+      new Promise(r => setTimeout(() => r('timeout'), /^fig(anime|coreana|desenho|emoji|engracada|meme|raiva|roblox)/.test(cmd) ? 15000 : 5000)),
     ]);
     if (ran === 'timeout') return { status: 'TIMEOUT', sent };
     if (!ran && (nc[cmd] || pkg[cmd])) {

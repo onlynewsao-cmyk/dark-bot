@@ -8,8 +8,10 @@ const orig = Module.prototype.require;
 
 const STORE = {};
 let OUT = [];
+let BIO = '';
 const sock = {
   sendMessage: async (j, c) => { OUT.push(c?.text || c?.vcard || c?.contactMessage?.displayName || JSON.stringify(c).slice(0, 120)); return { key: {} }; },
+  updateProfileStatus: async (t) => { BIO = t; },
 };
 const msg = { key: { remoteJid: '1@s.whatsapp.net', fromMe: false, id: 'X' } };
 const ctxD = { remoteJid: '244001@s.whatsapp.net', senderNumber: '244001', senderJid: '244001@s.whatsapp.net', isGroup: false };
@@ -62,7 +64,28 @@ require('../src/bot/cases/identidadeCanal')((names, fn) => { for (const n of nam
   OUT = []; await HANDLERS.setselo({ sock, msg, ctx: ctxD, args: ['off'], isOwner: true });
   t('!setselo off = padrão', (await id.selo()).nome === 'DARK BOT ✓', JSON.stringify(await id.selo()));
 
-  console.log('\n═══ 3. LIGADOS NOS SÍTIOS ═══');
+  console.log('\n═══ 3. DESCRIÇÃO GERAL (!setbio) ═══');
+  OUT = []; BIO = '';
+  await HANDLERS.setbio({ sock, msg, ctx: ctxD, args: 'o melhor bot do mundo 🕸️'.split(' '), isOwner: true });
+  t('!setbio chama updateProfileStatus', BIO === 'o melhor bot do mundo 🕸️', BIO.slice(0, 50));
+  t('!setbio confirma ao Dono', OUT.join(' ').includes('DESCRIÇÃO GERAL ACTUALIZADA'), OUT.join(' ').slice(0, 60));
+  OUT = []; BIO = '';
+  await HANDLERS.setbio({ sock, msg, ctx: ctxF, args: ['x'], isOwner: false });
+  t('!setbio: não-Dono recusado', BIO === '' && OUT.join(' ').includes('Dono'), OUT.join(' ').slice(0, 60));
+  OUT = [];
+  await HANDLERS.setbio({ sock, msg, ctx: ctxD, args: [], isOwner: true });
+  t('!setbio sem texto explica uso', OUT.join(' ').includes('Uso'), OUT.join(' ').slice(0, 60));
+
+  console.log('\n═══ 4. STICKERS ANIMADOS COMPLETOS ═══');
+  const fs4 = require('fs');
+  const src = fs4.readFileSync('/home/user/darknet-tunnel/src/bot/stickerMaker.js', 'utf8');
+  t('GIF: sem cap de 24 frames', !src.includes('pages = 24'), '');
+  t('GIF: tecto generoso 200 frames (~20s)', src.includes('pages = 200'), '');
+  t('GIF: escada adaptativa (anims longas = menos passos)', src.includes('qs = [22]') && src.includes('qs = [50, 28, 12]'), '');
+  t('vídeo: todos os segundos (fallback 30s)', /STICKER_VIDEO_MAX_SEC \|\| 30\)/.test(src) || (src.match(/STICKER_VIDEO_MAX_SEC \|\| 30/g) || []).length >= 1, '');
+  t('vídeo: os DOIS caminhos sobem para 30s', (src.match(/STICKER_VIDEO_MAX_SEC \|\| 30/g) || []).length === 2, String((src.match(/STICKER_VIDEO_MAX_SEC \|\| 30/g) || []).length));
+
+  console.log('\n═══ 5. LIGADOS NOS SÍTIOS ═══');
   const fs = require('fs');
   for (const f of ['src/bot/cases/finalizar.js', 'src/bot/cases/premium.js', 'src/bot/cases/rental2.js']) {
     t('canal dinâmico em ' + f.split('/').pop(), fs.readFileSync('/home/user/darknet-tunnel/' + f, 'utf8').includes('identidadeCanal'), '');
