@@ -148,6 +148,7 @@ async function _finalizar(sock, msg, ctx, name, race, cls) {
   p.name = name || p.name || 'Aventureiro';
   p.race = race;
   p.class = cls;
+  p.started = true; // v7.87: personagem real, não implícita
 
   // bónus da origem escolhida (se houver) — entra nas stats base.
   // v6.90: UMA vez só. Antes somava a cada !rpgstart, pelo que bastava

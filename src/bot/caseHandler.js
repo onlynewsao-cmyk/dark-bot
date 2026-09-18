@@ -709,6 +709,15 @@ async function runCase(command, rawCtx) {
   const handler = CASES.get(cmd);
   if (!handler) return false;
 
+  // v7.87 — RPG MUNDO FECHADO: grupo sem modo = mundo fechado; sem personagem = só portal.
+  try {
+    const bloqueio = await require('./rpg/gate').verificar(cmd, { ...rawCtx.ctx, _msg: msg });
+    if (bloqueio) {
+      try { await sock.sendMessage(rawCtx.ctx.remoteJid, { text: bloqueio }, { quoted: msg }); } catch {}
+      return true;
+    }
+  } catch {}
+
   const { msg, ctx, args, text, prefix, isOwner, config } = rawCtx;
   const sock = wrapSockForCases(rawCtx.sock, msg);
   const { m, quoted } = buildM(sock, msg, ctx);

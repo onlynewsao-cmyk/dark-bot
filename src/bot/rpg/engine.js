@@ -269,6 +269,14 @@ const REFINEMENT = [
 // ══════════════════════════════════════════════════════════════
 const _cache = new Map();
 
+async function peekPlayer(number) {
+  // v7.87: lê SEM criar — o mundo fechado precisa de saber quem existe.
+  const num = String(number).replace(/\D/g, '');
+  if (_cache.has(num)) return _cache.get(num);
+  const RPGPlayer = require('../../database/models/RPGPlayer');
+  return await RPGPlayer.findOne({ whatsappNumber: num });
+}
+
 async function getPlayer(number) {
   const num = String(number).replace(/\D/g, '');
   if (_cache.has(num)) return _cache.get(num);
@@ -665,6 +673,6 @@ module.exports = {
   // v6.62: compatibilidade com cases/rpg2.js
   RACES, CLASSES, BIOMES, QUESTS, NPCS, RECIPES, generateEnemy, calcDamage, generateLoot,
   getRank, addXP, hpBar,
-  getPlayer, savePlayer,
+  getPlayer, peekPlayer, savePlayer,
   _cache,
 };

@@ -40,7 +40,7 @@ const t = (n, c, e) => {
 function jogadorNovo() {
   return {
     whatsappNumber: DONO, name: 'Kira', title: '', faction: null, guild: null,
-    race: 'humano', class: 'guerreiro', raceBonusApplied: true,
+    race: 'humano', class: 'guerreiro', raceBonusApplied: true, started: true,
     level: 5, xp: 40, xpNext: 600,
     hp: 150, maxHp: 150, mp: 80, maxMp: 80, lives: 3,
     stats: { str: 10, dex: 8, int: 7, vit: 9, luk: 6 },
@@ -152,7 +152,7 @@ const BLOQUEIO_ESPERADO = {
 
   // O aluguer (trial/rent) mexe no GroupSettings — sem Mongo ficava pendurado.
   const GroupSettings = require(path.join(REPO, 'src/database/models/GroupSettings'));
-  const gsFake = { groupJid: GRUPO, save: async () => {} };
+  const gsFake = { groupJid: GRUPO, modorpg: true, save: async () => {} }; // v7.87: mundo aberto
   GroupSettings.findOne = () => query(gsFake);
   GroupSettings.findOneAndUpdate = async () => gsFake;
 

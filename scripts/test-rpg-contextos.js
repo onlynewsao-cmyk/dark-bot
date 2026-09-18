@@ -57,7 +57,7 @@ const RE_ERRO = /Erro no case|is not a function|Cannot read|Cannot convert|is no
 function doc(num, over = {}) {
   return {
     whatsappNumber: num, name: 'Aventureiro', title: '', faction: null, guild: null,
-    race: 'humano', class: 'guerreiro', raceBonusApplied: false,
+    race: 'humano', class: 'guerreiro', raceBonusApplied: false, started: true, // v7.87
     level: 1, xp: 0, xpNext: 100,
     hp: 150, maxHp: 150, mp: 80, maxMp: 80, lives: 3,
     stats: { str: 6, dex: 6, int: 6, vit: 6, luk: 6 },
@@ -212,7 +212,7 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   const lojas = new Map();
   GS.findOneAndUpdate = async (f, upd) => {
     const jid = f.groupJid;
-    if (!lojas.has(jid)) lojas.set(jid, { groupJid: jid, save: async () => {} });
+    if (!lojas.has(jid)) lojas.set(jid, { groupJid: jid, modorpg: true, save: async () => {} }); // v7.87
     const g = lojas.get(jid);
     Object.assign(g, upd.$setOnInsert || {}, upd.$set || {});
     return g;

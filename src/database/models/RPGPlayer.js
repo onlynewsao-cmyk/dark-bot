@@ -21,6 +21,7 @@ const RPGPlayerSchema = new mongoose.Schema({
   // O bónus da raça aplica-se UMA vez, na criação — sem esta marca,
   // cada !rpgstart somava outra vez os mesmos pontos aos stats.
   raceBonusApplied: { type: Boolean, default: false },
+  started:    { type: Boolean, default: false }, // v7.87: criou personagem de verdade
   faction:   { type: String, default: null },
   guild:     { type: String, default: null },
 
