@@ -13,7 +13,7 @@ const sock = {
     OUT.push(im?.body?.text || '[INTERACTIVO]');
     ROWS = [];
     for (const b of im?.nativeFlowMessage?.buttons || []) {
-      try { for (const s of JSON.parse(b.buttonParamsJson || '{}').sections || []) for (const r of s.rows || []) ROWS.push(r.rowId); } catch {}
+      try { for (const s of JSON.parse(b.buttonParamsJson || '{}').sections || []) for (const r of s.rows || []) { ROWS.push(r.rowId); ROWS.push(r.title + '|' + (r.description || '')); } } catch {}
     }
     return {};
   },
@@ -41,9 +41,12 @@ const t = (n, c, x = '') => { if (c) { ok++; console.log('  ✅', n); } else { f
     aoEscolher: async ({ item, idx }) => { escolhido = { item, idx }; },
   });
   t('registou pendente', lista._pendentes.size === 1 && n === 2, 'n=' + n);
-  t('rowIds LISTANUM_1..2', ROWS.join(',') === 'LISTANUM_1,LISTANUM_2', ROWS.join(','));
-  t('corpo tem as linhas numeradas', OUT.join(' ').includes('*1.*') && OUT.join(' ').includes('*2.*'), OUT[0]?.slice(0, 60));
-  t('texto fala em ESCOLHER (clique)', OUT.join(' ').includes('ESCOLHER'), OUT[0]?.slice(-60));
+  const ids = ROWS.filter(r => /^LISTANUM_/.test(r));
+  const metas = ROWS.filter(r => !/^LISTANUM_/.test(r));
+  t('rowIds LISTANUM_1..2', ids.join(',') === 'LISTANUM_1,LISTANUM_2', ids.join(','));
+  t('resultados DENTRO da lista (títulos nas rows)', /Tampa Range Trailer/.test(metas[0] || '') && /Fontaine/.test(metas[1] || ''), metas.join(' · ').slice(0, 70));
+  t('corpo CURTO (sem repetir resultados fora)', !OUT.join(' ').includes('*1.*') && OUT.join(' ').includes('2 opções'), OUT[0]?.slice(0, 70));
+  t('texto diz onde tocar (título ▾ + opções)', OUT.join(' ').includes('▾') && OUT.join(' ').includes('opções'), OUT[0]?.slice(-70));
 
   console.log('\n═══ 2. clique LISTANUM_2 resolve o pendente ═══');
   const r = await lista.tentarToken(sock, msg, ctx, 'LISTANUM_2');

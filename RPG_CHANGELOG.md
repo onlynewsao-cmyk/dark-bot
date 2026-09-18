@@ -6,6 +6,12 @@
 
 ---
 
+## v7.92 — OPÇÕES DENTRO DA LISTA
+- listas RPG passam a mostrar corpo curto; os resultados aparecem quando se toca ESCOLHER ▾ (em vez de duplicar no texto)
+
+## v7.91 — TUDO CLICÁVEL
+- todas as pesquisas com lista (play/spotify2/video/...) clicáveis; stalks com opções; migração sessão; darknet-tunnel = repo verdadeiro
+
 ## v7.90 — UI CLICÁVEL (botões e listas) 🎮
 - **`src/bot/rpg/ui.js`** — motor de interacção do RPG:
   - `confirmar()` → botões **✅ Sim / ❌ Não** (clique → corre o efeito 1× e morre)

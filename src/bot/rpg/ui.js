@@ -75,11 +75,13 @@ async function escolher(sock, msg, ctx, { titulo, subtitulo, linhas = [], opcoes
   }));
   const numerado = opcoes.map((o, i) => `${i + 1}. ${o.label}${o.desc ? ' — ' + o.desc : ''}`).join('\n');
   const texto = [...linhas, '', numerado, '', '👇 Toca, ou escreve *!rpgescolher <número>*'].join('\n');
+  // v7.92 — corpo curto: as opções aparecem DENTRO da lista (no toque).
+  const corpoCurto = [...linhas, '', `👆 Toca em *${String(titulo).slice(0, 30)}* ▾ — tens ${opcoes.length} opções 【ou escreve !rpgescolher <número>】`].join('\n');
   try {
     const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
     const m = generateWAMessageFromContent(ctx.remoteJid, {
       interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-        body: { text: texto },
+        body: { text: corpoCurto },
         footer: { text: '🎮 RPG · tens 3 min para escolher' },
         header: { title: '', hasMediaAttachment: false },
         nativeFlowMessage: {

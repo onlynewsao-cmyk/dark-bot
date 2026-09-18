@@ -29,6 +29,8 @@ function _limpar() {
   for (const [k, v] of _pendentes) if (agora - v.ts > TTL) _pendentes.delete(k);
 }
 
+function limpaSafe(x) { return String(x || '').replace(/[*_`]/g, '').trim(); }
+
 /**
  * Mostra a lista numerada e guarda a escolha pendente.
  * `linhas` já vêm formatadas (sem número — o motor numera).
@@ -40,6 +42,9 @@ async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens 
   const numeradas = [];
   for (let i = 0; i < n; i++) numeradas.push(`*${i + 1}.* ${linhas[i]}`);
   const texto = `${titulo}\n${intro ? intro + '\n' : ''}\n${numeradas.join('\n')}\n\n> Toca em *ESCOLHER* ▾ ou responde com o *número* (1–${n})${dica ? '\n' + dica : ''}`;
+  // v7.92 — corpo curto: os RESULTADOS ficam DENTRO da lista (aparecem
+  // quando se toca ESCOLHER ▾). O texto numerado SÓ é enviado no fallback.
+  const corpoCurto = `${titulo}\n${intro ? intro + '\n' : ''}\n> Toca em *${limpaSafe(titulo).slice(0, 30) || 'ESCOLHER'}* ▾ — tens ${n} opções 【ou responde com o número 1–${n}】`;
   _pendentes.set(_key(ctx), { itens: itens.slice(0, n), ts: Date.now(), tipo, aoEscolher });
 
   // v7.91: LISTA CLICÁVEL estilo submenu (single_select) — tocar numa
@@ -58,7 +63,7 @@ async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens 
     }
     const m = generateWAMessageFromContent(ctx.remoteJid, {
       interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-        body: { text: texto },
+        body: { text: corpoCurto },
         footer: { text: `📋 ${tipo} · ${n} opções` },
         header: { title: '', hasMediaAttachment: false },
         nativeFlowMessage: {
