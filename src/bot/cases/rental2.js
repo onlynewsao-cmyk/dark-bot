@@ -307,6 +307,13 @@ module.exports = function registerRental2(registerCase) {
         byNumber: ctx.senderNumber, byName: ctx.pushName || '',
         status: 'pendente', ts: Date.now(), paid: null,
       });
+      // v7.96: "o contacto X está interessado no aluguel" → avisa já o Dono
+      try {
+        await require('../../aura/auraAvisos').avisarPedidoNovo(sock, config, {
+          numero: ctx.senderNumber, nome: ctx.pushName || '', ref,
+          total: `${precoTxt(plan.id, prices)}`,
+        });
+      } catch {}
       const payLines = [];
       if (pay.pix) payLines.push(`🔑 Pix: *${pay.pix}*${pay.pixNome ? ` (${pay.pixNome})` : ''} → ${fmtBrl(brl)}`);
       if (pay.pixCode) payLines.push(`📋 Pix copia-e-cola:\n${pay.pixCode}`);
@@ -905,9 +912,8 @@ async function checkExpiries(sock) {
         await GroupSettings.findOneAndUpdate({ groupJid: jid }, { isHosted: false }).catch(() => {});
         try { require('../hotCache').forgetGroup(jid); } catch {}
         if (sock) await sock.sendMessage(jid, { text: `🔴 *ALUGUEL EXPIRADO*\n\n${gname ? `🏠 ${gname}\n` : ''}Os comandos voltaram a bloquear.\n\n💎 Reativa com *!alugar* — renovar soma dias novos.` }).catch(() => {});
-        try { // v7.79: dono também é avisado (pode ir cobrar a renovação)
-          const ownerNum = String(config?.owner?.number || '').replace(/\D/g, '');
-          if (sock && ownerNum) await sock.sendMessage(`${ownerNum}@s.whatsapp.net`, { text: `🔴 *EXPIROU* — ${gname || jid}\n💬 Fala com o grupo para renovar.` }).catch(() => {});
+        try { // v7.79+v7.96: dono avisado com cartão de decisão (renovar/adiar/sair)
+          await require('../../aura/auraAvisos').avisarAluguel(sock, config, { jid, gname: gname || '', tag: 'expirado', dias: 0 });
         } catch {}
         out.expired.push(jid);
         continue;
@@ -917,10 +923,12 @@ async function checkExpiries(sock) {
       if (days <= 1 && !_expiryWarned.has(k1)) {
         _expiryWarned.add(k1); _expiryWarned.add(k3); // d1 enviado → d3 nunca mais faz sentido
         if (sock) await sock.sendMessage(jid, { text: `⏰ *ALUGUEL A EXPIRAR*\n\n${gname ? `🏠 ${gname}\n` : ''}⚠️ Resta *menos de 1 dia* (expira ${new Date(untilMs).toLocaleDateString('pt-PT')}).\n\n🔄 Renova com *!alugar* para não ficar sem bot.` }).catch(() => {});
+        try { await require('../../aura/auraAvisos').avisarAluguel(sock, config, { jid, gname: gname || '', tag: 'aviso', dias: 1 }); } catch {} // v7.96: dono também recebe (com cartão renovar)
         out.warned1.push(jid);
       } else if (days <= 3 && !_expiryWarned.has(k3) && !_expiryWarned.has(k1)) {
         _expiryWarned.add(k3);
         if (sock) await sock.sendMessage(jid, { text: `⏰ *ALUGUEL A EXPIRAR*\n\n${gname ? `🏠 ${gname}\n` : ''}📅 Restam *${days} dias* (expira ${new Date(untilMs).toLocaleDateString('pt-PT')}).\n\n🔄 Renova com *!alugar* — soma aos dias que restam.` }).catch(() => {});
+        try { await require('../../aura/auraAvisos').avisarAluguel(sock, config, { jid, gname: gname || '', tag: 'aviso', dias: days }); } catch {} // v7.96
         out.warned3.push(jid);
       }
     } catch {}

@@ -458,6 +458,26 @@ class WhatsAppBot {
           const meta = await this.sock.groupMetadata(event.id).catch(() => null);
           await require('../aura/auraLinhaTempo').doEventoParticipantes(this.sock, event, meta);
         } catch {}
+        // v7.96: "ela avisa sempre onde entrou" — quando a Aura é
+        // ADICIONADA a um grupo, o Dark recebe o relatório em PV.
+        try {
+          if (event.action === 'add') {
+            const selfs = [this.sock.user?.id, this.sock.user?.lid]
+              .map(s => String(s || '').split('@')[0].split(':')[0]).filter(Boolean);
+            const fuiEu = (event.participants || []).some(p =>
+              selfs.includes(String(p).split('@')[0].split(':')[0]));
+            if (fuiEu) {
+              const meta = await this.sock.groupMetadata(event.id).catch(() => null);
+              const autorNumero = String(event.author || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+              await require('../aura/auraAvisos').avisarEntrada(this.sock, config, {
+                gname: meta?.subject || '',
+                autorNumero,
+                autorNome: '',
+                size: meta?.participants?.length || 0,
+              });
+            }
+          }
+        } catch (e) { console.warn('[Vigilante entrada]', e.message?.slice(0, 60)); }
       });
       this.sock.ev.on('groups.update', async (updates) => {
         for (const u of (updates || [])) {

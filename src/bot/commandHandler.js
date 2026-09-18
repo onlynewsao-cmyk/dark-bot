@@ -427,6 +427,16 @@ async function _handleInner(sock, msg) {
     } catch (e) { console.warn('[RPG ui]', e.message?.slice(0, 60)); }
   }
 
+  // ── v7.96: AURA VIGILANTE — decisões dos cartões (AURASEL_) ────────
+  if (/^AURASEL_[a-z0-9]+_\d+$/i.test(text.split(/\s+/)[0] || '')) {
+    try {
+      const escolha = require('../aura/auraEscolha');
+      const avisos = require('../aura/auraAvisos');
+      if (await escolha.resolver(sock, msg, ctx, text.split(/\s+/)[0],
+        (d, i, p) => avisos.despachar(d, i, { ...p, config }))) return true;
+    } catch (e) { console.warn('[AuraEscolha]', e.message?.slice(0, 60)); }
+  }
+
   // ── Interceptar cliques do change theme (lista interativa) ──────────
   if (text.startsWith('CHANGE_THEME_')) {
     const themeName = text.replace('CHANGE_THEME_', '').toLowerCase().trim();
@@ -688,6 +698,80 @@ async function _handleInner(sock, msg) {
       }
     }
   } catch (e) { console.warn('[Percepção]', e.message?.slice(0, 60)); }
+
+  // ── v7.96: VIGILANTE — ela vê tudo e conta ao Dark ──────────────────
+  try {
+    const vig = require('../aura/auraVigilante');
+    const av = require('../aura/auraAvisos');
+    if (ctx.isGroup) vig.contaMensagem(ctx.remoteJid);
+    const _semP96 = text && !startsWithAnyPrefix(text, prefixes);
+
+    // 1) Convite de grupo chegado em PV
+    if (_semP96 && !ctx.isGroup) {
+      const _code = vig.extrairConvite(text);
+      if (_code) {
+        if (isOwner) {
+          // o Dark enviou o link → entra já (é ordem, não pedido)
+          const r = await sock.groupAcceptInvite(_code).catch(e => ({ __erro: e.message }));
+          await sock.sendMessage(ctx.remoteJid, {
+            text: (r && !r.__erro) ? '✅ Entrei no grupo do link.' : `❌ Não consegui entrar (${String(r?.__erro || 'link inválido').slice(0, 80)}).`,
+          }, { quoted: msg }).catch(() => {});
+          return true;
+        }
+        if (vig.deveEmitirConvite(_code, ctx.senderNumber)) {
+          await av.avisarConvite(sock, config, { code: _code, numero: ctx.senderNumber, nome: ctx.pushName });
+          await sock.sendMessage(ctx.remoteJid, { text: '💌 Deixei o teu convite com o meu Dark 🖤 ele decide em breve.' }, { quoted: msg }).catch(() => {});
+        } else {
+          await sock.sendMessage(ctx.remoteJid, { text: '💌 Esse convite já está com ele 🖤' }, { quoted: msg }).catch(() => {});
+        }
+        return true;
+      }
+    }
+
+    // 2) O Dark pergunta balanços em conversa normal (PV ou grupo)
+    if (_semP96 && isOwner) {
+      const _q = vig.detectarPerguntaBalanço(text);
+      if (_q) {
+        const parte = await sock.groupFetchAllParticipating().catch(() => null);
+        const gars = Object.values(parte || {}).map(g => ({ jid: g.id, subject: g.subject, size: g.participants?.length || 0 }));
+        let comAluguel = [], comTrial = [];
+        try {
+          const GS = require('../database/models/GroupSettings');
+          const agora = new Date();
+          const hs = await GS.find({ isHosted: true, hostedUntil: { $gt: agora } }).lean().catch(() => []);
+          comAluguel = (hs || []).map(g => g.groupJid).filter(Boolean);
+          const tr = await GS.find({ isHosted: false, trialExpiresAt: { $gt: agora } }).lean().catch(() => []);
+          comTrial = (tr || []).map(g => g.groupJid).filter(Boolean);
+        } catch {}
+        let resp = '';
+        if (_q === 'geral') resp = vig.resumoGeral({ participantes: gars, comAluguel, comTrial });
+        else if (_q === 'ativos' || _q === 'inativos') resp = vig.mesgGruposAtivos(gars);
+        else if (_q === 'comandos') resp = vig.mesgComandosMaisUsados();
+        else if (_q === 'comaluguel') resp = vig.linhasGrupos('🏠 *COM ALUGUEL ACTIVO*', comAluguel, gars);
+        else if (_q === 'semaluguel') resp = vig.linhasGrupos('🧊 *SEM ALUGUEL (livres)*', gars.map(g => g.jid).filter(j => !comAluguel.includes(j)), gars);
+        else if (_q === 'trial') resp = vig.linhasGrupos('🎁 *EM TRIAL*', comTrial, gars);
+        if (resp) { await sock.sendMessage(ctx.remoteJid, { text: resp }, { quoted: msg }).catch(() => {}); return true; }
+      }
+    }
+
+    // 3) Alguém demonstra interesse (quer alugar/VIP/procurou o Dark) em PV
+    if (_semP96 && !isOwner && !ctx.isGroup) {
+      const _tipo = vig.detectarInteresse(text);
+      if (_tipo && vig.deveNotificarInteresse(`${_tipo}|${ctx.senderNumber}`)) {
+        await av.avisarInteresse(sock, config, { tipo: _tipo, numero: ctx.senderNumber, nome: ctx.pushName, chat: 'PV', cita: text }).catch(() => {});
+        if (_tipo === 'dono' && vig.perm('partilharnumero')) {
+          const num = av.ownerNum(config);
+          if (num) await sock.sendMessage(ctx.remoteJid, {
+            contacts: {
+              displayName: 'Dark (Dono do Bot)',
+              contacts: [{ vcard: `BEGIN:VCARD\nVERSION:3.0\nFN:Dark (Dono do Bot)\nTEL;type=CELL;waid=${num}:+${num}\nEND:VCARD` }],
+            },
+          }, { quoted: msg }).catch(() => {});
+        }
+        // não consome: a Aura ainda responde normalmente (vende com jeito 💛)
+      }
+    }
+  } catch (e) { console.warn('[Vigilante]', e.message?.slice(0, 60)); }
 
   // v6.37: Regras de resposta por tipo de grupo
   // Grupo COM aluguel activo → responde a TODOS
@@ -3544,6 +3628,8 @@ async function _fotosPedidas(sock, msg, ctx, cleanText) {
 }
 
 async function incrementUserCommand(number, ctx = null, commandName = '') {
+  // v7.96: contador da Vigilante ("comandos mais usados" do Dark)
+  try { require('../aura/auraVigilante').registaComando(commandName, ctx?.remoteJid); } catch {}
   // v6.82: alimenta o feed live do dashboard (página Grupos).
   try {
     require('./liveBroadcaster').userCommand({

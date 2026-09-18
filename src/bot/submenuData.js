@@ -126,6 +126,8 @@ function categorize(cmd) {
     setcanal:'owner', mudarcanal:'owner', definircanal:'owner', setlinkcanal:'owner',
     setselo:'owner', setverificado:'owner', setcontacto:'owner', setbio:'owner', setabout:'owner',
     canalinfo:'info', selo:'info', verificado:'info', contacto:'info',
+    // v7.96: o que a Aura pode fazer por iniciativa (permissões do Dono)
+    permissoes:'owner', minhaspermissoes:'owner', aurapode:'owner', aurapermissoes:'owner', permitir:'owner', permit:'owner',
     // v7.87: decisão rápida do RPG por mim (gate modorpg)
     rpgsim:'economia', rpgnao:'economia', 'rpgnão':'economia', rpgescolher:'economia',
     aceitar:'interacoes', aceitarinvocacao:'interacoes', ameme:'interacoes',

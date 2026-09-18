@@ -79,12 +79,13 @@ function ferramentasParaPrompt({ isOwner = false, isAdmin = false, isVip = false
   } catch {}
   if (!linhas.length) return '';
   let txt = linhas.join('\n');
-  if (txt.length > 3400) txt = txt.slice(0, 3400) + '\n…';
+  if (txt.length > 3250) txt = txt.slice(0, 3250) + '\n…';
   return [
     'O QUE SABES FAZER DE VERDADE (ferramentas):',
     'Quando a pessoa te pede uma destas coisas, FAZ — não digas que vais fazer. Inclui no fim da tua resposta o marcador',
     '  [FAZ:<id> <argumento>]',
-    'e escreve à frente só uma frase curta natural (ou nada). Podes usar até 2 marcadores. Nunca inventes ids que não estão na lista. Se não tens permissão para algo, di-lo com sinceridade.',
+    'À frente só uma frase curta natural (ou nada). Máx 2 marcadores; nunca inventes ids fora da lista. Sem permissão, diz com sinceridade.',
+    'JULGAMENTO: se a conversa já dá a certeza do que ela quer, executa; se falta algo, PERGUNTA a falha (1 pergunta) em vez de adivinhar.',
     txt,
   ].join('\n');
 }
