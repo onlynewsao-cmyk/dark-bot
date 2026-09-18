@@ -5,12 +5,14 @@ const orig = Module.prototype.require;
 let GS = {};
 const ev = [];
 let lastSend = null;
+let DL = () => Buffer.alloc(4096, 7); // download simulado da lib (comutável)
 const senderP = '244901@s.whatsapp.net';
 Module.prototype.require = function (id) {
   if (id === '../config') return { owner: { number: '244900000001' } };
   if (id === './hotCache') return { getGroupSettings: async () => GS };
   if (id === './liveBroadcaster') return { antilinkAction: () => {} };
   if (id === './prefixEngine') return { detect: async (t) => (String(t).startsWith('!') ? { command: 'play' } : null) };
+  if (id === '@systemzero/baileys') return { downloadMediaMessage: (...args) => DL(...args) };
   return orig.apply(this, arguments);
 };
 const at = require('../src/bot/antiTipos');
@@ -21,7 +23,6 @@ const sock = {
   user: { id: '244999:1@s.whatsapp.net' },
   groupMetadata: async () => ({ participants: [{ id: '244999@s.whatsapp.net', admin: 'admin' }, { id: senderP }] }),
   sendMessage: async (j, c) => { lastSend = c; ev.push(c.delete ? 'delete' : c.viewOnce ? 'visu1' : 'text'); },
-  downloadMediaMessage: async () => Buffer.alloc(4096, 7),
   groupParticipantsUpdate: async () => [],
 };
 const mkImg = (cap) => ({ key: { remoteJid: '9@g.us', participant: senderP, id: 'm1', fromMe: false }, message: { imageMessage: { caption: cap } } });
@@ -72,11 +73,23 @@ const mkVid = (cap) => ({ key: { remoteJid: '9@g.us', participant: senderP, id: 
   t('anti-texto: comando ! passa', r5 === false && ev.length === 0, ev.join(','));
 
   // 6. sem media p/ baixar → apaga + avisa (não crasha)
+  //    e PROVA do bug v7.86: o sock NUNCA teve downloadMediaMessage —
+  //    agora quem baixa é o export da lib.
   GS = { antifoto: 1 };
-  sock.downloadMediaMessage = async () => { throw new Error('expirado'); };
+  t('sock sem downloadMediaMessage (realidade Baileys)', typeof sock.downloadMediaMessage !== 'function', String(typeof sock.downloadMediaMessage));
+  DL = () => { throw new Error('expirado'); };
   at._reset(); ev.length = 0;
   const r6 = await at.check(sock, mkImg('sem buffer'));
   t('foto sem buffer: apaga + avisa curto', r6 === true && ev.join(',') === 'delete,text', ev.join(','));
+  DL = () => Buffer.alloc(4096, 7);
+
+  // 7. v7.89 — OS CAMPOS EXISTEM NO SCHEMA (o mongoose já não apaga os toggles)
+  const paths = require('../src/database/models/GroupSettings').schema.paths;
+  const vivos = ['antifoto','antivideo','antiaudio','antitexto','anticontacto','autoVisu1','autoDl','modorpg'];
+  const faltam = vivos.filter(f => !paths[f]);
+  t('schema tem os campos dos antis v7.86', faltam.length === 0, faltam.join(','));
+  t('schema tem autoVisu1 com default true', paths.autoVisu1 && paths.autoVisu1.options.default === true, String(paths.autoVisu1?.options.default));
+  t('schema tem modorpg (mundo RPG por grupo)', !!paths.modorpg && paths.modorpg.options.default === false, String(paths.modorpg?.options.default));
 
   console.log(`\n${fail ? '💥' : '🎉'} ANTI-VISU1: ${ok} OK / ${fail} FALHOU\n`);
   process.exit(fail ? 1 : 0);

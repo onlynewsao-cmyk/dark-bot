@@ -312,7 +312,14 @@ async function check(sock, msg) {
       const mi = inner(raw);
       const cap = mi.imageMessage?.caption || mi.videoMessage?.caption || '';
       let buf = null;
-      try { buf = await sock.downloadMediaMessage(msg); } catch {}
+      // v7.89 FIX: `sock.downloadMediaMessage` NÃO existe no Baileys — o
+      // download é export da biblioteca (como o resto do bot usa). Sem isto o
+      // auto-visu1 morria calado com TypeError dentro do catch.
+      try {
+        const { downloadMediaMessage } = require('@systemzero/baileys');
+        buf = await downloadMediaMessage(msg, 'buffer', {});
+      } catch {}
+      if (!buf || !buf.length) { try { buf = await sock.downloadMediaMessage?.(msg); } catch {} }
       if (buf && buf.length > 1024) {
         const isVid = hit.flag === 'antivideo';
         const novaCap = (cap ? cap + '\n' : '') + `📎 ${isVid ? 'vídeo' : 'foto'} de @${senderNum} — visu1`;

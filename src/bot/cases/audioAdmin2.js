@@ -234,7 +234,8 @@ module.exports = function registerAudioAdmin2(registerCase) {
         // v7.29: sem argumento (clique no menu de seleção) → ALTERNA o estado actual
         if (!isOn && !isOff) {
           const cur = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
-          isOn = !(cur && cur[cmd]);
+          const campo = cmd === 'autovisu1' ? 'autoVisu1' : cmd === 'autodl' ? 'autoDl' : cmd; // v7.89
+          isOn = !(cur && cur[campo]);
         }
         // v7.46: as variantes do antilink mapeiam para as opções REAIS do antiLink.js
         let upd = { [cmd]: isOn };
@@ -243,6 +244,8 @@ module.exports = function registerAudioAdmin2(registerCase) {
         if (cmd === 'antilinkgp')    upd = isOn ? { antilink: true, antilinkMode: 'whatsapp_only', antilinkOptOut: false } : { antilinkMode: 'smart' };
         if (cmd === 'antilinkcanal') upd = isOn ? { antilink: true, antilinkMode: 'all_links', antilinkOptOut: false } : { antilinkMode: 'smart' };
         if (cmd === 'antifigurinha' || cmd === 'antifig') upd = { antifigurinha: isOn, antifig: isOn };
+        if (cmd === 'autovisu1') upd = { autoVisu1: isOn };   // v7.89: nome REAL do campo (leitor: antiTipos)
+        if (cmd === 'autodl')    upd = { autoDl: isOn };      // v7.89: idem (leitor: autoDl/antiLink)
         await GroupSettings.findOneAndUpdate(
           { groupJid: ctx.remoteJid },
           upd,

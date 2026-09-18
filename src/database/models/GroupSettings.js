@@ -157,6 +157,40 @@ const GroupSettingsSchema = new mongoose.Schema({
   antitiposMaxWarns: { type: Number, default: 3 },
   antitiposNotify:   { type: Boolean, default: true },
 
+  // ── v7.86 Antis de mídia + AUTO-VISU1 ──────────────────────
+  // v7.89 FIX: estavam FORA do schema — o mongoose (strict) apagava-os
+  // ao gravar, o `!antifoto on` dizia "ON" mas nada persistia e os
+  // antis NUNCA disparavam ao vivo. Agora gravam de verdade.
+  antifoto:       { type: Boolean, default: false },
+  antivideo:      { type: Boolean, default: false },
+  antiaudio:      { type: Boolean, default: false },
+  antitexto:      { type: Boolean, default: false },
+  anticontacto:   { type: Boolean, default: false },
+  autoVisu1:      { type: Boolean, default: true },   // converte foto/vídeo em ver-uma-vez
+  autoDl:         { type: Boolean, default: false },  // v7.84: links aceites baixam sozinhos
+
+  // ── v7.87/7.88: mundo RPG do grupo (rpg/gate.js lê gs.modorpg) ──
+  modorpg:        { type: Boolean, default: false },
+
+  // ── toggles de admin históricos: agora persistem (sem leitor ainda) ──
+  antidemote:     { type: Boolean, default: false },
+  automsg:        { type: Boolean, default: false },
+  autosticker:    { type: Boolean, default: false },
+  assistente:     { type: Boolean, default: false },
+  modobn:         { type: Boolean, default: false },
+  modolite:       { type: Boolean, default: false },
+  modoparceria:   { type: Boolean, default: false },
+  modoraid:       { type: Boolean, default: false },
+  invisible:      { type: Boolean, default: false },
+  banghost:       { type: Boolean, default: false },
+  cmdlimit:       { type: Boolean, default: false },
+  minmessage:     { type: Boolean, default: false },
+  limitmessage:   { type: Boolean, default: false },
+  dellimitmessage:{ type: Boolean, default: false },
+  mantercontador: { type: Boolean, default: false },
+  infoperso:      { type: Boolean, default: false },
+  fotomenugrupo:  { type: Boolean, default: false },
+
   // ── v7.75 Grupos PRO: modo lento (segundos entre msgs por membro; 0 = off)
   slowmode: { type: Number, default: 0 },
 
