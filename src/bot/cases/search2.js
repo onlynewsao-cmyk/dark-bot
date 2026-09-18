@@ -290,7 +290,8 @@ module.exports = function registerSearch2(registerCase) {
       const d = await fetch(`https://api.zahwazein.xyz/stalker/tiktok?username=${encodeURIComponent(user)}`);
       const u = d.result || d;
       if (!u.nickname && !u.username) throw new Error('Utilizador não encontrado');
-      return tReply(sock, msg, ctx, `🎵 @${user}`, [
+      const avatar = u.avatar || u.avatar_url || u.profile_pic || u.profilePic || u.profilePicture || '';
+      await tReply(sock, msg, ctx, `🎵 @${user}`, [
         `👤 *${u.nickname || user}*`,
         `📝 @${u.username || user}`,
         `👥 Seguidores: ${(u.followers || 0).toLocaleString()}`,
@@ -298,6 +299,30 @@ module.exports = function registerSearch2(registerCase) {
         `🎬 Vídeos: ${(u.videos || 0).toLocaleString()}`,
         `📝 Bio: ${(u.bio || 'sem bio').slice(0, 100)}`,
       ]);
+      // v7.91: pesquisa deixa de ser CEGA — opções clicáveis estilo submenu
+      const itens = [
+        avatar ? { kind: 'foto', url: avatar, label: '📷 Foto de perfil HD' } : null,
+        { kind: 'link', label: '🔗 Link do perfil' },
+        { kind: 'videos', label: '🎬 Procurar vídeos de @' + (u.username || user) },
+      ].filter(Boolean);
+      try {
+        await require('../listaEscolha').mostrar(sock, msg, ctx, {
+          titulo: `🎵 *@${u.username || user}* — o que queres ver?`,
+          linhas: itens.map(i => i.label),
+          itens, tipo: 'ttstalk',
+          aoEscolher: async ({ item }) => {
+            if (item.kind === 'foto') {
+              return sock.sendMessage(ctx.remoteJid, { image: { url: item.url }, caption: `📷 @${u.username || user}` }, { quoted: msg }).catch(() => {});
+            }
+            if (item.kind === 'link') {
+              return sock.sendMessage(ctx.remoteJid, { text: `🔗 https://www.tiktok.com/@${u.username || user}` }, { quoted: msg }).catch(() => {});
+            }
+            // 🎬 vídeos: corre a pesquisa ttks como se fosse o utilizador
+            return require('../caseHandler').runCase('ttks', { sock, msg, ctx, args: [u.username || user], text: u.username || user, prefix: prefix || '!', isOwner: false, config }).catch(() => {});
+          },
+        });
+      } catch {}
+      return;
     } catch (e) {
       return tReply(sock, msg, ctx, '🎵 TIKTOK STALK', [`❌ ${e.message}`]);
     }
@@ -323,6 +348,22 @@ module.exports = function registerSearch2(registerCase) {
       ].filter(Boolean).join('\n');
       if (pp) await sock.sendMessage(ctx.remoteJid, { image: { url: pp }, caption: text }, { quoted: msg });
       else await tReply(sock, msg, ctx, `📸 @${user}`, text.split('\n'));
+      // v7.91: opções clicáveis (estilo submenu)
+      try {
+        const iti = [
+          pp ? { kind: 'foto', url: pp, label: '📷 Foto de perfil HD' } : null,
+          { kind: 'link', label: '🔗 Link do perfil' },
+        ].filter(Boolean);
+        await require('../listaEscolha').mostrar(sock, msg, ctx, {
+          titulo: `📸 *@${u.username || user}* — o que queres ver?`,
+          linhas: iti.map(i => i.label),
+          itens: iti, tipo: 'stalkinsta',
+          aoEscolher: async ({ item }) => {
+            if (item.kind === 'foto') return sock.sendMessage(ctx.remoteJid, { image: { url: item.url }, caption: `📷 HD @${u.username || user}` }, { quoted: msg }).catch(() => {});
+            return sock.sendMessage(ctx.remoteJid, { text: `🔗 https://www.instagram.com/${u.username || user}` }, { quoted: msg }).catch(() => {});
+          },
+        });
+      } catch {}
     } catch (e) {
       return tReply(sock, msg, ctx, '📸 INSTA STALK', [`❌ ${e.message}`]);
     }
@@ -362,6 +403,24 @@ module.exports = function registerSearch2(registerCase) {
         `📦 Repos: ${d.public_repos} | 👥 Followers: ${d.followers}`,
         `🔗 ${d.blog || d.html_url}`,
       ]);
+      // v7.91: opções clicáveis (estilo submenu)
+      try {
+        const itg = [
+          d.avatar_url ? { kind: 'foto', url: d.avatar_url, label: '📷 Avatar HD' } : null,
+          { kind: 'link', label: '🔗 Perfil no GitHub' },
+          { kind: 'repos', label: `📦 Repositórios (${d.public_repos || 0})` },
+        ].filter(Boolean);
+        await require('../listaEscolha').mostrar(sock, msg, ctx, {
+          titulo: `🐙 *@${d.login || user}* — o que queres ver?`,
+          linhas: itg.map(i => i.label),
+          itens: itg, tipo: 'ghstalk',
+          aoEscolher: async ({ item }) => {
+            if (item.kind === 'foto') return sock.sendMessage(ctx.remoteJid, { image: { url: item.url }, caption: `🐙 @${d.login || user}` }, { quoted: msg }).catch(() => {});
+            if (item.kind === 'repos') return sock.sendMessage(ctx.remoteJid, { text: `📦 https://github.com/${d.login || user}?tab=repositories` }, { quoted: msg }).catch(() => {});
+            return sock.sendMessage(ctx.remoteJid, { text: `🔗 ${d.html_url || 'https://github.com/' + user}` }, { quoted: msg }).catch(() => {});
+          },
+        });
+      } catch {}
     } catch (e) {
       return tReply(sock, msg, ctx, '🐙 GITHUB', [`❌ ${e.message}`]);
     }

@@ -39,8 +39,49 @@ async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens 
   if (!n || typeof aoEscolher !== 'function') throw new Error('lista vazia');
   const numeradas = [];
   for (let i = 0; i < n; i++) numeradas.push(`*${i + 1}.* ${linhas[i]}`);
-  const texto = `${titulo}\n${intro ? intro + '\n' : ''}\n${numeradas.join('\n')}\n\n> Responde com o *número* (1–${n})${dica ? '\n' + dica : ''}`;
+  const texto = `${titulo}\n${intro ? intro + '\n' : ''}\n${numeradas.join('\n')}\n\n> Toca em *ESCOLHER* ▾ ou responde com o *número* (1–${n})${dica ? '\n' + dica : ''}`;
   _pendentes.set(_key(ctx), { itens: itens.slice(0, n), ts: Date.now(), tipo, aoEscolher });
+
+  // v7.91: LISTA CLICÁVEL estilo submenu (single_select) — tocar numa
+  // linha volta como LISTANUM_<n> e o commandHandler resolve como o número.
+  try {
+    const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+    const limpa = (x) => String(x || '').replace(/[*_`]/g, '').trim();
+    const rows = [];
+    for (let i = 0; i < n; i++) {
+      const partes = String(linhas[i]).split('\n');
+      rows.push({
+        title: limpa(partes[0]).slice(0, 24) || `Opção ${i + 1}`,
+        rowId: `LISTANUM_${i + 1}`,
+        description: limpa(partes.slice(1).join(' ')).slice(0, 72),
+      });
+    }
+    const m = generateWAMessageFromContent(ctx.remoteJid, {
+      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+        body: { text: texto },
+        footer: { text: `📋 ${tipo} · ${n} opções` },
+        header: { title: '', hasMediaAttachment: false },
+        nativeFlowMessage: {
+          buttons: [{
+            name: 'single_select',
+            buttonParamsJson: JSON.stringify({
+              title: limpa(titulo).slice(0, 30) || 'ESCOLHER',
+              sections: [{ title: limpa(titulo).slice(0, 24) || 'Opções', rows }],
+            }),
+          }],
+        },
+      }),
+    }, { userJid: sock.user?.id, quoted: msg });
+    await sock.relayMessage(ctx.remoteJid, m.message, {
+      messageId: m.key.id,
+      additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+        tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+        content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+      }] }],
+    });
+    return n;
+  } catch (_) {}
+
   await sock.sendMessage(ctx.remoteJid, { text: texto }, { quoted: msg });
   return n;
 }
@@ -75,4 +116,11 @@ async function tentarNumero(sock, msg, ctx, text) {
   return true;
 }
 
-module.exports = { mostrar, tentarNumero, _pendentes, _key, MAX };
+/* v7.91 — clique LISTANUM_<n> */
+async function tentarToken(sock, msg, ctx, text) {
+  const m = String(text || '').trim().match(/^LISTANUM_(10|[1-9])$/i);
+  if (!m) return false;
+  return tentarNumero(sock, msg, ctx, m[1]);
+}
+
+module.exports = { mostrar, tentarNumero, tentarToken, _pendentes, _key };

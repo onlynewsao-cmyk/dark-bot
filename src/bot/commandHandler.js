@@ -392,6 +392,11 @@ async function _handleInner(sock, msg) {
   // Tenta primeiro a lista pendente (ela cede ao !som se o cartão for
   // mais novo); depois o cartão de música. "1".."10", com ou sem zero.
   try {
+    // v7.91: clique em lista clicável (estilo submenu) volta como LISTANUM_<n>
+    if (/^LISTANUM_(10|[1-9])$/i.test(text)) {
+      const lista = require('./listaEscolha');
+      if (await lista.tentarToken(sock, msg, ctx, text)) return true;
+    }
     if (/^0?(10|[1-9])(?:\s|$)/.test(text)) {
       const lista = require('./listaEscolha');
       if (await lista.tentarNumero(sock, msg, ctx, text)) return true;
