@@ -337,13 +337,36 @@ module.exports = function registerRPG2(registerCase) {
     if (p.coins < 500) {
       return tReply(sock, msg, ctx, '💫 REVIVER', ['❌ Precisas de 500 coins para reviver']);
     }
-    p.coins -= 500;
-    p.lives = 3;
-    p.hp = p.maxHp;
-    await rpg.savePlayer(p);
-
-    return tReply(sock, msg, ctx, '💫 REVIVER', ['💫 Reviveste! ♥️♥️♥️ | -500 coins']);
+    // v7.90: confirmação por BOTÕES — ninguém gasta 500 coins sem querer.
+    const ui = require('../rpg/ui');
+    return ui.confirmar(sock, msg, ctx, {
+      titulo: `💫 *REVIVER ${String(p.name).toUpperCase()}*`,
+      linhas: [
+        'Estás sem vidas. A reanimação devolve:',
+        '❤️ 3 vidas e HP cheio',
+        '💰 Custo: *500 coins*',
+      ],
+      onSim: async ({ sock, msg, ctx }) => {
+        const q = await rpg.getPlayer(ctx.senderNumber);
+        q.coins -= 500;
+        q.lives = 3;
+        q.hp = q.maxHp;
+        await rpg.savePlayer(q);
+        return tReply(sock, msg, ctx, '💫 REVIVIDO', [`❤️ ${q.name} voltou com 3 vidas e HP cheio!`, '💰 -500 coins']);
+      },
+      onNao: async ({ sock, msg, ctx }) => {
+        return tReply(sock, msg, ctx, '💫 REVIVER', ['Cancelado — continuas à espera do respawn.']);
+      },
+    });
   }, true);
+
+  // v7.90 — decisões de botões/listas POR ESCRITO (fallback)
+  registerCase(['rpgsim'], async ({ sock, msg, ctx }) =>
+    require('../rpg/ui').decidirPorTexto(sock, msg, ctx, true), true);
+  registerCase(['rpgnao', 'rpgnão'], async ({ sock, msg, ctx }) =>
+    require('../rpg/ui').decidirPorTexto(sock, msg, ctx, false), true);
+  registerCase(['rpgescolher'], async ({ sock, msg, ctx, args }) =>
+    require('../rpg/ui').escolherPorTexto(sock, msg, ctx, args[0]), true);
 
   // ═══ GUILDA ═══
   registerCase(['guilda', 'guild', 'criarguilda'], async ({ sock, msg, ctx, args }) => {
@@ -365,16 +388,24 @@ module.exports = function registerRPG2(registerCase) {
       if (p.coins < 1000) {
         return tReply(sock, msg, ctx, '🏰 GUILDA', ['❌ Precisas de 1000 coins']);
       }
-      p.coins -= 1000;
-      p.guild = name;
-      p.title = 'Fundador';
-      await rpg.savePlayer(p);
-
-      return tReply(sock, msg, ctx, '🏰 GUILDA CRIADA', [
-        `🏰 *${name}* fundada por *${p.name}*!`,
-        `👑 Título: Fundador`,
-        `💰 -1000 coins`,
-      ]);
+      // v7.90: confirmação por BOTÕES antes de fundar (1000 coins)
+      return require('../rpg/ui').confirmar(sock, msg, ctx, {
+        titulo: `🏰 *FUNDAR A GUILDA ${String(name).toUpperCase()}*`,
+        linhas: [`Fundador: ${p.name}`, '💰 Custo: *1000 coins*', '👑 Título: Fundador'],
+        onSim: async ({ sock, msg, ctx }) => {
+          const q = await rpg.getPlayer(ctx.senderNumber);
+          q.coins -= 1000;
+          q.guild = name;
+          q.title = 'Fundador';
+          await rpg.savePlayer(q);
+          return tReply(sock, msg, ctx, '🏰 GUILDA CRIADA', [
+            `🏰 *${name}* fundada por *${q.name}*!`,
+            '👑 Título: Fundador',
+            '💰 -1000 coins',
+          ]);
+        },
+        onNao: async ({ sock, msg, ctx }) => tReply(sock, msg, ctx, '🏰 GUILDA', ['Fundação cancelada.']),
+      });
     }
     // v7.88: entrar numa guilda/clã local existente (RPG de um só grupo)
     if (args[0] === 'entrar') {

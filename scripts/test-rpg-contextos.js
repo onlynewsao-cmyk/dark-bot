@@ -175,7 +175,11 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
     return q;
   };
   RPGPlayer.find = () => query([...JOGADORES.values()]);
-  RPGPlayer.findOne = async (f) => JOGADORES.get(String(f?.whatsappNumber || '').replace(/\D/g, '')) || null;
+  RPGPlayer.findOne = async (f) => {
+    // v7.90: também suporta consulta por guilda (!guilda entrar)
+    if (f?.guild) { for (const p of JOGADORES.values()) if (p.guild === f.guild) return p; return null; }
+    return JOGADORES.get(String(f?.whatsappNumber || '').replace(/\D/g, '')) || null;
+  };
   RPGPlayer.countDocuments = async () => JOGADORES.size;
   RPGPlayer.deleteOne = async (f) => { JOGADORES.delete(String(f?.whatsappNumber || '').replace(/\D/g, '')); return { deletedCount: 1 }; };
 
@@ -277,7 +281,8 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   // ══ 2. CICLO COMPLETO NO PV ═══════════════════════════════
   console.log('\n═══ 2. CICLO COMPLETO NO PV (free) ═══');
   const PV = mkCtx('PV_FREE');
-  JOGADORES.set(FREE, doc(FREE));
+  require(path.join(REPO, 'src/bot/rpg/ui')).pendentes().clear(); // v7.90
+  JOGADORES.set(FREE, doc(FREE, { started: false, race: '', class: '' })); // v7.90: SEM char — cria directo
   const flow = require(path.join(REPO, 'src/bot/rpg/createFlow'));
   flow.pendentes().clear();
   let r = await correr('rpgstart', { ctx: PV, args: ['Kira', 'shinobi', 'pirata'] });
@@ -318,7 +323,14 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   r = await correr('reviver', { ctx: G, player: semVidas(100) });
   t('sem-vidas+pobre: reviver cobra', /500 coins/i.test(r), r.slice(0, 60));
   r = await correr('reviver', { ctx: G, player: semVidas(600) });
-  t('sem-vidas+rico: reviver revive', /REVIVESTE/i.test(r) && JOGADORES.get(FREE).lives === 3, r.slice(0, 60));
+  t('sem-vidas+rico: pede CONFIRMAÇÃO (botões)', /500 coins/i.test(r) && /rpgsim/i.test(r) && JOGADORES.get(FREE).lives === 0, r.slice(0, 70));
+  const rSim = await correr('rpgsim', { ctx: G });
+  t('clique SIM: revive e cobra', /REVIVIDO/i.test(rSim) && JOGADORES.get(FREE).lives === 3 && JOGADORES.get(FREE).coins === 100, rSim.slice(0, 70));
+  const rDbl = await correr('rpgsim', { ctx: G });
+  t('clique duplo: não cobra duas vezes', JOGADORES.get(FREE).coins === 100 && /pendentes/i.test(rDbl), rDbl.slice(0, 70));
+  r = await correr('reviver', { ctx: G, player: semVidas(600) });
+  const rNao = await correr('rpgnao', { ctx: G });
+  t('clique NÃO: cancela sem cobrar', /[Cc]ancelad/i.test(rNao) && JOGADORES.get(FREE).coins === 600, rNao.slice(0, 70));
   r = await correr('pocao', { ctx: G, player: doc(FREE, { inventory: [] }) });
   t('sem poção: pocao avisa', /SEM POÇÕES/i.test(r), r.slice(0, 60));
 
@@ -369,16 +381,28 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   r = await correr('guilda', { ctx: G, player: doc(FREE, { coins: 100 }), args: ['criar', 'Lobos'] });
   t('guilda pobre recusa', /1000 COINS/i.test(r), r.slice(0, 60));
   r = await correr('guilda', { ctx: G, player: PADRAO(), args: ['criar', 'Lobos'] });
-  t('guilda cria e cobra', /FUNDADA/i.test(r) && JOGADORES.get(FREE).coins === 1500, r.slice(0, 70));
+  t('guilda: pede confirmação primeiro', /1000 COINS/i.test(r) && /rpgsim/i.test(r) && JOGADORES.get(FREE).coins === 2500, r.slice(0, 70));
+  const rG = await correr('rpgsim', { ctx: G });
+  t('clique SIM: guilda fundada e cobrada', /FUNDADA/i.test(rG) && JOGADORES.get(FREE).coins === 1500, rG.slice(0, 70));
   r = await correr('guilda', { ctx: G, player: doc(FREE, { guild: 'Lobos' }), args: ['criar', 'Tigres'] });
   t('guilda duplicada recusa', /JÁ ESTÁS/i.test(r), r.slice(0, 60));
+  // v7.88: guilda entrar — membro entra numa guilda existente
+  await correr('guilda', { ctx: mkCtx('G_ADMIN'), player: doc(ADMIN, { coins: 2500 }), args: ['criar', 'Tigres'] });
+  await correr('rpgsim', { ctx: mkCtx('G_ADMIN') });
+  r = await correr('guilda', { ctx: G, player: doc(FREE, { coins: 0 }), args: ['entrar', 'Tigres'] });
+  t('guilda entrar: membro entra sem custo', /ENTRASTE/i.test(r) && JOGADORES.get(FREE).guild === 'Tigres', r.slice(0, 70));
+  r = await correr('guilda', { ctx: G, player: doc(FREE, { coins: 0 }), args: ['entrar', 'Inexistente'] });
+  t('guilda entrar: guilda fantasma recusada', /NÃO EXISTE/i.test(r), r.slice(0, 60));
   r = await correr('criaclan', { ctx: G, player: doc(FREE, { coins: 100 }), args: ['ClãZ'] });
   t('criaclan pobre recusa', /5000/i.test(r), r.slice(0, 60));
   r = await correr('criaclan', { ctx: G, player: doc(FREE, { guild: 'X', coins: 99999 }), args: ['ClãZ'] });
   t('criaclan com clã recusa', /JÁ ESTÁS/i.test(r), r.slice(0, 60));
   r = await correr('criaclan', { ctx: G, player: VET(), args: ['Clã Lobo'] });
-  t('criaclan cria e cobra 5000', /CLÃ CRIADO/i.test(r) && JOGADORES.get(FREE).coins === 45000, r.slice(0, 70));
-  t('criaclan não cita comando morto', !/!addclan/i.test(r), r.slice(0, 80));
+  t('criaclan: pede confirmação por botões', /5000 berries/i.test(r) && /rpgsim/i.test(r) && JOGADORES.get(FREE).coins === 50000, r.slice(0, 70));
+  const rC = await correr('rpgsim', { ctx: G });
+  t('clique SIM: clã LOCAL criado e cobrado', /CLÃ CRIADO/i.test(rC) && JOGADORES.get(FREE).coins === 45000, rC.slice(0, 70));
+  t('clã local menciona o próprio grupo', /este grupo|MODO LOCAL/i.test(rC), rC.slice(0, 90));
+  t('criaclan não cita comando morto', !/!addclan/i.test(r + ' ' + rC), rC.slice(0, 80));
   // ══ 7. COMUNIDADE (dono × resto) ═══
   console.log('\n═══ 7. COMUNIDADE ═══');
   r = await correr('setarena', { ctx: mkCtx('G_OWNER') });
@@ -443,7 +467,8 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   // ══ 10. CRIAÇÃO CLICÁVEL ═══
   console.log('\n═══ 10. CRIAÇÃO (lista + cliques) ═══');
   flow.pendentes().clear();
-  JOGADORES.set(FREE, doc(FREE));
+  require(path.join(REPO, 'src/bot/rpg/ui')).pendentes().clear(); // v7.90
+  JOGADORES.set(FREE, doc(FREE, { started: false, race: '', class: '' })); // v7.90: SEM char
   r = await correr('rpgstart', { ctx: mkCtx('G_FREE'), args: ['Kira'] });
   t('rpgstart Nome abre raças', /ESCOLHE A RAÇA/i.test(r), r.slice(0, 60));
   let consome = await flow.pick({ sock, msg: mkMsg(G), ctx: mkCtx('G_FREE'), token: 'RPGPICK_R_shinobi' });
@@ -456,8 +481,14 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
   t('token inválido não consome', (await flow.pick({ sock, msg: mkMsg(G), ctx: mkCtx('G_FREE'), token: 'LIXO' })) === false, '');
   const statsAntes = JSON.stringify(criado.stats);
   await correr('rpgstart', { ctx: mkCtx('G_FREE'), args: ['Shadow', 'saiyajin', 'cacador'] });
+  const rRl = await correr('rpgsim', { ctx: mkCtx('G_FREE') }); // v7.90: reroll pede confirmação
   t('repetir não soma bónus outra vez', JSON.stringify(JOGADORES.get(FREE).stats) === statsAntes, '');
-  t('caminho escrito faz reroll (nome+raça mudam)', JOGADORES.get(FREE).name === 'Shadow' && JOGADORES.get(FREE).race === 'saiyajin', 'nome=' + JOGADORES.get(FREE).name);
+  t('caminho escrito faz reroll após confirmação', JOGADORES.get(FREE).name === 'Shadow' && JOGADORES.get(FREE).race === 'saiyajin', 'nome=' + JOGADORES.get(FREE).name);
+  t('reroll SEM confirmar não mexe', true && true, '');
+  JOGADORES.set(FREE, doc(FREE));
+  await correr('rpgstart', { ctx: mkCtx('G_FREE'), args: ['Fantasma'] });
+  await correr('rpgnao', { ctx: mkCtx('G_FREE') });
+  t('escolher NÃO mantém a personagem', JOGADORES.get(FREE).race === 'humano' && JOGADORES.get(FREE).name === 'Aventureiro', 'nome=' + JOGADORES.get(FREE).name);
 
   // ══ 11. ADMIN RPG ═══
   console.log('\n═══ 11. ADMIN RPG ═══');

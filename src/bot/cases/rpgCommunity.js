@@ -304,6 +304,24 @@ module.exports = function registerRPGCommunity(registerCase) {
     // v6.63: já estás num clã? Antes deixava criar vários e o berries ia-se.
     if (p.guild) return tReply(sock, msg, ctx, '🏰 Clã', ['Já estás no clã *' + p.guild + '*.']);
 
+    // v7.90: 5000 berries merecem CONFIRMAÇÃO por botões (ou !rpgsim / !rpgnao)
+    return require('../rpg/ui').confirmar(sock, msg, ctx, {
+      titulo: `🏰 *CRIAR O CLÃ ${clanName.toUpperCase()}*`,
+      linhas: [`👑 Líder: ${p.name}`, '💰 Custo: *5000 berries*', '(confirmas com um toque)'],
+      txtSim: '✅ Criar clã',
+      txtNao: '❌ Cancelar',
+      onSim: async ({ sock, msg, ctx }) => _criarClanAgora(sock, msg, ctx, clanName),
+      onNao: async ({ sock, msg, ctx }) => tReply(sock, msg, ctx, '🏰 Clã', ['Criação cancelada — os berries ficam contigo.']),
+    });
+  }, true);
+
+  // v7.90: o efeito real do !criaclan (corre DEPOIS de confirmado)
+  async function _criarClanAgora(sock, msg, ctx, clanName) {
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    if (!p) return tReply(sock, msg, ctx, '❌ Ficha', ['Ainda não tens personagem. Usa *!criarpersonagem*.']);
+    if ((p.coins || 0) < 5000) return tReply(sock, msg, ctx, '❌ Berries', ['Precisas de 5000 berries para criar um clã.']);
+    if (p.guild) return tReply(sock, msg, ctx, '🏰 Clã', ['Já estás no clã *' + p.guild + '*.']);
+
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
 
     // v7.88 — RPG DE UM SÓ GRUPO: sem comunidade DARK VILLE, o clã nasce
@@ -357,7 +375,7 @@ module.exports = function registerRPGCommunity(registerCase) {
       await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
       return tReply(sock, msg, ctx, '❌ Erro', [e.message]);
     }
-  }, true);
+  }
 
   // ═══ MENU DARKRPG ═══
   registerCase(['menu-rpg', 'menurpg', 'rpgmenu'], async ({ sock, msg, ctx, prefix }) => {

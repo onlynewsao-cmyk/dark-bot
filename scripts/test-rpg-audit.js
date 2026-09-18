@@ -272,10 +272,14 @@ const BLOQUEIO_ESPERADO = {
     pocoesAntes === 2 && pocoesDepois === 1 && !/sem poções/i.test(pot),
     `${pocoesAntes} → ${pocoesDepois} · ${pot.slice(0, 50)}`);
 
-  // guilda
+  // guilda (v7.90: confirma por botões, depois funda)
   jogador = jogadorNovo();
   const g = await correr('guilda', ['criar', 'Dark Side']);
-  t('.guilda criar cria a guilda e cobra os 1000 coins',
+  t('.guilda criar pede confirmação (botões) sem cobrar',
+    /rpgsim/i.test(g) && jogador.guild === null && jogador.coins === 2500,
+    `guild=${jogador.guild} coins=${jogador.coins}`);
+  await correr('rpgsim');
+  t('.guilda criar (✅ Sim) cria a guilda e cobra os 1000 coins',
     jogador.guild === 'Dark Side' && jogador.coins === 1500,
     `guild=${jogador.guild} coins=${jogador.coins}`);
 

@@ -10,7 +10,7 @@
 ## ☠️ O LADO SOMBRIO DO WHATSAPP ☠️
 
 [![Status](https://img.shields.io/badge/STATUS-ONLINE-00ff9d?style=for-the-badge&logo=whatsapp&logoColor=white)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
-[![Versão](https://img.shields.io/badge/VERSÃO-7.89.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
+[![Versão](https://img.shields.io/badge/VERSÃO-7.90.0-b14aed?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Testes](https://img.shields.io/badge/TESTES-88_GRUPOS_VERDES-00f0ff?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
 [![Node](https://img.shields.io/badge/NODE.JS-20-00f0ff?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![AURA](https://img.shields.io/badge/AURA-AWAKE-ff2e88?style=for-the-badge)](https://github.com/onlynewsao-cmyk/darknet-tunnel)
@@ -29,6 +29,7 @@
 
 | Versão | Destaques |
 |---|---|
+| **v7.90** 🎮 | **RPG UI CLICÁVEL** — botões ✅/❌ (reviver, fundar guilda, criar clã, refazer personagem) e listas single_select; fallback !rpgsim/!rpgnao/!rpgescolher; RPG_CHANGELOG.md único e permanente |
 | **v7.89** 🩹 | **ESCUDO DE VERDADE** — auto-visu1 baixava por método inexistente (nunca reenviava); toggles v7.86 (antifoto/vídeo/áudio/texto/contacto/autovisu1/autodl) e modorpg estavam FORA do schema — mongoose apagava-os, agora persistem e funcionam; 16 toggles legados gravam de verdade |
 | **v7.88** 🌱 | **RPG RESET + MUNDO DUPLO** — reset único de todas as personagens (todos se registam de novo); comunidade DARK VILLE = mundo internacional sempre aberto; grupos normais = RPG de um só grupo (clã local, !guilda entrar); sugestão de comando não vacila |
 | **v7.87** 🌍 | **RPG MUNDO FECHADO** — grupo sem `!modorpg on` = mundo fechado; sem personagem só o portal/vitrine funcionam; criação marca `started` |

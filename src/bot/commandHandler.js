@@ -412,6 +412,16 @@ async function _handleInner(sock, msg) {
     } catch (e) { console.warn('[RPG pick]', e.message?.slice(0, 60)); }
   }
 
+  // ── v7.90: RPG UI — cliques SIM/NÃO e escolha de opção ─────────────
+  // Mesmo mecanismo do RPGPICK: RPGSIM_/RPGNAO_/RPGSEL_ chegam como
+  // selectedButtonId/selectedRowId e executam o efeito pendente.
+  if (/^RPG(?:SIM|NAO|SEL)_[a-z0-9_]+$/i.test(text.split(/\s+/)[0] || '')) {
+    try {
+      const ui = require('./rpg/ui');
+      if (await ui.resolver(sock, msg, ctx, text.split(/\s+/)[0])) return true;
+    } catch (e) { console.warn('[RPG ui]', e.message?.slice(0, 60)); }
+  }
+
   // ── Interceptar cliques do change theme (lista interativa) ──────────
   if (text.startsWith('CHANGE_THEME_')) {
     const themeName = text.replace('CHANGE_THEME_', '').toLowerCase().trim();

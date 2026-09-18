@@ -15,6 +15,8 @@
 // Gestão / setup / menus / guias — abrem em qualquer lugar (não são jogo).
 const LIVRE_TUDO = new Set([
   'setarena', 'setdungeons', 'settrocas', 'setcavernas', 'setlazer', 'setarsenal', 'setgrupo',
+  // v7.90: decisões de botões/listas POR ESCRITO (a validação real vive no pendente)
+  'rpgsim', 'rpgnao', 'rpgnão', 'rpgescolher',
   'darkrpg', 'rpginit', 'iniciar-rpg', 'darkrpg-test', 'rpgtest', 'darkrpg-status', 'rpgstatus',
   'addglb', 'addglobal', 'comunicado', 'ranking-update', 'arsenal',
   'bvrpg', 'welcomerpg', 'evento', 'event', 'auramod', 'aurarpg', 'moderar',

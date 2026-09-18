@@ -171,7 +171,32 @@ async function _finalizar(sock, msg, ctx, name, race, cls) {
 // ── API ─────────────────────────────────────────────────────
 
 /** `!rpgstart [Nome] [raça] [classe]` — cria directo ou abre as listas. */
-async function start({ sock, msg, ctx, args }) {
+async function start({ sock, msg, ctx, args, _forcar = false }) {
+  // v7.90: REFAZER pede confirmação por BOTÕES — antes, teclar !rpgstart
+  // por engano apagava a personagem inteira sem aviso.
+  if (!_forcar) {
+    try {
+      const atual = await rpg.peekPlayer(ctx.senderNumber);
+      const tem = atual && (atual.started || atual.raceBonusApplied || (atual.name && atual.name !== 'Aventureiro'));
+      if (tem) {
+        return require('./ui').confirmar(sock, msg, ctx, {
+          titulo: `🎭 *${String(atual.name).toUpperCase()} JÁ EXISTE*`,
+          linhas: [
+            `${atual.race || '?'} ${atual.class || ''} · Nv.${atual.level || 1}`,
+            'Refazer apaga stats, itens e moedas — recomeças do zero.',
+          ],
+          txtSim: '🔁 Refazer',
+          txtNao: '🛡️ Manter',
+          onSim: async ({ sock, msg, ctx }) => start({ sock, msg, ctx, args, _forcar: true }),
+          onNao: async ({ sock, msg, ctx }) => {
+            await sock.sendMessage(ctx.remoteJid, {
+              text: `🛡️ *${atual.name}* continua intacto — personagem mantida.`,
+            }, { quoted: msg }).catch(() => {});
+          },
+        });
+      }
+    } catch {}
+  }
   const tokens = (args || []).map(String).filter(Boolean);
   let race = '', cls = '';
   if (tokens.length >= 2) {
