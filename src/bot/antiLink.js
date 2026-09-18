@@ -344,7 +344,7 @@ async function check(sock, msg) {
       } catch (e) { console.warn('[DarkShield] Falha ao remover:', e.name || 'Error'); }
       if (doNotify) {
         await sock.sendMessage(remoteJid, {
-          text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, kickAttempted: true, removed, extraAllowed: !!gs.antilinkWhitelist?.length }),
+          text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, kickAttempted: true, removed, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false }),
           mentions: [senderJid],
         }).catch(() => {});
       }
@@ -355,7 +355,7 @@ async function check(sock, msg) {
     // Aviso progressivo
     if (doNotify && canNotify(senderJid, remoteJid)) {
       await sock.sendMessage(remoteJid, {
-        text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, extraAllowed: !!gs.antilinkWhitelist?.length }),
+        text: linkPolicy.notice({ sender: senderNum, kind: kindLabel, deleted, deleteEnabled: doDelete, warns: w, maxWarns, extraAllowed: !!gs.antilinkWhitelist?.length, autoDl: gs.autoDl !== false }),
         mentions: [senderJid],
       }).catch(() => {});
       await bumpStats(remoteJid, 'warns');

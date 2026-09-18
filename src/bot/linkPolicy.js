@@ -32,17 +32,21 @@ function allWhitelisted(text, domains = []) {
   const found = links(text);
   return found.length > 0 && found.every(url => allowedHost(url, domains));
 }
-function notice({ sender, kind = 'link', deleted = false, deleteEnabled = true, warns = 1, maxWarns = 2, kickAttempted = false, removed = false, extraAllowed = false }) {
-  const lines = [
-    '🛡️ *DARK BOT · ESCUDO DE LINKS*', '',
-    `@${sender}, detectei ${kind} fora das permissões deste grupo.`, '',
-    `✅ *Permitidos:* ${PLATFORM_LABELS}.`,
-  ];
-  if (extraAllowed) lines.push('Também são aceites os domínios adicionais autorizados pela administração.');
-  lines.push('', deleted ? '🗑️ *Mensagem apagada.*' : deleteEnabled ? '⚠️ Não consegui apagar a mensagem.' : 'ℹ️ A remoção de mensagens está desligada neste grupo.');
-  if (kickAttempted) lines.push(removed ? '🚫 Participante removido conforme a regra do grupo.' : '⚠️ Não consegui remover o participante; a administração deve verificar.');
-  else lines.push(`⚠️ *Aviso ${warns}/${maxWarns}.* Ao atingir o limite, a regra do grupo prevê remoção.`);
-  lines.push('', 'Partilha conteúdo permitido e mantém a conversa aberta. 🌙');
-  return lines.join('\n');
+// v7.84 — aviso CURTO e humano (o bloco gigante de antes "ficava feio").
+const SHORT_ALLOWED = 'yt · fb · kwai · threads · spotify · tiktok · x · ig';
+function notice({ sender, kind = 'link', deleted = false, deleteEnabled = true, warns = 1, maxWarns = 2, kickAttempted = false, removed = false, extraAllowed = false, autoDl = true }) {
+  const L = [`🛡️ @${sender} · ${kind} fora da lista`];
+  if (kickAttempted) {
+    L.push(removed ? '🚫 removido — a regra do grupo manda.' : '⚠️ não consegui remover; admin, verifica.');
+  } else {
+    L.push(deleted
+      ? `🗑️ apagada · ⚠️ aviso ${warns}/${maxWarns}`
+      : deleteEnabled
+        ? `⚠️ aviso ${warns}/${maxWarns} (não consegui apagar)`
+        : `⚠️ aviso ${warns}/${maxWarns} · remoção desligada`);
+  }
+  L.push('✅ aceites: ' + SHORT_ALLOWED + (extraAllowed ? ' + extras do grupo' : ''));
+  if (autoDl) L.push('🕸️ links aceites baixam sozinhos (DARK DL).');
+  return L.join('\n');
 }
 module.exports = { DEFAULT_ALLOWED, PLATFORM_LABELS, host, allowedHost, links, excludeAllowed, allWhitelisted, notice };

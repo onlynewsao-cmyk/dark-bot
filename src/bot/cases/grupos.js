@@ -433,6 +433,10 @@ module.exports = function registerGroupCases(registerCase) {
       const v = (args[1] || '').toLowerCase();
       if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink strict on|off*');
       gs.antilinkStrict = v === 'on'; saved = true;
+    } else if (sub === 'autodl') {
+      const v = (args[1] || '').toLowerCase();
+      if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink autodl on|off*');
+      gs.autoDl = v === 'on'; saved = true;
     } else if (sub === 'vip') {
       const v = (args[1] || '').toLowerCase();
       if (!['on','off'].includes(v)) return reply('❌ Uso: *' + prefix + 'antilink vip on|off*');
@@ -471,6 +475,7 @@ module.exports = function registerGroupCases(registerCase) {
         `*${prefix}antilink notify on|off* — avisar no grupo\n` +
         `*${prefix}antilink strict on|off* — links ofuscados\n` +
         `*${prefix}antilink vip on|off* — premium imune\n` +
+        `*${prefix}antilink autodl on|off* — links aceites baixam sozinhos\n` +
         `*${prefix}antilink whitelist add|del|list* — domínios permitidos`
       );
     }
@@ -484,6 +489,7 @@ module.exports = function registerGroupCases(registerCase) {
       `⚙️ Modo: *${gs.antilinkMode || 'smart'}* | Acção: *${gs.antilinkAction || 'warn'}*\n` +
       `⚠️ Max avisos: *${gs.antilinkMaxWarns ?? 2}* | Apagar: *${gs.antilinkDeleteMsg !== false ? 'on' : 'off'}*\n` +
       `🔍 Strict (ofuscados): *${gs.antilinkStrict !== false ? 'on' : 'off'}* | VIP imune: *${gs.antilinkVipImmune ? 'on' : 'off'}*\n` +
+      `🕸️ AutoDL (links aceites baixam sozinhos): *${gs.autoDl !== false ? 'on' : 'off'}*\n` +
       `✅ Base permitida: ${require('../linkPolicy').PLATFORM_LABELS}.\n` +
       `📋 Whitelist adicional: ${(gs.antilinkWhitelist || []).length ? gs.antilinkWhitelist.join(', ') : '—'}\n\n` +
       `📊 Stats: ️ ${st.deleted || 0} apagadas · ⚠️ ${st.warns || 0} avisos · 🚫 ${st.kicks || 0} kicks`

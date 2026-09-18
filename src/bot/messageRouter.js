@@ -148,6 +148,11 @@ async function _tratarUma(bot, batch, raw) {
         if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTILINK]', err?.message || err);
         return false;
       }),
+      // v7.84 — ESCUDO VIVO: links permitidos ativam o download automático
+      require('./autoDl').check(bot.sock, msg).catch((err) => {
+        if (!/Closed/i.test(String(err?.message || err))) console.error('[AUTODL]', err?.message || err);
+        return false;
+      }),
       antispam.check(bot.sock, msg).catch((err) => {
         if (!/Closed/i.test(String(err?.message || err))) console.error('[ANTISPAM]', err?.message || err);
         return false;

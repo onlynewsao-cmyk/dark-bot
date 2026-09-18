@@ -2353,6 +2353,18 @@ salta à vista primeiro, com naturalidade. NUNCA digas que não vês.]`;
                   if (ctx._tomLeve) partes.push('TOM: falam DE ti, não CONTIGO — reage leve e breve (1 linha, ou só um emoji se bastar). Não faças perguntas nem puxes conversa.');
                 }
               } catch {}
+              // v7.84: FACTOS DA MENSAGEM — anti-alucinação (PV incluído).
+              try {
+                const lks = require('./linkPolicy').links(cleanText);
+                const mm = msg.message || {};
+                const med = mm.audioMessage ? 'áudio/voz' : mm.imageMessage ? 'imagem' : mm.videoMessage ? 'vídeo' : mm.stickerMessage ? 'sticker' : 'nenhuma';
+                partes.push(
+                  'FACTOS DA MENSAGEM ACTUAL (não inventes além disto):\n' +
+                  `- links presentes: ${lks.length ? lks.slice(0, 3).join(', ') : 'nenhum'}\n` +
+                  `- media: ${med}\n` +
+                  'Nunca digas que entraste, visitaste ou verificaste um link ou grupo se a mensagem não tem link.'
+                );
+              } catch {}
             } catch (e) { console.warn('[Aura cerebro]', e.message?.slice(0, 60)); }
             _consciencia = partes.join('\n\n');
             // Aprende com correcções: "não faças isso" vira regra
