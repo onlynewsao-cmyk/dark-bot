@@ -54,7 +54,7 @@ const gate = require('../src/bot/rpg/gate');
 const sent = [];
 const sockF = {
   sendMessage: async (j, c) => { sent.push(c); return { key: { id: 'k' } }; },
-  relayMessage: async () => ({}),
+  relayMessage: async (j, m2) => { sent.push({ _relay: m2 }); return {}; },
 };
 const CTX = (extra = {}) => ({ remoteJid: 'GRP@g.us', senderNumber: '2449', pushName: 'Dark', isGroup: true, prefix: '!', isOwner: true, ...extra });
 
@@ -94,7 +94,7 @@ const CTX = (extra = {}) => ({ remoteJid: 'GRP@g.us', senderNumber: '2449', push
   assert.ok(sent.some(c => /mundo RPG está fechado/i.test(c.text || '')), 'menurpg fechado → MSG_MODO');
   sent.length = 0; _gs = { modorpg: true };
   await reg.menurpg({ sock: sockF, msg: { key: { id: 'm4' } }, ctx: CTX(), prefix: '!' });
-  assert.ok(sent.some(c => /MENU RPG/.test(c.text || '')), 'menurpg aberto → menu abre');
+  assert.ok(JSON.stringify(sent).includes('MENU RPG') || JSON.stringify(sent).includes('O TEU LIVRO') || JSON.stringify(sent).includes('DARK VILLE RPG'), 'menurpg aberto → menu abre (texto ou interactivo v8.00)');
   console.log('✔ menurpg respeita o gate');
 
   // ── 3. menu principal esconde a fila RPG quando dorme ───────

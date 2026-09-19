@@ -386,39 +386,132 @@ module.exports = function registerRPGCommunity(registerCase) {
     }
     const p = prefix || '!';
 
-    return sock.sendMessage(ctx.remoteJid, {
-      text: '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n' +
-        '  *DARK🕸️VILLE — MENU RPG*\n' +
+    // ══ v8.00 MENURPG VIVO ═════════════════════════════════════
+    // Deixou de ser uma parede de texto estática: agora lê a TUA
+    // personagem (cartão HP/MP/nível/gold/vidas/guilda) e abre uma
+    // LISTA TOQUE-PARA-CORRER — cada linha é um comando real; se
+    // não tens personagem, o portal de criação fica no topo.
+    let pl = null;
+    try { pl = await require('../rpg/engine').peekPlayer(ctx.senderNumber); } catch {}
+    const temChar = !!(pl && (pl.started || pl.raceBonusApplied || (pl.name && pl.name !== 'Aventureiro')));
+
+    const _bar = (at, mx, cells = 10) => {
+      const a = Math.max(0, Number(at) || 0), m2 = Math.max(1, Number(mx) || 0);
+      const full = Math.round(Math.min(1, a / m2) * cells);
+      return '▰'.repeat(full) + '▱'.repeat(cells - full);
+    };
+    const _bio = (pl?.biome?.visited?.length) || 0;
+
+    let cartao;
+    if (temChar) {
+      cartao =
+        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n' +
+        '   *DARK VILLE* — *O TEU LIVRO*\n' +
         '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n\n' +
-        '🏰 *COMUNIDADE:*\n' +
-        '  ' + p + 'darkrpg — Iniciar comunidade\n' +
-        '  ' + p + 'darkrpg-test — Testar tudo\n' +
-        '  ' + p + 'addglb — Adicionar todos ao grupo geral\n' +
-        '  ' + p + 'comunicado — Enviar ranking no Arsenal\n' +
-        '  ' + p + 'criaclan <nome> — Criar clã\n\n' +
-        // v6.63: o menu citava despertar/x1/gacha/forja/cartas/raid/
-        // portal/addclan — NENHUM desses cases existe. O utilizador
-        // escrevia e não acontecia nada. Só ficam os que respondem.
-        '🎭 *PERSONAGEM:*\n' +
-        '  ' + p + 'criarpersonagem — Cria a tua ficha\n' +
-        '  ' + p + 'perfil — Vê os teus status\n' +
-        '  ' + p + 'nome <nome> — Muda o teu nome\n' +
-        '  ' + p + 'racas — Vê raças e classes\n' +
-        '  ' + p + 'vidas — Vê as tuas vidas\n\n' +
-        '⚔️ *BATALHA:*\n' +
-        '  ' + p + 'lutar — Combate PvE\n' +
-        '  ' + p + 'quest — Missões\n' +
-        '  ' + p + 'explorar — Explora os biomas\n' +
-        '  ' + p + 'descansar — Recupera HP\n\n' +
-        '🃏 *ITENS:*\n' +
-        '  ' + p + 'inventario — O teu baú\n' +
-        '  ' + p + 'loja — Comprar itens\n' +
-        '  ' + p + 'pocao — Usar poção\n\n' +
-        '🏰 *SOCIAL:*\n' +
-        '  ' + p + 'guilda — Criar/ver guilda\n' +
-        '  ' + p + 'ranking — Leaderboard\n' +
-        '  ' + p + 'regras — Regras da comunidade\n\n' +
-        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️'
+        `🪶 *${(pl.name || 'Aventureiro').slice(0, 24)}*\n` +
+        `🧬 ${String(pl.race || 'humano').toUpperCase()} · ${String(pl.class || 'guerreiro').toUpperCase()}\n` +
+        `⭐ Nível *${pl.level || 1}* · XP ${pl.xp || 0}\n` +
+        `❤️ ${_bar(pl.hp, pl.maxHp)} ${pl.hp ?? 0}/${pl.maxHp ?? 100}\n` +
+        `🔮 ${_bar(pl.mp, pl.maxMp)} ${pl.mp ?? 0}/${pl.maxMp ?? 80}\n` +
+        `💛 ${pl.coins ?? 0} gold · 🏦 ${pl.bank ?? 0} banco\n` +
+        `💓 ${pl.lives ?? 3} vidas · ⚔️ ${pl.kills ?? 0} K / 💀 ${pl.deaths ?? 0} M\n` +
+        (pl.guild ? `🏰 guilda: *${String(pl.guild).slice(0, 22)}*\n` : '') +
+        (pl.winStreak ? `🔥 sequência de vitórias: *${pl.winStreak}*\n` : '') +
+        `🗺️ biomas pisados: ${_bio}\n`;
+    } else {
+      cartao =
+        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n' +
+        '   *DARK VILLE* — *O TEU LIVRO*\n' +
+        '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️\n\n' +
+        '⚠️ *Ainda não tens personagem neste mundo.*\n' +
+        'A 1ª linha da lista (*CRIAR PERSONAGEM*) abre o portal —\n' +
+        '_escolhe raça, classe e nome, e entra._ 🌀\n';
+    }
+
+    // ── linhas da lista (só comandos que EXISTEM no mundo) ────
+    const R = (cmd, desc) => ({ title: `◈ ${p}${cmd}`, description: (desc || '').slice(0, 70), id: `${p}${cmd}` });
+    const seccoes = [];
+    if (!temChar) {
+      seccoes.push({ title: '🌀 PORTAL DE ENTRADA', rows: [
+        R('rpgstart', 'Criar a tua personagem — raça + classe + nome'),
+        R('racas', 'Raças e classes disponíveis'),
+        R('rpginfo', 'Como funciona o mundo'),
+      ]});
+      seccoes.push({ title: '🏆 VITRINE (sem personagem)', rows: [
+        R('ranking', 'Tabela de heróis — quem manda em DARK VILLE'),
+        R('mapa', 'O mapa do mundo — biomas e cidades'),
+      ]});
+    } else {
+      seccoes.push({ title: '🎭 A TUA PERSONAGEM', rows: [
+        R('rg', 'Ficha completa — atributos, magia, reputação'),
+        R('nome', 'Mudar de nome — rebatiza o herói'),
+        R('vidas', 'As tuas vidas — e como recuperá-las'),
+      ]});
+      seccoes.push({ title: '⚔️ AVENTURA & COMBATE', rows: [
+        R('lutar', 'Combate PvE — sobe de nível e ganha loot'),
+        R('explorar', 'Explorar biomas — tesouros e perigos'),
+        R('quest', 'Missões do dia — histórias e recompensas'),
+        R('viajar', 'Viajar no mundo — teleporta o teu herói'),
+        R('descansar', 'Descansar — recupera HP e MP'),
+        R('pocao', 'Usar poção — cura imediata'),
+      ]});
+      seccoes.push({ title: '🃏 INVENTÁRIO & BAÚ', rows: [
+        R('inventario', 'O teu inventário — armas, armaduras, poções'),
+        R('bau', 'O teu baú — guarda e organiza'),
+      ]});
+      seccoes.push({ title: '🏰 PRAÇA — SOCIAL & RANKS', rows: [
+        R('guilda', 'A tua guilda — ver, criar ou aderir'),
+        R('criaclan', 'Criar um clã — fundar irmandade'),
+        R('npc', 'Falar com NPCs — pistas e histórias'),
+        R('ranking', 'Tabela de heróis — o topo de DARK VILLE'),
+        R('mundial', 'Rank mundial — o mundo inteiro a competir'),
+      ]});
+    }
+    seccoes.push({ title: '🛠️ LIVRO DO MUNDO', rows: [
+      R('regrasrpg', 'Regras da comunidade — o pacto'),
+      R('rpgguia', 'Guia do aventureiro — primeiros passos'),
+    ]});
+
+    const bodyTxt = cartao +
+      '\n👇 *Toca para executar — cada linha é um comando vivo.*\n' +
+      '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️';
+
+    // ── lista interactiva (o mesmo coração dos submenus) ──────
+    try {
+      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      let botName = 'DARK BOT';
+      try { botName = (require('../../config').bot?.name) || botName; } catch {}
+      const m = generateWAMessageFromContent(ctx.remoteJid, {
+        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+          body: proto.Message.InteractiveMessage.Body.fromObject({ text: bodyTxt }),
+          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `🕸️ ${botName} · DARK VILLE RPG` }),
+          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
+          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
+            buttons: [{
+              name: 'single_select',
+              buttonParamsJson: JSON.stringify({
+                title: temChar ? '🗺️ O QUE FAZES AGORA?' : '🌀 ENTRA NO MUNDO',
+                sections: seccoes,
+              }),
+            }],
+          }),
+        }),
+      }, { userJid: sock.user?.id, quoted: msg });
+      await sock.relayMessage(ctx.remoteJid, m.message, {
+        messageId: m.key.id,
+        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+          tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+          content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+        }] }],
+      });
+      return;
+    } catch (e) {
+      console.warn('[menurpg] lista caiu, mando o livro em texto:', (e.message || '').slice(0, 60));
+    }
+
+    // ── queda: texto rico (o livro também fala sem botões) ─────
+    return sock.sendMessage(ctx.remoteJid, { text: bodyTxt + '\n' +
+      seccoes.map(s => `\n*${s.title}*\n` + s.rows.map(r => `  ${r.id} — ${r.description || ''}`).join('\n')).join('\n'),
     }, { quoted: msg });
   }, true);
 };
