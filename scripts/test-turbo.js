@@ -22,9 +22,9 @@ Module.prototype.require = function (id) {
   let ok = 0, fail = 0;
   const C = (n, c, x = '') => { if (c) ok++; else fail++; console.log(c ? '  ✅' : '  ❌', n, c ? '' : String(x).slice(0, 160)); };
 
-  // ── 1. HUMANIZER fast por omissão ──
+  // ── 1. HUMANIZER — v9.15 SUPER MODO: omissão = OFF puro ──
   const h = require('../src/bot/humanizer');
-  C('humanizer omissão = fast', h._cfg.MODE === 'fast' && h._cfg.ON === true, JSON.stringify(h._cfg));
+  C('humanizer omissão = off (SUPER — zero teatro)', h._cfg.MODE === 'off' && h._cfg.ON === false, JSON.stringify(h._cfg));
   const ev = [];
   const sock = {
     sendMessage: async (j, c) => { ev.push(['send', Object.keys(c)[0]]); return { key: { id: 'x' } }; },
@@ -36,12 +36,16 @@ Module.prototype.require = function (id) {
   let t0 = Date.now();
   await sock.sendMessage('1@s.whatsapp.net', { text: 'resposta longa '.repeat(60) });
   const dt = Date.now() - t0;
-  await new Promise(r => setTimeout(r, 50)); // presença é fire-and-forget
-  C('fast: texto longo < 700ms (era 1.1–6.3s)', dt < 700, dt + 'ms');
-  C('fast: mostra composing + lido', ev.some(e => e[1] === 'composing') && ev.some(e => e[0] === 'read'), JSON.stringify(ev));
-  ev.length = 0; t0 = Date.now();
-  await sock.sendMessage('2@s.whatsapp.net', { text: 'sistema' });
-  C('fast: envio sistema < 400ms', Date.now() - t0 < 400, (Date.now() - t0) + 'ms');
+  await new Promise(r => setTimeout(r, 50)); // margem p/ qualquer fire-and-forget
+  C('off: texto longo sai instantâneo (<120ms)', dt < 120, dt + 'ms');
+  C('off: NENHUMA presença/lido simulados', ev.filter(e => e[0] === 'presence' || e[0] === 'read').length === 0, JSON.stringify(ev));
+  try {
+    const { execFileSync } = require('child_process');
+    const out = execFileSync(process.execPath, ['-e',
+      'process.env.HUMANIZE="fast";const h=require("./src/bot/humanizer");console.log(h._cfg.MODE+":"+h._cfg.ON)'],
+      { cwd: require('path').join(__dirname, '..'), encoding: 'utf8', timeout: 15000 }).trim();
+    C('teatro continua vivo por env (HUMANIZE=fast)', out === 'fast:true', out);
+  } catch (e) { C('teatro continua vivo por env (HUMANIZE=fast)', false, e.message); }
 
   // ── 2. HOTCACHE: 1 query por doc por mensagem ──
   const hot = require('../src/bot/hotCache');
@@ -137,7 +141,9 @@ Module.prototype.require = function (id) {
   const psock = { sendPresenceUpdate: async (p) => { pev.push(p); return {}; } };
   const stop = h.pensando(psock, 'x@s.whatsapp.net');
   await new Promise(r => setTimeout(r, 30));
-  C('pensando: pulso imediato', pev.includes('composing'), JSON.stringify(pev));
+  // v9.15 SUPER: sem teatro, não há «a escrever» de mentira. O pulso
+  // continua disponível para quem reactivar HUMANIZE=fast/full.
+  C('pensando: off = silêncio total (SUPER)', pev.length === 0 && typeof stop === 'function', JSON.stringify(pev));
   C('pensando: devolve stopper', typeof stop === 'function');
   stop();
   const stop2 = h.pensando(null, null);

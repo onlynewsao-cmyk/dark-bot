@@ -8,7 +8,9 @@
  * socket uma única vez, na criação.
  *
  * MODOS (env HUMANIZE):
- *   fast (OMISSÃO) — lido + "a escrever…" sem bloquear, espera mínima
+ *   off (OMISSÃO v9.15) — SEM comportamento humano: zero teatro, zero
+ *                    espera. É o pedido do dono: «bot super em tudo».
+ *   fast           — lido + "a escrever…" sem bloquear, espera mínima
  *                    (80–260ms). Rápido e continua a parecer humano.
  *   full ("on")    — comportamento teatral original: atraso de leitura +
  *                    espera proporcional ao tamanho (até ~6s). Lento.
@@ -19,10 +21,14 @@
  * quem recebe continua a ver "a escrever…" antes da resposta.
  */
 
+// v9.15 — SUPER MODO: o comportamento humano foi REMOVIDO por ordem do
+// dono. Omissão = 'off' puro: zero atrasos, zero «a escrever…», zero
+// lidos de mentira — o bot responde à velocidade máxima da rede.
+// Quem um dia quiser teatro de volta: HUMANIZE=fast | HUMANIZE=full.
 const _raw = String(process.env.HUMANIZE || '').toLowerCase().trim();
-const MODE = _raw === 'off' || _raw === '0' || _raw === 'false' ? 'off'
-  : (_raw === 'full' || _raw === 'on' || _raw === 'true' || _raw === '1') ? 'full'
-  : 'fast';
+const MODE = (_raw === 'full' || _raw === 'on' || _raw === 'true' || _raw === '1') ? 'full'
+  : (_raw === 'fast' || _raw === 'medio' || _raw === '2') ? 'fast'
+  : 'off';
 const ON = MODE !== 'off';
 const FAST = MODE === 'fast';
 

@@ -28,7 +28,7 @@ console.log('\n╔═══ 1. Temas únicos e completos ═══╗');
 {
   const todos = Object.values(changeThemes.THEMES);
   const nomes = todos.map(x => x.name);
-  t('31 temas', todos.length === 31);
+  t(`${todos.length} temas (v9.15: +8 do Tabuleiro)`, todos.length === 39);
   t('sem nomes duplicados', new Set(nomes).size === nomes.length);
 
   const falta = (campo) => todos.filter(x => x[campo] === undefined || x[campo] === null || x[campo] === '').map(x => x.name);
@@ -55,7 +55,7 @@ console.log('\n╔═══ 3. Paginação da lista interativa ═══╗');
 {
   const sec = changeThemes.paginarTemas(10, '🎭');
   const todos = changeThemes.listThemes();
-  t('4 secções (10+10+10+1)', sec.length === 4 && JSON.stringify(sec.map(s => s.rows.length)) === JSON.stringify([10, 10, 10, 1]));
+  t('4 secções (10+10+10+9)', sec.length === 4 && JSON.stringify(sec.map(s => s.rows.length)) === JSON.stringify([10, 10, 10, 9]));
   t('todas ≤ 10 rows', sec.every(s => s.rows.length <= 10));
   t('total = 31', sec.reduce((a, s) => a + s.rows.length, 0) === todos.length);
   t('cada row tem title+description+id', sec.every(s => s.rows.every(r => r.title && r.description && r.id.startsWith('CHANGE_THEME_'))));

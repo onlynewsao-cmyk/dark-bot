@@ -4,8 +4,8 @@
  * ║                                                               ║
  * ║   !cliente            — o painel-tudo (lista de seleção ☣️)   ║
  * ║   GRUPOS              — !divulgar add/addall/list/del/delall  ║
- * ║   VELOCIDADE          — !delay (painel) / !delay 1..5000 /    ║
- * ║                         !delayultrarapido (5s)                ║
+ * ║   VELOCIDADE          — !delay (painel) / !delay 0..5000 /    ║
+ * ║                         !delayultrarapido → ⚡ SUPER (v9.15)   ║
  * ║   DISPARO (4 passos)  — !divulgar / !divulgarrapido / media   ║
  * ║                         !divulgarteste / !divulgarstop /      ║
  * ║                         !divulgarhistorico                    ║
@@ -94,8 +94,26 @@ const sleep = (ms) => new Promise(r => setTimeout(r, Math.max(1, ms)));
  *  · invisível → texto CRU com ruído único (bypass, zero beacon);
  *  · sem      → texto directo.
  */
-function _corpoDesp(texto, vis, tag) {
-  const t = String(texto || '').slice(0, 4000);
+/**
+ * v9.15 — GIRO (inspirado nos bots de divulgação pagos que «variam o
+ * texto para não repetir»): se o dono guardou cópias com `!giro`, cada
+ * envio da onda sai com a CÓPIA SEGUINTE do carrossel — nunca duas
+ * ondas byte-a-byte iguais, nem com o mesmo arranque.
+ */
+const _GIRO_IDX = new Map(); // own → próximo índice
+async function _corpoDesp(texto, vis, tag, own = '') {
+  let t = String(texto || '').slice(0, 4000);
+  if (own) {
+    try {
+      const bcc = require('../botConfigCache');
+      const giro = await _get(bcc, `giro_${own}`);
+      if (Array.isArray(giro) && giro.length) {
+        const i = (_GIRO_IDX.get(own) || 0) % giro.length;
+        _GIRO_IDX.set(own, i + 1);
+        t = String(giro[i] || t).slice(0, 4000);
+      }
+    } catch {}
+  }
   if (vis === 'visivel') return `☣️ *DIVULGAÇÃO* ☣️\n\n${_ruido(t)}${tag || ''}`;
   if (vis === 'invisivel') return _ruido(t);
   return t;
@@ -135,35 +153,18 @@ function _ruido(texto) {
 }
 
 /** jitter: o relógio metronómico é o 2º sinal de bot — desliza ±25% */
-const _sleepJitter = (ms) => sleep(Math.max(1, Math.round(ms * (0.75 + Math.random() * 0.5))));
 
 // ── RITMO ANTI-BAN (v9.13) ───────────────────────────────────────
 // O que frita uma conta no WhatsApp é assinatura de broadcast:
 //  · mensagens promo quase coladas umas às outras (1..300ms) em N grupos;
 //  · exactamente o mesmo intervalo entre elas (metrónomo);
 //  · texto promo idêntico em dezenas de grupos (hash duplicado).
-// Regras duras aqui no motor (todos os caminhos — texto, mídia,
-// repetir, agenda — passam por _disparar):
-//  1. PISO de ~950ms por envio, configure o dono o que configurar;
-//  2. PAUSA HUMANA de 28–45s a cada 7–11 envios (pessoa não envia
-//     96 mensagens de rajada sem respirar);
-//  3. ENTRE PASSES (vezes>1) espera 65–130s aleatória — nunca o
-//     mesmo `delay` certinho;
-//  4. ruído zero-width TAMBÉM no corpo visível (o banner continua —
-//     é o cartão de visita — mas o texto nunca é byte-a-byte igual).
-// Envs DIVULGAR_* permitem encolher tudo em TESTES (o piso é duro em
-// produção porque é o que salva a conta).
-const _envMs = (k, def) => {
-  const v = Number(process.env[k]);
-  return Number.isFinite(v) && v >= 1 ? Math.round(v) : def;
-};
-const _MIN_G = () => _envMs('DIVULGAR_MIN_MS', 950);                       // piso por envio
-const _PAUSA_A_CADA = () => _envMs('DIVULGAR_PAUSA_A_CADA', 0) || (7 + Math.floor(Math.random() * 5)); // 7–11 envios
-const _PAUSA_MIN = () => _envMs('DIVULGAR_PAUSA_MIN_MS', 28000);
-const _PAUSA_MAX = () => _envMs('DIVULGAR_PAUSA_MAX_MS', 45000);
-const _PASS_MIN  = () => _envMs('DIVULGAR_PASS_MIN_MS', 65000);
-const _PASS_MAX  = () => _envMs('DIVULGAR_PASS_MAX_MS', 130000);
-const _aleat = (a, b) => Math.max(1, Math.round(a + Math.random() * Math.max(0, b - a)));
+// v9.15 — SUPER MODO (pedido do dono): TODO o ritmo "humano" de
+// proteção (piso de 950ms, pausas de 28–45s, esperas de 65–130s entre
+// passes, jitter) foi REMOVIDO do motor. O bot dispara a fundo; o único
+// travão é o `delay` que o dono escolher em `!delay` (omissão: 0).
+// O ruído zero-width FICA — não é teatro: é o que faz cada cópia sair
+// com texto byte-a-byte único (bypass de dedupe/detete dos bots-alvo).
 
 async function _historico(sock, bcc, own, entrada) {
   const hist = (await _get(bcc, `hist_${own}`) || []).concat(entrada).slice(-20);
@@ -182,24 +183,38 @@ async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
   const bcc = require('../botConfigCache');
   const own = _num(ctx.senderNumber);
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
-  const delay = Number(await _get(bcc, `delay_${own}`)) || 1200;
+  const delay = Number(await _get(bcc, `delay_${own}`)) || 0;
   if (!grupos.length) return { ok: false, motivo: 'sem-grupos' };
 
   _STOP.delete(own);
   let feitos = 0, erros = 0;
   const falhas = [];
-  // ritmo anti-ban: piso duro + pausas humanas (v9.13)
-  const base = Math.max(delay, _MIN_G());
-  let desdePausa = 0;
-  let limiarPausa = _PAUSA_A_CADA();
+  // v9.15 📊 MÉTRICAS POR GRUPO (padrão dos bots de divulgação pagos):
+  // 3 falhas seguidas = grupo morto (saiu/apagou-me) → EXCLUÍDO da onda
+  // automaticamente; `!divulgar metricas` mostra tudo, `reativar N` resuscita.
+  const stats = Object.assign({}, (await _get(bcc, `stats_${own}`)) || {});
+  let mortos = [];
+  const vivos = grupos.filter((g) => {
+    const st0 = stats[g.jid] || {};
+    const morto = (st0.consec || 0) >= 3;
+    if (morto) mortos.push(g);
+    return !morto;
+  });
+  const ondaGrupos = vivos;
+  if (mortos.length) await _set(bcc, `grupos_${own}`, vivos);
+  // 🔀 ordem baralhada em cada passe — o mesmo grupo raramente recebe 2.º
+  const ordem = [...ondaGrupos];
+  for (let i = ordem.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ordem[i], ordem[j]] = [ordem[j], ordem[i]];
+  }
+  // v9.15 SUPER: sem piso, sem pausa, sem jitter — só o delay do dono.
+  const base = Math.max(0, delay);
   for (let vez = 0; vez < Math.max(1, vezes); vez++) {
     if (_STOP.has(own)) break;
-    // entre passes: 65–130s aleatórios — repetir a mesma ronda a cada
-    // `delay` certinho é a assinatura de multi-broadcast que a Meta pune
-    if (vez > 0) await sleep(_aleat(_PASS_MIN(), _PASS_MAX()));
-    for (let i = 0; i < grupos.length; i++) {
+    for (let i = 0; i < ordem.length; i++) {
     if (_STOP.has(own)) break;
-    const g = grupos[i];
+    const g = ordem[i];
     try {
       let mencoes = [], textoTag = '';
       if (vis !== 'sem') {
@@ -221,20 +236,17 @@ async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
       const { content } = await montar(g, textoTag, mencoes, vez);
       await sock.sendMessage(g.jid, content);
       feitos++;
-    } catch (e) { erros++; falhas.push(`${g.nome || g.jid}: ${String(e.message).slice(0, 40)}`); }
-    if (i + 1 < grupos.length) {
-      // respiro entre envios: piso duro + PAUSA HUMANA a cada 7–11 envios
-      desdePausa++;
-      if (desdePausa >= limiarPausa) {
-        desdePausa = 0;
-        limiarPausa = _PAUSA_A_CADA();
-        await sleep(_aleat(_PAUSA_MIN(), _PAUSA_MAX()));       // 28–45s
-      } else {
-        await _sleepJitter(base);
-      }
+      { const st0 = stats[g.jid] || (stats[g.jid] = { ok: 0, fail: 0, consec: 0 });
+        st0.ok++; st0.consec = 0; st0.nome = g.nome || st0.nome || ''; st0.last = new Date().toISOString(); }
+    } catch (e) {
+      erros++; falhas.push(`${g.nome || g.jid}: ${String(e.message).slice(0, 40)}`);
+      const st0 = stats[g.jid] || (stats[g.jid] = { ok: 0, fail: 0, consec: 0 });
+      st0.fail++; st0.consec++; st0.nome = g.nome || st0.nome || ''; st0.last = new Date().toISOString();
     }
+    if (i + 1 < ordem.length && base > 0) await sleep(base);
     }
   }
+  try { await _set(bcc, `stats_${own}`, stats); } catch {}
   const parado = _STOP.has(own);
   _STOP.delete(own);
   await _historico(sock, bcc, own, {
@@ -242,7 +254,7 @@ async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
     bypass: vis === 'invisivel',
     total: grupos.length * Math.max(1, vezes), grupos: grupos.length, feitos, erros, parado,
   });
-  return { ok: true, total: grupos.length * Math.max(1, vezes), feitos, erros, parado, falhas, delay, vezes };
+  return { ok: true, total: grupos.length * Math.max(1, vezes), feitos, erros, parado, falhas, delay, vezes, mortos: mortos.map((m) => m.nome || m.jid) };
 }
 
 function _resumo(r, p) {
@@ -258,8 +270,9 @@ function _resumo(r, p) {
     `📦 Alvos: *${r.total}*${(r.vezes || 1) > 1 ? ` (🔁 vez${r.vezes}x)` : ''}`,
     `✅ Enviado: *${r.feitos}*`,
     `❌ Falhou: *${r.erros}*${r.falhas?.length ? ` (${r.falhas[0]})` : ''}`,
-    `⏱️ Delay: *${r.delay}ms*${r.parado ? ' · 🛑 PARADO por ti' : ''}`,
+    `⏱️ Delay: ${r.delay ? `*${r.delay}ms*` : '*0ms ⚡ SUPER*'}${r.parado ? ' · 🛑 PARADO por ti' : ''}`,
     r.parado ? `Retomar: volta a lançar !divulgar` : `Histórico: \`${p}divulgarhistorico\``,
+    (r.mortos && r.mortos.length) ? `⚰️ ${r.mortos.length} morto(s) EXCLUÍDO automaticamente (3❌): ${r.mortos.slice(0,2).join(', ')}${r.mortos.length>2?'…':''} — \`${p}divulgar metricas\`` : '',
   ]);
 }
 
@@ -271,10 +284,10 @@ async function _painelCliente(sock, msg, ctx) {
   const p = ctx.prefix || config.bot.prefix || '!';
   const own = _num(ctx.senderNumber);
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
-  const delay = Number(await _get(bcc, `delay_${own}`)) || 1200;
-  // v9.13: presets <1s são íman de ban temporário — etiquetados como
-  // perigo e o motor tem piso duro de ~950ms mesmo se eles estiverem on.
-  const delayNome = { 1: '☠️ ULTRA (risco ban)', 70: '⚠️ RÁPIDO (risco ban)', 300: '⚠️ MÉDIO (risco)', 1200: '🛡️ ANTIBAN', 2000: '🐌 DEVAGAR', 5000: '🛡️ SEGURO' }[delay] || (delay < 950 ? `☠️ ${delay}ms (risco ban)` : `🔧 ${delay}ms`);
+  const delay = Number(await _get(bcc, `delay_${own}`)) || 0;
+  // v9.15 SUPER: sem teatro nem travões de fábrica — velocidade é
+  // escolha do dono, o motor obedece na hora.
+  const delayNome = { 0: '⚡ SUPER (sem pausas)', 1: '🚀 ULTRA', 70: '🔥 RÁPIDO', 300: '🐢 MÉDIO', 1200: '🛡️ CONSERVADOR', 2000: '🐌 LENTO', 5000: '🐌🐌 MUITO LENTO' }[delay] || `🔧 ${delay}ms`;
 
   const corpo = _dtox('C L I E N T E  -  O N L I N E', [
     '📦 *DIVULGAÇÃO — 4 PASSOS*',
@@ -286,6 +299,7 @@ async function _painelCliente(sock, msg, ctx) {
     '3️⃣ Escolhe 👁️ visível / 🕶️ invisível',
     '4️⃣ Toca em 🚀 DIVULGAR ou responde à tua mídia',
     '',
+    '🎨 TABULEIRO VIVO: `!letras` · `!nick` · `!deco` · `!caixa` · `!simbolos`',
     `✨ CLIENTE ATIVO — ${own}`,
     `\`${p}delay\` · \`${p}divulgar list\` · \`${p}divulgarhistorico\``,
   ]);
@@ -300,9 +314,29 @@ async function _painelCliente(sock, msg, ctx) {
     ] },
     { title: '⏱️ VELOCIDADE / DELAY', rows: [
       R('painel do delay', 'presets com 🟢 no activo', `${p}delay`),
-      R('ultra 1ms', 'sem parar — (!) risco máximo', `${p}delay ultra`),
-      R('rapido 70ms', '⚡ recomendado', `${p}delay rapido`),
-      R('antiban 1200ms', '🛡️ o mais seguro', `${p}delay antiban`),
+      R('super 0ms', '⚡ omissão — sem pausas', `${p}delay super`),
+      R('ultra 1ms', '🚀 sem respirar', `${p}delay ultra`),
+      R('conservador 1200ms', '🛡️ ainda rápido', `${p}delay antiban`),
+    ] },
+    { title: '🌀 GIRO · AGENDA · MÉTRICAS', rows: [
+      R('carrossel de cópias', 'texto varia a cada envio — anti-repetição', `${p}giro a || b || c`),
+      R('estado do giro', 'ver as cópias gravadas', `${p}giro`),
+      R('agenda pontual', '⏰ HH:MM, minutos ou diário — sobrevive a restart', `${p}divulgaragenda 21:30 texto`),
+      R('ver agenda', 'ondas programadas', `${p}divulgaragendas`),
+      R('métricas por grupo', '📊 ✅/❌ + ⚰️ excluídos automaticamente', `${p}divulgar metricas`),
+      R('reativar morto', 'resuscita grupo excluído por 3 falhas', `${p}divulgar reativar 1`),
+    ] },
+    { title: '🎨 ESTILO & LETRAS', rows: [
+      R('as 22 fontes', 'letras E números — negrito, 𝓼𝓬𝓻𝓲𝓹𝓽, 🄱🄰🄽🄳…', `${p}letras dark`),
+      R('6 tamanhos', '𝐆𝐑𝐀𝐍𝐃𝐄 ↔ ₘᵢᴄᵣₒ — 𝐝𝐢𝐠í𝐭𝐨𝐬 incluídos', `${p}tamanho dark 2026`),
+      R('nick único', '10 nicks do tabuleiro, sem repetir', `${p}nick meu nome`),
+      R('decorar nome', 'volta kawai/egípcia, nome limpo', `${p}deco nome`),
+      R('caixa-moldura', 'texto emoldurado p/ bio e status', `${p}caixa nome`),
+      R('baús de símbolos', '𓂀egípcios, 𒀭sumer, ➳setas, ⠿braille', `${p}simbolos`),
+    ] },
+    { title: '🎭 TEMAS', rows: [
+      R('temas do bot', '!change + botões 🔁 CHANGE / ✖ NÃO', `${p}change`),
+      R('tema do cartão', 'prefixo com 8 capas', `${p}prefixotema`),
     ] },
     { title: '🚀 ENVIAR — 4 PASSOS', rows: [
       R('divulgar texto', 'passo a passo interactivo', `${p}divulgar`),
@@ -339,7 +373,7 @@ async function _painelCliente(sock, msg, ctx) {
               { texto: '📦 AddAll automático', id: `${p}divulgar addall` },
               { texto: '📋 Ver a minha onda', id: `${p}divulgar list` },
             ] },
-          { corpo: `⏱️ *VELOCIDADE / DELAY*\nAtiva agora: *${delayNome}* (${delay}ms) — antiban é o porto seguro.`, rodape: '☣️ PASSO 2',
+          { corpo: `⏱️ *VELOCIDADE / DELAY*\nAtiva agora: *${delayNome}* (${delay}ms) — motor SUPER, sem pausas de fábrica.`, rodape: '☣️ PASSO 2',
             promptImg: 'dark toxic violet neon speedometer with toxic green glow, cyberpunk timer, poster style, no text',
             cacheKey: 'dtox_delay',
             botoes: [
@@ -352,6 +386,13 @@ async function _painelCliente(sock, msg, ctx) {
             botoes: [
               { texto: '🚀 Divulgar agora', id: `${p}divulgar` },
               { texto: '👁️ Teste visível', id: `${p}divulgarteste visivel` },
+            ] },
+          { corpo: '🎨 *ESTILO DO CLIENTE*\n22 fontes, gerador de nicks, molduras e 8 capas para o cartão. Tudo texto puro — abre em qualquer WhatsApp.', rodape: '☣️ TABULEIRO',
+            promptImg: 'neon violet and toxic green calligraphy glyphs floating in dark cyberspace, ornate unicode sigils, poster style, no text',
+            cacheKey: 'dtox_estilo',
+            botoes: [
+              { texto: '🔠 As 22 fontes', id: `${p}letras dark bot` },
+              { texto: '🎭 TEMAS', id: `${p}change` },
             ] },
           { corpo: '🤖 *SEU BOT + PLANO*\nEstado do teu número, stats da onda e a tabela do aluguel.', rodape: '☣️ Oficina',
             promptImg: 'dark robotic hand holding glowing toxic green phone, violet neon circuits, poster style, no text',
@@ -379,11 +420,12 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
   const own = _num(ctx.senderNumber);
   const bcc = require('../botConfigCache');
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
-  const delay = Number(await _get(bcc, `delay_${own}`)) || 1200;
+  const delay = Number(await _get(bcc, `delay_${own}`)) || 0;
   await sock.sendMessage(_alvo(ctx), {
     text: _dtox('A D I V U L G A R', [
-      `🚀 Onda *${rotulo}* a correr…`,
-      `📦 ${grupos.length} grupos · 🔁 ${vezes}x · ⏱️ ${delay}ms · 👁️ ${vis === 'visivel' ? 'VISÍVEL (ADM vê)' : vis === 'invisivel' ? 'INVISÍVEL (ADM não vê nada)' : 'SEM MENÇÕES'}`,
+      `🚀 Onda *${rotulo}* a correr… ⚡ SUPER`,
+      `📦 ${grupos.length} grupos · 🔁 ${vezes}x · ⏱️ ${delay ? delay + 'ms' : '0ms ⚡'} · 👁️ ${vis === 'visivel' ? 'VISÍVEL (ADM vê)' : vis === 'invisivel' ? 'INVISÍVEL (ADM não vê nada)' : 'SEM MENÇÕES'}`,
+      `🔀 ordem aleatória${((await _get(bcc, `giro_${own}`).catch(() => null)) || []).length ? ` · 🌀 giro x${((await _get(bcc, `giro_${own}`)) || []).length}` : ''}`,
       '🛑 cancelar a qualquer momento: `!divulgarstop`',
     ]),
   }, { quoted: msg }).catch(() => {});
@@ -442,6 +484,82 @@ async function _mediaDe(msg, tipo, caption) {
   } catch { return null; }
   return null;
 }
+
+
+// ══════════════════ v9.15 — AGENDA PERSISTENTE + RE-ARM ══════════════════
+/** Próximo instante: HH:MM (hoje ou amanhã) ou daqui a N minutos. */
+function _msProximaHora(hm, min) {
+  if (hm) {
+    const h = +hm[1], m = +hm[2];
+    if (h > 23 || m > 59) return null;
+    const d = new Date();
+    d.setSeconds(0, 0); d.setHours(h, m);
+    if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+    return d.getTime();
+  }
+  if (Number.isInteger(min) && min >= 1 && min <= 14400) return Date.now() + min * 60000;
+  return null;
+}
+
+/** Arma (ou re-arma) o setTimeout a partir do registo gravado. */
+function _armar(own, ag) {
+  try {
+    if (!ag || !ag.at) return;
+    if (_AGENDADOS.has(own)) { clearTimeout(_AGENDADOS.get(own)); _AGENDADOS.delete(own); }
+    const ms = ag.at - Date.now();
+    if (ms > 2 ** 31 - 2) return;             // >24 dias: re-arma no arranque seguinte
+    const t = setTimeout(() => _disparoAgendado(own, ag), Math.max(1000, ms));
+    if (t.unref) t.unref();
+    _AGENDADOS.set(own, t);
+  } catch {}
+}
+
+/** Onda agendada: usa o sock vivo do momento (não o do comando). */
+async function _disparoAgendado(own, ag) {
+  try {
+    _AGENDADOS.delete(own);
+    const bot = require('../whatsapp').getBot();
+    const sock = bot && (bot.sock || bot.client);
+    if (!sock) { _armar(own, { ...ag, at: Date.now() + 60000 }); return; }
+    const ctxLite = {
+      remoteJid: `${own}@s.whatsapp.net`, senderJid: `${own}@s.whatsapp.net`,
+      senderNumber: own, isGroup: false, prefix: '!', fromMe: false,
+    };
+    const bcc = require('../botConfigCache');
+    await _onda(sock, null, ctxLite, async (_g, tag, mencoes) => ({
+      content: { text: await _corpoDesp(ag.texto, ag.vis, tag, own), mentions: ag.vis === 'sem' ? [] : mencoes },
+    }), ag.vis, 'agendada⏰');
+    if (!ag.diario) { await _set(bcc, `agenda_${own}`, null); return; }
+    const at = ag.at + 86400000;
+    const novo = { ...ag, at, atISO: new Date(at).toISOString() };
+    await _set(bcc, `agenda_${own}`, novo);
+    _armar(own, novo);
+  } catch (e) { console.error(`⏰ [agenda] disparo falhou (${own}):`, e.message); }
+}
+
+/** No arranque: re-arma tudo o que estava gravado (atraso ≤30min dispara logo). */
+async function _rearmAgendas(tenta = 0) {
+  try {
+    const BotConfig = require('../../database/models/BotConfig');
+    const docs = await BotConfig.find({ key: /^divulg_agenda_/ }).lean();
+    for (const d of docs) {
+      const own = String(d.key).replace('divulg_agenda_', '');
+      let ag = d.value;
+      if (typeof ag === 'string') { try { ag = JSON.parse(ag); } catch { ag = null; } }
+      if (!ag || !ag.at) continue;
+      const late = Date.now() - ag.at;
+      if (!ag.diario && late > 30 * 60000) continue;      // velho: não dispara
+      if (!ag.diario && late > 0) { _disparoAgendado(own, { ...ag, at: Date.now() }); continue; }
+      while (ag.diario && ag.at <= Date.now()) ag = { ...ag, at: ag.at + 86400000 };
+      _armar(own, ag);
+      console.log(`⏰ [agenda] re-armada p/ ${new Date(ag.at).toLocaleString('pt-PT')}`);
+    }
+  } catch (e) {
+    if (tenta < 10) setTimeout(() => _rearmAgendas(tenta + 1), 30000); // espera pelo Mongo
+  }
+}
+if (typeof setTimeout === 'function') { const _t = setTimeout(() => _rearmAgendas(), 8000); if (_t.unref) _t.unref(); }
+
 
 module.exports = function registerDivulgacao(_registerCase) {
   // v9.14: TODA a superfície da divulgação fala no PV do dono quando
@@ -527,6 +645,40 @@ module.exports = function registerDivulgacao(_registerCase) {
       return reply(_dtox('L I M P O', ['🗑️ Apagados TODOS os grupos da tua onda.']));
     }
 
+    // v9.15 📊 MÉTRICAS — entrega real POR grupo + cemitério reactivável
+    if (sub === 'metricas' || sub === 'stats') {
+      const stats = (await _get(bcc, `stats_${own}`)) || {};
+      const noOnda = Object.keys(stats).filter((j) => !grupos.some((g) => g.jid === j));
+      if (!grupos.length && !noOnda.length) return reply(`📭 Sem métricas ainda — corre uma onda primeiro (\`${p}divulgar\`).`);
+      const linhas = grupos.map((g, i) => {
+        const st0 = stats[g.jid] || { ok: 0, fail: 0 };
+        const taxa = (st0.ok + st0.fail) ? Math.round((st0.ok / (st0.ok + st0.fail)) * 100) : 100;
+        return `${i + 1}. ${g.nome || g.jid.split('@')[0]} — ✅${st0.ok} ❌${st0.fail} · 📶${taxa}%${st0.last ? ' · ' + new Date(st0.last).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''}`;
+      });
+      const cemit = noOnda.map((j, i) => `⚰️ ${i + 1}. ${(stats[j].nome || j.split('@')[0])} (${stats[j].fail}❌ seguidos) — \`${p}divulgar reativar ${i + 1}\``);
+      return reply(_dtox('M É T R I C A S  D A  O N D A', [
+        `📦 na onda: ${grupos.length} · ⚰️ excluídos: ${noOnda.length}`,
+        '',
+        ...(linhas.length ? ['🟢 activos:'].concat(linhas.slice(0, 15)) : []),
+        ...(cemit.length ? ['', '🪦 fora (3 falhas seguidas):'].concat(cemit.slice(0, 8)) : []),
+        '',
+        '🔀 ordem baralhada em cada passe · 🌀 variação: `!giro`',
+      ]));
+    }
+    if (sub === 'reativar' || sub === 'reactivar') {
+      const stats = (await _get(bcc, `stats_${own}`)) || {};
+      const noOnda = Object.keys(stats).filter((j) => !grupos.some((g) => g.jid === j));
+      const n = parseInt(args[1], 10);
+      if (!noOnda.length) return reply('🪦 Nenhum grupo excluído — todos estão na onda.');
+      if (!Number.isInteger(n) || n < 1 || n > noOnda.length) return reply(`☣️ \`${p}divulgar reativar N\` (N do \`${p}divulgar metricas\`, 1–${noOnda.length}).`);
+      const jid = noOnda[n - 1];
+      grupos.push({ jid, nome: stats[jid].nome || jid.split('@')[0], adicionado: new Date().toISOString().slice(0, 10) });
+      stats[jid].consec = 0; stats[jid].fail = 0;
+      await guardar(grupos);
+      try { await _set(bcc, `stats_${own}`, stats); } catch {}
+      return reply(_dtox('R E S U S C I T A D O', [`⚰️➡️🟢 ${stats[jid].nome || jid} voltou à onda (${grupos.length} alvos).`]));
+    }
+
     // ── 4 PASSOS ESCRITOS (o assistente âncora — o teu modelo) ──
     const texto = _textoDe(msg, args);
     if (!grupos.length && texto) {
@@ -567,7 +719,7 @@ module.exports = function registerDivulgacao(_registerCase) {
     const texto = _textoDe(msg, args.slice(1));
     if (!texto) return reply(`☣️ \`${ctx.prefix || config.bot.prefix}divulgarrapido visivel|invisivel <texto>\` — a mensagem vai de imediato.`);
     await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-      content: { text: _corpoDesp(texto, vis, tag), mentions: vis === 'sem' ? [] : mencoes },
+      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber)), mentions: vis === 'sem' ? [] : mencoes },
     }), vis, 'rápido');
   });
 
@@ -591,6 +743,7 @@ module.exports = function registerDivulgacao(_registerCase) {
     _STOP.add(own);
     const ag = _AGENDADOS.get(own);
     if (ag) { clearTimeout(ag); _AGENDADOS.delete(own); }
+    { const _b = require('../botConfigCache'); await _set(_b, `agenda_${own}`, null); await _set(_b, `giro_${own}`, null); } // v9.15: stop limpa agenda+giro
     return reply(_dtox('A P A R A R', ['🛑 Sinal de paragem lançado — a onda morre no próximo grupo.', ag ? '⏰ Agenda pendente também cancelada.' : '']));
   });
 
@@ -627,31 +780,102 @@ module.exports = function registerDivulgacao(_registerCase) {
   });
 
   // v9.9: AGENDA — dispara daqui a N minutos (timer desta sessão)
+  /**
+   * v9.15 ⏰ AGENDA REAL — inspirado nos bots de divulgação pagos
+   * (agendamento pontual + recorrente). Agora aceita:
+   *   !divulgaragenda 21:30 [visivel|invisivel] <texto>   → próxima hora certa
+   *   !divulgaragenda 15 …                                 → daqui a 15 min
+   *   !divulgaragenda diario 21:30 …                       → dispara TODOS OS DIAS
+   * A agenda é PERSISTIDA (BotConfig) e re-armada no arranque do bot —
+   * reiniciar já não a apaga. Ver: !divulgaragendas · apaga: !divulgarstop.
+   */
   registerCase(['divulgaragenda', 'divulgarprogramar'], async ({ sock, msg, ctx, args, isOwner, reply }) => {
     if (!isOwner) return deny(reply);
     const p = ctx.prefix || config.bot.prefix || '!';
-    const min = parseInt(String(args[0] || ''), 10);
-    const temVis = /^vis|^invis/i.test(args[1] || '');
-    const vis = /^invis/i.test(args[1] || '') ? 'invisivel' : /^vis/i.test(args[1] || '') ? 'visivel' : 'sem';
-    if (!Number.isInteger(min) || min < 1 || min > 1440) {
-      return reply(`☣️ \`${p}divulgaragenda <minutos> [visivel|invisivel] <texto>\` — ex.: \`${p}divulgaragenda 5 visivel drop às 21h\` (máx 24h).`);
+    const bcc = require('../botConfigCache');
+    const own = _num(ctx.senderNumber);
+    const a = (args || []).slice();
+    let diario = false;
+    if (/^diari[oa]$|^d$|^todos?os?dias$/i.test(String(a[0] || ''))) { diario = true; a.shift(); }
+    const t1 = String(a[0] || '');
+    const hm = t1.match(/^(\d{1,2}):(\d{2})$/);
+    const min = parseInt(t1, 10);
+    const temVis = /^vis|^invis/i.test(a[1] || '');
+    const vis = /^invis/i.test(a[1] || '') ? 'invisivel' : /^vis/i.test(a[1] || '') ? 'visivel' : 'sem';
+    if (!hm && !(Number.isInteger(min) && min >= 1 && min <= 14400)) {
+      return reply([
+        '☣️ `' + p + 'divulgaragenda <HH:MM | minutos> [diario] [visivel|invisivel] <texto>`',
+        '   ex.: `' + p + 'divulgaragenda 21:30 visivel drop às 21h`',
+        '   ex.: `' + p + 'divulgaragenda 15 invisivel leak novo`',
+        '   ex.: `' + p + 'divulgaragenda diario 08:00 bom dia⚡` (recorrente)',
+        '📜 ver: `' + p + 'divulgaragendas` · cancelar: `' + p + 'divulgarstop`',
+      ].join('\n'));
     }
-    const ondaTexto = _textoDe(msg, args.slice(temVis ? 2 : 1));
-    if (!ondaTexto) return reply(`☣️ Falta o texto da onda: \`${p}divulgaragenda ${min} ${vis === 'sem' ? '' : 'visivel '}<texto>\`.`);
+    const ondaTexto = _textoDe(msg, a.slice(temVis ? 2 : 1));
+    if (!ondaTexto) return reply('☣️ Falta o texto da onda: `' + p + 'divulgaragenda ' + t1 + ' ' + (vis === 'sem' ? '' : 'visivel ') + '<texto>`.');
+    const at = _msProximaHora(hm, min);
+    if (!at) return reply('☣️ Hora inválida (usa HH:MM 24h; minutos 1–14400 = 10 dias).');
+    const ag = { at, atISO: new Date(at).toISOString(), vis, texto: ondaTexto, diario, criado: new Date().toISOString() };
+    await _set(bcc, `agenda_${own}`, ag);
+    _armar(own, ag);
+    const em = Math.max(0, Math.round((at - Date.now()) / 60000));
+    return reply(_dtox('A G E N D A D A', [
+      `⏰ Dispara às *${new Date(at).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}* (daqui a *${em >= 60 ? Math.floor(em / 60) + 'h' + String(em % 60).padStart(2, '0') : em + 'min'}*)${diario ? ' · 🔁 TODOS OS DIAS' : ''}.`,
+      `👁️ modo *${vis}* · 📝 "${ondaTexto.slice(0, 90)}${ondaTexto.length > 90 ? '…' : ''}"`,
+      '💾 gravada — sobrevive a restart. Cancelar: `' + p + 'divulgarstop`',
+    ]));
+  });
+
+  registerCase(['divulgaragendas'], async ({ ctx, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const bcc = require('../botConfigCache');
+    const ags = await _get(bcc, `agenda_${_num(ctx.senderNumber)}`);
+    if (!ags) return reply('📭 Sem agenda gravada — cria uma: `' + (ctx.prefix || '!') + 'divulgaragenda 21:30 texto`.');
+    const a = [].concat(ags || []);
+    return reply(_dtox('A G E N D A', a.map((x) => `⏰ ${new Date(x.at).toLocaleString('pt-PT', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })} · ${x.diario ? '🔁 diário · ' : ''}${x.vis} · "${String(x.texto).slice(0, 60)}…"`).concat(['', '⛔ tudo: `!divulgarstop` · só agenda: `!divulgaragendaremove`'])));
+  });
+
+  /**
+   * v9.15 🌀 GIRO — o truque dos bots pagos «variar texto para não
+   * parecer repetitivo»: 1–8 cópias separadas por ||, e CADA envio da
+   * onda usa a seguinte (carrossel). Sem giro = texto único + ruído.
+   */
+  registerCase(['giro', 'variacao', 'variacoes'], async ({ ctx, args, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const bcc = require('../botConfigCache');
+    const own = _num(ctx.senderNumber);
+    const p = ctx.prefix || '!';
+    const t0 = String(args[0] || '').toLowerCase();
+    if (t0 === 'off' || t0 === 'desligar') {
+      await _set(bcc, `giro_${own}`, []);
+      _GIRO_IDX.delete(own);
+      return reply(`🌀 Giro desligado — volta ao texto único (+ ruído).`);
+    }
+    if (!args.length) {
+      const g = (await _get(bcc, `giro_${own}`)) || [];
+      if (!g.length) return reply(_dtox('🌀 G I R O', [
+        'Liga o carrossel de cópias: `!giro texto1 || texto2 || texto3`',
+        '1–8 versões, até ~900 caracteres cada.',
+        'Cada envio da onda roda para a seguinte → zero repetição.',
+        'Estado: OFF · desligar: `!giro off`',
+      ]));
+      return reply(_dtox('🌀 G I R O', g.map((x, i) => `${i + 1}. ${x.slice(0, 70)}${x.length > 70 ? '…' : ''}`).concat(['', `➡️ roda a cada envio · \`${p}giro off\` desliga`])));
+    }
+    const corpo = (args || []).join(' ');
+    const copias = corpo.split(/\|\|/).map((x) => x.trim()).filter(Boolean).slice(0, 8).map((x) => x.slice(0, 900));
+    if (copias.length < 2) return reply(`☣️ Manda 2+ cópias separadas por \`||\` — ex.: \`${p}giro drop novo 🔥 || 🚨 acaba de sair || ⚡ não percas o drop\`.`);
+    await _set(bcc, `giro_${own}`, copias);
+    _GIRO_IDX.set(own, 0);
+    return reply(_dtox('🌀 G I R O  L I G A D O', copias.map((x, i) => `${i + 1}. ${x.slice(0, 70)}${x.length > 70 ? '…' : ''}`).concat(['', `✅ ${copias.length} cópias em rotação — a próxima onda já usa. Ver: \`${p}giro\``])));
+  });
+
+  registerCase(['divulgaragendaremove', 'desagendar'], async ({ ctx, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const bcc = require('../botConfigCache');
     const own = _num(ctx.senderNumber);
     if (_AGENDADOS.has(own)) { clearTimeout(_AGENDADOS.get(own)); _AGENDADOS.delete(own); }
-    _AGENDADOS.set(own, setTimeout(async () => {
-      _AGENDADOS.delete(own);
-      await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-        content: { text: _corpoDesp(ondaTexto, vis, tag), mentions: vis === 'sem' ? [] : mencoes },
-      }), vis, 'agendada');
-    }, min * 60000));
-    return reply(_dtox('A G E N D A D A', [
-      `⏰ Onda *${vis === 'sem' ? 'neutra' : vis}* dispara daqui a *${min}min*.`,
-      `📝 "${ondaTexto.slice(0, 90)}${ondaTexto.length > 90 ? '…' : ''}"`,
-      `Cancelar junto com qualquer onda: \`${p}divulgarstop\` (apaga a agenda).`,
-      '(a agenda vive nesta sessão — se o bot reiniciar, agenda de novo)',
-    ]));
+    await _set(bcc, `agenda_${own}`, null);
+    return reply(`✅ Agenda de *${own}* apagada (timer + registo).`);
   });
 
   registerCase(['divulgarhistorico'], async ({ sock, msg, ctx, isOwner, reply }) => {
@@ -665,28 +889,34 @@ module.exports = function registerDivulgacao(_registerCase) {
   });
 
   // ── VELOCIDADE ──
+  // v9.15 SUPER MODO — a omissão é 0ms: rajada total, sem teatro.
+  // Os presets «lentos» continuam à mão de quem os quiser gerir.
   const DELAYS = {
-    ultra: { ms: 1, icon: '🚀', aviso: 'SEM PARAR — (!) risco de ban máximo' },
-    rapido: { ms: 70, icon: '⚡', aviso: 'RECOMENDADO' },
-    medio: { ms: 300, icon: '🐢', aviso: 'equilibrado' },
-    antiban: { ms: 1200, icon: '🛡️', aviso: 'MAIS SEGURO' },
-    devagar: { ms: 2000, icon: '🐌', aviso: '100% SEGURO' },
-    ultrarapido: { ms: 5000, icon: '🚀', aviso: 'ULTRA-RÁPIDO 5s' },
+    super: { ms: 0, icon: '⚡', aviso: 'SUPER — SEM PAUSAS (OMISSÃO)' },
+    ultra: { ms: 1, icon: '🚀', aviso: 'sem respirar' },
+    rapido: { ms: 70, icon: '🔥', aviso: 'quase nada' },
+    medio: { ms: 300, icon: '🐢', aviso: 'respiração leve' },
+    antiban: { ms: 1200, icon: '🛡️', aviso: 'conservador' },
+    devagar: { ms: 2000, icon: '🐌', aviso: 'modo caracol' },
+    ultrarapido: { ms: 5000, icon: '🐌🐌', aviso: 'pedalada suave' },
   };
+  // v9.15: o velho `!delayultrarapido` (5s!) passou a ser SINÓNIMO de
+  // SUPER — quem grita «ultra-rápido» quer rajada, não pausa.
+  DELAYS.delayultrarapido = DELAYS.super;
   const _delayCase = async ({ sock, msg, ctx, args, prefix, isOwner, reply }) => {
     if (!isOwner) return deny(reply);
     const bcc = require('../botConfigCache');
     const own = _num(ctx.senderNumber);
     const p = prefix || config.bot.prefix || '!';
-    const atual = Number(await _get(bcc, `delay_${own}`)) || 1200;
+    const atual = Number(await _get(bcc, `delay_${own}`)) || 0;
 
     const sub = String(args[0] || '').toLowerCase();
     if (!sub) {
-      const nomes = { 1: 'ultra', 70: 'rapido', 300: 'medio', 1200: 'antiban', 2000: 'devagar', 5000: 'ultrarapido' };
-      const presets = ['ultra', 'rapido', 'medio', 'antiban', 'devagar', 'ultrarapido'];
+      const presets = ['super', 'ultra', 'rapido', 'medio', 'antiban', 'devagar'];
       const corpo = _dtox('V E L O C I D A D E   /   D E L A Y', [
         ...presets.map(k => `${DELAYS[k].icon} *${k}* — ${DELAYS[k].ms}ms ${DELAYS[k].ms === atual ? '🟢 ATIVO' : `(${DELAYS[k].aviso})`}`),
-        `🔧 custom: \`${p}delay 100\` (1 a 5000ms)`,
+        `👑 O motor agora é SUPER: nada de pausas de fabrica.`, 
+        `🔧 custom: \`${p}delay 100\` (0 a 5000ms)`,
         '',
         '👆 Toca num preset ou escreve o valor.',
       ]);
@@ -699,17 +929,16 @@ module.exports = function registerDivulgacao(_registerCase) {
       });
     }
 
-    let ms = DELAYS[sub]?.ms;
-    if (/^medio$/.test(sub)) ms = 300;
-    if (!ms && /^\d+$/.test(sub)) ms = Math.max(1, Math.min(5000, Number(sub)));
-    if (!ms) return reply(`☣️ Delay inválido — presets (\`${p}delay\`) ou custom 1..5000: \`${p}delay 100\`.`);
+    let ms = (sub in DELAYS) ? DELAYS[sub].ms : undefined;
+    if (ms === undefined && /^\d+$/.test(sub)) ms = Math.max(0, Math.min(5000, Number(sub)));
+    if (ms === undefined) return reply(`☣️ Delay inválido — presets (\`${p}delay\`) ou custom 0..5000: \`${p}delay 100\`.`);
 
     await _set(bcc, `delay_${own}`, ms);
     const nome = Object.entries(DELAYS).find(([, v]) => v?.ms === ms)?.[0];
     return reply(_dtox('V E L O C I D A D E  F I X A D A', [`${(DELAYS[nome]?.icon) || '🔧'} *${nome || 'custom'}* — *${ms}ms*`, `${(DELAYS[nome]?.aviso) || 'customizado'}`, `A tua próxima onda usa isto. 🚀`]));
   };
   registerCase(['delay'], _delayCase);
-  registerCase(['delayultrarapido'], async (p0) => _delayCase({ ...p0, args: ['ultrarapido'] }));
+  registerCase(['delayultrarapido'], async (p0) => _delayCase({ ...p0, args: ['super'] }));
 
   // ── MÍDIA (foto/video/doc/audio via quote) ──────────────────
   const MEDIA = [
@@ -922,7 +1151,7 @@ async function consumir(sock, msg, ctx, text) {
     _FLUXO.delete(key);
     const texto = sess.texto, vezes = sess.vezes || 1;
     await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-      content: { text: _corpoDesp(texto, vis, tag), mentions: mencoes },
+      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber)), mentions: mencoes },
     }), vis, 'assistente', vezes);
     return true;
   }
@@ -931,3 +1160,5 @@ async function consumir(sock, msg, ctx, text) {
 }
 
 module.exports.consumir = consumir;
+// v9.15 — ganchos de teste (giro/agenda), sem expor nada ao runtime
+module.exports.__test = { _corpoDesp, _msProximaHora, _armar, _AGENDADOS, _GIRO_IDX };

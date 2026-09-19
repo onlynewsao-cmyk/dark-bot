@@ -195,11 +195,11 @@ module.exports = function registerPremiumCases(registerCase) {
     const ativo = await bcc.get('prefix_theme', 'darktoxic').catch(() => 'darktoxic');
     if (!pedido) {
       const lista = Object.entries(pc.TEMAS).map(([k, v]) => `  ${k === String(ativo).toLowerCase() ? '🟢' : '⚪'} ${k} — ${v.nome}`).join('\n');
-      return reply(`🎨 *TEMAS DO CARTÃO DE PREFIXO*\n\n${lista}\n\nTroca com \`${prefix}prefixotema darktoxic\` ou \`${prefix}prefixotema classico\`.`);
+      return reply(`🎨 *TEMAS DO CARTÃO DE PREFIXO* 🕸️ v9.15 — cartão SUPER-curto\n\n${lista}\n\nTroca com \`${prefix}prefixotema <nome>\` (ex.: \`${prefix}prefixotema egipcio\`). Abre em QUALQUER cliente agora. 📱`);
     }
     const chave = pedido === 'clássico' ? 'classico' : (pc.TEMAS[pedido] ? pedido : null);
     if (!chave) {
-      return reply(`🫣 Tema desconhecido: *${pedido}*.\nTemos: \`darktoxic\` · \`classico\``);
+      return reply(`🫣 Tema desconhecido: *${pedido}*.\nTemos: ${Object.keys(pc.TEMAS).map(k => '`'+k+'`').join(' · ')}`);
     }
     await bcc.set('prefix_theme', chave);
     // manda o próprio cartão já no novo tema — preview imediato

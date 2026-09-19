@@ -97,6 +97,11 @@ function categorize(cmd) {
     welcome2:'admin', bv2:'admin', bemvindo2:'admin', welcm3:'admin', bv3:'admin', bemvindo3:'admin',
     rgcard:'economia', fichacard:'economia', rgcartao:'economia', heroicard:'economia',
     prefixotema:'owner', temaprefixo:'owner',
+    // v9.15 — TABULEIRO VIVO (letras/símbolos do dono em comandos)
+    letras:'texto', fonte:'texto', fuentes:'texto', estilo:'texto', estilos:'texto',
+    nick:'texto', nickzin:'texto', apelido:'texto', nickmais:'texto', nickmore:'texto',
+    deco:'texto', decorar:'texto', moldura:'texto', caixa:'texto', box:'texto', quadro:'texto',
+    num:'texto', numeros:'texto', 'números':'texto', simbolos:'texto', baus:'texto', packs:'texto', tabuleiro:'texto',
     flip:'jogos', ship:'jogos', shipo:'jogos', bingo:'jogos', akinator:'jogos', chute:'jogos',
     caraoucoroa:'jogos', combate:'jogos', adivinha:'jogos', simular:'jogos', palavra:'jogos', velha:'jogos',
     music:'downloads', music2:'downloads', music3:'downloads', musica:'downloads', yt:'downloads', ig:'downloads',
@@ -383,6 +388,10 @@ function categorize(cmd) {
     delay:'owner', delayultrarapido:'owner',
     conectarbot:'owner', meubot:'owner', desconectarbot:'owner', aluguel:'owner',
     divulgarrepetir:'owner', divulgarstats:'owner', divulgarestatistica:'owner',
+    // v9.15 — agenda persistente, giro e tamanhos
+    divulgaragendas:'owner', divulgaragendaremove:'owner', desagendar:'owner',
+    giro:'owner', variacao:'owner', variacoes:'owner',
+    tamanho:'texto', tamanhos:'texto',
     divgstat:'owner', divulgaragenda:'owner', divulgarprogramar:'owner',
     backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
     slowmode:'admin', modolento:'admin', setwarnlimit:'admin', warnlimit:'admin', // v7.75

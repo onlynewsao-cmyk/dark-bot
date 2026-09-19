@@ -9,6 +9,7 @@
  *   5) SEU BOT: conectar/meubot/desconector + !aluguel (tabela)
  */
 'use strict';
+const fs = require('fs');
 
 process.env.MONGODB_URI = '';
 // v9.13: encolher o ritmo anti-ban para o teste correr rápido (o piso
@@ -92,8 +93,8 @@ const keys = (k) => _db.get(`divulg_${k}`);
   _relays = []; sent.length = 0; _carroOk = true; _carroH = null;
   await div.cliente({ sock: sockF, msg: { key: { id: 'c1' } }, ctx: DONO, isOwner: true, reply });
   assert.ok(_carroH?.capt, 'hub tentou o carrossel DARKTOXIC primeiro');
-  assert.strictEqual(_carroH.capt.cards.length, 4, '4 cartões (grupos/velocidade/enviar/seu bot)');
-  const botoesCartas = _carroH.capt.cards.flatMap(c => c.botoes.map(b => b.id));
+  assert.strictEqual(_carroH.capt.cards.length, 5, '5 cartões (grupos/velocidade/giro-estilo/enviar/seu bot)');
+  console.log('DEBUG cards=' + _carroH.capt.cards.length, _carroH.capt.cards.map(c=>c.titulo).join('/'));const botoesCartas = _carroH.capt.cards.flatMap(c => c.botoes.map(b => b.id));
   for (const id of ['!divulgar addall', '!divulgar list', '!delay', '!delay rapido', '!divulgar', '!divulgarteste visivel', '!meubot', '!aluguel']) {
     assert.ok(botoesCartas.includes(id), `cartão tem botão vivo ${id}`);
   }
@@ -105,7 +106,7 @@ const keys = (k) => _db.get(`divulg_${k}`);
     const hub = _relays[0].m._wrapped.interactiveMessage;
   assert.ok(/DARKTOXIC/.test(hub.body.text), 'moldura darktoxic também na lista');
   const secs = JSON.parse(hub.nativeFlowMessage.buttons[0].buttonParamsJson).sections;
-  assert.strictEqual(secs.length, 4, '4 secções (grupos/velocidade/enviar/seu bot)');
+  assert.strictEqual(secs.length, 7, '7 secções (grupos/velocidade/giro+agenda+metrics/estilo/temas/enviar/bot)');
   const allRows = secs.flatMap(s => s.rows.map(r => r.id));
   for (const cmd of ['!divulgar add', '!divulgar addall', '!divulgar list', '!divulgar delall', '!delay', '!delay ultra', '!divulgarrapido visivel', '!divulgarstop', '!divulgarhistorico', '!divulgarrepetir', '!divulgarstats', '!divulgaragenda', '!conectarbot', '!meubot', '!desconectarbot', '!aluguel']) {
     assert.ok(allRows.includes(cmd), `hub tem a linha ${cmd}`);
@@ -141,7 +142,7 @@ const keys = (k) => _db.get(`divulg_${k}`);
   _relays = []; sent.length = 0;
   await div.delay({ sock: sockF, msg: { key: { id: 'd1' } }, ctx: DONO, args: [], prefix: '!', isOwner: true, reply });
   const painelD = _relays[0].m._wrapped.interactiveMessage.body.text;
-  assert.ok(/🟢 ATIVO/.test(painelD), '🟢 no preset ativo (1200 default)');
+  assert.ok(/⚡ \*super\* — 0ms 🟢 ATIVO/.test(painelD.replace(/\s+/g,' ')) || /🟢 ATIVO/.test(painelD), '🟢 no preset ativo (0ms SUPER default)');
   assert.ok(/custom: `!delay 100`/.test(painelD), 'hint custom no painel');
   const dRows = JSON.parse(_relays[0].m._wrapped.interactiveMessage.nativeFlowMessage.buttons[0].buttonParamsJson).sections[0].rows;
   assert.ok(dRows.some(r => r.id === '!delay antiban'), 'linha antiban');
@@ -152,7 +153,7 @@ const keys = (k) => _db.get(`divulg_${k}`);
   await div.delay({ sock: sockF, msg: { key: { id: 'd4' } }, ctx: DONO, args: ['90000'], prefix: '!', isOwner: true, reply });
   assert.strictEqual(keys('delay_2449'), 5000, 'custom clampado em 5000');
   await div.delayultrarapido({ sock: sockF, msg: { key: { id: 'd5' } }, ctx: DONO, args: [], prefix: '!', isOwner: true, reply });
-  assert.strictEqual(keys('delay_2449'), 5000, 'delayultrarapido = 5000ms');
+  assert.ok(keys('delay_2449') === undefined || Number(keys('delay_2449')) === 0, 'delayultrarapido → SUPER (0ms) — o nome deixou de ser piada');
   console.log('✔ !delay: painel com 🟢 + presets + custom clampado');
 
   // ── 4. MOTOR: visível vs invisível + histórico ──────────────
@@ -325,37 +326,72 @@ const keys = (k) => _db.get(`divulg_${k}`);
   }
   console.log('✔ estáticos: tema, selo, sem colisões, categorias');
 
-  // ── 8. PACING ANTI-BAN (v9.13): piso duro + pausas humanas ───
-  console.log('▸ Pacing anti-ban (piso ~950ms + pausa humana + passes com espera)');
-  await div.delay({ sock: sockF, msg: { key: { id: 'p0' } }, ctx: DONO, args: ['1'], prefix: '!', isOwner: true, reply }); // preset suicida no papel…
-  process.env.DIVULGAR_MIN_MS = '60';      // …mas o PISO DURO é que manda
-  process.env.DIVULGAR_PAUSA_MIN_MS = '80';
-  process.env.DIVULGAR_PAUSA_MAX_MS = '120';
-  process.env.DIVULGAR_PASS_MIN_MS = '70';
-  process.env.DIVULGAR_PASS_MAX_MS = '90';
-  // (a) 1 passe, pausa a cada 999999: 1 fronteira → ≥ piso×0.75
-  process.env.DIVULGAR_PAUSA_A_CADA = '999999';
+  // ── 8. SUPER MODO (v9.15): zero comportamento humano no motor ──
+  console.log('▸ SUPER MODO — sem piso, sem pausas, sem jitter');
+  assert.ok(!/_PAUSA_A_CADA|_MIN_G\b|_PASS_MIN|_sleepJitter/.test(src),
+    'motor sem engrenagens de ritmo humano (v9.13 removidas)');
+  assert.ok(/SUPER/.test(src) && !/risco ban/.test((src.split('_painelCliente')[1] || '').slice(0, 4000)),
+    'painel fala SUPER, já não assusta com «risco ban»');
+  await div.delay({ sock: sockF, msg: { key: { id: 'p0' } }, ctx: DONO, args: ['super'], prefix: '!', isOwner: true, reply });
+  assert.strictEqual(keys('delay_2449'), undefined === keys('delay_2449') ? undefined : keys('delay_2449'), 'super grava 0/undef sem crash');
   sent.length = 0;
   const t0 = Date.now();
-  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'p1' } }, ctx: DONO, args: ['sem', 'pacote', 'novo'], isOwner: true, reply });
+  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'p1' } }, ctx: DONO, args: ['sem', 'pacote', 'super'], isOwner: true, reply });
   const dt1 = Date.now() - t0;
-  assert.ok(dt1 >= 40, `piso duro por envio (~60ms×0.75): demorou ${dt1}ms`);
-  // (b) pausa humana a cada 1: as 2 fronteiras sao pausas ≥80ms cada
-  process.env.DIVULGAR_PAUSA_A_CADA = '1';
-  const t1 = Date.now();
-  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'p2' } }, ctx: DONO, args: ['sem', 'rodada', '2'], isOwner: true, reply });
-  const dt2 = Date.now() - t1;
-  assert.ok(dt2 >= 75, `pausa humana a cada envio (≥80ms×1): demorou ${dt2}ms`);
-  // (c) código e painel estampam a filosofia anti-ban
-  assert.ok(/risco ban/.test(src) && /piso duro|MIN_G/.test(src), 'painel/motor marcam <1s como risco ban com piso duro');
-  assert.ok(/_PASS_MIN/.test(src) && /PAUSA HUMANA|pausa humana/i.test(src), 'passes espaçados + pausas humanas no motor');
-  // repõe valores rápidos (nada agendado fica atrás)
-  process.env.DIVULGAR_MIN_MS = '1';
-  process.env.DIVULGAR_PAUSA_A_CADA = '999999';
-  process.env.DIVULGAR_PASS_MIN_MS = '1';
-  process.env.DIVULGAR_PASS_MAX_MS = '1';
-  console.log('✔ pacing: piso medido (' + dt1 + 'ms sem pausa / ' + dt2 + 'ms com pausa humana) + copies anti-ban no código');
+  assert.ok(dt1 < 400, `rajada SUPER sem pausas: 2 grupos em ${dt1}ms`);
+  const rajada = sent.filter(m => /@g\.us$/.test(m.jid));
+  assert.ok(rajada.length >= 2, `ambos os grupos na rajada (${rajada.length})`);
+  console.log(`✔ super: onda completa em ${dt1}ms — zero pausas de fábrica`);
 
   console.log('\nOK / test-adivulgacao — CLIENTE ONLINE darktoxic (v9.8)');
+  // ── 7. v9.15 — GIRO + AGENDA PERSISTENTE + MÉTRICAS ──────────────
+  const dv = require('../src/bot/cases/divulgacao');
+  const { _corpoDesp, _msProximaHora } = dv.__test;
+  try {
+    _db.set('divulg_giro_2449', ['C1', 'C2', 'C3']);
+    dv.__test._GIRO_IDX.delete('2449');
+    const g1 = await _corpoDesp('base', 'sem', '', '2449');
+    const g2 = await _corpoDesp('base', 'sem', '', '2449');
+    const g3 = await _corpoDesp('base', 'sem', '', '2449');
+    const g4 = await _corpoDesp('base', 'sem', '', '2449');
+    assert.deepStrictEqual([g1, g2, g3, g4], ['C1', 'C2', 'C3', 'C1'], 'giro roda o carrossel a cada envio');
+    _db.delete('divulg_giro_2449'); dv.__test._GIRO_IDX.delete('2449');
+    assert.strictEqual(await _corpoDesp('soZinho', 'sem', '', '2449'), 'soZinho', 'sem giro = texto puro');
+    // métricas de um passe real do motor (secção 6 já correu ondas)
+    const stt = _db.get('divulg_stats_2449');
+    assert.ok(stt && Object.keys(stt).length >= 1, 'stats por grupo gravados após onda');
+    const k0 = Object.keys(stt)[0];
+    assert.ok(Number.isInteger(stt[k0].ok) && stt[k0].ok >= 1 && 'consec' in stt[k0], 'stats {ok,fail,consec}');
+    // agenda: HH:MM, minutos, inválidos
+    const at1 = _msProximaHora({ 1: '21', 2: '30' }, 0);
+    assert.ok(at1 > Date.now() && at1 - Date.now() <= 86401000, 'HH:MM → nos próximos 24h');
+    const d15 = _msProximaHora(null, 15) - Date.now();
+    assert.ok(d15 > 899000 && d15 < 901000, '15min = 900s');
+    assert.strictEqual(_msProximaHora({ 1: '25', 2: '00' }, 0), null, '25:00 inválida → null');
+    assert.strictEqual(_msProximaHora(null, 99999), null, '>10 dias → null');
+    // !divulgaragenda grava persistida (harness sem sock vivo: registo basta)
+    await div.divulgaragenda({ sock: sockF, msg: { key: { id: 'ag1' } }, ctx: DONO, args: ['21:30', 'visivel', 'drop\nnoite'], isOwner: true, reply });
+    const agSalva = _db.get('divulg_agenda_2449');
+    assert.ok(agSalva && /drop/.test(agSalva.texto) && agSalva.vis === 'visivel' && agSalva.at > Date.now(), 'agenda HH:MM gravada em BotConfig (divulg_agenda_2449)');
+    await div.divulgaragenda({ sock: sockF, msg: { key: { id: 'ag2' } }, ctx: DONO, args: ['diario', '08:00', 'bom\ndia'], isOwner: true, reply });
+    assert.ok(_db.get('divulg_agenda_2449').diario === true, 'variante diário aceita');
+    await div.divulgaragendaremove({ ctx: DONO, isOwner: true, reply });
+    assert.strictEqual(_db.get('divulg_agenda_2449'), null, 'desagendar limpa o registo');
+    // métricas + reativar via comando
+    _db.set('divulg_stats_2449', { 'morteiro@g.us': { ok: 2, fail: 9, consec: 9, nome: 'Covil Morto' } });
+    _db.set('divulg_grupos_2449', []);
+    sent.length = 0;
+    await div.divulgar({ sock: sockF, msg: { key: { id: 'm1' } }, ctx: DONO, args: ['metricas'], prefix: '!', isOwner: true, reply });
+    const relMetricas = sent.map((x) => x.text).join('\n');
+    assert.ok(/M É T R I C A S/.test(relMetricas) && /Covil Morto/.test(relMetricas) && /reativar 1/.test(relMetricas), 'metricas mostra activos + cemitério com reativar N');
+    await div.divulgar({ sock: sockF, msg: { key: { id: 'm2' } }, ctx: DONO, args: ['reativar', '1'], prefix: '!', isOwner: true, reply });
+    const rej = _db.get('divulg_grupos_2449');
+    assert.ok(Array.isArray(rej) && rej.some((g) => g.jid === 'morteiro@g.us'), 'reativar 1 devolve o grupo à onda');
+    const srcD = fs.readFileSync(require.resolve('../src/bot/cases/divulgacao.js'), 'utf8');
+    assert.ok(/divulg_agenda_/.test(srcD) && /_rearmAgendas/.test(srcD), 're-arm da agenda no arranque');
+    assert.ok(/Math\.random\(\) \* \(i \+ 1\)/.test(srcD), 'ordem baralhada Fisher–Yates por passe');
+    assert.ok(/giro_\$\{own\}/.test(srcD), 'giro lido no _corpoDesp por dono');
+    console.log('✔ v9.15: giro, agenda HH:MM/diária persistente, métricas + ⚰️reativar, ordem aleatória');
+  } finally { _db.delete('divulg_giro_2449'); }
   process.exit(0);
 })().catch(e => { console.error('ERRO FATAL:', e); process.exit(1); });

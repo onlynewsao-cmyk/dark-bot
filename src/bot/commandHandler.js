@@ -481,36 +481,34 @@ async function _handleInner(sock, msg) {
       if (!isOwner) {
         // ADM do grupo → tema do grupo (não mexe no global)
         const GroupSettings = require('../database/models/GroupSettings');
+        const gDoc = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).select('groupTheme').lean().catch(() => null);
+        const prevGrupo = (gDoc && gDoc.groupTheme) || 'dark';
         await GroupSettings.findOneAndUpdate(
           { groupJid: ctx.remoteJid },
           { groupTheme: found.name },
           { upsert: true }
         );
-        const txt =
-          `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
-          `${found.headerDec.replace('{TITLE}', 'TEMA DO GRUPO')}\n` +
-          `${found.bullet} Tema: *${found.name.toUpperCase()}*\n\n` +
-          `✅ *${found.name.toUpperCase()}* aplicado a este grupo!\n\n` +
-          `> ${found.icon} ${found.vibe}`;
-        await sock.sendMessage(ctx.remoteJid, { text: txt }, { quoted: msg });
+        // v9.15 — CHANGE/não: o cartão curto com botões manda no assunto
+        try {
+          await require('./changeConfirm').pedirConfirmacao(sock, ctx.remoteJid, msg,
+            { prev: prevGrupo, grupo: true, tema: found, who: senderNum });
+        } catch {
+          await sock.sendMessage(ctx.remoteJid, {
+            text: `${found.icon} Tema do grupo → *${found.name.toUpperCase()}*\nResponde \`!change nao\` para voltar a ${prevGrupo}.`,
+          }, { quoted: msg });
+        }
         return true;
       }
 
+      const prevGlobal = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+      const prevStyleGlobal = await botConfigCache.get('menu_style', '0').catch(() => '0');
       await BotConfig.set('active_theme', found.name);
       await BotConfig.set('menu_style', String(found.style));
       botConfigCache.clear();
-      const f = found.frame, H = f[4] || '─', V = f[5] || '│';
-      const W = 26;
-      const bar = (t2) => `${V} ${String(t2).slice(0, W).padEnd(W)} ${V}`;
-      const txt =
-        `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
-        `${found.headerDec.replace('{TITLE}', 'TEMA APLICADO')}\n` +
-        `${bar(`${found.bullet} Tema: ${found.name.toUpperCase()}`)}\n` +
-        `${bar(found.tip.slice(0, W))}\n` +
-        `${found.sectionSep || `${f[2]}${H.repeat(W + 2)}${f[3]}`}\n\n` +
-        `✅ *${found.name.toUpperCase()}* activado! Todo o bot mudou.\n\n` +
-        `> ${found.icon} ${found.vibe}`;
-      await sock.sendMessage(ctx.remoteJid, { text: txt }, { quoted: msg });
+      try {
+        await require('./changeConfirm').pedirConfirmacao(sock, ctx.remoteJid, msg,
+          { prev: prevGlobal, prevStyle: prevStyleGlobal, grupo: false, tema: found, who: senderNum });
+      } catch {}
       return true;
     }
   }

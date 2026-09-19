@@ -24,6 +24,39 @@ module.exports = function registerChangeCases(registerCase) {
     async ({ sock, msg, ctx, args, prefix, isOwner, reply }) => {
 
       const botName = config.bot?.name || 'DARK BOT';
+      const cc = require('../changeConfirm');
+
+      // ── v9.15 — CHANGE/não: decidir a janela aberta ─────────────────
+      const sub0 = String(args[0] || '').toLowerCase().trim();
+      if (['sim', 'confirmar', 'manter', 'fica', 'éste', 'este'].includes(sub0)) {
+        const r = await cc.resolver(ctx.remoteJid, { who: ctx.senderNumber, isOwner, aceitar: true });
+        if (r === 'sem-janela') return reply('🤷 Nenhuma troca de tema à espera de resposta — usa `!change <tema>`.');
+        if (r === 'negado') return reply('🚫 Só quem pediu a troca (ou o Dono) decide isto.');
+        const t = changeThemes.getTheme(await botConfigCache.get('active_theme', 'dark').catch(() => 'dark'));
+        return reply(`${t.icon} *FECHADO A QUESTÃO* — o tema fica como está, sem mais conversa.\n> ${t.vibe}`);
+      }
+      if (['nao', 'não', 'reverter', 'desfazer', 'voltar', 'cancelar'].includes(sub0)) {
+        const r = await cc.resolver(ctx.remoteJid, { who: ctx.senderNumber, isOwner, aceitar: false });
+        if (r === 'sem-janela') return reply('⌛ A janela já fechou (3 min) — o tema ficou activo. Troca outra vez com `!change <tema>`.');
+        if (r === 'negado') return reply('🚫 Mandar abaixo o tema alheio? Só quem aplicou ou o Dono.');
+        const { reversao } = r;
+        if (reversao.grupo) {
+          const GroupSettings = require('../../database/models/GroupSettings');
+          await GroupSettings.findOneAndUpdate(
+            { groupJid: ctx.remoteJid },
+            { groupTheme: reversao.prev || 'dark' },
+            { upsert: true }
+          ).catch(() => {});
+          const t = changeThemes.getTheme(reversao.prev || 'dark');
+          return reply(`↩️ *DESFITO FEITO* — o grupo voltou ao tema *${(reversao.prev || 'DARK').toUpperCase()}*.\n> ${t.tip}`);
+        }
+        const BotConfig = require('../../database/models/BotConfig');
+        await BotConfig.set('active_theme', reversao.prev || 'dark');
+        await BotConfig.set('menu_style', String(reversao.prevStyle ?? 0));
+        botConfigCache.clear();
+        const t = changeThemes.getTheme(reversao.prev || 'dark');
+        return reply(`↩️ *O BOT ANTEIRO RECU SOZINHO* — tema global outra vez *${(reversao.prev || 'DARK').toUpperCase()}*.\n> ${t.tip}`);
+      }
 
       const currentThemeName = await botConfigCache
         .get('active_theme', 'dark').catch(() => 'dark');
@@ -136,18 +169,16 @@ module.exports = function registerChangeCases(registerCase) {
             const list = changeThemes.listThemes().map(t => (t.icon || '🕸️') + ' ' + t.name).join(', ');
             return reply('❓ Tema não encontrado.\nDisponíveis: ' + list);
           }
+          const gDoc0 = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).select('groupTheme').lean().catch(() => null);
+          const prevGrupo = (gDoc0 && gDoc0.groupTheme) || 'dark';
           await GroupSettings.findOneAndUpdate(
             { groupJid: ctx.remoteJid },
             { groupTheme: found.name },
             { upsert: true }
           );
-          const t = changeThemes.getTheme(found.name);
-          return reply(
-            t.icon + ' *TEMA DO GRUPO ALTERADO*\n\n' +
-            t.bullet + ' Tema: *' + found.name.toUpperCase() + '*\n' +
-            t.bullet + ' Grupo: *' + (ctx.groupName || ctx.remoteJid) + '*\n\n' +
-            '> ' + t.vibe
-          );
+          // v9.15 — mesma janela CHANGE/não dos botões da lista
+          return cc.pedirConfirmacao(sock, ctx.remoteJid, msg,
+            { prev: prevGrupo, grupo: true, tema: changeThemes.getTheme(found.name), who: ctx.senderNumber });
         } catch (e) {
           return reply('❌ Erro: ' + e.message);
         }
@@ -168,30 +199,13 @@ module.exports = function registerChangeCases(registerCase) {
       await BotConfig.set('menu_style', String(found.style));
       botConfigCache.clear();
 
-      // Confirmação no estilo do NOVO tema
-      const f  = found.frame;
-      const H  = f[4] || '─';
-      const V  = f[5] || '│';
-      const W  = 28;
-      const bar = (txt) => `${V} ${String(txt).slice(0, W).padEnd(W)} ${V}`;
+      // v9.15 — confirmação CURTA com 🔁 CHANGE / ✖ NÃO (pedido do dono:
+      // «textos únicos, tudo ao máximo, sem cardões que ninguém lê»)
+      const prevGlobal = await botConfigCache.get('active_theme', 'dark').catch(() => 'dark');
+      const prevStyle0 = await botConfigCache.get('menu_style', '0').catch(() => '0');
+      return cc.pedirConfirmacao(sock, ctx.remoteJid, msg,
+        { prev: prevGlobal, prevStyle: prevStyle0, grupo: false, tema: found, who: ctx.senderNumber });
 
-      const confirm =
-        `${found.icon} ─ ⋆⋅ ${found.accent} ⋅⋆ ─ ${found.icon}\n\n` +
-        `${found.headerDec.replace('{TITLE}', 'TEMA APLICADO')}\n` +
-        `${bar(``)}\n` +
-        `${bar(`${found.bullet} Bot: ${botName}`)}\n` +
-        `${bar(`${found.bullet} Novo tema: ${found.name.toUpperCase()}`)}\n` +
-        `${bar(`${found.bullet} Ícone: ${found.icon}`)}\n` +
-        `${bar(`${found.bullet} Reação: ${found.react}`)}\n` +
-        `${bar(`${found.bullet} Borda: ${f[0]}${H.repeat(4)}${f[1]}`)}\n` +
-        `${bar(`${found.bullet} Marcador: ${found.bullet} ${found.sep}`)}\n` +
-        `${bar(``)}\n` +
-        `${bar(found.tip.slice(0, W))}\n` +
-        `${found.sectionSep || `${f[2]}${H.repeat(W + 2)}${f[3]}`}\n\n` +
-        `✅ *Tema aplicado!* Todo o bot adoptou o estilo *${found.name.toUpperCase()}*\n\n` +
-        `> ${found.icon} ${found.menuFooter.replace('{BOT}', botName)}`;
-
-      return reply(confirm);
     }
   );
 
