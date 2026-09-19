@@ -119,7 +119,7 @@ const msgF = { key: { id: 'm1', remoteJid: 'PV@s.whatsapp.net' } };
   assert.strictEqual(col2.nome, 'AfroHits 2024');
   assert.strictEqual(col2.faixas.length, 2);
   assert.strictEqual(col2.faixas[1].artista, 'DJ Beta');
-  assert.strictEqual(col2.fonte, 'open.spotify.com');
+  assert.ok(['embed.spotify.com', 'open.spotify.com'].includes(col2.fonte), 'a via de página (embed/clássica) capturou');
   console.log('✔ colecção via scrape __NEXT_DATA__ (fallback persistente)');
 
   // ── 4. Cases: registo + desempacho de uma faixa por nível ───

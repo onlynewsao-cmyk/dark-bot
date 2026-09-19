@@ -470,17 +470,62 @@ module.exports = function registerIncomingTools(registerCase) {
     }
   });
 
-  // ═══ Free Fire — info + likes (nyxlikesff, token via NYX_FF_TOKEN) ═══
+  // ═══ Free Fire — info (grátis: freefireapis.lat) + likes (nyxlikesff, NYX_FF_TOKEN) ═══
   function nyxToken() {
     return process.env.NYX_FF_TOKEN || '';
   }
   registerCase(['infoff', 'ffinfo', 'perfilff'], async ({ m, sock, msg, text, prefix, command }) => {
-    const uid = String(text || '').trim();
-    if (!uid) return m.reply(`🎮 *INFO FREE FIRE*\n\nUso: ${prefix + command} <UID>\nExemplo: ${prefix + command} 6514303752`);
+    const partes = String(text || '').trim().split(/\s+/);
+    const uid = String(partes[0] || '');
+    const region = String(partes[1] || 'br').toLowerCase();
+    if (!uid) return m.reply(`🎮 *INFO FREE FIRE*\n\nUso: ${prefix + command} <UID> [região]\nExemplo: ${prefix + command} 6514303752 br`);
     if (!/^\d+$/.test(uid)) return m.reply('🫣 Isso não parece um ID válido... usa só números!');
-    const token = nyxToken();
-    if (!token) return m.reply('⚠️ Serviço Free Fire não configurado.\nO dono precisa definir *NYX_FF_TOKEN* no servidor.');
     m.react('⏳');
+    // v8.3: 1º tenta a API gratuita freefireapis.lat (sem chave — o bot
+    // antes pedia NYX_FF_TOKEN e morria sem ele); se falhar E houver
+    // NYX_FF_TOKEN, cai no caminho antigo.
+    try {
+      const j = await require('../mediaHandler').fetchJson(
+        `https://freefireapis.lat/info-player?uid=${uid}&region=${region.toUpperCase()}`,
+        25000, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (j?.success) {
+        const b = j?.result?.basicInfo || {};
+        const petW = j?.result?.petInfo, soc = j?.result?.socialInfo, cred = j?.result?.creditScoreInfo;
+        if (b.nickname || b.level) {
+          const fmt = (n) => Number(String(n ?? 0).replace(/\D/g, '')).toLocaleString('pt-BR');
+          const L = [
+            '🔥 *PERFIL DO JOGADOR* 🔥',
+            '━━━━━━━━━━━━━━━━',
+            `👤 *Jogador:* ${b.nickname || 'Desconhecido'}`,
+            `🆔 *ID:* ${b.accountId || uid} · 🌍 ${region.toUpperCase()}`,
+            `⭐ *Nível:* ${b.level ?? '?'}${b.primeLevel ? ` · 💎 Prime ${b.primeLevel}` : ''}`,
+            `❤️ *Likes:* ${b.liked ?? '0'} · 🎖️ ${b.badgeCnt ?? '0'} badges`,
+            b.rank ? `🏆 *Rank BR:* ${b.rank} (${b.rankingPoints ?? 0} pts)` : null,
+            b.csRank ? `🎖️ *Rank CS:* ${b.csRank} (${b.csRankingPoints ?? 0} pts)` : null,
+            b.maxRank || b.csMaxRank ? `📈 *Máx:* ${b.maxRank || '—'} / ${b.csMaxRank || '—'}` : null,
+            b.hasElitePass === true ? '🔥 *Elite Pass:* Ativo' : null,
+            petW?.name ? `🐾 *Pet:* ${petW.name} nv${petW.level ?? '?'}` : null,
+            soc?.signature ? `🖋️ _"${String(soc.signature).replace(/\n/g, ' · ').slice(0, 80)}"_` : null,
+            cred?.creditScore != null ? `💯 *Credit score:* ${cred.creditScore}/100` : null,
+            b.lastLoginAt ? `🕒 *Visto:* ${b.lastLoginAt}` : null,
+            b.createAt ? `🎂 *Conta desde:* ${b.createAt}` : null,
+            '🌐 freefireapis.lat',
+            '━━━━━━━━━━━━━━━━',
+            '🕸️ *DARK BOT*',
+          ].filter(Boolean).join('\n');
+          await m.reply(L);
+          m.react('✅');
+          return;
+        }
+      } else if (/TOKEN_UNAVAILABLE/i.test(String(j?.error))) {
+        m.react('❌');
+        return m.reply(`😓 A região *${region.toUpperCase()}* está sem token por agora.\nTenta outra: \`${prefix + command} ${uid} br\` (BR costuma estar sempre de pé).`);
+      }
+    } catch (e) { console.warn('[infoff] api gratuita falhou:', e.message?.slice(0, 60)); }
+
+    // 2º: caminho antigo (precisa de NYX_FF_TOKEN)
+    const token = nyxToken();
+    if (!token) return m.reply('⚠️ A fonte gratuita balhoute-se agora — tenta já já, ou pede ao dono o *NYX_FF_TOKEN* de emergência.');
     try {
       const axios = require('axios');
       const { data } = await axios.get('https://nyxlikesff.store/info', {
@@ -490,18 +535,18 @@ module.exports = function registerIncomingTools(registerCase) {
         m.react('❌');
         return m.reply(`💔 *Não consegui consultar...*\n\n_${data.mensagem || data.message || 'Algo correu mal.'}_`);
       }
-      const fmt = (n) => Number(n ?? 0).toLocaleString('pt-BR');
+      const fmt2 = (n) => Number(n ?? 0).toLocaleString('pt-BR');
       await m.reply(
         `🦊 *PERFIL DO JOGADOR* 🦊\n━━━━━━━━━━━━━━━━\n\n` +
         `👤 *Jogador:* ${data.nickname || 'Desconhecido'}\n` +
         `🆔 *ID:* ${data.id || uid}\n` +
         `⭐ *Nível:* ${data.level ?? '?'}\n` +
-        `💖 *Likes:* ${fmt(data.likes)}\n` +
-        `🔥 *XP:* ${fmt(data.xp)}\n` +
+        `💖 *Likes:* ${fmt2(data.likes)}\n` +
+        `🔥 *XP:* ${fmt2(data.xp)}\n` +
         `🌎 *Região:* ${data.region || '?'}\n` +
         `📦 *Versão:* ${data.release_version || '?'}\n` +
-        `🏆 *Rank BR:* ${data.br_max_rank ?? '?'} (${fmt(data.br_rank_point)} pts)\n` +
-        `🎖️ *Rank CS:* ${data.cs_max_rank ?? '?'} (${fmt(data.cs_rank_point)} pts)` +
+        `🏆 *Rank BR:* ${data.br_max_rank ?? '?'} (${fmt2(data.br_rank_point)} pts)\n` +
+        `🎖️ *Rank CS:* ${data.cs_max_rank ?? '?'} (${fmt2(data.cs_rank_point)} pts)` +
         (data.has_booyah_pass ? '\n🎟️ *Booyah Pass:* Ativo' : '') +
         (data.guild ? `\n🏛️ *Guilda:* ${data.guild}` : '') +
         (data.biography ? `\n📝 *Bio:* ${data.biography}` : '') +

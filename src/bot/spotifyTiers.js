@@ -99,15 +99,29 @@ function colecaoDoHtml(html) {
     const m = String(html || '').match(/<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
     if (m) {
       const j = JSON.parse(m[1]);
-      // nome da colecção (playlist/álbum)
-      try {
-        const stk = [j?.props?.pageProps?.state?.data?.entity, j];
-        for (const s of stk) {
-          const cand = s?.name || s?.data?.name || '';
-          if (cand && typeof cand === 'string') { nome = cand; break; }
+      // v8.3: a página EMBED (open.spotify.com/embed/<tipo>/<id>) traz o
+      // trackList completo: [{title, subtitle}] — a página normal, desde
+      // o redesign, é só a shell do Web Player (sem dados).
+      const enf = j?.props?.pageProps?.state?.data?.entity;
+      const tl = enf?.trackList || enf?.children?.toplevelItems
+        || j?.props?.pageProps?.state?.data?.trackList;
+      if (Array.isArray(tl) && tl.length && tl[0]?.title) {
+        for (const t of tl) {
+          const f = _faixa(t.title, t.subtitle || '', (t.uri || '').replace('spotify:track:', ''));
+          if (f) saco.push(f);
+          if (saco.length > 200) break;
         }
-      } catch {}
-      vasculharFaixas(j, saco);
+        if (!nome) nome = enf?.title || enf?.name || j?.props?.pageProps?.state?.data?.name || '';
+      } else {
+        try {
+          const stk = [j?.props?.pageProps?.state?.data?.entity, j];
+          for (const s of stk) {
+            const cand = s?.name || s?.data?.name || '';
+            if (cand && typeof cand === 'string') { nome = cand; break; }
+          }
+        } catch {}
+        vasculharFaixas(j, saco);
+      }
     }
   } catch {}
   if (!saco.length) {
@@ -125,8 +139,10 @@ function colecaoDoHtml(html) {
 
 // ── Resolução da colecção (máx diversidade de fontes) ─────────
 /**
- * Tenta (1) api.spotifydown.com/trackList/<tipo>/<id> e (2) scrape da
- * página. Injecções p/ testes: fetchJson, fetchHtml.
+ * Tenta (1) api.spotifydown.com/trackList/<tipo>/<id>, (2) página EMBED
+ * (open.spotify.com/embed/… — contém __NEXT_DATA__ com o trackList; a
+ * página normal virou shell do Web Player sem dados) e (3) scrape da
+ * página clássica. Injecções p/ testes: fetchJson, fetchHtml.
  */
 async function colecaoSpotify(url, { tipo, id } = {}, opts = {}) {
   const fJson = opts.fetchJson || ((u) => require('./mediaHandler').fetchJson(u, 25000));
@@ -153,7 +169,14 @@ async function colecaoSpotify(url, { tipo, id } = {}, opts = {}) {
     }
   } catch {}
 
-  // 2) scrape da página open.spotify.com
+  // 2) página EMBED (camiho de partilha oficial — vivo, com trackList)
+  try {
+    const html = await fHtml(`https://open.spotify.com/embed/${tipo}/${id}`);
+    const r = colecaoDoHtml(html);
+    if (r.faixas.length) return { ...r, fonte: 'embed.spotify.com' };
+  } catch {}
+
+  // 3) scrape da página open.spotify.com (shell actual: raramente traz dados)
   try {
     const html = await fHtml(`https://open.spotify.com/${tipo}/${id}`);
     const r = colecaoDoHtml(html);

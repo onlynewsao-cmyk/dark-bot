@@ -93,6 +93,7 @@ function categorize(cmd) {
     pequeno:'interacoes', telefone:'interacoes', estender:'interacoes', revelar:'interacoes', esposa:'interacoes',
     programar:'interacoes', malucao:'interacoes', suic:'interacoes', suicidio:'interacoes', timido:'interacoes',
     jokenpo:'jogos', truco:'jogos', roulette:'jogos', russa:'jogos', genio:'jogos', enigma:'jogos',
+    ff:'jogos', freefire:'jogos', ffplayer:'jogos', fflog:'jogos', nickff:'jogos', ffregioes:'jogos', ffservers:'jogos',
     flip:'jogos', ship:'jogos', shipo:'jogos', bingo:'jogos', akinator:'jogos', chute:'jogos',
     caraoucoroa:'jogos', combate:'jogos', adivinha:'jogos', simular:'jogos', palavra:'jogos', velha:'jogos',
     music:'downloads', music2:'downloads', music3:'downloads', musica:'downloads', yt:'downloads', ig:'downloads',
