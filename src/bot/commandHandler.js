@@ -717,10 +717,15 @@ async function _handleInner(sock, msg) {
       const _code = vig.extrairConvite(text);
       if (_code) {
         if (isOwner) {
-          // o Dark enviou o link → entra já (é ordem, não pedido)
-          const r = await sock.groupAcceptInvite(_code).catch(e => ({ __erro: e.message }));
+          // o Dark enviou o link → entra já (é ordem, não pedido).
+          // v9.16: passa pelo motor — sabe a diferença entre entrou /
+          // aprovação pendente / revogado / inválido (antes, undefined do
+          // groupAcceptInvite era lido como falha → «link inválido»).
+          let r = { ok: false, msg: 'motor indisponível' };
+          try { r = await require('../aura/auraCanais').entrarPorLink(sock, text); }
+          catch (e) { r = { ok: false, msg: String(e.message || e).slice(0, 80) }; }
           await sock.sendMessage(ctx.remoteJid, {
-            text: (r && !r.__erro) ? '✅ Entrei no grupo do link.' : `❌ Não consegui entrar (${String(r?.__erro || 'link inválido').slice(0, 80)}).`,
+            text: r.ok ? (r.pendente ? `⏳ ${r.msg}` : `✅ ${r.msg}`) : `❌ ${r.msg}`,
           }, { quoted: msg }).catch(() => {});
           return true;
         }

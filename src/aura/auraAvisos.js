@@ -128,11 +128,24 @@ async function despachar(dados, idx, { sock, msg, ctx, config }) {
   try {
     if (d.do === 'convite') {
       if (idx === 0) {
-        const jidEntrada = await sock.groupAcceptInvite(d.code).catch(e => ({ __erro: e.message }));
-        if (!jidEntrada || jidEntrada.__erro) return reply(`❌ Não consegui entrar (${String(jidEntrada?.__erro || 'link inválido').slice(0, 80)}).`);
-        // quem convidou recebe agradecimento
-        if (d.de) sock.sendMessage(`${String(d.de).replace(/\D/g, '')}@s.whatsapp.net`, { text: 'Entrei ✅ Obrigado pelo convite 🖤' }).catch(() => {});
-        return reply('✅ Aceitei — já estou lá dentro.');
+        // v9.16 FIX: antes, `!jidEntrada` tratava o SUCESSO como falha — o
+        // groupAcceptInvite do fork devolve undefined quando entra. Agora o
+        // despacho passa pelo motor (auraCanais.entrarPorLink), que distingue
+        // entrou / pendente-de-aprovação / revogado / inválido / comunidade.
+        const canais = require('./auraCanais');
+        const link = /^https?:\/\//i.test(d.code || '') ? d.code : (d.url || `https://chat.whatsapp.com/${d.code}`);
+        const r = await canais.entrarPorLink(sock, link).catch(() => ({ ok: false, msg: 'o motor de convites rebentou' }));
+        const agradece = (txt) => {
+          if (!d.de) return;
+          sock.sendMessage(`${String(d.de).replace(/\D/g, '')}@s.whatsapp.net`, { text: txt }).catch(() => {});
+        };
+        if (r.ok && r.pendente) {
+          agradece('Convite aceite ⏳ — esse grupo aprova membros; o meu pedido está na fila.');
+          return reply(`⏳ ${r.msg}\nAssim que um admin aprovar, estou lá. (Não era «link inválido» — era aprovação pendente.)`);
+        }
+        if (!r.ok) return reply(`❌ ${r.msg}`);
+        agradece('Entrei ✅ Obrigado pelo convite 🖤');
+        return reply(`✅ ${r.msg}`);
       }
       return reply('❌ Recusado — ficou em paz.');
     }

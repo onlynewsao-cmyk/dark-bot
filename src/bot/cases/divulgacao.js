@@ -325,6 +325,8 @@ async function _painelCliente(sock, msg, ctx) {
       R('ver agenda', 'ondas programadas', `${p}divulgaragendas`),
       R('métricas por grupo', '📊 ✅/❌ + ⚰️ excluídos automaticamente', `${p}divulgar metricas`),
       R('reativar morto', 'resuscita grupo excluído por 3 falhas', `${p}divulgar reativar 1`),
+      R('enquete / votação', '📊 enquete real ou votação com botões', `${p}enquete`),
+      R('canal reage', '🤡 reacções em massa nos posts (dono)', `${p}canalreagir 🤡`),
     ] },
     { title: '🎨 ESTILO & LETRAS', rows: [
       R('as 22 fontes', 'letras E números — negrito, 𝓼𝓬𝓻𝓲𝓹𝓽, 🄱🄰🄽🄳…', `${p}letras dark`),

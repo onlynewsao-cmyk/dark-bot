@@ -177,6 +177,40 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
     }
 
     // ══ REACÇÕES ══════════════════════════════════════════
+    // ══ v9.16 — ENQUETES · VOTAÇÕES ═══════════════════════════
+    case 'criar_enquete': {
+      const vt = require('./auraVotacao');
+      if (!ctx.isGroup) return { ok: false, msg: 'Enquete é jogo de grupo — no PV não há para quem dar botões. 🗳️' };
+      const corpo = String(arg || texto || '').replace(/^.{0,40}?(enquete|vota[\xc7c][a\xc3a]o)\b[^"\"|]{0,10}/i, '').trim();
+      const ex = vt.extrairPergunta(corpo || String(texto || ''));
+      if (!ex) return { ok: false, msg: 'Dá-me corpo: «enquete \"pizza ou sushi?\" | pizza | sushi». Sem \"|\" eu tento \"pergunta: a, b ou c\".' };
+      try {
+        const e = await vt.criarEnquete(sock, jid, { pergunta: ex.pergunta, opcoes: ex.opcoes, max: ex.max, quoted: msg });
+        return { ok: true, msg: `\ud83d\udcca Lançada: *${e.pergunta.slice(0, 60)}* — ${e.opcoes.length} op[çc]es. O WhatsApp conta; eu voto se mandares «voto N».` };
+      } catch (er) { return { ok: false, msg: `A enquete n\u00e3o descolou: ${String(er.message||er).slice(0,70)}` }; }
+    }
+    case 'votar_casa': {
+      const vt = require('./auraVotacao');
+      const escolha = String(arg || texto || '').replace(/^\s*(?:eu\s+)?voto(?:r)?\s*[:\-]?\s*/i, '').trim();
+      if (!escolha) return { ok: false, msg: 'Voto em qu\u00ea? Diz «voto 2» ou «voto pizza».' };
+      const v = vt.__test.VOTACOES.get(jid);
+      if (v && v.aberto) {
+        const r = vt.votar(jid, ctx.senderJid || `${ctx.senderNumber || 'anon'}@s.whatsapp.net`, escolha);
+        return { ok: r.ok, msg: r.msg };
+      }
+      const e = vt.__test.ENQUETES.get(jid);
+      if (!e) return { ok: false, msg: 'Nada aberto aqui para votar. Manda «enquete \"X ou Y\" | x | y» primeiro.' };
+      const r = await vt.votarEnquete(sock, jid, { enquete: e, escolha, quoted: msg });
+      return { ok: r.ok, msg: r.msg };
+    }
+    case 'fechar_votacao': {
+      const vt = require('./auraVotacao');
+      const r = vt.fecharVotacao(jid);
+      if (r.ok) { await sock.sendMessage(jid, { text: r.msg }).catch(() => {}); return { ok: true, silencioso: true, msg: null }; }
+      const st = vt.resultadosEnquete(jid);
+      return { ok: !!(st && st.ok), msg: (st && st.msg) || 'Sem vota[\xc7c][a\xc3o]o aberta neste chat.' };
+    }
+
     case 'reagir_msg': {
       const emoji = arg && /\p{Extended_Pictographic}/u.test(arg) ? arg : emojiDaFrase(texto);
       const ctxInfo = msg?.message?.extendedTextMessage?.contextInfo;

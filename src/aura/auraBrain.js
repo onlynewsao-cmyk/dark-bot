@@ -270,6 +270,26 @@ const CAPACIDADES = [
     ],
   },
 
+  // ══ ENQUETES · VOTAÇÕES (v9.16) ═══════════════════════════
+  {
+    id: 'criar_enquete', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Lançar enquete real ou votação-da-casa ("enquete X ou Y | x | y")',
+    gatilhos: [
+      /^(?!.*\bcanal\b)\b.{0,24}\b(faz|fazer|manda|lans[çc]a|lançar|cria(?:r)?|abre(?:r)?|p[ôo]e|p[ôo]nha)\b.{0,24}\b(enquete|vota[\xc7c][a\xc3a]o)\b/,
+      /^(?!.*\bcanal\b)\b.{0,24}\b(enquete|vota[\xc7c][a\xc3a]o)\b.{0,20}\b(abre|aberta|lan[çc]a|cria)\b/,
+    ],
+  },
+  {
+    id: 'votar_casa', nivel: 'todos', arg: 'depois', risco: 'seguro',
+    desc: 'Votar na votação/enquete aberta neste chat',
+    gatilhos: [/^\s*(?:eu\s+)?vot(?:o|ar|a)\b.{0,24}$/i],
+  },
+  {
+    id: 'fechar_votacao', nivel: 'admin', arg: 'nenhum', risco: 'seguro',
+    desc: 'Fechar a votação do chat e anunciar o veredicto com percentagens',
+    gatilhos: [/^(?!.*\bcanal\b)\b.{0,20}(fecha(?:r)?|acaba(?:r)?|termina(?:r)?|anuncia(?:r)?|revela(?:r)?)\b.{0,20}\b(vota[\xc7c][a\xc3a]o|enquete|resultado[s]?|veredicto)\b/],
+  },
+
   // ══ STATUS / STORIES ══════════════════════════════════════
   {
     id: 'postar_status', nivel: 'dono', arg: 'texto', risco: 'seguro',

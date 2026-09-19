@@ -46,7 +46,13 @@ function extrairConvite(texto = '') {
  * @returns {{ok:boolean, tipo?:string, jid?:string, nome?:string, msg:string}}
  */
 async function entrarPorLink(sock, texto) {
-  const conv = extrairConvite(texto);
+  let conv = extrairConvite(texto);
+  if (!conv) {
+    // v9.16: pode chegar só o CÓDIGO (o vigilante aceita 8–32 e o cartão
+    // AURASEL guarda o código pelado) — um token sozinho é um convite de grupo.
+    const pelado = String(texto || '').trim().match(/^[0-9A-Za-z]{8,32}$/);
+    if (pelado) conv = { tipo: 'grupo', code: pelado[0] };
+  }
   if (!conv) {
     return { ok: false, msg: 'Não vi nenhum link de grupo nem de canal na mensagem. Manda o link que eu entro.' };
   }
@@ -69,24 +75,35 @@ async function entrarPorLink(sock, texto) {
       }
     } catch { /* não era comunidade — segue para grupo */ }
 
+    // v9.16 FIX (print do utilizador): groupAcceptInvite DEVOLVE undefined
+    // quando entra com sucesso — quem testar o retorno «a verdade» jura que
+    // falhou. Além disso, grupos com APROVAÇÃO DE ADMIN atiram erros que NÃO
+    // significam «link inválido»: o pedido ficou na fila. Espreitar primeiro
+    // separa os dois mundos — se o invite existe, o que vier é pendência.
+    let nome = '';
+    let espreitaOk = false;
     try {
-      // Espreita antes de entrar — assim consigo dizer o nome.
-      let nome = '';
-      try {
-        const info = await sock.groupGetInviteInfo(conv.code);
-        nome = info?.subject || '';
-      } catch { /* alguns convites não deixam espreitar; entra na mesma */ }
+      const info = await sock.groupGetInviteInfo(conv.code);
+      if (info) { espreitaOk = true; nome = info.subject || info.name || ''; }
+    } catch { /* alguns convites não deixam espreitar */ }
 
-      const jid = await sock.groupAcceptInvite(conv.code);
+    try {
+      await sock.groupAcceptInvite(conv.code); // undefined aqui É vitória
       return {
-        ok: true, tipo: 'grupo', jid, nome,
+        ok: true, tipo: 'grupo', jid: null, nome,
         msg: nome ? `Entrei no *${nome}*. 🖤` : 'Entrei no grupo. 🖤',
       };
     } catch (e) {
       const m = String(e?.message || e);
-      if (/not-authorized|403/i.test(m)) return { ok: false, msg: 'Esse convite já não serve — foi revogado ou o link expirou.' };
-      if (/gone|410/i.test(m)) return { ok: false, msg: 'Esse grupo já não existe.' };
-      if (/conflict|409/i.test(m)) return { ok: false, msg: 'Já estou nesse grupo.' };
+      const st = Number(e?.output?.statusCode || e?.statusCode || e?.status || 0) || 0;
+      if (st === 406 || /request|approv|pendente|awaiting/i.test(m) || (st === 403 && espreitaOk)) {
+        return { ok: true, pendente: true, tipo: 'grupo', nome, msg: nome ? `Pedido de entrada enviado — *${nome}* aprova membros ⏳` : 'Pedido de entrada enviado — o grupo aprova membros ⏳' };
+      }
+      if (/conflict|409/i.test(m) || st === 409) return { ok: true, tipo: 'grupo', nome, msg: 'Já estou nesse grupo (ou o pedido já estava na fila).' };
+      if (/gone|410/i.test(m) || st === 410) return { ok: false, msg: 'Esse grupo já não existe.' };
+      if (/not.?valid|invalid/i.test(m) && espreitaOk) return { ok: true, pendente: true, nome, msg: 'O link existe — ficou *pedido pendente* à espera de aprovação do admin ⏳' };
+      if (/not-authorized|403/i.test(m) || st === 403) return { ok: false, msg: 'Esse convite já não serve — foi revogado ou o link expirou.' };
+      if (/not.?valid|invalid/i.test(m)) return { ok: false, msg: 'Link *inválido* — esse código não existe (copia o link inteiro, sem cortes).' };
       return { ok: false, msg: `Não consegui entrar: ${m.slice(0, 80)}` };
     }
   }

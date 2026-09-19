@@ -130,11 +130,12 @@ const sockA = {
   relayMessage: async () => ({}),
 };
 const ctxA = { remoteJid: 'o@s.whatsapp.net', senderNumber: '2449' };
-await av.despachar({ do: 'convite', code: 'XYZ', de: '244988', nomeDe: 'Mimi' }, 0, { sock: sockA, msg: { key: { id: 'a' } }, ctx: ctxA, config: cfgF });
-assert.ok(calls.some(c => c.__invite === 'XYZ'), 'aceitar convite faz groupAcceptInvite');
-assert.ok(calls.some(c => /Aceitei/.test(c.text || '')), 'confirmação ao dono');
+const CODE22 = 'LUiiz6cVVIS1wLP8zYDZol';
+await av.despachar({ do: 'convite', code: CODE22, de: '244988', nomeDe: 'Mimi' }, 0, { sock: sockA, msg: { key: { id: 'a' } }, ctx: ctxA, config: cfgF });
+assert.ok(calls.some(c => c.__invite === CODE22), 'aceitar convite faz groupAcceptInvite (motor v9.16 à frente)');
+assert.ok(calls.some(c => /Aceitei|Entrei/.test(c.text || '')), 'confirmação ao dono');
 calls.length = 0;
-await av.despachar({ do: 'convite', code: 'XYZ', de: '244988' }, 1, { sock: sockA, msg: { key: { id: 'a' } }, ctx: ctxA, config: cfgF });
+await av.despachar({ do: 'convite', code: CODE22, de: '244988' }, 1, { sock: sockA, msg: { key: { id: 'a' } }, ctx: ctxA, config: cfgF });
 assert.ok(calls.some(c => /Recusado/.test(c.text || '')), 'recusar confirma');
 const srcEsc = fs3.readFileSync(path3.join(__dirname, '..', 'src', 'aura', 'auraEscolha.js'), 'utf8');
 assert.ok(!/rowId/.test(srcEsc), 'lista SÓ usa id (regra do menu v7.93)');

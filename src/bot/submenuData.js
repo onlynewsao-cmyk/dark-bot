@@ -102,6 +102,11 @@ function categorize(cmd) {
     nick:'texto', nickzin:'texto', apelido:'texto', nickmais:'texto', nickmore:'texto',
     deco:'texto', decorar:'texto', moldura:'texto', caixa:'texto', box:'texto', quadro:'texto',
     num:'texto', numeros:'texto', 'números':'texto', simbolos:'texto', baus:'texto', packs:'texto', tabuleiro:'texto',
+    // v9.16 — ENQUETES · VOTAÇÕES · REACÇÕES
+    enquete:'admin', votacaoreal:'admin', votacao:'admin', 'votação':'admin', enquetabotoes:'admin',
+    voto:'admin', votar:'admin', enquetevotos:'admin', resultados:'admin',
+    reagir:'interacoes', react:'interacoes',
+    canalreagir:'owner', reagirnocanal:'owner', canalzoo:'owner',
     flip:'jogos', ship:'jogos', shipo:'jogos', bingo:'jogos', akinator:'jogos', chute:'jogos',
     caraoucoroa:'jogos', combate:'jogos', adivinha:'jogos', simular:'jogos', palavra:'jogos', velha:'jogos',
     music:'downloads', music2:'downloads', music3:'downloads', musica:'downloads', yt:'downloads', ig:'downloads',
