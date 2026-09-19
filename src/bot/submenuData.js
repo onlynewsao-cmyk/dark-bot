@@ -96,6 +96,7 @@ function categorize(cmd) {
     ff:'jogos', freefire:'jogos', ffplayer:'jogos', fflog:'jogos', nickff:'jogos', ffregioes:'jogos', ffservers:'jogos',
     welcome2:'admin', bv2:'admin', bemvindo2:'admin', welcm3:'admin', bv3:'admin', bemvindo3:'admin',
     rgcard:'economia', fichacard:'economia', rgcartao:'economia', heroicard:'economia',
+    prefixotema:'owner', temaprefixo:'owner',
     flip:'jogos', ship:'jogos', shipo:'jogos', bingo:'jogos', akinator:'jogos', chute:'jogos',
     caraoucoroa:'jogos', combate:'jogos', adivinha:'jogos', simular:'jogos', palavra:'jogos', velha:'jogos',
     music:'downloads', music2:'downloads', music3:'downloads', musica:'downloads', yt:'downloads', ig:'downloads',

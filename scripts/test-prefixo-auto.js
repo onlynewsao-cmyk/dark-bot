@@ -6,7 +6,9 @@ const pc = require('../src/bot/prefixCard');
 
 console.log('\n═══ CARTÃO ═══');
 const c1 = pc.buildPrefixCard({ prefix: '!' });
-check('cartão traz o prefixo', c1.text.includes('Prefixo atual: !') && c1.copyCode === '!' && /copiar prefixo/.test(c1.displayText));
+check('cartão traz o prefixo', /Prefixo (atual|actual): *\*?!\**|Prefixo (atual|actual): *!/.test(c1.text) && c1.copyCode === '!' && /copiar prefixo/.test(c1.displayText));
+const c1c = pc.buildPrefixCard({ prefix: '!', tema: 'classico' });
+check('tema clássico preserva o frame v7.72', c1c.text.includes('Prefixo atual:'));
 check('sem custom → sem linha de grupo', !/Customizado/.test(c1.text));
 const c2 = pc.buildPrefixCard({ prefix: '/', custom: true });
 check('custom → linha de grupo', /Customizado neste grupo/.test(c2.text) && c2.copyCode === '/');
@@ -31,7 +33,7 @@ console.log('\n═══ GRUPO CUSTOM ═══');
   const sent = [];
   const sock = { sendMessage: async (j, c) => { sent.push(c.text || ''); return { key: { id: 'x' } }; } };
   await collected['prefixo']({ sock, msg: {}, ctx: { remoteJid: 'u@s.whatsapp.net', isGroup: false }, prefix: '!' });
-  check('!prefixo envia o cartão', sent.length === 1 && /PREFIXO DO BOT/.test(sent[0]) && /Prefixo atual: !/.test(sent[0]), sent[0]?.slice(0, 60));
+  check('!prefixo envia o cartão (tema activo)', sent.length === 1 && (/PREFIXO DO BOT/.test(sent[0]) || /P R E F I X O  D O  B O T/.test(sent[0])) && /Prefixo (atual|actual)/.test(sent[0]), sent[0]?.slice(0, 60));
   check('fallback traz o código para copiar', /copiar prefixo/.test(sent[0]) && /`!`/.test(sent[0]));
 
   console.log('\n═══ WIRING ═══');

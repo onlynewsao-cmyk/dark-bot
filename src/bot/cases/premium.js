@@ -169,11 +169,32 @@ module.exports = function registerPremiumCases(registerCase) {
     );
   });
 
-  // ── !prefixo — ver prefixo actual (cartão System-style, v7.72) ──
+  // ── !prefixo — ver prefixo actual (cartão System-style, v7.72; tema v8.5) ──
   registerCase(['prefixo', 'prefixos', 'getprefix'], async ({ sock, msg, ctx, prefix }) => {
     const pc = require('../prefixCard');
     const custom = ctx.isGroup ? await pc.isCustomGroupPrefix(msg, ctx.remoteJid) : false;
     return pc.sendPrefixCard(sock, ctx.remoteJid, { prefix, custom }, msg);
+  });
+
+  // ── !prefixotema — o cartão muda de pele (v8.5, dono) ──────────
+  // DARKTOXIC 🕷️☣️ é o tema da casa; CLÁSSICO ⍟ é a herança v7.72.
+  registerCase(['prefixotema', 'temaprefixo'], async ({ sock, msg, ctx, prefix, isOwner, reply, args }) => {
+    if (!isOwner) return reply('👑 Só o DONO SUPREMO muda o tema do cartão de prefixo.');
+    const pc = require('../prefixCard');
+    const bcc = require('../botConfigCache');
+    const pedido = String(args[0] || '').toLowerCase().trim();
+    const ativo = await bcc.get('prefix_theme', 'darktoxic').catch(() => 'darktoxic');
+    if (!pedido) {
+      const lista = Object.entries(pc.TEMAS).map(([k, v]) => `  ${k === String(ativo).toLowerCase() ? '🟢' : '⚪'} ${k} — ${v.nome}`).join('\n');
+      return reply(`🎨 *TEMAS DO CARTÃO DE PREFIXO*\n\n${lista}\n\nTroca com \`${prefix}prefixotema darktoxic\` ou \`${prefix}prefixotema classico\`.`);
+    }
+    const chave = pedido === 'clássico' ? 'classico' : (pc.TEMAS[pedido] ? pedido : null);
+    if (!chave) {
+      return reply(`🫣 Tema desconhecido: *${pedido}*.\nTemos: \`darktoxic\` · \`classico\``);
+    }
+    await bcc.set('prefix_theme', chave);
+    // manda o próprio cartão já no novo tema — preview imediato
+    return pc.sendPrefixCard(sock, ctx.remoteJid, { prefix, custom: ctx.isGroup ? await pc.isCustomGroupPrefix(msg, ctx.remoteJid) : false, tema: chave }, msg);
   });
 
   // ── !maiscmds — painel de mais comandos (admin/vip/dono) ───
