@@ -446,6 +446,7 @@ module.exports = function registerRPGCommunity(registerCase) {
         R('rg', 'Ficha completa — atributos, magia, reputação'),
         R('nome', 'Mudar de nome — rebatiza o herói'),
         R('vidas', 'As tuas vidas — e como recuperá-las'),
+        R('rgcard', 'Cartão de herói — a tua foto de perfil na arte (gif: rgcard gif)'),
       ]});
       seccoes.push({ title: '⚔️ AVENTURA & COMBATE', rows: [
         R('lutar', 'Combate PvE — sobe de nível e ganha loot'),

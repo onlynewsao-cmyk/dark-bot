@@ -200,6 +200,36 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
     return;
   }
 
+  // ── v8.4 WELCM3: GIF de super animação (arte IA + foto perfil) ─────
+  if (gs?.welcm3) {
+    try {
+      const wa = require('./welcomeArt');
+      const bio = ['🎞️WELCM3 — bem-vindo(a)!', `👤 @${number} · membro nº ${memberCount}`, `🎉 entrou em ${groupName}`];
+      const mp4 = await wa.artGif({
+        profilePicUrl: ppUrl, name: number, sub1: `Entrou em ${groupName}`.slice(0, 44),
+        sub2: `Membro nº ${memberCount} 🕸️`, footer: `🕸️ ${config.bot.name} · WELCM3`, kind: 'welcome', frames: 12,
+      });
+      if (mp4?.length > 2048) {
+        await sock.sendMessage(groupJid, { video: mp4, gifPlayback: true, mimetype: 'video/mp4', caption, mentions: [participantJid] }).catch(() => {});
+        return;
+      }
+    } catch (e) { console.warn('[Welcome GIF]', e.message); }
+  }
+  // ── v8.4 WELCOME2: fotografia IA de entrada (PIP) ────────────────────
+  if (gs?.welcome2) {
+    try {
+      const wa = require('./welcomeArt');
+      const png = await wa.artCard({
+        profilePicUrl: ppUrl, name: number, sub1: `Entrou em ${groupName}`.slice(0, 44),
+        sub2: `Membro nº ${memberCount} 🕸️`, footer: `🕸️ ${config.bot.name} · WELCOME2`, kind: 'welcome',
+      });
+      if (png?.length > 2048) {
+        await sock.sendMessage(groupJid, { image: png, caption, mentions: [participantJid] }).catch(() => {});
+        return;
+      }
+    } catch (e) { console.warn('[Welcome2 art]', e.message); }
+  }
+
   // Gera imagem com foto de perfil + número de membro
   const welcomeImageEnabled = await botConfigCache.get('welcome_image_enabled', true).catch(() => true);
 
