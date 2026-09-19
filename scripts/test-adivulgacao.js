@@ -22,6 +22,8 @@ let _opcao = null;
 const sent = [];
 let _db = new Map();      // botConfigCache
 let _donorFail = {};
+let _carroOk = true;
+let _carroH = null;
 
 const GRUPO1 = { id: 'G1@g.us', subject: '💎 RÁDIO DARK', participants: [
   { id: '2441@s.whatsapp.net' }, { id: '2442@s.whatsapp.net' }, { id: '2449@s.whatsapp.net' },
@@ -51,7 +53,7 @@ Module.prototype.require = function (id) {
       downloadMediaMessage: async () => Buffer.from('MEDIAFAKE-9.8'),
     };
   }
-  if (s.endsWith('/rpg/carousel') || s === '../rpg/carousel') return { enviarCarrossel: async () => true, _imgCache: new Map(), _imagem: async () => null };
+  if (s.endsWith('/rpg/carousel') || s === '../rpg/carousel') return { enviarCarrossel: async (sock, msg, ctx, o) => { _carroH = { capt: o }; return _carroOk; }, _imgCache: new Map(), _imagem: async () => null };
   if (s.endsWith('renderEngine')) return { getTheme: async () => null, renderBlock: () => 'X', renderSubmenu: () => 'X', renderChange: () => 'X' };
   if (s.endsWith('hotCache')) return { getGroupSettings: async () => ({}), forgetGroup: () => {} };
   if (s.endsWith('GroupSettings')) return { findOne: () => ({ lean: async () => null }) };
@@ -77,15 +79,26 @@ const keys = (k) => _db.get(`divulg_${k}`);
   const div = {};
   require('../src/bot/cases/divulgacao')((nomes, fn) => { for (const x of [].concat(nomes)) div[x] = fn; });
 
-  // ── 1. Hub !cliente ─────────────────────────────────────────
-  _relays = []; sent.length = 0;
+  // ── 1. Hub !cliente — CARROSSEL primeiro, lista de reserva ──
+  _relays = []; sent.length = 0; _carroOk = true; _carroH = null;
   await div.cliente({ sock: sockF, msg: { key: { id: 'c1' } }, ctx: DONO, isOwner: true, reply });
-  const hub = _relays[0].m._wrapped.interactiveMessage;
-  assert.ok(/DARKTOXIC/.test(hub.body.text) && /☣️◢◤/.test(hub.body.text), 'moldura darktoxic no hub');
+  assert.ok(_carroH?.capt, 'hub tentou o carrossel DARKTOXIC primeiro');
+  assert.strictEqual(_carroH.capt.cards.length, 4, '4 cartões (grupos/velocidade/enviar/seu bot)');
+  const botoesCartas = _carroH.capt.cards.flatMap(c => c.botoes.map(b => b.id));
+  for (const id of ['!divulgar addall', '!divulgar list', '!delay', '!delay rapido', '!divulgar', '!divulgarteste visivel', '!meubot', '!aluguel']) {
+    assert.ok(botoesCartas.includes(id), `cartão tem botão vivo ${id}`);
+  }
+  assert.ok(_carroH.capt.cards.every(c => c.promptImg && c.cacheKey), 'capas IA darktoxic por cartão');
+  assert.ok(/DARKTOXIC/.test(_carroH.capt.corpo) && /☣️◢◤/.test(_carroH.capt.corpo), 'moldura darktoxic no corpo');
+  // fallback: carrossel indisponível → lista single_select
+  _carroOk = false; _relays = []; sent.length = 0; _carroH = null;
+  await div.cliente({ sock: sockF, msg: { key: { id: 'c1x' } }, ctx: DONO, isOwner: true, reply });
+    const hub = _relays[0].m._wrapped.interactiveMessage;
+  assert.ok(/DARKTOXIC/.test(hub.body.text), 'moldura darktoxic também na lista');
   const secs = JSON.parse(hub.nativeFlowMessage.buttons[0].buttonParamsJson).sections;
   assert.strictEqual(secs.length, 4, '4 secções (grupos/velocidade/enviar/seu bot)');
   const allRows = secs.flatMap(s => s.rows.map(r => r.id));
-  for (const cmd of ['!divulgar add', '!divulgar addall', '!divulgar list', '!divulgar delall', '!delay', '!delay ultra', '!divulgar rapido visivel'.replace(' rapido', 'rapido'), '!divulgarstop', '!divulgarhistorico', '!conectarbot', '!meubot', '!desconectarbot', '!aluguel']) {
+  for (const cmd of ['!divulgar add', '!divulgar addall', '!divulgar list', '!divulgar delall', '!delay', '!delay ultra', '!divulgarrapido visivel', '!divulgarstop', '!divulgarhistorico', '!divulgarrepetir', '!divulgarstats', '!divulgaragenda', '!conectarbot', '!meubot', '!desconectarbot', '!aluguel']) {
     assert.ok(allRows.includes(cmd), `hub tem a linha ${cmd}`);
   }
   assert.ok(_relays[0].o.additionalNodes?.[0]?.tag === 'biz', 'selo biz no hub');
@@ -155,10 +168,11 @@ const keys = (k) => _db.get(`divulg_${k}`);
   assert.ok(hist.length >= 2 && hist[hist.length - 1].feitos === 2, 'histórico regista feitos (2 grupos)');
   // failures contados
   _donorFail['G2@g.us'] = true;
-  sent.length = 0;
+  sent.length = 0; _relays = [];
   await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'r3' } }, ctx: DONO, args: ['invisivel', 'x'], isOwner: true, reply });
-  const rep = sent.find(m => m.jid === DONO.remoteJid && /R E L A T Ó R I O/.test(m.text || ''));
-  assert.ok(/❌ Falhou: \*1\*/.test(rep.text), 'relatório conta falhas');
+  const repT = (sent.map(m => m.text).filter(Boolean).join(' ') + ' ' +
+    _relays.map(x => x.m?._wrapped?.interactiveMessage?.body?.text || '').join(' '));
+  assert.ok(/R E L A T Ó R I O/.test(repT) && /❌ Falhou: \*1\*/.test(repT), 'relatório conta falhas (relay fixo)');
   _donorFail = {};
   console.log('✔ MOTOR: visível vs invisível (silêncio no ADM) + histórico + falhas');
 
@@ -194,6 +208,37 @@ const keys = (k) => _db.get(`divulg_${k}`);
   await div.aluguel({ sock: sockF, msg: { key: { id: 'b4' } }, ctx: DONO, isOwner: true, reply });
   assert.ok(/7 dias/.test(sent[0].text) && /90 dias/.test(sent[0].text), 'tabela de aluguel');
   console.log('✔ SEU BOT: conectar/meu/desligar + tabela de planos');
+
+  // ── 6.5. Botões FIXOS no relatório + repetir + stats + agenda ──
+  _relays = []; sent.length = 0;
+  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'x1' } }, ctx: DONO, args: ['invisivel', 'onda', 'com', 'botoes'], isOwner: true, reply });
+  const repFixo = _relays.map(x => x.m?._wrapped?.interactiveMessage).find(Boolean);
+  assert.ok(repFixo && /R E L A T Ó R I O/.test(repFixo.body.text), 'relatório com botões fixos');
+  const fixos = repFixo.nativeFlowMessage.buttons.map(b => JSON.parse(b.buttonParamsJson).id);
+  assert.ok(fixos.includes('!divulgarrepetir') && fixos.includes('!divulgarhistorico') && fixos.includes('!divulgarstop'), 'fixos: repetir · histórico · parar');
+  // repetir a mesma onda
+  sent.length = 0;
+  await div.divulgarrepetir({ sock: sockF, msg: { key: { id: 'x2' } }, ctx: DONO, isOwner: true, reply });
+  assert.ok(sent.filter(m => /☣️ \*DIVULGAÇÃO\*/.test(m.text || '')).length === 2, 'repetir volta a regar os 2 grupos');
+  // stats
+  sent.length = 0;
+  await div.divulgarstats({ sock: sockF, msg: { key: { id: 'x3' } }, ctx: DONO, isOwner: true, reply });
+  assert.ok(/P R O V A/.test(sent[0].text) && /Ondas disparadas/.test(sent[0].text) && /Entregues com sucesso/.test(sent[0].text), 'dashboard de stats');
+  // agenda (simulando a passagem do minuto)
+  let _agendaFn = null;
+  const realST = global.setTimeout;
+  global.setTimeout = (fn, ms) => { assert.strictEqual(ms, 60000, '1 min real'); _agendaFn = fn; return 1; };
+  sent.length = 0;
+  await div.divulgaragenda({ sock: sockF, msg: { key: { id: 'x4' } }, ctx: DONO, args: ['1', 'invisivel', 'onda', 'das', '21h'], isOwner: true, reply });
+  global.setTimeout = realST;
+  assert.ok(/A G E N D A D A/.test(sent[0].text) && /1min/.test(sent[0].text), 'agenda confirmada darktoxic');
+  assert.ok(_agendaFn, 'timer registado');
+  // stop cancela agenda pendente
+  sent.length = 0;
+  await div.divulgarstop({ sock: sockF, msg: { key: { id: 'x5' } }, ctx: DONO, isOwner: true, reply });
+  assert.ok(/Agenda pendente também cancelada/.test(sent[0].text), 'stop apaga a agenda');
+  clearTimeout; // noop
+  console.log('✔ FIXOS + repetir + stats + agenda (com cancel no stop)');
 
   // ── 7. estáticos ────────────────────────────────────────────
   const fs = require('fs'), path=require('path');

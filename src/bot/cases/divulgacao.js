@@ -25,6 +25,8 @@ const config = require('../../config');
 // ── estado isolado por dono ──────────────────────────────────
 const _STOP = new Set();           // owner → true quando pede dstop
 const _SESS = new Map();           // owner → {fase, texto, media}
+const _ULTIMOS = new Map();        // owner → { vis, montar }  — p/ divulgarrepetir
+const _AGENDADOS = new Map();      // owner → timer (divulgaragenda)
 
 function _num(n) { return String(n || '').replace(/\D/g, ''); }
 async function _get(bcc, k) { return bcc.get(`divulg_${k}`, null); }
@@ -193,8 +195,11 @@ async function _painelCliente(sock, msg, ctx) {
       R('visivel rápido', '⚡ texto+tags à vista em 1 toque', `${p}divulgarrapido visivel`),
       R('invisível rápido', '🕶️ menção escondida — ADM não vê', `${p}divulgarrapido invisivel`),
       R('teste', 'manda 1x de volta P/ TI validar', `${p}divulgarteste`),
-      R('parar envio', '🛑 cancela a onda em curso', `${p}divulgarstop`),
+      R('repetir onda', '🔁 a última onda sai outra vez', `${p}divulgarrepetir`),
+      R('agendar onda', '⏰ dispara daqui a N minutos', `${p}divulgaragenda`),
+      R('stats', '📈 prova dos números — alcance e entregue', `${p}divulgarstats`),
       R('histórico', '📊 últimas 20 ondas', `${p}divulgarhistorico`),
+      R('parar envio', '🛑 cancela a onda em curso (+agenda)', `${p}divulgarstop`),
     ] },
     { title: '🤖 SEU BOT · 💰 PLANO', rows: [
       R('conectar número', 'regista o teu bot cliente', `${p}conectarbot`),
@@ -204,12 +209,55 @@ async function _painelCliente(sock, msg, ctx) {
     ] },
   ];
 
-  await _lista(sock, msg, ctx, {
-    titulo: '☣️ CLIENTE ONLINE',
-    corpo,
-    seccoes,
-    rodape: `☣️ ${config.bot.name} · cliente ${own.slice(-4)} · DARKTOXIC`,
-  });
+  // v9.9: HUB EM CARROSSEL — 4 cartões com capa darktoxic (IA, cache)
+  // e botões vivos; se o carrossel não sair, cai para a lista (abaixo).
+  let carro = false;
+  if (sock.waUploadToServer) {
+    try {
+      carro = await require('../rpg/carousel').enviarCarrossel(sock, msg, ctx, {
+        corpo,
+        rodape: `☣️ ${config.bot.name} · cliente ${own.slice(-4)} · toca nas cartas`,
+        cards: [
+          { corpo: `📦 *GRUPOS DA ONDA*\n${grupos.length} registados e isolados — só teus, só isto.`, rodape: '☣️ PASSO 1',
+            promptImg: 'dark toxic green and violet neon cluster of chat bubbles, glowing toxic hive, poster style, no text',
+            cacheKey: 'dtox_grupos',
+            botoes: [
+              { texto: '📦 AddAll automático', id: `${p}divulgar addall` },
+              { texto: '📋 Ver a minha onda', id: `${p}divulgar list` },
+            ] },
+          { corpo: `⏱️ *VELOCIDADE / DELAY*\nAtiva agora: *${delayNome}* (${delay}ms) — antiban é o porto seguro.`, rodape: '☣️ PASSO 2',
+            promptImg: 'dark toxic violet neon speedometer with toxic green glow, cyberpunk timer, poster style, no text',
+            cacheKey: 'dtox_delay',
+            botoes: [
+              { texto: '⏱️ Painel do delay', id: `${p}delay` },
+              { texto: '⚡ Rápido 70ms', id: `${p}delay rapido` },
+            ] },
+          { corpo: '🚀 *ENVIAR — 4 PASSOS*\nGrupos → velocidade → visibilidade (👁️/🕶️) → disparo com relatório.', rodape: '☣️ PASSO 3–4',
+            promptImg: 'toxic green mist signal broadcasting across dark city skyline, neon violet beams, poster style, no text',
+            cacheKey: 'dtox_enviar',
+            botoes: [
+              { texto: '🚀 Divulgar agora', id: `${p}divulgar` },
+              { texto: '👁️ Teste visível', id: `${p}divulgarteste visivel` },
+            ] },
+          { corpo: '🤖 *SEU BOT + PLANO*\nEstado do teu número, stats da onda e a tabela do aluguel.', rodape: '☣️ Oficina',
+            promptImg: 'dark robotic hand holding glowing toxic green phone, violet neon circuits, poster style, no text',
+            cacheKey: 'dtox_bot',
+            botoes: [
+              { texto: '📊 Meu bot', id: `${p}meubot` },
+              { texto: '💵 Planos', id: `${p}aluguel` },
+            ] },
+        ],
+      });
+    } catch { carro = false; }
+  }
+  if (!carro) {
+    await _lista(sock, msg, ctx, {
+      titulo: '☣️ CLIENTE ONLINE',
+      corpo,
+      seccoes,
+      rodape: `☣️ ${config.bot.name} · cliente ${own.slice(-4)} · DARKTOXIC`,
+    });
+  }
 }
 
 // ── ONDA DE BROADCAST (o core partilhado) ────────────────────
@@ -226,7 +274,29 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo) {
     ]),
   }, { quoted: msg }).catch(() => {});
   const r = await _disparar(sock, msg, ctx, { vis, montar });
-  await sock.sendMessage(ctx.remoteJid, { text: _resumo(r, ctx.prefix || config.bot.prefix || '!') }, { quoted: msg }).catch(() => {});
+  const p = ctx.prefix || config.bot.prefix || '!';
+  _ULTIMOS.set(own, { vis, montar });
+  // v9.9: o RELATÓRIO traz botões FIXOS (quick_reply) — a onda morre
+  // e já nasce a próxima acção à mão (repõe a sessão, vê stats, para).
+  const textoR = _resumo(r, p);
+  try {
+    const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+    const m = generateWAMessageFromContent(ctx.remoteJid, {
+      interactiveMessage: proto.Message.InteractiveMessage.fromObject({
+        body: { text: textoR },
+        footer: { text: `☣️ DARKTOXIC · onda ${rotulo}` },
+        header: { title: '', hasMediaAttachment: false },
+        nativeFlowMessage: { buttons: [
+          { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🔁 Repetir mesma onda', id: `${p}divulgarrepetir` }) },
+          { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '📊 Histórico', id: `${p}divulgarhistorico` }) },
+          { name: 'quick_reply', buttonParamsJson: JSON.stringify({ display_text: '🛑 Parar', id: `${p}divulgarstop` }) },
+        ] },
+      }),
+    }, { userJid: sock.user?.id, quoted: msg });
+    await _relayBiz(sock, ctx.remoteJid, m);
+    return;
+  } catch { /* sem interactivo → texto */ }
+  await sock.sendMessage(ctx.remoteJid, { text: textoR }, { quoted: msg }).catch(() => {});
 }
 
 /** Texto a divulgar — do quote, dos args ou da sessão. */
@@ -409,8 +479,71 @@ module.exports = function registerDivulgacao(registerCase) {
   // ── STOP & HISTÓRICO ──
   registerCase(['divulgarstop'], async ({ sock, msg, ctx, isOwner, reply }) => {
     if (!isOwner) return deny(reply);
-    _STOP.add(_num(ctx.senderNumber));
-    return reply(_dtox('A P A R A R', ['🛑 Sinal de paragem lançado — a onda morre no próximo grupo.']));
+    const own = _num(ctx.senderNumber);
+    _STOP.add(own);
+    const ag = _AGENDADOS.get(own);
+    if (ag) { clearTimeout(ag); _AGENDADOS.delete(own); }
+    return reply(_dtox('A P A R A R', ['🛑 Sinal de paragem lançado — a onda morre no próximo grupo.', ag ? '⏰ Agenda pendente também cancelada.' : '']));
+  });
+
+  // v9.9: REPETIR a última onda — botão fixo do relatório
+  registerCase(['divulgarrepetir'], async ({ sock, msg, ctx, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const ult = _ULTIMOS.get(_num(ctx.senderNumber));
+    if (!ult) return reply('☣️ Ainda não há onda anterior nesta sessão para repetir.');
+    return _onda(sock, msg, ctx, ult.montar, ult.vis, 'rep');
+  });
+
+  // v9.9: DASHBOARD de totais (a prova dos números, darktoxic)
+  registerCase(['divulgarstats', 'divulgarestatistica', 'divgstat'], async ({ sock, msg, ctx, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const bcc = require('../botConfigCache');
+    const own = _num(ctx.senderNumber);
+    const hist = (await _get(bcc, `hist_${own}`)) || [];
+    const grupos = (await _get(bcc, `grupos_${own}`)) || [];
+    const ondas = hist.length;
+    const alcance = hist.reduce((a, h) => a + (h.total || 0), 0);
+    const entregue = hist.reduce((a, h) => a + (h.feitos || 0), 0);
+    const sucesso = alcance ? Math.round((entregue / alcance) * 100) : 0;
+    const last = hist[hist.length - 1];
+    const linhas = [
+      `📦 Ondas disparadas: *${ondas}*`,
+      `🎯 Grupos alcançados (cumulativo): *${alcance}*`,
+      `✅ Entregues com sucesso: *${entregue}* (${sucesso}%)`,
+      `⚗️ Grupos guardados agora: *${grupos.length}*`,
+      last ? `🕒 Última onda: ${String(last.quando).slice(5, 16).replace('T', ' ')} · ${last.vis} · delay ${last.delay}ms` : '🕒 Ainda sem ondas — corre a primeira.',
+      '',
+      `Vê as últimas 20: \`${ctx.prefix || config.bot.prefix}divulgarhistorico\``,
+    ];
+    return reply(_dtox('P R O V A   D O S   N Ú M E R O S', linhas));
+  });
+
+  // v9.9: AGENDA — dispara daqui a N minutos (timer desta sessão)
+  registerCase(['divulgaragenda', 'divulgarprogramar'], async ({ sock, msg, ctx, args, isOwner, reply }) => {
+    if (!isOwner) return deny(reply);
+    const p = ctx.prefix || config.bot.prefix || '!';
+    const min = parseInt(String(args[0] || ''), 10);
+    const temVis = /^vis|^invis/i.test(args[1] || '');
+    const vis = /^invis/i.test(args[1] || '') ? 'invisivel' : /^vis/i.test(args[1] || '') ? 'visivel' : 'sem';
+    if (!Number.isInteger(min) || min < 1 || min > 1440) {
+      return reply(`☣️ \`${p}divulgaragenda <minutos> [visivel|invisivel] <texto>\` — ex.: \`${p}divulgaragenda 5 visivel drop às 21h\` (máx 24h).`);
+    }
+    const ondaTexto = _textoDe(msg, args.slice(temVis ? 2 : 1));
+    if (!ondaTexto) return reply(`☣️ Falta o texto da onda: \`${p}divulgaragenda ${min} ${vis === 'sem' ? '' : 'visivel '}<texto>\`.`);
+    const own = _num(ctx.senderNumber);
+    if (_AGENDADOS.has(own)) { clearTimeout(_AGENDADOS.get(own)); _AGENDADOS.delete(own); }
+    _AGENDADOS.set(own, setTimeout(async () => {
+      _AGENDADOS.delete(own);
+      await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
+        content: { text: `☣️ *DIVULGAÇÃO AGENDADA* ☣️\n\n${ondaTexto}${tag}`, mentions: vis === 'sem' ? [] : mencoes },
+      }), vis, 'agendada');
+    }, min * 60000));
+    return reply(_dtox('A G E N D A D A', [
+      `⏰ Onda *${vis === 'sem' ? 'neutra' : vis}* dispara daqui a *${min}min*.`,
+      `📝 "${ondaTexto.slice(0, 90)}${ondaTexto.length > 90 ? '…' : ''}"`,
+      `Cancelar junto com qualquer onda: \`${p}divulgarstop\` (apaga a agenda).`,
+      '(a agenda vive nesta sessão — se o bot reiniciar, agenda de novo)',
+    ]));
   });
 
   registerCase(['divulgarhistorico'], async ({ sock, msg, ctx, isOwner, reply }) => {

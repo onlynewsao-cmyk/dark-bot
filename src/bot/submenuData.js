@@ -382,6 +382,8 @@ function categorize(cmd) {
     divulgaraudio:'owner', divulgarcontato:'owner', divulgarloc:'owner',
     delay:'owner', delayultrarapido:'owner',
     conectarbot:'owner', meubot:'owner', desconectarbot:'owner', aluguel:'owner',
+    divulgarrepetir:'owner', divulgarstats:'owner', divulgarestatistica:'owner',
+    divgstat:'owner', divulgaragenda:'owner', divulgarprogramar:'owner',
     backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
     slowmode:'admin', modolento:'admin', setwarnlimit:'admin', warnlimit:'admin', // v7.75
     likesff:'info', fflike:'info', likefree:'info', likeff:'info', // v7.62
