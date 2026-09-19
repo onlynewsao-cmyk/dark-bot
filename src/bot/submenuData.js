@@ -336,7 +336,7 @@ function categorize(cmd) {
     upscale:'stickers', hd:'stickers', remini:'stickers',
     edits:'ia', editl:'ia', editlimpar:'ia', edit:'ia', editimg:'ia', aiedit:'ia',
     infoff:'info', ffinfo:'info', perfilff:'info', like:'info', enviarlike:'info', darflw:'info',
-    spotifysearch:'downloads', spsearch:'downloads', tomp3video:'downloads', videoaomp3:'downloads',
+    spotifysearch:'downloads', spsearch:'downloads', spotify1:'downloads', spotify3:'downloads', tomp3video:'downloads', videoaomp3:'downloads',
     minado:'jogos', campominado:'jogos',
     // v7.47: 'aura' é o poder RPG "ativar aura" (interactions.js), não o
     // case de invocação removido na v7.40 (o mapa antigo 'ia' era obsoleto).

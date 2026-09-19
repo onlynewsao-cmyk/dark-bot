@@ -454,4 +454,4 @@ async function searchVideoList(query, limit = 8) {
   }));
 }
 
-module.exports = { getAudio, getVideo, search, searchVideo, searchVideoList };
+module.exports = { getAudio, getVideo, search, searchVideo, searchVideoList, extractAudioFromBuffer };

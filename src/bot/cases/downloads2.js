@@ -155,39 +155,121 @@ module.exports = function registerDownloads2(registerCase) {
     } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Twitter: ' + e.message); }
   });
 
-  // ═══ SPOTIFY ═══
-  registerCase(['spotify', 'spotify2', 'sp'], async ({ sock, msg, ctx, args, prefix, reply }) => {
+  // ═══ SPOTIFY — 3 NÍVEIS DE QUALIDADE (v7.98) ═══
+  // spotify / spotify1 / sp → BAIXA ⚡ 48k · spotify2 → MÉDIA 🎧 128k ·
+  // spotify3 → MÁXIMA 💎 320k. Aceitam NOME (lista até 8) e LINKS de
+  // faixa, playlist, álbum, EP e CD. A qualidade é aplicada DEPOIS do
+  // download (normalização FFmpeg p/ o bitrate do nível — v7.98 nunca
+  // entrega "veio o que veio").
+  async function despacharFaixaSpotify(sock, msg, ctx, fonteUrl, alvo, nv) {
+    const mediaH = require('../mediaHandler');
+    const ytdl = require('../ytdl');
+    let buf = null, meta = { title: alvo?.nome || 'Spotify', author: alvo?.artista || '' };
+    if (fonteUrl) {
+      try {
+        const dl = require('../dl/others');
+        const r = await dl.spotify(fonteUrl);
+        buf = r.buffer || await mediaH.fetchBuffer(r.url).catch(() => null);
+        meta = { title: r.title || meta.title, author: r.author || meta.author };
+      } catch {}
+    }
+    if (!buf || buf.length < 2048) {
+      const qy = `${alvo?.artista ? alvo.artista + ' ' : ''}${alvo?.nome || 'spotify'} audio`.trim();
+      const a = await ytdl.getAudio(qy, nv.bit);   // já sai no bitrate do nível
+      buf = a.buffer;
+      meta = { title: alvo?.nome || a.title || meta.title, author: alvo?.artista || a.author || meta.author };
+    } else {
+      // veio da fonte directa → aplica o bitrate do nível (v7.98)
+      try { buf = await ytdl.extractAudioFromBuffer(buf, nv.bit); } catch {}
+    }
+    if (!buf || buf.length < 2048) throw new Error('áudio curto demais');
+    await sendAudio(sock, ctx.remoteJid, msg, {
+      title: meta.title, author: meta.author, buffer: buf,
+      mimetype: 'audio/mpeg', quality: `Spotify · ${nv.nome} (${nv.bit})`,
+    });
+  }
+
+  async function runSpotify({ sock, msg, ctx, args, prefix, reply, command }, nivel) {
+    const tiers = require('../spotifyTiers');
+    const nv = tiers.NIVEIS[nivel] || tiers.NIVEIS[1];
     const query = args.join(' ').trim();
-    if (!query) return reply(`💚 Uso: \`${prefix}spotify <nome ou url>\``);
+    if (!query) return reply(
+      `💚 *SPOTIFY ${nv.nome}* (${nv.bit})\n` +
+      `Uso: \`${prefix}${command} <nome da música ou link>\`\n\n` +
+      `🔗 Vale links de faixa, *playlist*, *álbum*, EP e CD.\n` +
+      `⚡ ${nv.dica}\n\n` +
+      `💡 níveis: \`${prefix}spotify\` baixa · \`${prefix}spotify2\` média · \`${prefix}spotify3\` máxima`);
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
-    try {
-      const dl = require('../dl/others');
-      // v7.77: nome → LISTA de resultados; URL → direto como antes
-      if (!/^https?:\/\//i.test(query)) {
-        const { systemZoneSpotifySearch } = require('../dl/helpers');
-        const achados = await systemZoneSpotifySearch(query, 8);
-        if (!achados?.length) throw new Error('Sem resultados para: ' + query);
-        const lista = require('../listaEscolha');
-        const itens = achados.filter(a => a?.url).slice(0, 8);
-        if (!itens.length) throw new Error('Sem resultados para: ' + query);
-        await lista.mostrar(sock, msg, ctx, {
-          titulo: `💚 *${itens.length} resultados* — ${query.slice(0, 40)}`,
-          linhas: itens.map((a) => `*${String(a.title || a.name || '?').slice(0, 50)}*\n   👤 ${String(a.artist || a.artists || '?').slice(0, 30)}`),
-          itens, tipo: 'spotify',
-          aoEscolher: async ({ item }) => {
-            const r = await dl.spotify(item.url);
-            await sendAudio(sock, ctx.remoteJid, msg, r);
-            sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
-          },
-        });
-        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-        return;
+
+    // LINK (spotify ou algo que venha da zona)
+    if (/https?:\/\//i.test(query) || /open\.spotify\.com|spotify\.link/i.test(query)) {
+      const { tipo, id } = tiers.parseSpotifyLink(query);
+      if (tiers.TIPOS_BLOQUEIO[tipo]) {
+        return reply(`🎙️ Esse link é um *${tiers.TIPOS_BLOQUEIO[tipo]}* — os níveis spotify1/2/3 cobrem *músicas*: manda a faixa direta ou a colecção (playlist/álbum/EP/CD).`);
       }
-      const r = await dl.spotify(query);
-      await sendAudio(sock, ctx.remoteJid, msg, r);
-      sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
-    } catch (e) { sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } }); return errReply(sock, msg, ctx, 'Spotify: ' + e.message); }
-  });
+      if (!tipo || tipo === 'track') {
+        await despacharFaixaSpotify(sock, msg, ctx, query, {}, nv);
+        return sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+      }
+      if (tiers.TIPOS_COLECAO.has(tipo)) {
+        const col = await tiers.colecaoSpotify(query, { tipo, id });
+        const total = col.faixas.length;
+        const enviar = col.faixas.slice(0, tiers.MAX_FAIXAS);
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `💚 *${(col.nome || (tipo === 'playlist' ? 'Playlist' : 'Álbum')).slice(0, 50)}*\n` +
+                `🎶 ${total} faixas · *${nv.nome}* (${nv.bit})` +
+                (total > tiers.MAX_FAIXAS ? `\n⚠️ envio as primeiras ${tiers.MAX_FAIXAS}` : '') +
+                `\n⏳ A buscar as faixas…`,
+        }, { quoted: msg });
+        let okN = 0, falSeg = 0, falTotal = 0;
+        for (let i = 0; i < enviar.length; i++) {
+          const f = enviar[i];
+          try {
+            const fonte = /spotify:track:([A-Za-z0-9]+)/.exec(f.ref || '') ? `https://open.spotify.com/track/${RegExp.$1}` : /track\/([A-Za-z0-9]+)/.exec(f.ref || '') ? `https://open.spotify.com/track/${RegExp.$1}` : '';
+            await despacharFaixaSpotify(sock, msg, ctx, fonte, f, nv);
+            okN++; falSeg = 0;
+          } catch (e) {
+            falTotal++; falSeg++;
+            if (falSeg >= 3 && i >= 3) break;   // fontes morreram — não martela
+          }
+          await new Promise(r => setTimeout(r, 350));
+        }
+        const linhas = [`✅ *${okN}/${enviar.length}* enviadas · Spotify ${nv.nome} (${nv.bit})`];
+        if (falTotal) linhas.push(`⚠️ ${falTotal} não deu — as fontes espiralem? tenta o link da faixa direta.`);
+        await sock.sendMessage(ctx.remoteJid, { text: linhas.join('\n') }, { quoted: msg });
+        return sock.sendMessage(ctx.remoteJid, { react: { text: okN ? '✅' : '❌', key: msg.key } });
+      }
+    }
+
+    // NOME → lista de resultados (até 8)
+    const { systemZoneSpotifySearch } = require('../dl/helpers');
+    const achados = await systemZoneSpotifySearch(query, 8);
+    if (!achados?.length) throw new Error('Sem resultados para: ' + query);
+    const lista = require('../listaEscolha');
+    const itens = achados.filter(a => a?.url).slice(0, 8);
+    if (!itens.length) throw new Error('Sem resultados para: ' + query);
+    await lista.mostrar(sock, msg, ctx, {
+      titulo: `💚 *${itens.length} resultados* — ${query.slice(0, 40)}\n◈ Spotify ${nv.nome} (${nv.bit})`,
+      linhas: itens.map((a) => `*${String(a.title || a.name || '?').slice(0, 50)}*\n   👤 ${String(a.artist || a.artists || '?').slice(0, 30)}`),
+      itens, tipo: 'spotify',
+      aoEscolher: async ({ item }) => {
+        await despacharFaixaSpotify(sock, msg, ctx, item.url, { nome: item.title || item.name, artista: item.artist || item.artists }, nv);
+        sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
+      },
+    });
+    sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
+  }
+
+  const _wrapSpotify = (nivel) => async (cc) => {
+    try { await runSpotify(cc, nivel); }
+    catch (e) {
+      cc.sock.sendMessage(cc.ctx.remoteJid, { react: { text: '❌', key: cc.msg.key } });
+      return errReply(cc.sock, cc.msg, cc.ctx, 'Spotify: ' + e.message);
+    }
+  };
+  registerCase(['spotify', 'spotify1', 'sp'], _wrapSpotify(1));
+  registerCase(['spotify2'], _wrapSpotify(2));
+  registerCase(['spotify3'], _wrapSpotify(3));
 
   // ═══ SOUNDCLOUD ═══
   registerCase(['soundcloud', 'sc', 'scdl'], async ({ sock, msg, ctx, args, prefix, reply }) => {

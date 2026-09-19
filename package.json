@@ -1,6 +1,6 @@
 {
   "name": "dark-bot",
-  "version": "7.97.0",
+  "version": "7.98.0",
   "description": "DARK BOT - Bot WhatsApp profissional | @systemzero/baileys | Dark Net Engine | DarkShield Anti-Link v2",
   "main": "src/index.js",
   "scripts": {
@@ -24,7 +24,7 @@
     "test:escudo784": "node scripts/test-escudo784.js",
     "test:escudo785": "node scripts/test-escudo785.js",
     "test:antivisu1": "node scripts/test-antivisu1.js",
-    "test:rpgmundo": "node scripts/test-rpgmundo.js && node scripts/test-rpgui.js && node scripts/test-listaclick.js && node scripts/test-identidade.js && node scripts/test-apercepcao.js && node scripts/test-avigilante.js && node scripts/test-arpggate.js",
+    "test:rpgmundo": "node scripts/test-rpgmundo.js && node scripts/test-rpgui.js && node scripts/test-listaclick.js && node scripts/test-identidade.js && node scripts/test-apercepcao.js && node scripts/test-avigilante.js && node scripts/test-arpggate.js && node scripts/test-aspotify.js",
     "test:humanizer": "node scripts/test-humanizer.js",
     "test:syntax": "node scripts/check-syntax.js",
     "test:ejs": "node scripts/check-ejs.js",
