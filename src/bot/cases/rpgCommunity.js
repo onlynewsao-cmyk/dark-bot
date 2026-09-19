@@ -473,45 +473,17 @@ module.exports = function registerRPGCommunity(registerCase) {
     ]});
 
     const bodyTxt = cartao +
-      '\n👇 *Toca para executar — cada linha é um comando vivo.*\n' +
+      '\n📜 *O LIVRO DE COMANDOS DO RPG — escreve e joga:*\n' +
       '🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️';
 
-    // ── lista interactiva (o mesmo coração dos submenus) ──────
-    try {
-      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
-      let botName = 'DARK BOT';
-      try { botName = (require('../../config').bot?.name) || botName; } catch {}
-      const m = generateWAMessageFromContent(ctx.remoteJid, {
-        interactiveMessage: proto.Message.InteractiveMessage.fromObject({
-          body: proto.Message.InteractiveMessage.Body.fromObject({ text: bodyTxt }),
-          footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: `🕸️ ${botName} · DARK VILLE RPG` }),
-          header: proto.Message.InteractiveMessage.Header.fromObject({ title: '', hasMediaAttachment: false }),
-          nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({
-            buttons: [{
-              name: 'single_select',
-              buttonParamsJson: JSON.stringify({
-                title: temChar ? '🗺️ O QUE FAZES AGORA?' : '🌀 ENTRA NO MUNDO',
-                sections: seccoes,
-              }),
-            }],
-          }),
-        }),
-      }, { userJid: sock.user?.id, quoted: msg });
-      await sock.relayMessage(ctx.remoteJid, m.message, {
-        messageId: m.key.id,
-        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
-          tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
-          content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
-        }] }],
-      });
-      return;
-    } catch (e) {
-      console.warn('[menurpg] lista caiu, mando o livro em texto:', (e.message || '').slice(0, 60));
-    }
-
-    // ── queda: texto rico (o livro também fala sem botões) ─────
-    return sock.sendMessage(ctx.remoteJid, { text: bodyTxt + '\n' +
-      seccoes.map(s => `\n*${s.title}*\n` + s.rows.map(r => `  ${r.id} — ${r.description || ''}`).join('\n')).join('\n'),
-    }, { quoted: msg });
+    // ── v8.01: o menurpg é a LISTA DE TEXTO dos comandos RPG ─────
+    // (a versão interactiva toque-para-correr vive na fila "RPG &
+    // AVENTURA" do menu principal; aqui fica o livro, inteiro e em
+    // texto, com o cartão vivo da personagem no topo)
+    const listagem = seccoes.map(s =>
+      '\n*' + s.title + '*\n' +
+      s.rows.map(r => '  ' + r.id + (r.description ? ' — ' + r.description : '')).join('\n')
+    ).join('\n');
+    return sock.sendMessage(ctx.remoteJid, { text: bodyTxt + listagem + '\n\n🕸️━━━━━━━━━━━━━━━━━━━━━━━🕸️' }, { quoted: msg });
   }, true);
 };
