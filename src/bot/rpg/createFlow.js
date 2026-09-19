@@ -43,7 +43,15 @@ function _acharClasse(txt) {
 // ── Envio da lista clicável ─────────────────────────────────
 // Mesmo padrão do dynamicSubmenus: interactiveMessage + single_select,
 // relay com biz/native_flow. Fallback para texto se o relay falhar.
-async function _enviarLista(sock, msg, ctx, titulo, subtitulo, corpo, rows, rodape) {
+async function _enviarLista(sock, msg, ctx, titulo, subtitulo, corpo, rows, rodape, cards) {
+  // v9.0: primeiro o CARROSSEL com fotos (o corpo já traz o plano-B
+  // numerado); não renderizou → lista single_select; falhou → texto.
+  if (Array.isArray(cards) && cards.length && sock.waUploadToServer) {
+    try {
+      const ok = await require('./carousel').enviarCarrossel(sock, msg, ctx, { corpo, rodape, cards });
+      if (ok) return 'carousel';
+    } catch {}
+  }
   const RE = require('../renderEngine');
   const t = await RE.getTheme(ctx.remoteJid).catch(() => null);
   const textBody = corpo;
@@ -116,6 +124,30 @@ function _listaClasses(name, race) {
     id: `RPGPICK_C_${k}`,
   }));
   return { linhas, rows };
+}
+
+// ── Cartas de carrossel (com FOTO gerada por IA) ─────────────
+// v9.0: as escolhas da criação passam a ser um carrossel — cada raça/
+// classe com capa visual gerada no momento (cache por sessão). Se o
+// carrossel ou a geração falharem, _enviarLista cai para a lista
+// single_select e daí para o texto: nunca beco sem saída.
+function _cardsRacas(name) {
+  return Object.entries(rpg.RACES).map(([k, v]) => ({
+    corpo: `${v.emoji} *${k.toUpperCase()}*\n${v.desc || ''}\n\n> raça de *${String(name).split(' ')[0]}*`,
+    rodape: `🎭 ${config.bot.name} · RPG`,
+    promptImg: `${k} fantasy RPG race portrait, dark epic anime style, dramatic cinematic light, detailed character art`,
+    cacheKey: `race_${k}`,
+    botoes: [{ texto: `${v.emoji} Ser ${k}`, id: `RPGPICK_R_${k}` }],
+  }));
+}
+function _cardsClasses(name, race) {
+  return Object.entries(rpg.CLASSES).map(([k, v]) => ({
+    corpo: `${v.emoji} *${k.toUpperCase()}*\n${v.desc || ''}\n\n> classe p/ *${String(name).split(' ')[0]}* ${rpg.RACES[race]?.emoji || ''} ${race}`,
+    rodape: `🎭 ${config.bot.name} · RPG`,
+    promptImg: `${k} fantasy RPG hero class, dark epic anime style, dramatic cinematic light, detailed character art`,
+    cacheKey: `classe_${k}`,
+    botoes: [{ texto: `${v.emoji} Nascer ${k}`, id: `RPGPICK_C_${k}` }],
+  }));
 }
 
 // ── Ficha final ─────────────────────────────────────────────
@@ -226,13 +258,13 @@ async function start({ sock, msg, ctx, args, _forcar = false }) {
   if (race) {
     _pendentes.set(ctx.senderNumber, { name, race });
     const { linhas, rows } = _listaClasses(name, race);
-    return _enviarLista(sock, msg, ctx, '⚔️ ESCOLHER CLASSE', 'CLASSES', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`);
+    return _enviarLista(sock, msg, ctx, '⚔️ ESCOLHER CLASSE', 'CLASSES', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`, _cardsClasses(name, race));
   }
 
   // nada escolhido → lista de raças
   _pendentes.set(ctx.senderNumber, { name });
   const { linhas, rows } = _listaRacas(name);
-  return _enviarLista(sock, msg, ctx, '🧬 ESCOLHER RAÇA', 'RAÇAS', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`);
+  return _enviarLista(sock, msg, ctx, '🧬 ESCOLHER RAÇA', 'RAÇAS', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`, _cardsRacas(name));
 }
 
 /** Clique RPGPICK_R_<raça> / RPGPICK_C_<classe>. true se consumiu. */
@@ -250,7 +282,7 @@ async function pick({ sock, msg, ctx, token }) {
     if (!race) return false;
     _pendentes.set(ctx.senderNumber, { ...pend, race });
     const { linhas, rows } = _listaClasses(pend.name, race);
-    await _enviarLista(sock, msg, ctx, '⚔️ ESCOLHER CLASSE', 'CLASSES', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`);
+    await _enviarLista(sock, msg, ctx, '⚔️ ESCOLHER CLASSE', 'CLASSES', linhas.join('\n'), rows, `🎭 ${config.bot.name} · RPG`, _cardsClasses(pend.name, race));
     return true;
   }
 

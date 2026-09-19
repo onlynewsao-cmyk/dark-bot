@@ -41,6 +41,30 @@ module.exports = function registerRPGWorld(registerCase) {
 
     if (!destino) {
       const p = await rpg.getPlayer(ctx.senderNumber);
+      const prefix = ctx.prefix || config.bot.prefix || '!';
+      // v9.0: escolher o destino é ver o mundo — carrossel com uma capa
+      // gerada por IA para cada bioma + plano-B numerado no corpo.
+      const corpo = [
+        '🧭 *PARA ONDE VIAJAMOS?*',
+        '',
+        ...Object.entries(rpg.BIOMES).map(([k, b], i) =>
+          `${i + 1}. ${b.emoji} *${k}* — nv.${b.nivel} ${'⚠️'.repeat(b.danger || 1)}`),
+        '',
+        `> 🖱️ Toca num cartão ou escreve \`${prefix}viajar <sítio>\``,
+        `> (ex.: \`${prefix}viajar ${Object.keys(rpg.BIOMES)[0] || 'floresta'}\`)`,
+      ].join('\n');
+      const cards = Object.entries(rpg.BIOMES).map(([k, b]) => ({
+        corpo: `${b.emoji} *${k.toUpperCase()}*\n${b.desc}\n\n⭐ nv.${b.nivel} · ${'⚠️'.repeat(b.danger || 1)} perigo\n🎁 loot: ${(b.loot || []).slice(0, 3).join(', ') || '—'}${(p.biome?.visited || []).includes(k) ? '\n✅ já visitado' : '\n🆕 1ª visita dá XP'}`,
+        rodape: `🌍 ${config.bot.name} · MUNDO`,
+        promptImg: `dark fantasy RPG landscape, ${b.desc}, atmospheric epic vista, anime dark fantasy art, no text`,
+        cacheKey: `biome_${k}`,
+        botoes: [{ texto: `🚶 Viajar para ${k}`, id: `${prefix}viajar ${k}` }],
+      }));
+      let carro = false;
+      if (sock.waUploadToServer) {
+        try { carro = await require('../rpg/carousel').enviarCarrossel(sock, msg, ctx, { corpo, rodape: `🧭 ${config.bot.name} · ${prefix}viajar`, cards }); } catch {}
+      }
+      if (carro) return;
       return tReply(sock, msg, ctx, '🧭 PARA ONDE?', [
         'Diz-me o sítio: `!viajar <sítio>`',
         '',

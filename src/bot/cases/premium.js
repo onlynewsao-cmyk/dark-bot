@@ -111,7 +111,16 @@ module.exports = function registerPremiumCases(registerCase) {
         },
       }, { userJid: sock.user?.id, quoted: msg });
 
-      await sock.relayMessage(ctx.remoteJid, msgObj.message, { messageId: msgObj.key.id });
+      // v9.0: o selo biz/native_flow que os clientes novos exigem — sem ele
+      // o carrossel VIP "não renderizava" (ficava fantasma). Mesma forma do
+      // dynSub/createFlow provada em produção.
+      await sock.relayMessage(ctx.remoteJid, msgObj.message, {
+        messageId: msgObj.key.id,
+        additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+          tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+          content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+        }] }],
+      });
       carouselOk = true;
     } catch (e) {
       console.warn('[VIP Carousel]', e.message?.slice(0, 50));
