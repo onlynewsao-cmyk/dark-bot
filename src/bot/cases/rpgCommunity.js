@@ -444,6 +444,7 @@ module.exports = function registerRPGCommunity(registerCase) {
     } else {
       seccoes.push({ title: '🎭 A TUA PERSONAGEM', rows: [
         R('rg', 'Ficha completa — atributos, magia, reputação'),
+        R('tab', 'Abas interactivas — perfil, ficha, mochila, mundo, registos'),
         R('ficha', 'A tua ficha rápida — números no essencial'),
         R('nome', 'Mudar de nome — rebatiza o herói'),
         R('vidas', 'As tuas vidas — e como recuperá-las'),

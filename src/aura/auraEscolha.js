@@ -73,7 +73,13 @@ async function enviar(sock, ctx, { titulo, linhas = [], opcoes, botao, footer, e
         },
       }),
     }, { userJid: ctx.remoteJid });
-    await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+    // v9.5: selo biz/native_flow — as decisões AURASEL também rendem ghost
+    await sock.relayMessage(ctx.remoteJid, m.message, {
+      messageId: m.key.id,
+      additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+        tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+        content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+      }] }] });
   } catch (e) {
     // fallback: texto numerado serve na mesma (resolver aceita números)
     await sock.sendMessage(ctx.remoteJid, { text: corpo }).catch(() => {});

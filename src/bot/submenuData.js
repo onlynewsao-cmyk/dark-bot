@@ -372,6 +372,8 @@ function categorize(cmd) {
     super:'owner', blast:'owner', superpost:'owner', // v7.76 SUPER
     setmenu:'owner', definirmenu:'owner', menumedia:'owner', // v7.60
     auraset:'owner', aurapainel:'owner', setaura:'owner', // v7.74
+    aurahub:'owner', auractrl:'owner', controlaura:'owner', // v9.5 hub da Aura
+    tab:'economia', abas:'economia', meurpg:'economia', // v9.5 aba interativa
     backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
     slowmode:'admin', modolento:'admin', setwarnlimit:'admin', warnlimit:'admin', // v7.75
     likesff:'info', fflike:'info', likefree:'info', likeff:'info', // v7.62

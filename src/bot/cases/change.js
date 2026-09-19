@@ -68,7 +68,14 @@ module.exports = function registerChangeCases(registerCase) {
               }),
             }),
           }, { userJid: sock.user?.id, quoted: msg });
-          await sock.relayMessage(ctx.remoteJid, m.message, { messageId: m.key.id });
+          // v9.5: selo biz/native_flow — sem ele a lista de temas era
+          // "fantasma" nos clientes novos (o !change é o progenitor UI!)
+          await sock.relayMessage(ctx.remoteJid, m.message, {
+            messageId: m.key.id,
+            additionalNodes: [{ tag: 'biz', attrs: {}, content: [{
+        tag: 'interactive', attrs: { type: 'native_flow', v: '1' },
+        content: [{ tag: 'native_flow', attrs: { v: '9', name: 'mixed' } }],
+      }] }] });
         } catch {
           // Fallback texto se interactiveMessage falhar
           let txt = `${t.icon} *TEMAS DISPONÍVEIS — ${botName}*\n\n`;
