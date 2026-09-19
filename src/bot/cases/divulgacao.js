@@ -27,6 +27,10 @@ const _STOP = new Set();           // owner → true quando pede dstop
 const _SESS = new Map();           // owner → {fase, texto, media}
 const _ULTIMOS = new Map();        // owner → { vis, montar }  — p/ divulgarrepetir
 const _AGENDADOS = new Map();      // owner → timer (divulgaragenda)
+const _FLUXO = new Map();          // `${jid}|${num}` → assistente 4 passos
+const TTL_FLUXO = 15 * 60 * 1000;
+
+const _kFluxo = (ctx) => `${ctx.remoteJid}|${_num(ctx.senderNumber)}`;
 
 function _num(n) { return String(n || '').replace(/\D/g, ''); }
 async function _get(bcc, k) { return bcc.get(`divulg_${k}`, null); }
@@ -76,10 +80,54 @@ async function _lista(sock, msg, ctx, { titulo, corpo, seccoes, rodape }) {
 
 const sleep = (ms) => new Promise(r => setTimeout(r, Math.max(1, ms)));
 
+/**
+ * Corpo por modo:
+ *  · visível  → banner ☣️ + texto + hidetag (ADM vê — é propósito);
+ *  · invisível → texto CRU com ruído único (bypass, zero beacon);
+ *  · sem      → texto directo.
+ */
+function _corpoDesp(texto, vis, tag) {
+  const t = String(texto || '').slice(0, 4000);
+  if (vis === 'visivel') return `☣️ *DIVULGAÇÃO* ☣️\n\n${t}${tag || ''}`;
+  if (vis === 'invisivel') return _ruido(t);
+  return t;
+}
+
 /** Metadados do grupo (para menções). Silencioso em erro. */
 async function _meta(sock, jid) {
   try { return await sock.groupMetadata(jid); } catch { return null; }
 }
+
+/** Separa [admins, membros] de uma lista de participantes. */
+function _separaAdm(participants) {
+  const admins = [], membros = [];
+  for (const p of participants || []) (p.admin ? admins : membros).push(p.id);
+  return { admins, membros };
+}
+
+/**
+ * BYPASS anti-detecção (modo invisível):
+ * 1) cada mensagem sai TEXTUALMENTE ÚNICA — insere ruído invisível
+ *    (zero-width) noutra posição por grupo → detective de cópia
+ *    (hash de texto idêntico em N grupos) morre de fome;
+ * 2) nada de banners — sai o CRU do utilizador (o "☣️ DIVULGAÇÃO"
+ *    é ele próprio um beacon para anti-divulgação).
+ */
+function _ruido(texto) {
+  const zero = ['\u200b', '\u200c', '\u2060', '\u180e'];
+  const alvo = String(texto || '');
+  if (alvo.length < 3) return alvo + zero[0];
+  const n = 1 + Math.floor(Math.random() * 2);          // 1–2 pontos de ruído
+  let out = alvo;
+  for (let i = 0; i < n; i++) {
+    const pos = 1 + Math.floor(Math.random() * (out.length - 1));
+    out = out.slice(0, pos) + zero[Math.floor(Math.random() * zero.length)] + out.slice(pos);
+  }
+  return out;
+}
+
+/** jitter: o relógio metronómico é o 2º sinal de bot — desliza ±25% */
+const _sleepJitter = (ms) => sleep(Math.max(1, Math.round(ms * (0.75 + Math.random() * 0.5))));
 
 async function _historico(sock, bcc, own, entrada) {
   const hist = (await _get(bcc, `hist_${own}`) || []).concat(entrada).slice(-20);
@@ -94,7 +142,7 @@ async function _historico(sock, bcc, own, entrada) {
  * vis: 'visivel' (tags à vista) · 'invisivel' (menção silenciosa) · 'sem'
  * montar: (grupo) => {content, precisaMencoes}
  */
-async function _disparar(sock, msg, ctx, { vis, montar }) {
+async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
   const bcc = require('../botConfigCache');
   const own = _num(ctx.senderNumber);
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
@@ -104,33 +152,44 @@ async function _disparar(sock, msg, ctx, { vis, montar }) {
   _STOP.delete(own);
   let feitos = 0, erros = 0;
   const falhas = [];
-  for (let i = 0; i < grupos.length; i++) {
+  for (let vez = 0; vez < Math.max(1, vezes); vez++) {
+    if (_STOP.has(own)) break;
+    for (let i = 0; i < grupos.length; i++) {
     if (_STOP.has(own)) break;
     const g = grupos[i];
     try {
       let mencoes = [], textoTag = '';
       if (vis !== 'sem') {
         const meta = await _meta(sock, g.jid);
-        const parts = (meta?.participants || []).map(p => p.id);
-        mencoes = parts;
-        if (vis === 'visivel' && parts.length) {
-          textoTag = '\n\n' + parts.slice(0, 200).map(pid => `@${pid.split('@')[0]}`).join(' ');
+        const { admins, membros } = _separaAdm(meta?.participants || []);
+        if (vis === 'visivel') {
+          // VISÍVEL: ADM vê tudo — hidetag com TODAS as tags à vista.
+          mencoes = [...admins, ...membros];
+          if (mencoes.length) {
+            textoTag = '\n\n' + mencoes.slice(0, 200).map(pid => `@${pid.split('@')[0]}`).join(' ');
+          }
+        } else if (vis === 'invisivel') {
+          // INVISÍVEL: menciona TODOS MENOS OS ADM — eles nem notificação
+          // recebem, hidetag limpa (zero @ no texto), nada lhes salta à vista.
+          mencoes = membros;
+          // textoTag fica vazio de propósito.
         }
-        // invisível: mesmas menções, ZERO @ no texto — silêncio total.
       }
-      const { content } = await montar(g, textoTag, mencoes);
+      const { content } = await montar(g, textoTag, mencoes, vez);
       await sock.sendMessage(g.jid, content);
       feitos++;
     } catch (e) { erros++; falhas.push(`${g.nome || g.jid}: ${String(e.message).slice(0, 40)}`); }
-    if (i + 1 < grupos.length) await sleep(delay);
+    if (i + 1 < grupos.length || vez + 1 < vezes) await _sleepJitter(delay);
+    }
   }
   const parado = _STOP.has(own);
   _STOP.delete(own);
   await _historico(sock, bcc, own, {
-    quando: new Date().toISOString(), vis, delay,
-    total: grupos.length, feitos, erros, parado,
+    quando: new Date().toISOString(), vis, delay, vezes,
+    bypass: vis === 'invisivel',
+    total: grupos.length * Math.max(1, vezes), grupos: grupos.length, feitos, erros, parado,
   });
-  return { ok: true, total: grupos.length, feitos, erros, parado, falhas, delay };
+  return { ok: true, total: grupos.length * Math.max(1, vezes), feitos, erros, parado, falhas, delay, vezes };
 }
 
 function _resumo(r, p) {
@@ -143,7 +202,7 @@ function _resumo(r, p) {
     ]);
   }
   return _dtox('R E L A T Ó R I O  D A  O N D A', [
-    `📦 Alvos: *${r.total}*`,
+    `📦 Alvos: *${r.total}*${(r.vezes || 1) > 1 ? ` (🔁 vez${r.vezes}x)` : ''}`,
     `✅ Enviado: *${r.feitos}*`,
     `❌ Falhou: *${r.erros}*${r.falhas?.length ? ` (${r.falhas[0]})` : ''}`,
     `⏱️ Delay: *${r.delay}ms*${r.parado ? ' · 🛑 PARADO por ti' : ''}`,
@@ -261,7 +320,7 @@ async function _painelCliente(sock, msg, ctx) {
 }
 
 // ── ONDA DE BROADCAST (o core partilhado) ────────────────────
-async function _onda(sock, msg, ctx, montar, vis, rotulo) {
+async function _onda(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
   const own = _num(ctx.senderNumber);
   const bcc = require('../botConfigCache');
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
@@ -269,11 +328,11 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo) {
   await sock.sendMessage(ctx.remoteJid, {
     text: _dtox('A D I V U L G A R', [
       `🚀 Onda *${rotulo}* a correr…`,
-      `📦 ${grupos.length} grupos · ⏱️ ${delay}ms · 👁️ ${vis === 'visivel' ? 'TAG VISÍVEL' : vis === 'invisivel' ? 'MENÇÃO ESCONDIDA' : 'SEM MENÇÕES'}`,
+      `📦 ${grupos.length} grupos · 🔁 ${vezes}x · ⏱️ ${delay}ms · 👁️ ${vis === 'visivel' ? 'VISÍVEL (ADM vê)' : vis === 'invisivel' ? 'INVISÍVEL (ADM não vê nada)' : 'SEM MENÇÕES'}`,
       '🛑 cancelar a qualquer momento: `!divulgarstop`',
     ]),
   }, { quoted: msg }).catch(() => {});
-  const r = await _disparar(sock, msg, ctx, { vis, montar });
+  const r = await _disparar(sock, msg, ctx, { vis, montar, vezes });
   const p = ctx.prefix || config.bot.prefix || '!';
   _ULTIMOS.set(own, { vis, montar });
   // v9.9: o RELATÓRIO traz botões FIXOS (quick_reply) — a onda morre
@@ -399,57 +458,37 @@ module.exports = function registerDivulgacao(registerCase) {
       return reply(_dtox('L I M P O', ['🗑️ Apagados TODOS os grupos da tua onda.']));
     }
 
-    // ── 4 PASSOS: sem texto → painel/camino; com texto → escolha da visibilidade ──
+    // ── 4 PASSOS ESCRITOS (o assistente âncora — o teu modelo) ──
     const texto = _textoDe(msg, args);
-    if (!texto) {
-      return reply(_dtox('D I V U L G A R   —   4   P A S S O S', [
-        `1️⃣ GRUPOS — \`${p}divulgar add\` / \`${p}divulgar addall\``,
-        `2️⃣ VELOCIDADE — \`${p}delay\` (presets + custom 1..5000ms)`,
-        `3️⃣ VISIBILIDADE — no passo seguinte escolhes:`,
-        '   👁️ *visível* = @marcações à vista',
-        '   🕶️ *invisível* = menção silenciosa (ADM não vê tags)',
-        '   🔕 *sem* = só a mensagem',
-        `4️⃣ DISPARAR — \`${p}divulgar <texto>\` ou responde a uma mídia:`,
-        `   \`${p}divulgarfoto / video / doc / audio / contato / loc\``,
-        '',
-        `⚡ Atalhos: \`${p}divulgarrapido visivel <texto>\``,
-        `🔬 Teste: \`${p}divulgarteste visivel <texto>\``,
-      ]));
-    }
-
-    if (!grupos.length) {
+    if (!grupos.length && texto) {
       return reply(_dtox('D I V U L G A R', [
         '⚠️ *Sem grupos registados.*',
         'PASSO 1: adiciona primeiro:',
         `   \`${p}divulgar add\` (neste grupo) · \`${p}divulgar addall\` (todos automático)`,
       ]));
     }
-    const ui = require('../rpg/ui');
-    _SESS.set(own, { texto, media: null });
-    return ui.escolher(sock, msg, ctx, {
-      titulo: '☣️ PASSO 3 — VISIBILIDADE',
-      subtitulo: 'ONDAS',
-      linhas: [
-        `📝 ${_textoDe(msg, args).slice(0, 120)}${texto.length > 120 ? '…' : ''}`,
-        `📦 Grupos da onda: *${grupos.length}*`,
-      ],
-      opcoes: [
-        { label: '👁️ Visível', desc: '@tags à vista — todos vêem quem foi marcado' },
-        { label: '🕶️ Invisível', desc: 'menção escondida — notifica tudo, ADM não vê tags' },
-        { label: '🔕 Sem menções', desc: 'só a mensagem, de grupo para grupo' },
-        { label: '🛑 Cancelar', desc: 'abortar a onda' },
-      ],
-      onEscolha: async (idx, s2) => {
-        const c2 = s2.ctx || ctx, sock2 = s2.sock || sock, msg2 = s2.msg || msg;
-        const sess = _SESS.get(_num(c2.senderNumber)) || { texto };
-        _SESS.delete(_num(c2.senderNumber));
-        if (idx === 3) return sock2.sendMessage(c2.remoteJid, { text: _dtox('C A N C E L A D O', ['🛑 Onda abortada antes do disparo.']) }, { quoted: msg2 }).catch(() => {});
-        const vis = ['visivel', 'invisivel', 'sem'][idx] || 'sem';
-        await _onda(sock2, msg2, c2, async (_g, tag, mencoes) => ({
-          content: { text: `☣️ *DIVULGAÇÃO* ☣️\n\n${sess.texto}${tag}`, mentions: vis === 'sem' ? [] : mencoes },
-        }), vis, 'texto');
-      },
-    });
+    if (!texto) {
+      // já tem fluxo? retoma o passo actual em vez de recomeçar
+      const key = _kFluxo(ctx);
+      _FLUXO.set(key, { passo: 'texto', expira: Date.now() + TTL_FLUXO, own });
+      return reply(
+        '✨━━━━━━━━━━━━━━━━━━━━✨\n' +
+        '✨ *Passo 1/4 — O TEXTO DA DIVULGAÇÃO*\n' +
+        '📝 Envia o texto que queres divulgar agora.\n' +
+        '(para foto/vídeo/doc/áudio: responde à mídia com `!divulgarfoto…`)\n\n' +
+        `❌ \`${p}cancelar\` ou escreve *cancelar* para sair\n` +
+        '✨━━━━━━━━━━━━━━━━━━━━✨');
+    }
+    _FLUXO.set(_kFluxo(ctx), { passo: 'vezes', texto, expira: Date.now() + TTL_FLUXO, own });
+    return reply(
+      '✅ *TEXTO SALVO COM SUCESSO!*\n\n' +
+      `📝 *Prévia:*\n> ${texto.slice(0, 140)}${texto.length > 140 ? '…' : ''}\n\n` +
+      '✨ *Passo 2/4 — Quantas VEZES enviar?*\n' +
+      '🔁 Escreve um número de *1 a 10*\n' +
+      '`1` = envia 1x, `5` = envia 5x **em cada grupo**\n\n' +
+      '❌ `.cancelar` para cancelar');
+
+  // fim do case divulgar (o assistente continua por ESCRITO, via consumir)
   });
 
   // ── ATALHO RÁPIDO ──
@@ -459,7 +498,7 @@ module.exports = function registerDivulgacao(registerCase) {
     const texto = _textoDe(msg, args.slice(1));
     if (!texto) return reply(`☣️ \`${ctx.prefix || config.bot.prefix}divulgarrapido visivel|invisivel <texto>\` — a mensagem vai de imediato.`);
     await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-      content: { text: `☣️ *DIVULGAÇÃO* ☣️\n\n${texto}${tag}`, mentions: vis === 'sem' ? [] : mencoes },
+      content: { text: _corpoDesp(texto, vis, tag), mentions: vis === 'sem' ? [] : mencoes },
     }), vis, 'rápido');
   });
 
@@ -535,7 +574,7 @@ module.exports = function registerDivulgacao(registerCase) {
     _AGENDADOS.set(own, setTimeout(async () => {
       _AGENDADOS.delete(own);
       await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-        content: { text: `☣️ *DIVULGAÇÃO AGENDADA* ☣️\n\n${ondaTexto}${tag}`, mentions: vis === 'sem' ? [] : mencoes },
+        content: { text: _corpoDesp(ondaTexto, vis, tag), mentions: vis === 'sem' ? [] : mencoes },
       }), vis, 'agendada');
     }, min * 60000));
     return reply(_dtox('A G E N D A D A', [
@@ -617,7 +656,13 @@ module.exports = function registerDivulgacao(registerCase) {
       const midia = await _mediaDe(msg, tipo, caption.replace(/^visível$|^visivel$|^invisível$|^invisivel$/i, '').trim());
       if (!midia) return reply(`☣️ Responde a ${tipo === 'foto' ? 'uma foto' : tipo === 'video' ? 'um vídeo' : tipo === 'doc' ? 'um documento' : 'um áudio'} com \`${p}${cmd} [visivel|invisivel] [legenda]\`.`);
       await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
-        content: { ...midia, caption: `${midia.caption ? midia.caption + '\n\n' : ''}☣️ ${tag ? tag : ''}`.trim(), mentions: vis === 'sem' ? [] : mencoes },
+        content: {
+          ...midia,
+          caption: vis === 'visivel'
+            ? `${midia.caption ? midia.caption + '\n\n' : ''}☣️ ${tag ? tag : ''}`.trim()
+            : _ruido(midia.caption || '☣'),
+          mentions: vis === 'sem' ? [] : mencoes,
+        },
       }), vis, tipo);
     });
   }
@@ -706,3 +751,105 @@ module.exports = function registerDivulgacao(registerCase) {
     ]));
   });
 };
+
+// ════════════════════════════════════════════════════════════
+// ASSISTENTE ESCRITO — consumir() é chamado pelo commandHandler
+// em TODA mensagem; só actua quando há sessão viva (chat+dono).
+// Passos: texto → vezes(1-10) → cartão de grupos → visivel/invisivel
+// Em qualquer altura: `.cancelar` / `cancelar` aborta.
+// ════════════════════════════════════════════════════════════
+async function consumir(sock, msg, ctx, text) {
+  const key = _kFluxo(ctx);
+  const sess = _FLUXO.get(key);
+  if (!sess) return false;
+  if (Date.now() > sess.expira) { _FLUXO.delete(key); return false; }
+
+  // é subcomando real com prefixo (ex.: !divulgarhistorico)? Não toca —
+  // excepto o cancelar universal (esse trava tudo, com ou sem prefixo).
+  const raw = String(text || '').trim();
+  const t = raw.toLowerCase().replace(/^[.!·/#]+/, '');
+  if (/^cancel(ar|e)$/.test(t)) {
+    _FLUXO.delete(key);
+    await sock.sendMessage(ctx.remoteJid, {
+      text: _dtox('A S S I S T E N T E  A B O R T A D O', ['🛑 Saíste do assistente de divulgação. Nada foi enviado.']),
+    }, { quoted: msg }).catch(() => {});
+    return true;
+  }
+  if (/^[.!·/#]/.test(raw)) return false;   // comandos reais passam sempre
+  if (!raw && sess.passo !== 'texto') return false;
+  sess.expira = Date.now() + TTL_FLUXO;
+
+  // ── PASSO 1/4: o texto chega livre ──
+  if (sess.passo === 'texto') {
+    // mídia com legenda conta como texto (a onda não sai ainda)
+    if (!raw) return true;
+    sess.texto = raw.slice(0, 4000); sess.passo = 'vezes';
+    await sock.sendMessage(ctx.remoteJid, {
+      text:
+        '✅ *TEXTO SALVO COM SUCESSO!*\n\n' +
+        `📝 *Prévia:*\n> ${sess.texto.slice(0, 140)}${sess.texto.length > 140 ? '…' : ''}\n\n` +
+        '✨ *Passo 2/4 — Quantas VEZES enviar?*\n' +
+        '🔁 Escreve um número de *1 a 10*\n' +
+        '`1` = envia 1x, `5` = envia 5x **em cada grupo**\n\n' +
+        '❌ `.cancelar` para cancelar',
+    }, { quoted: msg }).catch(() => {});
+    return true;
+  }
+
+  // ── PASSO 2/4: vezes 1-10 ──
+  if (sess.passo === 'vezes') {
+    const n = /^0?(\d{1,2})$/.test(t) ? Math.min(10, Math.max(1, parseInt(t, 10))) : 0;
+    if (!n) {
+      await sock.sendMessage(ctx.remoteJid, {
+        text: '🔁 Só aceito um número de *1 a 10* — escreve o número (ou `.cancelar`).',
+      }, { quoted: msg }).catch(() => {});
+      return true;
+    }
+    sess.vezes = n; sess.passo = 'vis';
+    const bcc = require('../botConfigCache');
+    const grupos = (await _get(bcc, `grupos_${sess.own}`)) || [];
+    const nomes = grupos.slice(0, 15).map(g => `• ${g.nome}`);
+    if (grupos.length > 15) nomes.push(`• ... e mais ${grupos.length - 15} grupos`);
+    await sock.sendMessage(ctx.remoteJid, {
+      text:
+        '✨━━━━━━━━━━━━━━━━━━━━✨\n' +
+        `✅  *GRUPOS SELECIONADOS: ${grupos.length}*\n` +
+        '✨━━━━━━━━━━━━━━━━━━━━✨\n\n' +
+        `📝 Texto: ${sess.texto.slice(0, 60)}${sess.texto.length > 60 ? '…' : ''}\n` +
+        `🔁 Vezes: *${n}x*\n` +
+        `📦 Grupos: *${grupos.length}* (seus, isolado)\n\n` +
+        nomes.join('\n') + '\n\n' +
+        '✨  *Passo 4/4 — VISÍVEL OU INVISÍVEL?*\n\n' +
+        '👁️  Escreve *visivel* = marca TODOS no grupo (hidetag à vista — o ADM vê)\n' +
+        '👁️‍🗨️  Escreve *invisivel* = marca TODOS MENOS ADM — eles não recebem nada,\n' +
+        '      hidetag limpa + texto único por grupo (bypass activo)\n\n' +
+        '💡 *Diferença:*\n' +
+        '• Visível: todos mencionados, ADM recebe notificação\n' +
+        '• Invisível: só membros mencionados, ADM nem desconfia\n\n' +
+        '❌ `.cancelar` para cancelar\n' +
+        '✨━━━━━━━━━━━━━━━━━━━━✨',
+    }, { quoted: msg }).catch(() => {});
+    return true;
+  }
+
+  // ── PASSO 3/4 (o 4º da referência): visiblidade ──
+  if (sess.passo === 'vis') {
+    const vis = /^invis|^i$/.test(t) ? 'invisivel' : /^vis|^v$/.test(t) ? 'visivel' : '';
+    if (!vis) {
+      await sock.sendMessage(ctx.remoteJid, {
+        text: '👁️ Escreve *visivel* ou *invisivel* — ou `.cancelar` para abortar.',
+      }, { quoted: msg }).catch(() => {});
+      return true;
+    }
+    _FLUXO.delete(key);
+    const texto = sess.texto, vezes = sess.vezes || 1;
+    await _onda(sock, msg, ctx, async (_g, tag, mencoes) => ({
+      content: { text: _corpoDesp(texto, vis, tag), mentions: mencoes },
+    }), vis, 'assistente', vezes);
+    return true;
+  }
+
+  return false;
+}
+
+module.exports.consumir = consumir;

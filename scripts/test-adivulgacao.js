@@ -29,7 +29,7 @@ const GRUPO1 = { id: 'G1@g.us', subject: '💎 RÁDIO DARK', participants: [
   { id: '2441@s.whatsapp.net' }, { id: '2442@s.whatsapp.net' }, { id: '2449@s.whatsapp.net' },
 ] };
 const GRUPO2 = { id: 'G2@g.us', subject: '🔥 VENDAS', participants: [
-  { id: '2443@s.whatsapp.net' }, { id: '2444@s.whatsapp.net' },
+  { id: '2443@s.whatsapp.net' }, { id: '2444@s.whatsapp.net' }, { id: '2450@s.whatsapp.net', admin: 'admin' },
 ] };
 
 Module.prototype.require = function (id) {
@@ -153,16 +153,23 @@ const keys = (k) => _db.get(`divulg_${k}`);
   await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'r1' } }, ctx: DONO, args: ['visivel', 'saiu', 'o', 'drop'], isOwner: true, reply });
   const alvoVis = sent.find(m => m.jid === 'G2@g.us' && typeof m.text === 'string');
   assert.ok(alvoVis, 'mandou para o G2');
-  assert.ok(/@2443/.test(alvoVis.text) && /@2444/.test(alvoVis.text), 'VIsível: @tags à vista');
-  assert.ok(alvoVis.mentions.includes('2443@s.whatsapp.net') && alvoVis.mentions.length === 2, 'menções completas');
+  assert.ok(/@2443/.test(alvoVis.text) && /@2444/.test(alvoVis.text) && /@2450/.test(alvoVis.text), 'VISIVEL: tags à vista p/ todos — ADM incluso');
+  assert.ok(alvoVis.mentions.includes('2450@s.whatsapp.net') && alvoVis.mentions.length === 3, 'visível: menciona TODOS (com ADM)');
   assert.ok(sent.filter(m=>/☣️ \*DIVULGAÇÃO\*/.test(m.text||'')).length === 2, 'onda cobriu os 2 grupos');
   // invisível: ZERO @ no texto, menções completas na mesma (silenciosas)
   sent.length = 0;
   await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'r2' } }, ctx: DONO, args: ['invisivel', 'saiu', 'o', 'drop'], isOwner: true, reply });
   const alvoInv = sent.find(m => m.jid === 'G2@g.us' && typeof m.text === 'string');
   assert.ok(alvoInv, 'mandou para o G2 (invisível)');
-  assert.ok(!/@2443/.test(alvoInv.text), 'INVISÍVEL: nenhum @ no texto — ADM não vê tags');
-  assert.ok(alvoInv.mentions.length === 2, 'mas todos são notificados na mesma');
+  assert.ok(!/@2443/.test(alvoInv.text) && !/@2450/.test(alvoInv.text), 'INVISÍVEL: hidetag limpa — nada à vista p/ ADM');
+  assert.ok(!alvoInv.mentions.includes('2450@s.whatsapp.net'), 'ADM EXCLUÍDO das menções — nem notificação lhe chega');
+  assert.ok(alvoInv.mentions.includes('2443@s.whatsapp.net') && alvoInv.mentions.length === 2, 'todo o POVO mencionado (silencioso)');
+  assert.ok(!/\*DIVULGAÇÃO\*/.test(alvoInv.text), 'bypass: zero banner — sai cru');
+  const invG1 = sent.find(m => m.jid === 'G1@g.us' && typeof m.text === 'string');
+  assert.ok(invG1, 'mandou também p/ o G1');
+  assert.ok(invG1.text !== alvoInv.text && invG1.text.replace(/[\u200b\u200c\u2060\u180e]/g,'') === alvoInv.text.replace(/[\u200b\u200c\u2060\u180e]/g,''),
+    'bypass: texto ÚNICO p/ grupo (ruído invisível diferente) — detective de duplicados morre');
+
   // histórico actualizado
   const hist = keys('hist_2449') || [];
   assert.ok(hist.length >= 2 && hist[hist.length - 1].feitos === 2, 'histórico regista feitos (2 grupos)');
@@ -176,23 +183,50 @@ const keys = (k) => _db.get(`divulg_${k}`);
   _donorFail = {};
   console.log('✔ MOTOR: visível vs invisível (silêncio no ADM) + histórico + falhas');
 
-  // ── 5. !divulgar 4 passos com escolher + stop ───────────────
-  sent.length = 0; _opcao = null;
+  // ── 5. !divulgar — ASSISTENTE ESCRITO dos 4 passos ──────────
+  const mod = require('../src/bot/cases/divulgacao');
+  sent.length = 0;
+  // passo 1: !divulgar <texto> (sem args seria o Passo 1/4 a pedir o texto)
   await div.divulgar({ sock: sockF, msg: { key: { id: 'm1' } }, ctx: DONO, args: 'miga drop chegou 🕸️'.split(' '), prefix: '!', isOwner: true, reply });
-  assert.ok(_opcao && _opcao.opcoes.length === 4, 'passo 3: 4 opções (visivel/invisivel/sem/cancelar)');
-  await _opcao.onEscolha(1, { sock: sockF, msg: { key: { id: 'm1b' } }, ctx: DONO }); // invisível
-  assert.ok(sent.some(m => m.jid === 'G2@g.us' && /drop chegou/.test(m.text || '')), 'onda correu depois do toque');
-  // cancelar
-  sent.length = 0; _opcao = null;
-  await div.divulgar({ sock: sockF, msg: { key: { id: 'm2' } }, ctx: DONO, args: ['aborta'], prefix: '!', isOwner: true, reply });
-  await _opcao.onEscolha(3, { sock: sockF, msg: { key: { id: 'm2b' } }, ctx: DONO });
-  assert.ok(/C A N C E L A D O/.test(sent[0].text), 'cancelar aborta antes do disparo');
+  assert.ok(/TEXTO SALVO COM SUCESSO/.test(sent[0].text) && /Passo 2\/4/.test(sent[0].text) && /1 a 10/.test(sent[0].text), 'passo 2/4 pede vezes');
+  // mensagem lixo no vezes → guia, sessão viva
+  sent.length = 0;
+  assert.ok(await mod.consumir(sockF, { key: { id: 'w1' } }, DONO, 'vinte'), 'consome resposta vaga');
+  assert.ok(/Só aceito um número/.test(sent[0].text), 'guia o formato das vezes');
+  // vezes = 3 → cartão de grupos + Passo 4/4
+  sent.length = 0;
+  assert.ok(await mod.consumir(sockF, { key: { id: 'w2' } }, DONO, '3'), 'consome o 3');
+  const cartaoG = sent.find(m => /GRUPOS SELECIONADOS: 2/.test(m.text || ''));
+  assert.ok(cartaoG, 'cartão GRUPOS SELECIONADOS: 2');
+  assert.ok(/Vezes: \*3x\*/.test(cartaoG.text) && /Passo 4\/4/.test(cartaoG.text), 'vezes gravadas + passo 4/4');
+  assert.ok(/• 💎 RÁDIO DARK/.test(cartaoG.text) && /• 🔥 VENDAS/.test(cartaoG.text), 'grupos listados em bullets');
+  assert.ok(/marca TODOS no grupo/.test(cartaoG.text) && /marca TODOS MENOS ADM/.test(cartaoG.text), 'semântica visível/invisível no passo 4');
+  // outro contacto NÃO consome (sessão isolada por chat+dono)
+  assert.strictEqual(await mod.consumir(sockF, { key: { id: 'w2b' } }, { ...DONO, remoteJid: 'OUTRO@g.us' }, 'visivel'), false, 'outro chat não consome');
+  // visivel → onda 2 grupos ×3 vezes = 6 mensagens de texto
+  sent.length = 0;
+  assert.ok(await mod.consumir(sockF, { key: { id: 'w3' } }, DONO, 'visivel'), 'consome visivel');
+  const despachos = sent.filter(m => /\*DIVULGAÇÃO\*/.test(m.text || ''));
+  assert.strictEqual(despachos.length, 6, '2 grupos × 3 vezes = 6 envios');
+  assert.ok(new Set(despachos.map(m => m.jid)).size === 2, 'cobriu os 2 grupos');
+  const ultimaHist = (keys('hist_2449') || []).slice(-1)[0];
+  assert.strictEqual(ultimaHist.vezes, 3, 'histórico guarda vezes=3');
+  assert.strictEqual(ultimaHist.total, 6, 'histórico total = grupos × vezes');
+  // sessão morreu (novo visivel já não consome)
+  assert.strictEqual(await mod.consumir(sockF, { key: { id: 'w4' } }, DONO, 'visivel'), false, 'sessão encerrada depois do disparo');
+  // cancelar por escrito a meio do caminho
+  await div.divulgar({ sock: sockF, msg: { key: { id: 'm3' } }, ctx: DONO, args: ['aborta'], prefix: '!', isOwner: true, reply });
+  sent.length = 0;
+  assert.ok(await mod.consumir(sockF, { key: { id: 'w5' } }, DONO, '.cancelar'), 'consome .cancelar');
+  assert.ok(/A S S I S T E N T E\s\sA B O R T A D O/.test(sent[0].text), 'aborta darktoxic');
   assert.ok(!sent.some(m => m.jid === 'G2@g.us'), 'nada saiu');
+  // sem agente: mensagem solta NÃO é engolida
+  assert.strictEqual(await mod.consumir(sockF, { key: { id: 'w6' } }, DONO, 'visivel'), false, 'sem sessão → não come texto');
   // stop sinaliza
   sent.length = 0;
   await div.divulgarstop({ sock: sockF, msg: { key: { id: 'm3' } }, ctx: DONO, isOwner: true, reply });
   assert.ok(/A P A R A R/.test(sent[0].text), 'stop confirma');
-  console.log('✔ !divulgar: 4 passos com escolher + cancelar + stop');
+  console.log('✔ !divulgar: assistente ESCRITO 4 passos (texto→vezes→grupos→vis) + cancelar + isolamento');
 
   // ── 6. SEU BOT + plano ─────────────────────────────────────
   sent.length = 0;
@@ -219,7 +253,7 @@ const keys = (k) => _db.get(`divulg_${k}`);
   // repetir a mesma onda
   sent.length = 0;
   await div.divulgarrepetir({ sock: sockF, msg: { key: { id: 'x2' } }, ctx: DONO, isOwner: true, reply });
-  assert.ok(sent.filter(m => /☣️ \*DIVULGAÇÃO\*/.test(m.text || '')).length === 2, 'repetir volta a regar os 2 grupos');
+  assert.ok(sent.filter(m => m.jid && ['G1@g.us','G2@g.us'].includes(m.jid) && Array.isArray(m.mentions) && m.mentions.length >= 1).length === 2, 'repetir volta a regar os 2 grupos (invisível agora sai cru)');
   // stats
   sent.length = 0;
   await div.divulgarstats({ sock: sockF, msg: { key: { id: 'x3' } }, ctx: DONO, isOwner: true, reply });

@@ -405,6 +405,14 @@ async function _handleInner(sock, msg) {
     }
   } catch {}
 
+  // ── v9.11: DIVULGAÇÃO — assistente ESCRITO dos 4 passos ─────────
+  // O dono responde com texto simples (número de vezes, "c", visivel,
+  // invisivel) ou `.cancelar`. Só consome com sessão viva (chat+dono).
+  try {
+    const dv = require('./cases/divulgacao');
+    if (dv.consumir && await dv.consumir(sock, msg, ctx, text)) return true;
+  } catch (e) { console.warn('[divulgacao-flow]', e.message?.slice(0, 60)); }
+
   const prefixes = await prefixEngine.getAllActivePrefixes(ctx.remoteJid);
 
   // ── v6.89: RPG — cliques das listas de criação de personagem ───────
