@@ -950,10 +950,15 @@ module.exports = {
     const userRole    = roleInfo.role;
     
     // Função para verificar se pode ver o submenu
+    // v7.97: a fila *RPG & AVENTURA* do menu só existe onde o mundo
+    // está ligado (grupo sem !modorpg e fora da comunidade → oculta).
+    let _rpgAberto = true;
+    try { _rpgAberto = await require('./rpg/gate').modoAberto({ ...ctx, _msg: msg }); } catch {}
     function canSee(category) {
       const publicMenus = ['downloads', 'stickers', 'ia', 'jogos', 'economia', 'interacoes', 'zoeira', 'texto', 'search', 'audio', 'info', 'rpg', 'logos'];
       const vipMenus = ['menu18', 'cmdsocultos'];
       const ownerMenus = ['menudono'];
+      if (category === 'rpg' && !_rpgAberto) return false;   // v7.97
       
       if (publicMenus.includes(category)) return true;
       if (vipMenus.includes(category) && isVip) return true;

@@ -221,6 +221,14 @@ const RE_RECUSA = /só o dono|só em grupos|👥 grupo/i;
     Object.assign(g, upd.$setOnInsert || {}, upd.$set || {});
     return g;
   };
+  GS.findOne = () => ({
+    lean: async () => null,
+  });
+  // v7.97: o gate RPG lê os settings via hotCache — espelhar a memória de teste
+  try {
+    const hotC = require(path.join(REPO, 'src/bot/hotCache'));
+    hotC.getGroupSettings = async (_msg, jid) => lojas.get(jid) || null;
+  } catch {}
 
   // stubs da comunidade p/ os caminhos felizes (o fio real tem testes próprios)
   community.loadState = async () => {};

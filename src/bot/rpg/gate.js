@@ -84,4 +84,24 @@ async function verificar(cmd, ctx = {}) {
   return tem ? null : MSG_CHAR;
 }
 
-module.exports = { verificar, RPG_CMDS, LIVRE_TUDO, LIVRE_CHAR, MSG_MODO, MSG_CHAR };
+/**
+ * v7.97 — O mundo está ABERTO aqui?
+ * (PV = sempre aberto; comunidade DARK VILLE = sempre aberto;
+ * grupo normal = só com modorpg on. Falha ABERTA se o I/O cair.)
+ * Usado pelos menus/submenus RPG: fechado → nem sequer abrem.
+ */
+async function modoAberto(ctx = {}) {
+  if (!ctx.isGroup) return true;
+  try {
+    const com = require('./community');
+    const st = await rapido(com.loadState());
+    if (st !== TIMEOUT && com.isCommunityGroup(ctx.remoteJid)) return true;
+  } catch {}
+  try {
+    const gs = await rapido(require('../hotCache').getGroupSettings(ctx._msg || null, ctx.remoteJid));
+    if (gs === TIMEOUT) return true;  // falha aberta — I/O caiu
+    return !!(gs && gs.modorpg);
+  } catch { return true; }
+}
+
+module.exports = { verificar, modoAberto, RPG_CMDS, LIVRE_TUDO, LIVRE_CHAR, MSG_MODO, MSG_CHAR };

@@ -255,6 +255,38 @@ module.exports = function registerAudioAdmin2(registerCase) {
         const sw = isOn
           ? '🟢 ON  ━━━━●'
           : '🔴 OFF ●━━━━';
+        // v7.97: modorpg tem o seu próprio CHANGE — único e rico. O portal
+        // entre DARK VILLE e o grupo abre com arte de mundo, não com um
+        // interruptor genérico. (cobre on/off explícito e clique no menu.)
+        if (cmd === 'modorpg') {
+          const pref = ctx.prefix || '!';
+          if (isOn) {
+            return tReply(sock, msg, ctx, '🌑 DARK VILLE — MUNDO LIGADO', [
+              '🕸️━━━━━━━━━━━━━━━━━━━━━━━━🕸️',
+              `🌍  *MODO RPG* · ${sw}`,
+              '',
+              '📜  O portal abriu-se com trovões de obsidiana.',
+              '🎭  Raças antigas, classes proibidas e clãs por fundar acordam.',
+              '🗺️  Biomas por explorar, bosses por desafiar, tesouros por saquear.',
+              '',
+              '🎮  *Começa a aventura:*',
+              `  • ${pref}rpgstart — cria o teu herói`,
+              `  • ${pref}menurpg — o livro do mundo`,
+              `  • ${pref}quest — primeira missão`,
+              '',
+              `🌒  Desliga quando quiseres: *${pref}modorpg off* — o mundo adormece.`,
+            ]);
+          }
+          return tReply(sock, msg, ctx, '🌑 DARK VILLE — MUNDO ADORMECEU', [
+            '🕸️━━━━━━━━━━━━━━━━━━━━━━━━🕸️',
+            `🌒  *MODO RPG* · ${sw}`,
+            '',
+            '📜  O portal fecha-se devagar, com bruma violeta.',
+            '🧙  Heróis, guildas e criaturas dormem — as fichas ficam guardadas.',
+            '',
+            `♻️  Reabre quando quiseres: *${pref}modorpg on* — nada se perde.`,
+          ]);
+        }
         return tReply(sock, msg, ctx, '🛡️ ' + label, [
           sw,
           '',

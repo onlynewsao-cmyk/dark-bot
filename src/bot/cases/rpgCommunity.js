@@ -379,6 +379,11 @@ module.exports = function registerRPGCommunity(registerCase) {
 
   // ═══ MENU DARKRPG ═══
   registerCase(['menu-rpg', 'menurpg', 'rpgmenu'], async ({ sock, msg, ctx, prefix }) => {
+    // v7.97: o menu RPG só abre onde o mundo está ligado (modorpg/comunidade).
+    const gateR = require('../rpg/gate');
+    if (!await gateR.modoAberto({ ...ctx, _msg: msg })) {
+      return sock.sendMessage(ctx.remoteJid, { text: gateR.MSG_MODO }, { quoted: msg });
+    }
     const p = prefix || '!';
 
     return sock.sendMessage(ctx.remoteJid, {

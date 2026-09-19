@@ -256,7 +256,12 @@ module.exports = function registerDynamicSubmenus(registerCase) {
   
       // v7.47: 'menurpg' saiu daqui — o menu curado (rpgCommunity.js) é o
       // dono; antes o !menurpg abria o submenu ECONOMIA genérico.
+      // v7.97: o submenu RPG só ABRE onde o mundo está ligado.
       registerCase(['submenuRPG', 'menurpg2'], async ({ sock, msg, ctx, config }) => {
+    const gateR = require('../rpg/gate');
+    if (!await gateR.modoAberto({ ...ctx, _msg: msg })) {
+      return sock.sendMessage(ctx.remoteJid, { text: gateR.MSG_MODO }, { quoted: msg });
+    }
     return dynSub(sock, msg, ctx, config, 'economia');
   });
 
