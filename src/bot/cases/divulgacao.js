@@ -88,7 +88,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, Math.max(1, ms)));
  */
 function _corpoDesp(texto, vis, tag) {
   const t = String(texto || '').slice(0, 4000);
-  if (vis === 'visivel') return `☣️ *DIVULGAÇÃO* ☣️\n\n${t}${tag || ''}`;
+  if (vis === 'visivel') return `☣️ *DIVULGAÇÃO* ☣️\n\n${_ruido(t)}${tag || ''}`;
   if (vis === 'invisivel') return _ruido(t);
   return t;
 }
@@ -129,6 +129,34 @@ function _ruido(texto) {
 /** jitter: o relógio metronómico é o 2º sinal de bot — desliza ±25% */
 const _sleepJitter = (ms) => sleep(Math.max(1, Math.round(ms * (0.75 + Math.random() * 0.5))));
 
+// ── RITMO ANTI-BAN (v9.13) ───────────────────────────────────────
+// O que frita uma conta no WhatsApp é assinatura de broadcast:
+//  · mensagens promo quase coladas umas às outras (1..300ms) em N grupos;
+//  · exactamente o mesmo intervalo entre elas (metrónomo);
+//  · texto promo idêntico em dezenas de grupos (hash duplicado).
+// Regras duras aqui no motor (todos os caminhos — texto, mídia,
+// repetir, agenda — passam por _disparar):
+//  1. PISO de ~950ms por envio, configure o dono o que configurar;
+//  2. PAUSA HUMANA de 28–45s a cada 7–11 envios (pessoa não envia
+//     96 mensagens de rajada sem respirar);
+//  3. ENTRE PASSES (vezes>1) espera 65–130s aleatória — nunca o
+//     mesmo `delay` certinho;
+//  4. ruído zero-width TAMBÉM no corpo visível (o banner continua —
+//     é o cartão de visita — mas o texto nunca é byte-a-byte igual).
+// Envs DIVULGAR_* permitem encolher tudo em TESTES (o piso é duro em
+// produção porque é o que salva a conta).
+const _envMs = (k, def) => {
+  const v = Number(process.env[k]);
+  return Number.isFinite(v) && v >= 1 ? Math.round(v) : def;
+};
+const _MIN_G = () => _envMs('DIVULGAR_MIN_MS', 950);                       // piso por envio
+const _PAUSA_A_CADA = () => _envMs('DIVULGAR_PAUSA_A_CADA', 0) || (7 + Math.floor(Math.random() * 5)); // 7–11 envios
+const _PAUSA_MIN = () => _envMs('DIVULGAR_PAUSA_MIN_MS', 28000);
+const _PAUSA_MAX = () => _envMs('DIVULGAR_PAUSA_MAX_MS', 45000);
+const _PASS_MIN  = () => _envMs('DIVULGAR_PASS_MIN_MS', 65000);
+const _PASS_MAX  = () => _envMs('DIVULGAR_PASS_MAX_MS', 130000);
+const _aleat = (a, b) => Math.max(1, Math.round(a + Math.random() * Math.max(0, b - a)));
+
 async function _historico(sock, bcc, own, entrada) {
   const hist = (await _get(bcc, `hist_${own}`) || []).concat(entrada).slice(-20);
   await _set(bcc, `hist_${own}`, hist).catch(() => {});
@@ -152,8 +180,15 @@ async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
   _STOP.delete(own);
   let feitos = 0, erros = 0;
   const falhas = [];
+  // ritmo anti-ban: piso duro + pausas humanas (v9.13)
+  const base = Math.max(delay, _MIN_G());
+  let desdePausa = 0;
+  let limiarPausa = _PAUSA_A_CADA();
   for (let vez = 0; vez < Math.max(1, vezes); vez++) {
     if (_STOP.has(own)) break;
+    // entre passes: 65–130s aleatórios — repetir a mesma ronda a cada
+    // `delay` certinho é a assinatura de multi-broadcast que a Meta pune
+    if (vez > 0) await sleep(_aleat(_PASS_MIN(), _PASS_MAX()));
     for (let i = 0; i < grupos.length; i++) {
     if (_STOP.has(own)) break;
     const g = grupos[i];
@@ -179,7 +214,17 @@ async function _disparar(sock, msg, ctx, { vis, montar, vezes = 1 }) {
       await sock.sendMessage(g.jid, content);
       feitos++;
     } catch (e) { erros++; falhas.push(`${g.nome || g.jid}: ${String(e.message).slice(0, 40)}`); }
-    if (i + 1 < grupos.length || vez + 1 < vezes) await _sleepJitter(delay);
+    if (i + 1 < grupos.length) {
+      // respiro entre envios: piso duro + PAUSA HUMANA a cada 7–11 envios
+      desdePausa++;
+      if (desdePausa >= limiarPausa) {
+        desdePausa = 0;
+        limiarPausa = _PAUSA_A_CADA();
+        await sleep(_aleat(_PAUSA_MIN(), _PAUSA_MAX()));       // 28–45s
+      } else {
+        await _sleepJitter(base);
+      }
+    }
     }
   }
   const parado = _STOP.has(own);
@@ -219,7 +264,9 @@ async function _painelCliente(sock, msg, ctx) {
   const own = _num(ctx.senderNumber);
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
   const delay = Number(await _get(bcc, `delay_${own}`)) || 1200;
-  const delayNome = { 1: '🚀 ULTRA', 70: '⚡ RÁPIDO', 300: '🐢 MÉDIO', 1200: '🛡️ ANTIBAN', 2000: '🐌 DEVAGAR', 5000: '🚀 ULTRA-RÁPIDO' }[delay] || `🔧 ${delay}ms`;
+  // v9.13: presets <1s são íman de ban temporário — etiquetados como
+  // perigo e o motor tem piso duro de ~950ms mesmo se eles estiverem on.
+  const delayNome = { 1: '☠️ ULTRA (risco ban)', 70: '⚠️ RÁPIDO (risco ban)', 300: '⚠️ MÉDIO (risco)', 1200: '🛡️ ANTIBAN', 2000: '🐌 DEVAGAR', 5000: '🛡️ SEGURO' }[delay] || (delay < 950 ? `☠️ ${delay}ms (risco ban)` : `🔧 ${delay}ms`);
 
   const corpo = _dtox('C L I E N T E  -  O N L I N E', [
     '📦 *DIVULGAÇÃO — 4 PASSOS*',

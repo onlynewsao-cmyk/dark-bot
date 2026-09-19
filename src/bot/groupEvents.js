@@ -21,6 +21,57 @@ function fillVars(text, { userName, groupName, botName, ownerName, number } = {}
     .trim();
 }
 
+// ── ANTI-BAN: saudação combinada em tempestade de entradas (v9.13) ──
+// Convidar membros em massa (ou um link partilhado que rebenta) fazia o
+// bot disparar um welcome com IMAGEM por cada entrada — assinatura
+// clássica de automação. Agora: 1 welcome por grupo por janela de 40s;
+// os que entram durante a janela são agregados e saem juntos num único
+// cartão de TEXTO combinado, 12s depois (debounce) — uma mensagem em
+// vez de dez. Menciona todos (máx. 6 escritos, resto «… e mais N»).
+const WEL_JANELA_MS       = Math.max(1, Number(process.env.WEL_JANELA_MS) || 40000);
+const WEL_COMBO_DEBOUNCE  = Math.max(1, Number(process.env.WEL_COMBO_DEBOUNCE) || 12000);
+const WEL_COMBO_MAX_NOMES = 6;
+const _ultimoWel = new Map();   // groupJid → ts do último welcome enviado
+const _comboWel  = new Map();   // groupJid → { timer, pessoas:[{jid,num}], grupo }
+
+function _comboEncaixa(sock, groupJid, participantJid, number, groupName) {
+  let combo = _comboWel.get(groupJid);
+  if (!combo) {
+    combo = { timer: null, pessoas: [], grupo: groupName };
+    _comboWel.set(groupJid, combo);
+  }
+  if (!combo.pessoas.some((p) => p.jid === participantJid)) {
+    combo.pessoas.push({ jid: participantJid, num: number });
+  }
+  if (!combo.timer) {
+    combo.timer = setTimeout(() => { _comboDispara(sock, groupJid).catch(() => {}); }, WEL_COMBO_DEBOUNCE);
+    if (combo.timer.unref) combo.timer.unref();
+  }
+}
+
+async function _comboDispara(sock, groupJid) {
+  const combo = _comboWel.get(groupJid);
+  _comboWel.delete(groupJid);
+  if (!combo || !combo.pessoas.length) return;
+  const mostrados = combo.pessoas.slice(0, WEL_COMBO_MAX_NOMES);
+  const resto = combo.pessoas.length - mostrados.length;
+  const nomes = mostrados.map((p) => `@${p.num}`).join(' ');
+  let t;
+  try { t = changeThemes.getTheme(await botConfigCache.get('active_theme', 'dark').catch(() => 'dark')); } catch { t = null; }
+  const icone = t?.icon || '🕸️';
+  const nomeBot = config.bot?.name || 'DARK BOT';
+  const texto =
+    `${icone} *BEM-VINDOS(AS)!* 🎉\n\n` +
+    `👥 ${nomes}${resto > 0 ? ` … e mais ${resto}` : ''}\n` +
+    `🎉 entraram juntos em *${combo.grupo}*\n\n` +
+    `🕷️ uma saudação só para não parecer robô de spam · *${nomeBot}*`;
+  _ultimoWel.set(groupJid, Date.now());
+  await sock.sendMessage(groupJid, {
+    text: texto,
+    mentions: mostrados.map((p) => p.jid),
+  }).catch(() => {});
+}
+
 async function ownerPv(sock, text) {
   const num = String(config.owner.number || '').replace(/\D/g, '');
   if (!num) return;
@@ -152,6 +203,15 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
   const globalOn = await botConfigCache.get('welcome_enabled', true).catch(() => true);
   if (!globalOn) return;
 
+  // v9.13 anti-ban: tempestade de entradas → agrega em saudação
+  // combinada em vez de 1 imagem por cabeça (assinatura de automação)
+  const agora = Date.now();
+  if (agora - (_ultimoWel.get(groupJid) || 0) < WEL_JANELA_MS) {
+    _comboEncaixa(sock, groupJid, participantJid, number, groupName);
+    return;
+  }
+  _ultimoWel.set(groupJid, agora);
+
   // Número ordinal do membro no grupo
   const memberCount = (meta?.participants?.length) || 0;
 
@@ -273,4 +333,4 @@ async function onLeave(sock, groupJid, participantJid, number, groupName, gs) {
   await sock.sendMessage(groupJid, { text, mentions: [participantJid] }).catch(() => {});
 }
 
-module.exports = { handle };
+module.exports = { handle, _welDebug: { _ultimoWel, _comboWel, WEL_JANELA_MS, WEL_COMBO_DEBOUNCE, _comboEncaixa, _comboDispara } };

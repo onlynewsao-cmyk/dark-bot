@@ -135,6 +135,25 @@ const CTX = (extra = {}) => ({ remoteJid: 'GRP@g.us', senderNumber: '2449', send
   assert.ok(/rgcard/.test(menuprpg), 'menurpg fala do rgcard');
   console.log('✔ onJoin + schema + menurpg ligados ao v8.4');
 
+  // ── ANTI-BAN (v9.13): tempestade de entradas = UMA saudação combinada
+  console.log('▸ Welcome combinado em tempestade de entradas (anti-ban)');
+  process.env.WEL_JANELA_MS = '60000';
+  process.env.WEL_COMBO_DEBOUNCE = '5';
+  const geM = require('../src/bot/groupEvents');
+  const sentWel = [];
+  const sockWel = { sendMessage: async (jid, c) => { sentWel.push({ jid, ...c }); } };
+  geM._welDebug._ultimoWel.set('GX@g.us', Date.now());
+  geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2501@s.whatsapp.net', '2501', '💀 COVIL');
+  geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2502@s.whatsapp.net', '2502', '💀 COVIL');
+  geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2501@s.whatsapp.net', '2501', '💀 COVIL'); // duplicado não repete
+  await new Promise(r => setTimeout(r, 40));
+  assert.strictEqual(sentWel.length, 1, '3 eventos de entrada → 1 mensagem apenas');
+  assert.ok(/BEM-VINDOS/.test(sentWel[0].text), 'caption combinada saiu');
+  assert.ok(/@2501/.test(sentWel[0].text) && /@2502/.test(sentWel[0].text), 'ambos saudados');
+  assert.strictEqual(sentWel[0].mentions.length, 2, 'dedupe: 2501 mencionado 1x');
+  assert.ok(geM._welDebug._ultimoWel.get('GX@g.us') > Date.now() - 8000, 'janela actualizada para os próximos');
+  console.log('✔ tempestade de entradas agregada em 1 saudação (anti-ban)');
+
   console.log('\nOK / test-awelcm — arte de entrada pronta (v8.4)');
   process.exit(0);
 })().catch(e => { console.error('ERRO FATAL:', e); process.exit(1); });

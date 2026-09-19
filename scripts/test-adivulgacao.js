@@ -11,6 +11,15 @@
 'use strict';
 
 process.env.MONGODB_URI = '';
+// v9.13: encolher o ritmo anti-ban para o teste correr rápido (o piso
+// duro de produção — ~950ms/envio, pausas 28-45s, passes 65-130s —
+// continua ACTIVE no bot real; aqui só verificamos a matemática).
+process.env.DIVULGAR_MIN_MS = '1';
+process.env.DIVULGAR_PAUSA_A_CADA = '999999';
+process.env.DIVULGAR_PAUSA_MIN_MS = '1';
+process.env.DIVULGAR_PAUSA_MAX_MS = '1';
+process.env.DIVULGAR_PASS_MIN_MS = '1';
+process.env.DIVULGAR_PASS_MAX_MS = '1';
 
 const assert = require('assert');
 
@@ -209,6 +218,13 @@ const keys = (k) => _db.get(`divulg_${k}`);
   const despachos = sent.filter(m => /\*DIVULGAÇÃO\*/.test(m.text || ''));
   assert.strictEqual(despachos.length, 6, '2 grupos × 3 vezes = 6 envios');
   assert.ok(new Set(despachos.map(m => m.jid)).size === 2, 'cobriu os 2 grupos');
+  // v9.13 anti-ban: VISÍVEL também sai byte-a-byte ÚNICO por grupo e
+  // por passe (ruído zero-width no corpo — banner e @tags intactos),
+  // senão 96 cópias exactas do mesmo texto = detector de broadcast.
+  assert.ok(new Set(despachos.map(m => m.text)).size === 6, 'anti-duplicados: cada cópia visível é única');
+  const stripZw = (s) => s.replace(/[\u200b\u200c\u2060\u180e]/g, '');
+  const mesmaOnda = despachos.filter(m => m.jid === 'G1@g.us');
+  assert.ok(new Set(mesmaOnda.map(m => stripZw(m.text))).size === 1, '…mas sem ruído é o MESMO anúncio (conteúdo preservado)');
   const ultimaHist = (keys('hist_2449') || []).slice(-1)[0];
   assert.strictEqual(ultimaHist.vezes, 3, 'histórico guarda vezes=3');
   assert.strictEqual(ultimaHist.total, 6, 'histórico total = grupos × vezes');
@@ -285,6 +301,37 @@ const keys = (k) => _db.get(`divulg_${k}`);
     assert.strictEqual(sd.categorize(c), 'owner', `${c} → owner`);
   }
   console.log('✔ estáticos: tema, selo, sem colisões, categorias');
+
+  // ── 8. PACING ANTI-BAN (v9.13): piso duro + pausas humanas ───
+  console.log('▸ Pacing anti-ban (piso ~950ms + pausa humana + passes com espera)');
+  await div.delay({ sock: sockF, msg: { key: { id: 'p0' } }, ctx: DONO, args: ['1'], prefix: '!', isOwner: true, reply }); // preset suicida no papel…
+  process.env.DIVULGAR_MIN_MS = '60';      // …mas o PISO DURO é que manda
+  process.env.DIVULGAR_PAUSA_MIN_MS = '80';
+  process.env.DIVULGAR_PAUSA_MAX_MS = '120';
+  process.env.DIVULGAR_PASS_MIN_MS = '70';
+  process.env.DIVULGAR_PASS_MAX_MS = '90';
+  // (a) 1 passe, pausa a cada 999999: 1 fronteira → ≥ piso×0.75
+  process.env.DIVULGAR_PAUSA_A_CADA = '999999';
+  sent.length = 0;
+  const t0 = Date.now();
+  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'p1' } }, ctx: DONO, args: ['sem', 'pacote', 'novo'], isOwner: true, reply });
+  const dt1 = Date.now() - t0;
+  assert.ok(dt1 >= 40, `piso duro por envio (~60ms×0.75): demorou ${dt1}ms`);
+  // (b) pausa humana a cada 1: as 2 fronteiras sao pausas ≥80ms cada
+  process.env.DIVULGAR_PAUSA_A_CADA = '1';
+  const t1 = Date.now();
+  await div.divulgarrapido({ sock: sockF, msg: { key: { id: 'p2' } }, ctx: DONO, args: ['sem', 'rodada', '2'], isOwner: true, reply });
+  const dt2 = Date.now() - t1;
+  assert.ok(dt2 >= 75, `pausa humana a cada envio (≥80ms×1): demorou ${dt2}ms`);
+  // (c) código e painel estampam a filosofia anti-ban
+  assert.ok(/risco ban/.test(src) && /piso duro|MIN_G/.test(src), 'painel/motor marcam <1s como risco ban com piso duro');
+  assert.ok(/_PASS_MIN/.test(src) && /PAUSA HUMANA|pausa humana/i.test(src), 'passes espaçados + pausas humanas no motor');
+  // repõe valores rápidos (nada agendado fica atrás)
+  process.env.DIVULGAR_MIN_MS = '1';
+  process.env.DIVULGAR_PAUSA_A_CADA = '999999';
+  process.env.DIVULGAR_PASS_MIN_MS = '1';
+  process.env.DIVULGAR_PASS_MAX_MS = '1';
+  console.log('✔ pacing: piso medido (' + dt1 + 'ms sem pausa / ' + dt2 + 'ms com pausa humana) + copies anti-ban no código');
 
   console.log('\nOK / test-adivulgacao — CLIENTE ONLINE darktoxic (v9.8)');
   process.exit(0);
