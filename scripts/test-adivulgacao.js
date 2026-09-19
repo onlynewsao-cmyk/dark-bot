@@ -238,6 +238,29 @@ const keys = (k) => _db.get(`divulg_${k}`);
   assert.ok(!sent.some(m => m.jid === 'G2@g.us'), 'nada saiu');
   // sem agente: mensagem solta NÃO é engolida
   assert.strictEqual(await mod.consumir(sockF, { key: { id: 'w6' } }, DONO, 'visivel'), false, 'sem sessão → não come texto');
+
+  // ── 5b. CANAL SECRETO (v9.14): o ADM não vê NADA ─────────────
+  // assistente arrancado NUM GRUPO → tudo vai para o PV do dono;
+  // se o dono responde no PV, a sessão migra e continua lá.
+  console.log('▸ Canal secreto: divulgação em grupo fala só no PV do dono');
+  sent.length = 0;
+  await div.divulgar({ sock: sockF, msg: { key: { id: 's1' } }, ctx: DONO, args: ['pack', 'secreto'], prefix: '!', isOwner: true, reply });
+  assert.ok(sent[0] && sent[0].jid === '2449@s.whatsapp.net', 'TEXTO SALVO foi para o PV, não para GRP@g.us');
+  assert.ok(!sent.some(m => m.jid === 'GRP@g.us'), 'NADA da divulgação saltou no grupo');
+  // resposta no PV: sessão migra e consome ('2' vezes)
+  const PV = { ...DONO, remoteJid: '2449@s.whatsapp.net', isGroup: false };
+  sent.length = 0;
+  assert.ok(await mod.consumir(sockF, { key: { id: 's2' } }, PV, '2'), 'PV do dono consome (sessão migrada)');
+  const cartaoPV = sent.find(m => /GRUPOS SELECIONADOS: 2/.test(m.text || ''));
+  assert.ok(cartaoPV && cartaoPV.jid === '2449@s.whatsapp.net', 'cartão no PV também');
+  // outro grupo com o MESMO dono NÃO consome (só PV migra)
+  assert.strictEqual(await mod.consumir(sockF, { key: { id: 's2c' } }, { ...DONO, remoteJid: 'OUTRO@g.us' }, '9'), false, 'outro grupo não consome');
+  // relatório da onda vai para o PV com botões fixos
+  const histPV = { ...DONO, remoteJid: 'OUTRO@g.us' };
+  sent.length = 0; _relays = [];
+  await div.divulgarstop({ sock: sockF, msg: { key: { id: 's3' } }, ctx: histPV, args: [], isOwner: true, reply });
+  assert.ok(sent[0] && sent[0].jid === '2449@s.whatsapp.net', 'resposta de comando em grupo sai no PV');
+  console.log('✔ canal secreto: PV-only para painéis/assistente/relatórios');
   // stop sinaliza
   sent.length = 0;
   await div.divulgarstop({ sock: sockF, msg: { key: { id: 'm3' } }, ctx: DONO, isOwner: true, reply });

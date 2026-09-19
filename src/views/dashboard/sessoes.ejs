@@ -1,0 +1,105 @@
+<%- include('../partials/head') %>
+<div class="app-shell">
+  <%- include('../partials/sidebar') %>
+  <main class="main">
+    <header class="page-header">
+      <div>
+        <h1>🕸️ Central de Sessões</h1>
+        <p class="muted">4 slots de contas do bot — a que estiver a funcionar fica sempre no <strong>slot 1</strong>. As outras ficam guardadas: o bot só «faz o contacto» para manter a ligação viva (ronda a cada 30 min) e insiste ~2 dias nas sessões novas antes de as dar como mortas.</p>
+      </div>
+    </header>
+
+    <div class="alert alert-info">
+      <span>🛡️</span>
+      <span><strong>Failover automático:</strong> se o slot 1 for banido, expirar (logout) ou ficar restrito (403), a primeira slot guardada que responder assume de imediato — sem QR, sem pausa. O <em>conectar bot</em> de sempre continua igual, aqui ao lado.</span>
+    </div>
+
+    <div class="card">
+      <h2>➕ Adicionar sessão nova</h2>
+      <form id="addForm" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:end">
+        <div class="form-group" style="flex:1;min-width:220px">
+          <label>Número WhatsApp (com código do país)</label>
+          <input type="text" id="inNumero" placeholder="244912345678" required />
+        </div>
+        <button type="submit" class="btn btn-primary">🔑 Gerar código de emparelhamento</button>
+      </form>
+      <div id="codigoBox" style="display:none;margin-top:1rem;text-align:center">
+        <p class="muted">Abre o WhatsApp no número novo → <em>Aparelhos ligados</em> → <em>Ligar com código</em> e introduz:</p>
+        <div id="codigo" style="font-size:2rem;letter-spacing:0.3rem;font-weight:700;color:#0f0;background:#000;border:2px solid #0f0;border-radius:12px;padding:0.6rem 1rem;display:inline-block;font-family:monospace"></div>
+        <p class="muted" id="codigoTimer">à espera do scan… (90s)</p>
+      </div>
+      <p class="muted" id="addStatus"></p>
+    </div>
+
+    <div class="grid" id="slotsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1rem">
+      <% const badge = (e) => e === 'ativa' ? '🟢 ATIVA' : e === 'guardada' ? '🟦 GUARDADA' : e === 'ligacao' ? '⏳ A LIGAR' : e === 'morta' ? '⛔ MORTA (2d retry…)' : '⬜ VAZIA'; %>
+      <% slots.forEach(s => { %>
+      <div class="card" style="border:1px solid <%= s.estado === 'ativa' ? '#00ff9d' : s.estado === 'guardada' ? '#00f0ff' : '#444' %>">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3 style="margin:0">SLOT <%= s.slot %></h3>
+          <span class="badge"><%= badge(s.estado) %></span>
+        </div>
+        <p style="margin:0.6rem 0 0.2rem"><strong><%= s.numero %></strong></p>
+        <p class="muted" style="font-size:0.82rem;margin:0">
+          <% if (s.ultimaViva) { %>viva <%= new Date(s.ultimaViva).toLocaleString('pt-PT') %><br><% } %>
+          <% if (s.ultimaProva) { %>último contacto: <%= new Date(s.ultimaProva).toLocaleString('pt-PT') %><br><% } %>
+          <% if (s.motivo) { %>⚠️ <%= s.motivo %><br><% } %>
+          <% if (s.emRetry) { %>🔁 retry termina <%= new Date(s.retryAte).toLocaleDateString('pt-PT') %> (<%= s.tentativas %>x)<% } %>
+        </p>
+        <div class="button-row" style="margin-top:0.8rem">
+          <% if (s.slot !== 1 && s.estado !== 'vazia') { %>
+            <button class="btn btn-sm btn-danger" onclick="remover(<%= s.slot %>)">🗑️ Remover</button>
+          <% } %>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+
+    <div class="card">
+      <h3>⚙️ Operações</h3>
+      <div class="button-row">
+        <button class="btn btn-secondary" onclick="rodar()">🔁 Rodar agora <span class="muted">(a próxima guardada viva assume o slot 1)</span></button>
+        <button class="btn btn-secondary" onclick="recarregar()">🔄 Actualizar</button>
+      </div>
+      <p class="muted" id="opStatus"></p>
+      <p class="muted" style="font-size:0.8rem">Estado actual do bot: <strong><%= botState.status || '—' %></strong></p>
+    </div>
+  </main>
+</div>
+<script>
+  async function post(url, body) {
+    const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+    return r.json().catch(() => ({ ok: false, motivo: 'resposta inválida' }));
+  }
+  function recarregar() { location.reload(); }
+
+  document.getElementById('addForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const numero = document.getElementById('inNumero').value;
+    const st = document.getElementById('addStatus');
+    st.textContent = '⏳ a gerar código…';
+    const r = await post('/dashboard/sessoes/adicionar', { numero });
+    if (!r.ok) { st.textContent = '❌ ' + (r.motivo === 'sem-slot-livre' ? 'todos os slots ocupados — remove um primeiro' : r.motivo); return; }
+    st.textContent = '✅ slot ' + r.slot + ' — liga o número com o código abaixo';
+    document.getElementById('codigoBox').style.display = 'block';
+    document.getElementById('codigo').textContent = r.codigo;
+    setTimeout(recarregar, 95000);
+  });
+
+  async function remover(slot) {
+    if (!confirm('Remover a sessão do slot ' + slot + '?')) return;
+    const r = await post('/dashboard/sessoes/remover/' + slot);
+    document.getElementById('opStatus').textContent = r.ok ? '🗑️ slot removida' : '❌ ' + r.motivo;
+    if (r.ok) setTimeout(recarregar, 800);
+  }
+
+  async function rodar() {
+    document.getElementById('opStatus').textContent = '⏳ a sondar slots guardadas…';
+    const r = await post('/dashboard/sessoes/rodar');
+    document.getElementById('opStatus').textContent = r.ok
+      ? '🔁 slot ' + r.promovida + ' (' + (r.numero || '?') + ') assumiu o slot 1 — o bot reinicia em 3s'
+      : '❌ ' + (r.motivo === 'sem-suplente-viva' ? 'nenhuma slot guardada está viva' : r.motivo);
+    if (r.ok) setTimeout(recarregar, 7000);
+  }
+</script>
+<%- include('../partials/footer') %>

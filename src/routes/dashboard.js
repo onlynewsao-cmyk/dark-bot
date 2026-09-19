@@ -38,6 +38,40 @@ router.get('/connect', requireOwner, async (req, res) => {
   });
 });
 
+// ── v9.14 — CENTRAL DE SESSÕES (failover 4 slots) ──────────
+router.get('/sessoes', requireOwner, async (req, res) => {
+  const sc = require('../bot/sessionCenter');
+  res.render('dashboard/sessoes', {
+    title: 'Central de Sessões',
+    botState: getBot().getStatus(),
+    slots: await sc.estadoDetalhado().catch(() => []),
+  });
+});
+
+router.get('/sessoes/estado.json', requireOwner, async (req, res) => {
+  const sc = require('../bot/sessionCenter');
+  res.json({ ok: true, slots: await sc.estadoDetalhado().catch(() => []), bot: getBot().getStatus() });
+});
+
+router.post('/sessoes/adicionar', requireOwner, async (req, res) => {
+  const sc = require('../bot/sessionCenter');
+  const numero = String(req.body?.numero || '').trim();
+  const r = await sc.novaSessao(numero).catch((e) => ({ ok: false, motivo: e.message }));
+  res.json(r);
+});
+
+router.post('/sessoes/remover/:slot', requireOwner, async (req, res) => {
+  const sc = require('../bot/sessionCenter');
+  const r = await sc.remover(Number(req.params.slot)).catch((e) => ({ ok: false, motivo: e.message }));
+  res.json(r);
+});
+
+router.post('/sessoes/rodar', requireOwner, async (req, res) => {
+  const sc = require('../bot/sessionCenter');
+  const r = await sc.rodarAgora().catch((e) => ({ ok: false, motivo: e.message }));
+  res.json(r);
+});
+
 // Painel de Controle (owner)
 router.get('/control', requireOwner, async (req, res) => {
   const bot = getBot();

@@ -32,6 +32,14 @@ const TTL_FLUXO = 15 * 60 * 1000;
 
 const _kFluxo = (ctx) => `${ctx.remoteJid}|${_num(ctx.senderNumber)}`;
 
+// ── v9.14 CANAL SECRETO — o ADM não vê NADA ──────────────────
+// Tudo o que é da divulgação (assistente, painéis, botões fixos,
+// relatórios, hubs) saído DE UM GRUPO vai para o PV do dono. O botão
+// de divulgar "parecia morto" porque os ADM o viam carregar — agora
+// literalmente não aparece lá: só no privado do dono.
+function _pv(ctx) { return `${_num(ctx.senderNumber || ctx.senderJid)}@s.whatsapp.net`; }
+function _alvo(ctx) { return ctx.isGroup ? _pv(ctx) : ctx.remoteJid; }
+
 function _num(n) { return String(n || '').replace(/\D/g, ''); }
 async function _get(bcc, k) { return bcc.get(`divulg_${k}`, null); }
 async function _set(bcc, k, v) { return bcc.set(`divulg_${k}`, v); }
@@ -65,7 +73,7 @@ async function _relayBiz(sock, jid, m, extra = {}) {
 /** Lista de seleção (single_select) darktoxic. */
 async function _lista(sock, msg, ctx, { titulo, corpo, seccoes, rodape }) {
   const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
-  const m = generateWAMessageFromContent(ctx.remoteJid, {
+  const m = generateWAMessageFromContent(_alvo(ctx), {
     interactiveMessage: proto.Message.InteractiveMessage.fromObject({
       body: { text: corpo },
       footer: { text: rodape || `☣️ ${config.bot.name} · DARKTOXIC` },
@@ -75,7 +83,7 @@ async function _lista(sock, msg, ctx, { titulo, corpo, seccoes, rodape }) {
       },
     }),
   }, { userJid: sock.user?.id, quoted: msg });
-  return _relayBiz(sock, ctx.remoteJid, m);
+  return _relayBiz(sock, _alvo(ctx), m);
 }
 
 const sleep = (ms) => new Promise(r => setTimeout(r, Math.max(1, ms)));
@@ -372,7 +380,7 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
   const bcc = require('../botConfigCache');
   const grupos = (await _get(bcc, `grupos_${own}`)) || [];
   const delay = Number(await _get(bcc, `delay_${own}`)) || 1200;
-  await sock.sendMessage(ctx.remoteJid, {
+  await sock.sendMessage(_alvo(ctx), {
     text: _dtox('A D I V U L G A R', [
       `🚀 Onda *${rotulo}* a correr…`,
       `📦 ${grupos.length} grupos · 🔁 ${vezes}x · ⏱️ ${delay}ms · 👁️ ${vis === 'visivel' ? 'VISÍVEL (ADM vê)' : vis === 'invisivel' ? 'INVISÍVEL (ADM não vê nada)' : 'SEM MENÇÕES'}`,
@@ -387,7 +395,7 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
   const textoR = _resumo(r, p);
   try {
     const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
-    const m = generateWAMessageFromContent(ctx.remoteJid, {
+    const m = generateWAMessageFromContent(_alvo(ctx), {
       interactiveMessage: proto.Message.InteractiveMessage.fromObject({
         body: { text: textoR },
         footer: { text: `☣️ DARKTOXIC · onda ${rotulo}` },
@@ -399,10 +407,10 @@ async function _onda(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
         ] },
       }),
     }, { userJid: sock.user?.id, quoted: msg });
-    await _relayBiz(sock, ctx.remoteJid, m);
+    await _relayBiz(sock, _alvo(ctx), m);
     return;
   } catch { /* sem interactivo → texto */ }
-  await sock.sendMessage(ctx.remoteJid, { text: textoR }, { quoted: msg }).catch(() => {});
+  await sock.sendMessage(_alvo(ctx), { text: textoR }).catch(() => {});
 }
 
 /** Texto a divulgar — do quote, dos args ou da sessão. */
@@ -435,7 +443,21 @@ async function _mediaDe(msg, tipo, caption) {
   return null;
 }
 
-module.exports = function registerDivulgacao(registerCase) {
+module.exports = function registerDivulgacao(_registerCase) {
+  // v9.14: TODA a superfície da divulgação fala no PV do dono quando
+  // o comando veio de grupo — ADM deixa de VER painéis e botões (e de
+  // os achar «mortos» ao carregar).
+  const registerCase = (names, fn, ...resto) => _registerCase(names, async (argz) => {
+    if (argz && argz.sock && argz.ctx) {
+      const { sock, ctx } = argz;
+      const reply0 = argz.reply;
+      argz.reply = (t) => {
+        const alvo = _alvo(ctx);
+        return sock.sendMessage(alvo, { text: t }).catch(() => reply0 ? reply0(t) : null);
+      };
+    }
+    return fn(argz);
+  }, ...resto);
   const deny = (reply) => reply('☣️ Este painel é *só do dono* — darktoxic fechado fora.');
 
   // ── HUB MASTER ──
@@ -517,7 +539,7 @@ module.exports = function registerDivulgacao(registerCase) {
     if (!texto) {
       // já tem fluxo? retoma o passo actual em vez de recomeçar
       const key = _kFluxo(ctx);
-      _FLUXO.set(key, { passo: 'texto', expira: Date.now() + TTL_FLUXO, own });
+      _FLUXO.set(key, { passo: 'texto', expira: Date.now() + TTL_FLUXO, own, alvo: _alvo(ctx) });
       return reply(
         '✨━━━━━━━━━━━━━━━━━━━━✨\n' +
         '✨ *Passo 1/4 — O TEXTO DA DIVULGAÇÃO*\n' +
@@ -526,7 +548,7 @@ module.exports = function registerDivulgacao(registerCase) {
         `❌ \`${p}cancelar\` ou escreve *cancelar* para sair\n` +
         '✨━━━━━━━━━━━━━━━━━━━━✨');
     }
-    _FLUXO.set(_kFluxo(ctx), { passo: 'vezes', texto, expira: Date.now() + TTL_FLUXO, own });
+    _FLUXO.set(_kFluxo(ctx), { passo: 'vezes', texto, expira: Date.now() + TTL_FLUXO, own, alvo: _alvo(ctx) });
     return reply(
       '✅ *TEXTO SALVO COM SUCESSO!*\n\n' +
       `📝 *Prévia:*\n> ${texto.slice(0, 140)}${texto.length > 140 ? '…' : ''}\n\n` +
@@ -806,10 +828,19 @@ module.exports = function registerDivulgacao(registerCase) {
 // Em qualquer altura: `.cancelar` / `cancelar` aborta.
 // ════════════════════════════════════════════════════════════
 async function consumir(sock, msg, ctx, text) {
-  const key = _kFluxo(ctx);
-  const sess = _FLUXO.get(key);
+  let key = _kFluxo(ctx);
+  let sess = _FLUXO.get(key);
+  // v9.14: assistente arranca no grupo mas fala no PV — se o dono
+  // respondeu no privado dele, a sessão migra (ADM continua cego).
+  if (!sess && ctx.remoteJid === _pv(ctx)) {
+    const alvoNum = `|${_num(ctx.senderNumber)}`;
+    for (const [k, s2] of _FLUXO) {
+      if (k.endsWith(alvoNum)) { _FLUXO.delete(k); sess = s2; _FLUXO.set(key, s2); break; }
+    }
+  }
   if (!sess) return false;
   if (Date.now() > sess.expira) { _FLUXO.delete(key); return false; }
+  const alvo = sess.alvo || ctx.remoteJid;   // respostas sempre no PV/quando começou
 
   // é subcomando real com prefixo (ex.: !divulgarhistorico)? Não toca —
   // excepto o cancelar universal (esse trava tudo, com ou sem prefixo).
@@ -817,9 +848,9 @@ async function consumir(sock, msg, ctx, text) {
   const t = raw.toLowerCase().replace(/^[.!·/#]+/, '');
   if (/^cancel(ar|e)$/.test(t)) {
     _FLUXO.delete(key);
-    await sock.sendMessage(ctx.remoteJid, {
+    await sock.sendMessage(alvo, {
       text: _dtox('A S S I S T E N T E  A B O R T A D O', ['🛑 Saíste do assistente de divulgação. Nada foi enviado.']),
-    }, { quoted: msg }).catch(() => {});
+    }).catch(() => {});
     return true;
   }
   if (/^[.!·/#]/.test(raw)) return false;   // comandos reais passam sempre
@@ -831,7 +862,7 @@ async function consumir(sock, msg, ctx, text) {
     // mídia com legenda conta como texto (a onda não sai ainda)
     if (!raw) return true;
     sess.texto = raw.slice(0, 4000); sess.passo = 'vezes';
-    await sock.sendMessage(ctx.remoteJid, {
+    await sock.sendMessage(alvo, {
       text:
         '✅ *TEXTO SALVO COM SUCESSO!*\n\n' +
         `📝 *Prévia:*\n> ${sess.texto.slice(0, 140)}${sess.texto.length > 140 ? '…' : ''}\n\n` +
@@ -847,9 +878,9 @@ async function consumir(sock, msg, ctx, text) {
   if (sess.passo === 'vezes') {
     const n = /^0?(\d{1,2})$/.test(t) ? Math.min(10, Math.max(1, parseInt(t, 10))) : 0;
     if (!n) {
-      await sock.sendMessage(ctx.remoteJid, {
+      await sock.sendMessage(alvo, {
         text: '🔁 Só aceito um número de *1 a 10* — escreve o número (ou `.cancelar`).',
-      }, { quoted: msg }).catch(() => {});
+      }).catch(() => {});
       return true;
     }
     sess.vezes = n; sess.passo = 'vis';
@@ -857,7 +888,7 @@ async function consumir(sock, msg, ctx, text) {
     const grupos = (await _get(bcc, `grupos_${sess.own}`)) || [];
     const nomes = grupos.slice(0, 15).map(g => `• ${g.nome}`);
     if (grupos.length > 15) nomes.push(`• ... e mais ${grupos.length - 15} grupos`);
-    await sock.sendMessage(ctx.remoteJid, {
+    await sock.sendMessage(alvo, {
       text:
         '✨━━━━━━━━━━━━━━━━━━━━✨\n' +
         `✅  *GRUPOS SELECIONADOS: ${grupos.length}*\n` +
@@ -883,9 +914,9 @@ async function consumir(sock, msg, ctx, text) {
   if (sess.passo === 'vis') {
     const vis = /^invis|^i$/.test(t) ? 'invisivel' : /^vis|^v$/.test(t) ? 'visivel' : '';
     if (!vis) {
-      await sock.sendMessage(ctx.remoteJid, {
+      await sock.sendMessage(alvo, {
         text: '👁️ Escreve *visivel* ou *invisivel* — ou `.cancelar` para abortar.',
-      }, { quoted: msg }).catch(() => {});
+      }).catch(() => {});
       return true;
     }
     _FLUXO.delete(key);

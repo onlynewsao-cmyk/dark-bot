@@ -98,6 +98,17 @@ class WhatsAppBot {
     this.logs = [];
     this.mongoAuth = null;
     this._reconnectTimer = null;
+    // v9.14 — CENTRAL DE SESSÕES: quando uma slot guardada é promovida
+    // (nova sessão que FUNCIONA), reinicia o socket principal já com as
+    // credenciais dela em «creds» (trocadas pela sessionCenter).
+    try {
+      const sc = require('./sessionCenter');
+      sc.on('promover', ({ slot, numero }) => {
+        this.log('success', `🔁 CENTRAL DE SESSÕES: slot ${slot} (${numero || '?'}) promovida — reinício para ligar com ela…`);
+        setTimeout(() => { this.starting = false; this.start({ mode: 'qr' }).catch(() => {}); }, 3000);
+      });
+      sc.arrancarVigia();
+    } catch (e) { this.log('warn', 'sessionCenter: ' + String(e?.message || e).slice(0, 60)); }
     this._qrTimer = null;
   }
 
@@ -139,8 +150,10 @@ class WhatsAppBot {
     if (mongoose.connection.readyState === 1) {
       try {
         const Session = require('../database/models/Session');
-        // Não apaga a sessão do Baileys de chamadas (call:*)
-        await Session.deleteMany({ fileName: { $not: /^call:/ } });
+        // Não apaga a sessão de chamadas (call:*) NEM as slots
+        // estacionadas da central (slot2:*…slot4:*, tmpswap:*) — senão o
+        // failover morria com a própria sessão.
+        await Session.deleteMany({ fileName: { $not: /^call:|^slot\d:|^tmpswap:/ } });
       } catch {}
     }
     if (this.mongoAuth) {
@@ -355,6 +368,7 @@ class WhatsAppBot {
           this.qrCode = null; this.pairingCode = null;
           this.setStatus('connected', { user: this.user });
           this.log('success', `✅ Conectado: ${this.user?.id}`);
+          try { require('./sessionCenter').registarSucesso(this.user?.id).catch(() => {}); } catch {}
           startKeepAlive(config.appUrl);
 
           // v6.79 — o Dono quer que o telemóvel dele toque assim que o bot
@@ -413,6 +427,16 @@ class WhatsAppBot {
             this.log('error', '⛔ 403 — a conta parece RESTRITA pela Meta. Vou esperar 15 min antes de tentar de novo. Não uses chamadas/broadcast até a restrição sair.');
             this.setStatus('restricted', { reason: code, message: reason });
             try { require('./callVoip').todas().forEach(a => require('./callVoip').desligar(this.sock, a.jid).catch(() => {})); } catch {}
+            // v9.14: central de sessões — se houver slot guardada VIVA,
+            // roda já para ela em vez de esperar os 15 min.
+            try {
+              const r = await require('./sessionCenter').falhou(`403 restrita: ${String(reason).slice(0, 80)}`);
+              if (r?.ok && r.promovida) {
+                this.log('success', `🔁 FAILOVER: conta restrita → slot ${r.promovida} (${r.numero || '?'}) assume.`);
+                setTimeout(() => { this.starting = false; this.start({ mode: 'qr' }).catch(() => {}); }, 3000);
+                return;
+              }
+            } catch {}
             this._reconnectTimer = setTimeout(() => {
               this.starting = false;
               this.start({ mode: 'qr' }).catch(() => {});
@@ -421,8 +445,21 @@ class WhatsAppBot {
           }
 
           if (isLoggedOut) {
-            await this.clearSession();
-            this.log('warn', 'Sessão expirada — reconecte manualmente.');
+            // v9.14: central de sessões tenta uma slot guardada antes de
+            // a sessão morrer de vez (as docs 'slotN:*' sobrevivem ao
+            // clearSession — regex protege-as).
+            let rodaOk = false;
+            try {
+              const r = await require('./sessionCenter').falhou('loggedOut');
+              rodaOk = !!(r?.ok && r.promovida);
+              if (rodaOk) this.log('success', `🔁 FAILOVER: sessão expirada → slot ${r.promovida} (${r.numero || '?'}) assume.`);
+            } catch {}
+            if (rodaOk) {
+              setTimeout(() => { this.starting = false; this.start({ mode: 'qr' }).catch(() => {}); }, 3000);
+            } else {
+              await this.clearSession();
+              this.log('warn', 'Sessão expirada — reconecte manualmente.');
+            }
           } else {
             this._conflitos = 0;
             const d = nextDelay();
