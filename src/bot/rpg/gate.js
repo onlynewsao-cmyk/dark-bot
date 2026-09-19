@@ -71,7 +71,10 @@ async function verificar(cmd, ctx = {}) {
       let gs = null;
       try { gs = await rapido(require('../hotCache').getGroupSettings(ctx._msg || null, ctx.remoteJid)); } catch { return null; }
       if (gs === TIMEOUT) return null;
-      if (gs && !gs.modorpg) return MSG_MODO;
+      // v7.99: grupo SEM registo na DB ou sem modorpg on = mundo fechado.
+      // (antes: `gs` a null escorregava aberto — todo o grupo fresco/nunca
+      // configurado ficava com o mundo aberto sem ninguém o ter pedido)
+      if (!gs || !gs.modorpg) return MSG_MODO;
     }
   }
 

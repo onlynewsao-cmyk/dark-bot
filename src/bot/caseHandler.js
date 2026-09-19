@@ -709,18 +709,24 @@ async function runCase(command, rawCtx) {
   const handler = CASES.get(cmd);
   if (!handler) return false;
 
-  // v7.87 — RPG MUNDO FECHADO: grupo sem modo = mundo fechado; sem personagem = só portal.
-  try {
-    const bloqueio = await require('./rpg/gate').verificar(cmd, { ...rawCtx.ctx, _msg: msg });
-    if (bloqueio) {
-      try { await sock.sendMessage(rawCtx.ctx.remoteJid, { text: bloqueio }, { quoted: msg }); } catch {}
-      return true;
-    }
-  } catch {}
-
   const { msg, ctx, args, text, prefix, isOwner, config } = rawCtx;
   const sock = wrapSockForCases(rawCtx.sock, msg);
   const { m, quoted } = buildM(sock, msg, ctx);
+
+  // v7.87/7.99 — RPG MUNDO FECHADO: grupo sem modo = mundo fechado; sem
+  // personagem = só o portal. ⚠️ ATENÇÃO: esta chamada AO GATE tem de ficar
+  // DEPOIS de `msg`/`sock` existirem — se for antes, um ReferenceError cai
+  // no catch vazio abaixo e o gate é ignorado em segredo (v7.99 fix).
+  try {
+    const bloqueio = await require('./rpg/gate').verificar(cmd, { ...ctx, _msg: msg });
+    if (bloqueio) {
+      try { await sock.sendMessage(ctx.remoteJid, { text: bloqueio }, { quoted: msg }); } catch {}
+      return true;
+    }
+  } catch (e) {
+    // nunca deixar o gate passar às cegas outra vez: regista e falha ABERTA
+    console.error('[RPG-GATE] fallback aberto:', e.message?.slice(0, 120));
+  }
 
   // isAdmin lazy
   const isAdminFn = async () => {
