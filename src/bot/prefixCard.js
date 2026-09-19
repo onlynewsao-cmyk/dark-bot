@@ -23,15 +23,18 @@ const TEMAS = {
     card(p, custom) {
       return [
         '☣️◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢☣️',
+        '',
         '   ☠️ *DARKTOXIC* ☠️',
-        '🕸️〘 P R E F I X O  D O  B O T 〙🕸️',
         '',
         `◈ Prefixo actual: *${p}*`,
         (custom ? '◈ Customizado neste grupo ☢️' : null),
+        '',
         '◈ Cópia num toque — veneno incluído 🕷️',
+        '',
         '☣️◤◢◤◢◤◢◤◢◤◢◤◢◤◢◢☣️',
-        '👆 toca no botão abaixo para copiar',
-      ].filter(Boolean).join('\n');
+        '',
+        'DARK BOT 🕸️',
+      ].filter((l) => l !== null).join('\n');
     },
     display(p) { return `☢️ copiar prefixo 『 ${p} 』`; },
   },

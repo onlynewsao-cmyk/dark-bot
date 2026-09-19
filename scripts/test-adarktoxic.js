@@ -42,12 +42,13 @@ const pc = require('../src/bot/prefixCard');
 
   // ── 2. Cartão DARKTOXIC — visual completo + cópia intacta ───
   const dt = pc.buildPrefixCard({ prefix: '!', custom: true, tema: 'darktoxic' });
-  assert.ok(/DARKTOXIC/.test(dt.text), 'título do tema');
+  assert.ok(/\n\s*☠️ \*DARKTOXIC\* ☠️\n/.test(dt.text), 'título do tema (linha isolada)');
   assert.ok(/☣️/.test(dt.text) && /☠️/.test(dt.text), 'vinhas tóxicas + crânio');
-  assert.ok(/🕸️〘/.test(dt.text), 'moldura aranha');
+  assert.ok(/^☣️◢◤[\s\S]*☣️◤◢/.test(dt.text), 'fadigas de abertura e fecho');
   assert.ok(/Prefixo actual: \*!\*/.test(dt.text), 'prefixo visível');
   assert.ok(/Customizado neste grupo/.test(dt.text), 'estado custom');
-  assert.ok(/toca no botão abaixo para copiar/.test(dt.text), 'guia de cópia');
+  assert.ok(/Cópia num toque — veneno incluído 🕷️/.test(dt.text), 'guia de cópia');
+  assert.ok(/\nDARK BOT 🕸️\s*$/.test(dt.text), 'assinatura no fim do cartão');
   assert.strictEqual(dt.copyCode, '!', 'copyCode = prefixo puro');
   assert.ok(/☢️ copiar prefixo 『 ! 』/.test(dt.displayText), 'rótulo do botão');
   const dt2 = pc.buildPrefixCard({ prefix: '.', tema: 'darktoxic' });

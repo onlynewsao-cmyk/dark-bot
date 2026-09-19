@@ -33,7 +33,7 @@ console.log('\n═══ GRUPO CUSTOM ═══');
   const sent = [];
   const sock = { sendMessage: async (j, c) => { sent.push(c.text || ''); return { key: { id: 'x' } }; } };
   await collected['prefixo']({ sock, msg: {}, ctx: { remoteJid: 'u@s.whatsapp.net', isGroup: false }, prefix: '!' });
-  check('!prefixo envia o cartão (tema activo)', sent.length === 1 && (/PREFIXO DO BOT/.test(sent[0]) || /P R E F I X O  D O  B O T/.test(sent[0])) && /Prefixo (atual|actual)/.test(sent[0]), sent[0]?.slice(0, 60));
+  check('!prefixo envia o cartão (tema activo)', sent.length === 1 && (/PREFIXO DO BOT/.test(sent[0]) || /P R E F I X O  D O  B O T/.test(sent[0]) || /DARKTOXIC/.test(sent[0])) && /Prefixo (atual|actual)/.test(sent[0]), sent[0]?.slice(0, 60));
   check('fallback traz o código para copiar', /copiar prefixo/.test(sent[0]) && /`!`/.test(sent[0]));
 
   console.log('\n═══ WIRING ═══');
