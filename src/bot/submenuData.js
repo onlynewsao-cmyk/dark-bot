@@ -374,6 +374,14 @@ function categorize(cmd) {
     auraset:'owner', aurapainel:'owner', setaura:'owner', // v7.74
     aurahub:'owner', auractrl:'owner', controlaura:'owner', // v9.5 hub da Aura
     tab:'economia', abas:'economia', meurpg:'economia', // v9.5 aba interativa
+    // v9.8: CLIENTE ONLINE — divulgação darktoxic (só dono)
+    cliente:'owner', clienteonline:'owner', divulgacao:'owner',
+    divulgar:'owner', divulgarrapido:'owner', divulgarteste:'owner',
+    divulgarstop:'owner', divulgarhistorico:'owner',
+    divulgarfoto:'owner', divulgarvideo:'owner', divulgardoc:'owner',
+    divulgaraudio:'owner', divulgarcontato:'owner', divulgarloc:'owner',
+    delay:'owner', delayultrarapido:'owner',
+    conectarbot:'owner', meubot:'owner', desconectarbot:'owner', aluguel:'owner',
     backupgp:'admin', backupgrupo:'admin', restoregp:'admin', restoregrupo:'admin', // v7.75
     slowmode:'admin', modolento:'admin', setwarnlimit:'admin', warnlimit:'admin', // v7.75
     likesff:'info', fflike:'info', likefree:'info', likeff:'info', // v7.62
