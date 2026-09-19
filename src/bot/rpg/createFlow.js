@@ -59,7 +59,7 @@ async function _enviarLista(sock, msg, ctx, titulo, subtitulo, corpo, rows, roda
           buttons: [{
             name: 'single_select',
             buttonParamsJson: JSON.stringify({
-              title,
+              title: titulo,
               sections: [{ title: subtitulo, rows }],
             }),
           }],
@@ -85,9 +85,11 @@ function _listaRacas(name) {
   const linhas = [
     `🎭 *ESCOLHE A RAÇA DE ${String(name).toUpperCase()}*`,
     '',
-    ...Object.entries(rpg.RACES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`),
+    ...Object.entries(rpg.RACES).map(([k, v], i) => `${i + 1}. ${v.emoji} *${k}* — ${v.desc}`),
     '',
-    '> Toca numa raça acima para continuar 🎯',
+    '> 🖱️ Toca numa raça acima para continuar 🎯',
+    `> ⌨️ *Se a lista não abrir, escreve*: \`!rpgstart ${String(name).split(' ')[0]} <raça> <classe>\``,
+    `> (ex.: \`!rpgstart ${String(name).split(' ')[0]} shinobi guerreiro\`)`,
   ];
   const rows = Object.entries(rpg.RACES).map(([k, v]) => ({
     title: `${v.emoji} ${k.charAt(0).toUpperCase() + k.slice(1)}`,
@@ -102,9 +104,11 @@ function _listaClasses(name, race) {
     `⚔️ *ESCOLHE A CLASSE DE ${String(name).toUpperCase()}*`,
     `${rpg.RACES[race]?.emoji || '🧬'} Raça: *${race}*`,
     '',
-    ...Object.entries(rpg.CLASSES).map(([k, v]) => `${v.emoji} *${k}* — ${v.desc}`),
+    ...Object.entries(rpg.CLASSES).map(([k, v], i) => `${i + 1}. ${v.emoji} *${k}* — ${v.desc}`),
     '',
-    '> Toca numa classe acima para nascer 🎯',
+    '> 🖱️ Toca numa classe acima para nascer 🎯',
+    `> ⌨️ *Se a lista não abrir, escreve*: \`!rpgstart ${String(name).split(' ')[0]} ${race} <classe>\``,
+    `> (ex.: \`!rpgstart ${String(name).split(' ')[0]} ${race} guerreiro\`)`,
   ];
   const rows = Object.entries(rpg.CLASSES).map(([k, v]) => ({
     title: `${v.emoji} ${k.charAt(0).toUpperCase() + k.slice(1)}`,

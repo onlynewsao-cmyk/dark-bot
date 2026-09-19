@@ -444,24 +444,30 @@ module.exports = function registerRPGCommunity(registerCase) {
     } else {
       seccoes.push({ title: '🎭 A TUA PERSONAGEM', rows: [
         R('rg', 'Ficha completa — atributos, magia, reputação'),
+        R('ficha', 'A tua ficha rápida — números no essencial'),
         R('nome', 'Mudar de nome — rebatiza o herói'),
         R('vidas', 'As tuas vidas — e como recuperá-las'),
         R('rgcard', 'Cartão de herói — a tua foto de perfil na arte (gif: rgcard gif)'),
+        R('reviver', 'Reviver depois de morrer — gastas gold'),
       ]});
       seccoes.push({ title: '⚔️ AVENTURA & COMBATE', rows: [
         R('lutar', 'Combate PvE — sobe de nível e ganha loot'),
         R('explorar', 'Explorar biomas — tesouros e perigos'),
         R('quest', 'Missões do dia — histórias e recompensas'),
+        R('historia', 'A tua história — capítulos e enredos'),
         R('viajar', 'Viajar no mundo — teleporta o teu herói'),
+        R('irpara', 'Ir directo p/ bioma — sem voltas'),
         R('descansar', 'Descansar — recupera HP e MP'),
         R('pocao', 'Usar poção — cura imediata'),
       ]});
       seccoes.push({ title: '🃏 INVENTÁRIO & BAÚ', rows: [
         R('inventario', 'O teu inventário — armas, armaduras, poções'),
         R('bau', 'O teu baú — guarda e organiza'),
+        R('falar', 'Falar com o mundo — NPCs e pistas'),
       ]});
       seccoes.push({ title: '🏰 PRAÇA — SOCIAL & RANKS', rows: [
         R('guilda', 'A tua guilda — ver, criar ou aderir'),
+        R('criarguilda', 'Fundar guilda — a tua tag no mundo'),
         R('criaclan', 'Criar um clã — fundar irmandade'),
         R('npc', 'Falar com NPCs — pistas e histórias'),
         R('ranking', 'Tabela de heróis — o topo de DARK VILLE'),

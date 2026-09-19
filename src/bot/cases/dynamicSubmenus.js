@@ -41,7 +41,14 @@ async function dynSub(sock, msg, ctx, config, category) {
   
   const items = sd.buildItems(allCmds, category);
   
-  if (!items.length) return;
+  // v8.6: se a área estiver vazia, dize-mo em voz alta — antes isto
+  // retornava em silêncio e o utilizador ficava a olhar p/ o nada
+  // ("nenhum resultado lá aparece").
+  if (!items.length) {
+    return sock.sendMessage(ctx.remoteJid, {
+      text: `📜 *Ainda não há comandos nesta área (${meta.title}).*\nO menu principal refresca sozinho — se persistir, avisa o dono.`,
+    }, { quoted: msg });
+  }
   
   // Usar sendStyledCommandList do nativeCommands
   const nc = require('../nativeCommands');
