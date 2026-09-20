@@ -77,8 +77,9 @@ async function votarEnquete(sock, jid, { enquete, escolha, quoted = null }) {
   const e = enquete || ENQUETES.get(jid);
   if (!e) return { ok: false, msg: 'Não conheço nenhuma enquete ativa neste chat — fui eu que a criei nesta sessão?' };
   let idx = -1;
-  const n = parseInt(String(escolha), 10);
-  if (Number.isInteger(n) && n >= 1 && n <= e.opcoes.length) idx = n - 1;
+  // número SÓ se for inteiro puro: «1e1» não pode virar 1
+  const mn = String(escolha).match(/^\s*(\d{1,2})\s*$/);
+  if (mn) { const n = +mn[1]; if (n >= 1 && n <= e.opcoes.length) idx = n - 1; }
   if (idx < 0) {
     const alvo = String(escolha).toLowerCase().trim();
     idx = e.opcoes.findIndex((o) => o.toLowerCase() === alvo || o.toLowerCase().includes(alvo));
@@ -168,8 +169,8 @@ function votar(jid, autorJid, escolha) {
   if (!v) return { ok: false, msg: 'Sem votação a decorrer aqui. Abre uma: `!votacao abrir "pergunta" | a | b`.' };
   if (!v.aberto) return { ok: false, msg: 'Essa já fechou — veredito dado. Abre outra: `!votacao abrir …`.' };
   let idx = -1;
-  const n = parseInt(String(escolha), 10);
-  if (Number.isInteger(n) && n >= 1 && n <= v.opcoes.length) idx = n - 1;
+  const mn = String(escolha).match(/^\s*(\d{1,2})\s*$/); // «1e1» fica na rua
+  if (mn) { const n = +mn[1]; if (n >= 1 && n <= v.opcoes.length) idx = n - 1; }
   if (idx < 0) {
     const alvo = String(escolha).toLowerCase().trim();
     idx = v.opcoes.findIndex((o) => o.toLowerCase() === alvo || o.toLowerCase().startsWith(alvo));
@@ -178,12 +179,16 @@ function votar(jid, autorJid, escolha) {
   const antes = v.votos.get(autorJid);
   v.votos.set(autorJid, idx);
   const quem = String(autorJid).split('@')[0];
+  const mesma = antes !== undefined && antes === idx;
   return {
     ok: true,
     trocou: antes !== undefined && antes !== idx,
+    mesma,
     msg: (antes === undefined
       ? `🗳️ voto de @${quem} registado: *${v.opcoes[idx]}*${v.secreta ? '' : ` (${contagem(v)[idx]} agora)`}`
-      : `🔄 @${quem} mudou: *${v.opcoes[antes]}* → *${v.opcoes[idx]}*`) + (v.secreta ? ' 🤫 contagem secreta.' : ''),
+      : mesma
+        ? `🆗 @${quem} já tinha esse — nada mudou (contagem intacta).`
+        : `🔄 @${quem} mudou: *${v.opcoes[antes]}* → *${v.opcoes[idx]}*`) + (v.secreta ? ' 🤫 contagem secreta.' : ''),
   };
 }
 
