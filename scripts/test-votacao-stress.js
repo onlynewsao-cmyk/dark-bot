@@ -248,6 +248,54 @@ const mkSock = () => {
     console.log('✔ bónus: 200 rondas × 100 votos (20 000 votos no total) — exato todas');
   }
 
+  // ═══ S11 — TOQUE REAL: a resposta do telemóvel pelo funil trueiro ═══
+  {
+    const ch = require('../src/bot/commandHandler');
+    const sock = mkSock();
+    const DONO = { ...mkCtx('100'), isOwner: true, isAdmin: true };
+    await casos.votacao({ sock, msg: {}, ctx: DONO, args: ['"Tap real" | a | b | c'], prefix: '!', isOwner: true, reply });
+    assert.ok(/Votação aberta/.test(replySink.last), 'aberta para o teste de toque');
+
+    // 11a. quick_reply nativeFlow — é EXATAMENTE o que o aparelho envia ao tocar
+    const tap1 = { message: { interactiveResponseMessage: { nativeFlowResponseMessage: { paramsJson: JSON.stringify({ id: '!votar 3' }), message: 'Votaste' } } } };
+    assert.strictEqual(ch.extractText(tap1), '!votar 3', 'extractText apanha o id do botão');
+    await casos.votar({ sock, msg: {}, ctx: mkCtx('tapi1'), args: ['3'], prefix: '!', isOwner: false, reply });
+    assert.ok(/registado: \*c\*/.test(replySink.last), 'toque → voto na opção c');
+
+    // 11b. lista clássica single_select (rowId) e templateButtonReply
+    const tap2 = { message: { listResponseMessage: { singleSelectReply: { selectedRowId: '!votar 1' } } } };
+    const tap3 = { message: { buttonsResponseMessage: { selectedButtonId: '!votar 2' } } };
+    assert.strictEqual(ch.extractText(tap2), '!votar 1', 'rowId da lista → comando');
+    assert.strictEqual(ch.extractText(tap3), '!votar 2', 'botão template → comando');
+    await casos.votar({ sock, msg: {}, ctx: mkCtx('tapi2'), args: ['1'], prefix: '!', isOwner: false, reply });
+    await casos.votar({ sock, msg: {}, ctx: mkCtx('tapi3'), args: ['2'], prefix: '!', isOwner: false, reply });
+
+    // 11c. os ids GRAVADOS no cartão enviado são todos votáveis: toca-los já
+    const v = vt.__test.VOTACOES.get(G);
+    const antesTot = v.votos.size;
+    const carta = JSON.parse(JSON.stringify(sock.sent[sock.sent.length - 1] ? sock.sent.map((x) => x.content).find((c) => JSON.stringify(c).includes('votar')) || '{}' : '{}'));
+    const ids = (JSON.stringify(carta).match(/!votar [123]/g) || []);
+    assert.ok(ids.length >= 3, `cartão traz os ${ids.length} ids !votar N`);
+    for (const idTxt of ids) {
+      const tap = { message: { interactiveResponseMessage: { nativeFlowResponseMessage: { paramsJson: JSON.stringify({ id: idTxt }) } } } };
+      const extraido = ch.extractText(tap);
+      assert.ok(/^!votar [123]$/.test(extraido), `id extraído é comando votável (${extraido})`);
+      await casos.votar({ sock, msg: {}, ctx: mkCtx(`tap${v.votos.size}`), args: [extraido.split(' ')[1]], prefix: '!', isOwner: false, reply });
+    }
+    assert.strictEqual(v.votos.size, antesTot + ids.length, `todos os ${ids.length} toques registados, um por pessoa`);
+
+    // 11d. enquete real: o VOTO do utilizador (pollUpdate) também é lido pelo funil
+    const tapPoll = { message: { pollUpdateMessage: { vote: { selectedOptions: ['b'] } } } };
+    assert.strictEqual(ch.extractText(tapPoll), 'b', 'voto de enquete extraído como escolha');
+
+    // 11e. fechar e conferir a aritmética inteira dos toques
+    await casos.votacao({ sock, msg: {}, ctx: DONO, args: ['fechar'], prefix: '!', isOwner: true, reply });
+    const c = vt.__test.contagem(v);
+    assert.strictEqual(c.reduce((s, x) => s + x, 0), antesTot + ids.length + 0 + 0, 'fecho bate certo com os toques enviados');
+    await casos.votacao({ sock, msg: {}, ctx: DONO, args: ['limpar'], prefix: '!', isOwner: true, reply });
+    console.log(`✔ S11 toque real (nativeFlow/lista/template/enquete): ${ids.length}+2 taps → contagem selada`);
+  }
+
   vt.limpar(G);
   console.log('\n🎉 STRESS: votos, seleção (botão e texto), trocas e rondas — tudo exato');
   process.exit(0);
