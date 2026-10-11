@@ -13,9 +13,12 @@
 const buttonHandler = require('../buttonHandler');
 const ui = require('../centralUI');
 const base = require('../centralBase');
+const { communityInfo } = require('../communityDetector');
 
-// RAM por chat: última listagem de grupos + convites pendentes
-const _last = new Map();   // chatId → [{ jid, nome, size, comunidade, pai }]
+// RAM por chat: destinos vivos e fontes (vivas + histórico) + convites pendentes.
+const _last = new Map();          // chatId → apenas grupos em que o bot está agora
+const _lastAt = new Map();        // a lista viva expira para não virar destino histórico
+const _lastFontes = new Map();    // chatId → fontes da Central, inclusive históricas
 const _pend = new Map();   // chatId → { dest, falhados: [{jid,nome}], envJid, ts }
 
 const only = (isOwner, reply) => isOwner ? true : (reply('👑 A Central é *SÓ DO DONO*.'), false);
@@ -91,31 +94,72 @@ async function botEhAdmin(sock, meta) {
 
 async function listarGrupos(sock) {
   const all = await sock.groupFetchAllParticipating();
-  const arr = Object.values(all || {}).map(g => ({
-    jid: g.id,
-    nome: g.subject || 'grupo',
-    size: g.participants?.length || g.size || 0,
-    comunidade: !!g.isParentGroup || /comunity|comunidade/i.test(g.subject || ''),
-    pai: g.linkedParentJid || '',
-    raw: g,
-  })).sort((a, b) => b.size - a.size);
+  const arr = Object.values(all || {}).map((g) => {
+    const comunidade = communityInfo(g);
+    return {
+      jid: g.id,
+      nome: g.subject || 'grupo',
+      size: g.participants?.length || g.size || 0,
+      comunidade: comunidade.isCommunity,
+      pai: comunidade.parentJid,
+      isAnnouncement: comunidade.isAnnouncement,
+      raw: g,
+    };
+  }).filter((g) => g.jid).sort((a, b) => b.size - a.size);
+  // Esta operação apenas actualiza presença dos grupos vistos; nunca remove
+  // os já capturados, que continuam disponíveis como fonte da Central.
+  base.registarGruposVivos(arr);
   return { arr, all };
 }
 
-function registrarListagem(chatId, arr) { _last.set(chatId, arr); }
-// v12.9.11: se não houve listagem neste chat (ou expirou), busca fresca —
-// o dono não é obrigado a correr gruposbot primeiro.
+function registrarListagem(chatId, arr) { _last.set(chatId, arr); _lastAt.set(chatId, Date.now()); }
+// A lista é SOMENTE para destinos e expira rapidamente: nunca transforma um
+// grupo histórico num alvo de add por causa de uma listagem antiga.
 async function garantirListagem(sock, chatId) {
   let arr = _last.get(chatId);
-  if (!arr || !arr.length) { const { arr: fresh } = await listarGrupos(sock); arr = fresh; registrarListagem(chatId, arr); }
+  if (!arr || !arr.length || Date.now() - (_lastAt.get(chatId) || 0) > 120000) {
+    const { arr: fresh } = await listarGrupos(sock); arr = fresh; registrarListagem(chatId, arr);
+  }
   return arr;
 }
 async function pickGrupo(sock, chatId, arg) {
   const arr = await garantirListagem(sock, chatId);
   if (/^\d+$/.test(arg) && arr[+arg - 1]) return arr[+arg - 1];
   const jid = arg.includes('@g.us') ? arg : null;
-  if (jid) return arr.find(g => g.jid === jid) || { jid, nome: 'grupo', size: 0 };
-  return null;
+  return jid ? (arr.find(g => g.jid === jid) || null) : null;
+}
+
+async function listarFontes(sock, chatId) {
+  const vivos = await garantirListagem(sock, chatId);
+  const porJid = new Map(vivos.map((g) => [g.jid, { ...g, status: 'ativo', historico: false }]));
+  for (const h of base.listarGruposHistoricos()) {
+    const atual = porJid.get(h.jid);
+    if (atual) {
+      porJid.set(h.jid, { ...h, ...atual, size: atual.size || h.membros || 0, capturados: h.capturados || 0 });
+    } else {
+      porJid.set(h.jid, {
+        jid: h.jid, nome: h.nome || 'grupo', size: h.membros || 0,
+        comunidade: !!h.comunidade, pai: h.parentJid || '',
+        isAnnouncement: !!h.isAnnouncement, status: h.status || 'historico',
+        capturados: h.capturados || 0, lastCapturedAt: h.lastCapturedAt || h.ts || 0,
+        historico: true,
+      });
+    }
+  }
+  const fontes = [...porJid.values()].sort((a, b) => {
+    if (!!a.historico !== !!b.historico) return a.historico ? 1 : -1;
+    return (b.lastCapturedAt || 0) - (a.lastCapturedAt || 0) || (b.capturados || 0) - (a.capturados || 0);
+  });
+  _lastFontes.set(chatId, fontes);
+  return fontes;
+}
+async function pickFonte(sock, chatId, arg) {
+  let fontes = _lastFontes.get(chatId);
+  if (!fontes || !fontes.length) fontes = await listarFontes(sock, chatId);
+  const n = String(arg || '').match(/^(?:origem|fonte):?(\d+)$/i);
+  if (n) return fontes[Number(n[1]) - 1] || null;
+  const jid = String(arg || '').replace(/^grupo:/i, '');
+  return jid.includes('@g.us') ? (fontes.find((g) => g.jid === jid) || null) : null;
 }
 
 // ═══ v12.9.40: MENU ADD CENTRAL (comando .add — não é submenu) ═══
@@ -129,13 +173,17 @@ async function _menuAdd(sock, msg, ctx) {
     for (const p of top) bts.push({ id: ctx.prefix + 'addpre pais:' + p.pais, text: '🌍 ' + p.pais + ' (' + fmtN(p.total) + ')' });
   }
   bts.push({ id: ctx.prefix + 'gruposbot', text: '📋 Grupos do bot' });
+  bts.push({ id: ctx.prefix + 'fontescentral', text: '🗂️ Fontes capturadas' });
   bts.push({ id: ctx.prefix + 'contactos', text: '📊 Estatísticas' });
   let txt = '➕ *ADD CENTRAL — contactos → grupos/comunidades*\n\n📇 ' + fmtN(s.total) + ' contactos · 📋 ' + s.nGrupos + ' grupos';
   if ((s.paises || []).length) txt += '\n🌐 ' + (s.paises || []).slice(0, 4).map(p => p.pais + ' ' + fmtN(p.total)).join(' · ');
   txt += '\n\n• \`' + ctx.prefix + 'add <dest> de todos\` — a base TODA'
     + '\n• \`' + ctx.prefix + 'add <dest> 20 de todos\` — só 20 elegíveis (ex.: grupo 10: \`add 10 20 de todos\`)'
     + '\n• \`' + ctx.prefix + 'add <dest> de 3\` — de 1 grupo'
-    + '\n• \`' + ctx.prefix + 'add <dest> de 3 5\` — de 2 grupos'
+    + '\n• \`' + ctx.prefix + 'add <dest> de 3 5\` — de 2 grupos onde o bot ainda está'
+    + '\n• \`' + ctx.prefix + 'fontescentral\` → lista fontes históricas'
+    + '\n• \`' + ctx.prefix + 'add <dest> de origem:3\` — fonte histórica ou actual #3'
+    + '\n• \`' + ctx.prefix + 'add <dest> de grupo:<jid>\` — fonte pelo JID guardado'
     + '\n• \`' + ctx.prefix + 'add <dest> de pais:angola\` — de 1 país'
     + '\n• \`' + ctx.prefix + 'add <dest> de pais:angola+brasil\` — de 2 países'
     + '\n• \`' + ctx.prefix + 'add <dest> de ddd:244 9\` — por operadora'
@@ -160,15 +208,20 @@ async function parseFonte(sock, chatId, argDeRaw) {
     lista = lista.filter(x => !vistos.has(x.num) && vistos.add(x.num));
     return { lista, desc: partes.length > 1 ? 'países ' + partes.join(' + ') : 'SEGMENTO ' + val.toUpperCase() };
   }
-  // 1 ou 2 grupos: '3' | '3 5' | '3,5' | jid
+  // Grupo vivo: '3' | '3 5'. Fonte histórica: 'origem:3' | 'origem:3 origem:5'.
+  // Um JID guardado também é uma fonte válida, mesmo que já não seja destino.
   const toks = argDe.split(/[\s,]+/).filter(Boolean).slice(0, 2);
   let lista = [];
   const nomes = [];
   for (const t of toks) {
-    const gf = await pickGrupo(sock, chatId, t);
-    if (!gf) return { lista: null, erro: 'Fonte "' + t + '" não encontrada na listagem — corre *gruposbot*.' };
+    const historica = /^(?:origem|fonte):?\d+$/i.test(t) || /^grupo:/i.test(t) || t.includes('@g.us');
+    const gf = historica ? await pickFonte(sock, chatId, t) : await pickGrupo(sock, chatId, t);
+    if (!gf) {
+      const ajuda = historica ? 'Corre *fontescentral* para ver os índices e os JIDs guardados.' : 'Corre *gruposbot* para ver os destinos vivos.';
+      return { lista: null, erro: 'Fonte "' + t + '" não encontrada. ' + ajuda };
+    }
     lista = lista.concat(base.fonteParaAdd(gf.jid));
-    nomes.push(String(gf.nome || 'grupo').slice(0, 25));
+    nomes.push(String(gf.nome || 'grupo').slice(0, 25) + (gf.historico ? ' (histórico)' : ''));
   }
   const vistos = new Set();
   lista = lista.filter(x => !vistos.has(x.num) && vistos.add(x.num));
@@ -206,7 +259,7 @@ async function _executarAddCentral(sock, msg, ctx, reply, gDest, fonteDesc, list
   } catch (e) { return reply('❌ Não consegui ler o grupo destino: ' + (e.message || '').slice(0, 80)); }
 
   // comunidade PAI (grupo de anúncios) não aceita add directo
-  if (metaDest.isParentGroup || /comunity|comunidade/i.test(metaDest.subject || '')) {
+  if (communityInfo(metaDest).isCommunity) {
     const filhos = (metaDest.participants || []).length;
     return buttonHandler.sendButtons(sock, ctx.remoteJid,
       '🏘️ *' + String(gDest.nome).slice(0, 40) + '* é uma COMUNIDADE (grupo de anúncios) — o WhatsApp não deixa adicionar membros directamente.\n\n👉 Usa um dos *subgrupos* como destino: `gruposbot` e vê os ↳ filhos.', 'Central',
@@ -317,9 +370,35 @@ module.exports = function registerCentralGrupos(registerCase) {
         detalhe: `👥 ${g.size}${g.comunidade ? ' · 🏘️ COMUNIDADE' : ''}${g.pai ? ' · ↳ filho de comunidade' : ''}`,
         marcador: '',
       })),
-      { quoted: msg, nota: '> `capturar <nº>` · `addcentral <dest> de <nº>` · `comunidade` para ver hierarquias' });
+      { quoted: msg, nota: '> Estes são destinos VIVOS: `capturar <nº>` · `addcentral <dest> de <nº>` · `comunidade`\n> Para usar grupos dos quais o bot saiu como fonte: `fontescentral`.' });
     await buttonHandler.sendButtons(sock, ctx.remoteJid, '⚡ *Acções rápidas da Central*', 'Central · só dono',
       [{ id: `${prefix}capturartodos`, text: '📥 Capturar TODOS' }, { id: `${prefix}contactos`, text: '📊 Base de contactos' }], msg);
+  }, owner);
+
+  // ═══════════ FONTES DA CENTRAL (vivas + históricas) ═══════════
+  registerCase(['fontescentral', 'fontes', 'origenscentral'], async ({ sock, msg, ctx, prefix, isOwner, reply }) => {
+    if (!only(isOwner, reply)) return;
+    let fontes = [];
+    try { fontes = await listarFontes(sock, ctx.remoteJid); }
+    catch (e) { return reply('❌ Não consegui actualizar os grupos vivos: ' + String(e.message || e).slice(0, 70)); }
+    if (!fontes.length) return reply('🗂️ Ainda não há fontes capturadas. Usa *capturartodos* ou *capturar <nº>* primeiro.');
+    const { listaTexto } = require('../centralTexto');
+    await listaTexto(sock, ctx.remoteJid,
+      `🗂️ *FONTES DA CENTRAL (${fontes.length})*`,
+      fontes.map((g, i) => {
+        const estado = !g.historico ? '🟢 NO BOT' : g.status === 'saiu' ? '↪ BOT SAIU' : '🕘 HISTÓRICO';
+        const tipo = g.comunidade ? ' · 🏘️ comunidade' : g.pai ? ' · ↳ subgrupo' : '';
+        return {
+          num: i + 1,
+          titulo: g.nome.slice(0, 55),
+          detalhe: `${estado}${tipo} · 📇 ${g.capturados || 0} capturados`,
+          marcador: '',
+        };
+      }),
+      {
+        quoted: msg,
+        nota: '> Use uma origem, inclusive histórica: `' + prefix + 'add <destino vivo> de origem:<nº>`\n> O destino tem de sair de `gruposbot`; JID da fonte: `grupo:<jid>`.',
+      });
   }, owner);
 
   // ═══════════ CAPTURAR 1 GRUPO (ou comunidade inteira) ═══════════
@@ -335,7 +414,7 @@ module.exports = function registerCentralGrupos(registerCase) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } }).catch(() => {});
     // comunidade pai → filhos
     let jids = [g.jid];
-    if (g.comunidade || g.raw?.isParentGroup) {
+    if (g.comunidade) {
       try { const { all } = await listarGrupos(sock); jids = [g.jid, ...base.filhosComunidade(g.jid, all).map(x => x.id)]; } catch {}
     }
     let novos = 0, duplicados = 0, gruposN = 0;
@@ -415,7 +494,7 @@ module.exports = function registerCentralGrupos(registerCase) {
       try {
         const meta = await sock.groupMetadata(ctx.remoteJid);
         const participantes = meta?.participants || [];
-        if (meta?.isParentGroup || /comunity|comunidade/i.test(meta?.subject || '')) {
+        if (communityInfo(meta).isCommunity) {
           return reply('🏘️ Este é o grupo de anúncios de uma *COMUNIDADE*. O WhatsApp não permite adicionar membros directamente — usa um subgrupo.');
         }
         if (participantes.length >= 1024) return reply('🚫 Este grupo está CHEIO (' + participantes.length + '/1024). Remove alguém ou usa outro grupo.');
@@ -490,7 +569,7 @@ module.exports = function registerCentralGrupos(registerCase) {
     if (!only(isOwner, reply)) return;
     const { arr } = await listarGrupos(sock);
     registrarListagem(ctx.remoteJid, arr);
-    const pais = arr.filter(g => g.comunidade || g.raw?.isParentGroup);
+    const pais = arr.filter(g => g.comunidade);
     const filhos = arr.filter(g => g.pai);
     if (!pais.length && !filhos.length) {
       return reply('🏘️ Nenhuma comunidade detectada entre os grupos do bot.\n\n> Detecção por *isParentGroup* e *linkedParentJid* do WhatsApp. Se o bot for membro de uma comunidade, corre *gruposbot* de novo (meta fresca).');

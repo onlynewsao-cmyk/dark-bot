@@ -5,7 +5,7 @@
     <header class="page-header">
       <div>
         <h1>🕸️ Central de Contactos</h1>
-        <p class="muted">Contactos capturados dos grupos (sem duplicados) — v12.9.11 · alimentada por <code>.capturartodos</code> / <code>.capturar &lt;nº&gt;</code> no WhatsApp</p>
+        <p class="muted">Contactos e proveniência dos grupos, sem duplicados — grupos históricos continuam como fonte mesmo se o bot sair · alimentada por <code>.capturartodos</code> / <code>.capturar &lt;nº&gt;</code> no WhatsApp</p>
       </div>
     </header>
 
@@ -62,23 +62,27 @@
     </div>
 
     <div class="card">
-      <h2>📋 Grupos capturados</h2>
-      <table class="table">
-        <thead><tr><th>#</th><th>Grupo</th><th>Contactos capturados</th><th>Membros</th><th>Capturado</th></tr></thead>
-        <tbody>
+      <h2>📋 Origens capturadas <small class="muted">inclui grupos históricos — a proveniência nunca é apagada ao sair</small></h2>
+      <p class="muted small" style="margin-top:0">🟢 no bot agora · ↪ bot saiu (evento confirmado) · 🕘 histórico sem presença actual. Clique em <b>Ver contactos</b> para usar a origem como filtro. No WhatsApp: <code>.fontescentral</code> e <code>.add &lt;destino vivo&gt; de origem:&lt;nº&gt;</code>.</p>
+      <div style="overflow-x:auto"><table class="table">
+        <thead><tr><th>#</th><th>Grupo / comunidade</th><th>Estado</th><th>Contactos capturados</th><th>Última captura</th><th></th></tr></thead>
+        <tbody id="centralGruposTbody">
           <% grupos.forEach((g, i) => { %>
-            <tr><td><%= i + 1 %></td><td><%= g.nome %></td><td><b><%= g.capturados %></b></td><td><%= g.membros %></td><td><%= new Date(g.ts).toLocaleDateString('pt-PT') %></td></tr>
+            <tr><td><%= i + 1 %></td><td><%= g.nome %></td><td><%= g.status === 'ativo' ? '🟢 No bot' : g.status === 'saiu' ? '↪ Bot saiu' : '🕘 Histórico' %></td><td><b><%= g.capturados %></b></td><td><%= g.lastCapturedAt || g.ts ? new Date(g.lastCapturedAt || g.ts).toLocaleDateString('pt-PT') : '—' %></td><td></td></tr>
           <% }) %>
-          <% if (!grupos.length) { %><tr><td colspan="5" class="muted">Nada capturado ainda — corre <code>.capturartodos</code> no WhatsApp.</td></tr><% } %>
+          <% if (!grupos.length) { %><tr><td colspan="6" class="muted">Nada capturado ainda — corre <code>.capturartodos</code> no WhatsApp.</td></tr><% } %>
         </tbody>
-      </table>
+      </table></div>
     </div>
 
     <p id="lidsBox" class="muted small" style="margin-bottom:0.6rem"></p>
 
     <div class="card">
       <h2>📇 Contactos</h2>
-      <div class="form-group"><input type="text" id="centralBusca" placeholder="🔍 procurar por número ou nome…" oninput="centralFiltrar()" style="max-width:340px" /></div>
+      <div class="form-group" style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="text" id="centralBusca" placeholder="🔍 procurar por número ou nome…" oninput="centralFiltrar()" style="max-width:340px" />
+        <select id="centralGrupoFiltro" onchange="centralFiltrarGrupo(this.value)" style="max-width:360px"><option value="">Todas as origens capturadas</option></select>
+      </div>
       <table class="table" id="centralTabela">
         <thead><tr><th>Número</th><th>Nome</th><th>DDD / país</th><th>Visto por</th><th>Grupos</th><th>Capturado</th><th></th></tr></thead>
         <tbody id="centralTbody"><tr><td colspan="8" class="muted">a carregar…</td></tr></tbody>
@@ -92,13 +96,14 @@
 let _centralDados = [];
 let _filtroDdd = '';
 // ═══ v12.9.36: PAGINAÇÃO no SERVIDOR (1M+ contactos) ═══
-let _pagina = 1, _paginas = 1, _totalBase = 0, _totalFiltrado = 0, _filtroPais = '';
+let _pagina = 1, _paginas = 1, _totalBase = 0, _totalFiltrado = 0, _filtroPais = '', _filtroGrupo = '';
 async function centralRefresh() {
   const busca = (document.getElementById('centralBusca').value || '').trim();
   const qs = new URLSearchParams({ pag: _pagina, porPagina: 100 });
   if (busca) qs.set('busca', busca);
   if (_filtroDdd) qs.set('ddd', _filtroDdd);
   if (_filtroPais) qs.set('pais', _filtroPais);
+  if (_filtroGrupo) qs.set('grupo', _filtroGrupo);
   const r = await fetch('/api/central/state?' + qs).then(x => x.json()).catch(() => null);
   if (!r) return;
   _centralDados = (r.contactos || []).map(c => ({ ...c, busca: (c.num + ' ' + (c.nome || '')).toLowerCase() }));
@@ -110,6 +115,7 @@ async function centralRefresh() {
   if (sc2) sc2.textContent = '🧱 ' + (r.slots || []).length;
   renderDds(r.ddds || []);
   renderSlots(r.slots || []);
+  renderGrupos(r.grupos || []);
   centralRender();
 }
 async function paisesCarregar() {
@@ -134,6 +140,47 @@ function renderSlots(slots) {
   if (!el) return;
   if (!slots.length) { el.innerHTML = '<small class="muted">Ainda sem captura por número — usa a captura com TODOS os números.</small>'; return; }
   el.innerHTML = slots.map(s => `<span class="badge" style="margin:2px">🧱 SLOT ${s.slot} · ${s.total} contactos</span>`).join(' ');
+}
+function escHtml(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]); }
+function dataCurta(ts) { return ts ? new Date(ts).toLocaleDateString('pt-PT') : '—'; }
+function renderGrupos(grupos) {
+  const tb = document.getElementById('centralGruposTbody');
+  const sel = document.getElementById('centralGrupoFiltro');
+  if (!tb || !sel) return;
+  const porJid = new Map(grupos.map(g => [g.jid, g]));
+  const ordenar = (a, b) => String(a.nome).localeCompare(String(b.nome)) || (b.lastCapturedAt || b.ts || 0) - (a.lastCapturedAt || a.ts || 0);
+  // Forma uma árvore: cada comunidade/pai é seguida pelos seus subgrupos.
+  const filhosPorPai = new Map();
+  grupos.forEach(g => {
+    if (!g.parentJid || !porJid.has(g.parentJid)) return;
+    const filhos = filhosPorPai.get(g.parentJid) || [];
+    filhos.push(g);
+    filhosPorPai.set(g.parentJid, filhos);
+  });
+  const ordenados = [], vistos = new Set();
+  const incluir = (g) => { if (!g || vistos.has(g.jid)) return; vistos.add(g.jid); ordenados.push(g); (filhosPorPai.get(g.jid) || []).sort(ordenar).forEach(incluir); };
+  grupos.filter(g => !g.parentJid || !porJid.has(g.parentJid)).sort(ordenar).forEach(incluir);
+  grupos.sort(ordenar).forEach(incluir); // cobre relações antigas incompletas/cíclicas.
+  if (!ordenados.length) {
+    tb.innerHTML = '<tr><td colspan="6" class="muted">Nada capturado ainda — corre <code>.capturartodos</code> no WhatsApp.</td></tr>';
+  } else {
+    tb.innerHTML = ordenados.map((g, i) => {
+      const estado = g.status === 'ativo' ? '<span class="badge">🟢 No bot</span>' : g.status === 'saiu' ? '<span class="badge">↪ Bot saiu</span>' : '<span class="badge">🕘 Histórico</span>';
+      const pai = g.parentJid ? porJid.get(g.parentJid) : null;
+      const tipo = g.comunidade ? '🏘️ Comunidade' : g.parentJid ? '↳ Subgrupo' + (pai ? ' de ' + escHtml(pai.nome).slice(0, 28) : '') : '👥 Grupo';
+      return `<tr><td>${i + 1}</td><td><b>${escHtml(g.nome)}</b><br><small class="muted">${tipo}</small></td><td>${estado}</td><td><b>${Number(g.capturados || 0).toLocaleString('pt-PT')}</b>${g.membros ? `<br><small class="muted">${g.membros} membros vistos</small>` : ''}</td><td>${dataCurta(g.lastCapturedAt || g.ts)}</td><td><button class="btn btn-sm btn-ghost" onclick="centralFiltrarGrupo('${g.jid}')">Ver contactos</button></td></tr>`;
+    }).join('');
+  }
+  const anterior = _filtroGrupo;
+  sel.innerHTML = '<option value="">Todas as origens capturadas</option>' + ordenados.map(g => `<option value="${g.jid}">${g.status === 'ativo' ? '🟢' : g.status === 'saiu' ? '↪' : '🕘'} ${escHtml(g.nome)} · ${g.capturados || 0}</option>`).join('');
+  sel.value = anterior;
+}
+function centralFiltrarGrupo(jid) {
+  _filtroGrupo = jid || '';
+  _pagina = 1;
+  const sel = document.getElementById('centralGrupoFiltro');
+  if (sel) sel.value = _filtroGrupo;
+  centralRefresh();
 }
 function filtrarDdd(rot, btn) {
   _filtroDdd = _filtroDdd === rot ? '' : rot;
@@ -266,7 +313,7 @@ async function lidsLimpar(btn) {
 function paginasRender() {
   const el = document.getElementById('centralCount');
   const de = _totalFiltrado ? ((pagina offset)) : '';
-  el.innerHTML = '— ' + _totalFiltrado.toLocaleString('pt-PT') + ' contacto(s)' + (_totalBase !== _totalFiltrado ? ' (base: ' + _totalBase.toLocaleString('pt-PT') + ')' : '') + (_filtroDdd ? ' · ddd ' + _filtroDdd : '') + (_filtroPais ? ' · ' + _filtroPais : '') + ' — página ' + _pagina + '/' + _paginas +
+  el.innerHTML = '— ' + _totalFiltrado.toLocaleString('pt-PT') + ' contacto(s)' + (_totalBase !== _totalFiltrado ? ' (base: ' + _totalBase.toLocaleString('pt-PT') + ')' : '') + (_filtroDdd ? ' · ddd ' + _filtroDdd : '') + (_filtroPais ? ' · ' + _filtroPais : '') + (_filtroGrupo ? ' · origem seleccionada' : '') + ' — página ' + _pagina + '/' + _paginas +
     ' <button class="btn btn-sm btn-ghost" ' + (_pagina <= 1 ? 'disabled' : '') + ' onclick="paginaIr(' + (_pagina - 1) + ')">‹</button>' +
     ' <button class="btn btn-sm btn-ghost" ' + (_pagina >= _paginas ? 'disabled' : '') + ' onclick="paginaIr(' + (_pagina + 1) + ')">›</button>';
 }

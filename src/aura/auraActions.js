@@ -566,6 +566,7 @@ async function executar(acao, valor, { sock, ctx }) {
       if (!emGrupo) return { ok: false, msg: 'Isto só dá dentro de um grupo.' };
       await sock.sendMessage(jid, { text: 'Até depois. 🌹' });
       await sock.groupLeave(jid);
+      try { require('../bot/centralBase').marcarGrupoInativo(jid); } catch {}
       return { ok: true, msg: null }; // já se despediu
     }
 

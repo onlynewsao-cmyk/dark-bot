@@ -11,6 +11,7 @@ const path = require('path');
 async function leaveGroup(sock, groupJid) {
   try {
     await sock.groupLeave(groupJid);
+    try { require('../../bot/centralBase').marcarGrupoInativo(groupJid); } catch {}
     return { success: true, message: `Saí do grupo ${groupJid}` };
   } catch (e) {
     return { success: false, message: 'Erro ao sair do grupo: ' + e.message };

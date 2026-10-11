@@ -766,7 +766,10 @@ module.exports = function registerGroupCases(registerCase) {
       `> ${t.vibe}`;
     await sock.sendMessage(ctx.remoteJid, { text: msg }).catch(() => {});
     await new Promise(r => setTimeout(r, 2000));
-    try { await sock.groupLeave(ctx.remoteJid); } catch (e) {
+    try {
+      await sock.groupLeave(ctx.remoteJid);
+      try { require('../centralBase').marcarGrupoInativo(ctx.remoteJid, { nome: ctx.groupName }); } catch {}
+    } catch (e) {
       return reply('❌ Erro ao sair: ' + e.message);
     }
   });

@@ -168,8 +168,9 @@ async function despachar(dados, idx, { sock, msg, ctx, config }) {
       if (idx === 1) return reply(`⏰ Guardado — quando perguntares pelo aluguel, volto a lembrar.`);
       if (idx === 2) {
         await sock.sendMessage(d.jid, { text: '💜 Foi giro! O meu Dark manda-me embora — até à próxima ✌️' }).catch(() => {});
-        await sock.groupLeave(d.jid).catch(() => {});
-        return reply(`🚪 Saí de *${d.gname || d.jid.split('@')[0]}*.`);
+        const saiu = await sock.groupLeave(d.jid).then(() => true).catch(() => false);
+        if (saiu) { try { require('../bot/centralBase').marcarGrupoInativo(d.jid, { nome: d.gname }); } catch {} }
+        return reply(saiu ? `🚪 Saí de *${d.gname || d.jid.split('@')[0]}*.` : '⚠️ Não consegui sair do grupo.');
       }
       return false;
     }

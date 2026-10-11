@@ -10,6 +10,7 @@
  */
 'use strict';
 const base = require('./centralBase');
+const { communityInfo } = require('./communityDetector');
 
 const _estado = { emCurso: false, modo: '', feitos: 0, total: 0, novos: 0, grupo: '', resultados: null, fim: null, iniciado: null };
 const progresso = () => ({ ..._estado });
@@ -26,13 +27,20 @@ async function listarVivos() {
   const sock = _sock();
   if (!sock) return { ok: false, motivo: 'bot-nao-conectado' };
   const all = await sock.groupFetchAllParticipating().catch(() => ({}));
-  const grupos = Object.values(all || {}).map((g) => ({
-    jid: g.id,
-    nome: g.subject || 'grupo',
-    size: g.participants?.length || g.size || 0,
-    comunidade: !!g.isParentGroup || /comunity|comunidade/i.test(g.subject || ''),
-    pai: g.linkedParentJid || '',
-  })).sort((a, b) => b.size - a.size);
+  const grupos = Object.values(all || {}).map((g) => {
+    const comunidade = communityInfo(g);
+    return {
+      jid: g.id,
+      nome: g.subject || 'grupo',
+      size: g.participants?.length || g.size || 0,
+      // As flags variam entre versões Baileys; communityDetector centraliza a regra.
+      comunidade: comunidade.isCommunity,
+      pai: comunidade.parentJid,
+      isAnnouncement: comunidade.isAnnouncement,
+    };
+  }).filter((g) => g.jid).sort((a, b) => b.size - a.size);
+  // Uma listagem viva confirma a presença sem apagar o histórico dos demais.
+  base.registarGruposVivos(grupos);
   return { ok: true, total: grupos.length, grupos };
 }
 

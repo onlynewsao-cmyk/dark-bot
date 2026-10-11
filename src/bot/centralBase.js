@@ -1,14 +1,16 @@
 /**
  * v12.9.11 — BASE CENTRAL DE CONTACTOS 🕸️
- * Contactos capturados dos grupos (sem duplicados) + grupos conhecidos.
- * Persistência: data/central/base.json + espelho em BotConfig
- * (o dashboard lê a mesma base — ambos os lados actualizados).
+ * Contactos capturados dos grupos (sem duplicados) + proveniência histórica.
+ * Persistência: data/central/base.json no fallback e colecções Mongo próprias
+ * para contactos e grupos; sair do grupo não elimina a origem.
  */
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const { communityInfo } = require('./communityDetector');
 
-const DATA_DIR = path.join(__dirname, '..', '..', 'data', 'central');
+// CENTRAL_DATA_DIR permite testes sem tocar na base real.
+const DATA_DIR = process.env.CENTRAL_DATA_DIR || path.join(__dirname, '..', '..', 'data', 'central');
 const BASE_FILE = path.join(DATA_DIR, 'base.json');
 
 const state = { grupos: {}, contactos: {}, UpdatedAt: 0 };
@@ -29,9 +31,85 @@ function carregar() {
 // o ficheiro JSON fica como fallback apenas para bases pequenas (<150k).
 let _modoMongo = false;
 const _dirty = new Set();           // nums alterados desde o último flush
+const _gruposDirty = new Set();     // JIDs alterados desde o último flush
 let _flushT = null;
+let _gruposFlushT = null;
 let _avisoFile = false;
 function _marcarSujo(num) { _dirty.add(num); }
+function _marcarGrupoSujo(jid) { if (jid) _gruposDirty.add(jid); }
+
+function _normalizarGrupo(jid, valor = {}) {
+  const ts = Number(valor.ts || valor.lastCapturedAt || valor.lastSeenAt || Date.now());
+  const status = ['ativo', 'saiu', 'historico'].includes(valor.status)
+    ? valor.status : 'historico';
+  return {
+    nome: String(valor.nome || 'grupo').slice(0, 120),
+    membros: Number(valor.membros || 0),
+    nomeFonte: String(valor.nomeFonte || ''),
+    firstSeenAt: Number(valor.firstSeenAt || ts),
+    lastSeenAt: Number(valor.lastSeenAt || 0),
+    lastCapturedAt: Number(valor.lastCapturedAt || ts),
+    leftAt: Number(valor.leftAt || 0),
+    status,
+    comunidade: !!valor.comunidade,
+    parentJid: String(valor.parentJid || valor.pai || ''),
+    isAnnouncement: !!valor.isAnnouncement,
+    slots: valor.slots && typeof valor.slots === 'object' ? valor.slots : {},
+    // Compatibilidade para consumidores antigos.
+    ts,
+  };
+}
+
+function _registarGrupo(jid, meta, { fonte = '', slot = null, estado = 'ativo', capturado = false } = {}) {
+  if (!jid) return null;
+  const agora = Date.now();
+  const anterior = _normalizarGrupo(jid, state.grupos[jid] || {});
+  const info = communityInfo(meta || {});
+  const nome = String(meta?.subject || meta?.nome || anterior.nome || 'grupo').slice(0, 120);
+  const membrosMeta = Array.isArray(meta?.participants) ? meta.participants.length : Number(meta?.size || anterior.membros || 0);
+  const proximo = {
+    ...anterior,
+    nome,
+    membros: membrosMeta,
+    nomeFonte: fonte || anterior.nomeFonte || '',
+    lastSeenAt: agora,
+    lastCapturedAt: capturado ? agora : anterior.lastCapturedAt,
+    firstSeenAt: anterior.firstSeenAt || agora,
+    status: estado,
+    leftAt: estado === 'saiu' ? (anterior.leftAt || agora) : 0,
+    comunidade: info.isCommunity || anterior.comunidade,
+    parentJid: info.parentJid || anterior.parentJid || '',
+    isAnnouncement: info.isAnnouncement || anterior.isAnnouncement,
+    slots: { ...(anterior.slots || {}), ...(slot ? { [slot]: agora } : {}) },
+    ts: agora,
+  };
+  state.grupos[jid] = proximo;
+  _marcarGrupoSujo(jid);
+  return proximo;
+}
+
+async function _flushGruposMongo() {
+  clearTimeout(_gruposFlushT); _gruposFlushT = null;
+  if (!_modoMongo || !_gruposDirty.size) return;
+  const CentralGrupo = require('../database/models/CentralGrupo');
+  const jids = [..._gruposDirty]; _gruposDirty.clear();
+  const ops = jids.map((jid) => {
+    const g = state.grupos[jid];
+    return g
+      ? { updateOne: { filter: { jid }, update: { $set: { jid, ..._normalizarGrupo(jid, g) } }, upsert: true } }
+      : { deleteOne: { filter: { jid } } };
+  });
+  for (let i = 0; i < ops.length; i += 500) {
+    try { await CentralGrupo.bulkWrite(ops.slice(i, i + 500), { ordered: false }); }
+    catch (e) {
+      console.warn('[CENTRAL] flush grupos mongo:', String(e.message || e).slice(0, 80));
+      // Não perde alterações transitórias se o Mongo caiu durante o lote.
+      for (const jid of jids.slice(i, i + 500)) _gruposDirty.add(jid);
+      if (!_gruposFlushT) _gruposFlushT = setTimeout(() => { _gruposFlushT = null; _flushGruposMongo().catch(() => {}); }, 10000);
+      break;
+    }
+  }
+}
 
 async function _flushMongo() {
   clearTimeout(_flushT); _flushT = null;
@@ -111,8 +189,10 @@ function usuariosNaFila() { return _usersFila.size; }
 function guardar() {
   state.UpdatedAt = Date.now();
   if (_modoMongo) {
-    // lotes de 500 dos alterados — nunca serializa a base inteira
-    if (!_flushT) _flushT = setTimeout(() => { _flushT = null; _flushMongo().catch(() => {}); }, 2000);
+    // Contactos e grupos usam colecções próprias. Assim, sair de um grupo
+    // nunca apaga a proveniência histórica dos números capturados.
+    if (_dirty.size && !_flushT) _flushT = setTimeout(() => { _flushT = null; _flushMongo().catch(() => {}); }, 2000);
+    if (_gruposDirty.size && !_gruposFlushT) _gruposFlushT = setTimeout(() => { _gruposFlushT = null; _flushGruposMongo().catch(() => {}); }, 1000);
     return;
   }
   if (Object.keys(state.contactos).length > 150000) {
@@ -137,19 +217,46 @@ async function carregarMongo() {
   try {
     const mongoose = require('mongoose');
     if (mongoose.connection?.readyState !== 1) return false;
+    // Lê primeiro o fallback, pois instalações antigas guardavam os grupos
+    // somente no JSON. Esses registos são migrados abaixo para central_grupos.
+    carregar();
     const CC = require('../database/models/CentralContacto');
-    const total = await CC.countDocuments();
-    if (!total) { _modoMongo = true; return true; }
-    const cursor = CC.find({}).lean().cursor();
-    let n = 0;
-    for (let doc = await cursor.next(); doc; doc = await cursor.next()) {
-      state.contactos[doc.num] = { nome: doc.nome || '', jid: doc.jid || doc.num + '@s.whatsapp.net', grupos: doc.grupos || {}, slots: doc.slots || {}, addedAt: doc.addedAt || 0, ts: doc.ts || 0, ddd: { ddi: doc.ddi || '?', pais: doc.pais || 'Desconhecido', ddd: doc.ddd || '-', rotulo: ('+' + (doc.ddi || '?') + ' ' + (doc.ddd || '')).trim() } };
-      n++;
+    const CentralGrupo = require('../database/models/CentralGrupo');
+    const [total, gruposMongo] = await Promise.all([
+      CC.countDocuments(),
+      CentralGrupo.find({}).lean(),
+    ]);
+    for (const doc of gruposMongo) {
+      state.grupos[doc.jid] = _normalizarGrupo(doc.jid, doc);
     }
+
+    let n = 0;
+    if (total) {
+      const cursor = CC.find({}).lean().cursor();
+      for (let doc = await cursor.next(); doc; doc = await cursor.next()) {
+        state.contactos[doc.num] = { nome: doc.nome || '', jid: doc.jid || doc.num + '@s.whatsapp.net', grupos: doc.grupos || {}, slots: doc.slots || {}, addedAt: doc.addedAt || 0, ts: doc.ts || 0, ddd: { ddi: doc.ddi || '?', pais: doc.pais || 'Desconhecido', ddd: doc.ddd || '-', rotulo: ('+' + (doc.ddi || '?') + ' ' + (doc.ddd || '')).trim() } };
+        // Migração de instalações anteriores: os contactos Mongo já guardam
+        // grupos por JID, embora ainda não existisse central_grupos.
+        for (const [jid, nome] of Object.entries(doc.grupos || {})) {
+          const anterior = state.grupos[jid];
+          if (!anterior) {
+            const ts = Number(doc.ts || doc.addedAt || Date.now());
+            state.grupos[jid] = _normalizarGrupo(jid, { nome, ts, firstSeenAt: ts, lastCapturedAt: ts, status: 'historico' });
+          } else if ((!anterior.nome || anterior.nome === 'grupo') && nome) {
+            anterior.nome = String(nome).slice(0, 120);
+          }
+        }
+        n++;
+      }
+    }
+    // Migra os grupos do JSON e os reconstruídos a partir dos contactos para
+    // a colecção própria. Não há perda de origem em instalações já em Mongo.
+    for (const jid of Object.keys(state.grupos)) _marcarGrupoSujo(jid);
     _modoMongo = true; _loaded = true;
-    console.log('[CENTRAL] base do MONGODB: ' + n + ' contactos (escala 1M+ ok)');
+    if (_gruposDirty.size) _flushGruposMongo().catch(() => {});
+    console.log('[CENTRAL] base do MONGODB: ' + n + ' contactos, ' + Object.keys(state.grupos).length + ' grupos históricos');
     return true;
-  } catch (e) { console.warn('[CENTRAL] carregarMongo:', String(e.message).slice(0, 60)); return false; }
+  } catch (e) { console.warn('[CENTRAL] carregarMongo:', String(e.message).slice(0, 80)); return false; }
 }
 function modoMongo() { return _modoMongo; }
 
@@ -413,8 +520,8 @@ function capturarGrupo(jid, meta, { fonte = '', slot = null, persistir = true } 
   // v12.9.34: persistir=false → memória só (captura em LOTES feita pelo chamador;
   // com 1000+ grupos, carregar+guardar a base completa POR GRUPO era O(n²))
   if (persistir) carregar();
-  const nome = String(meta?.subject || '').slice(0, 120) || 'grupo';
-  state.grupos[jid] = { nome, membros: (meta?.participants || []).length, nomeFonte: fonte, ts: Date.now() };
+  const grupo = _registarGrupo(jid, meta, { fonte, slot, estado: 'ativo', capturado: true });
+  const nome = grupo?.nome || 'grupo';
   let novos = 0, duplicados = 0, lidsIgnorados = 0;
   const _paresNovos = [];
   for (const p of (meta?.participants || [])) {
@@ -434,6 +541,7 @@ function capturarGrupo(jid, meta, { fonte = '', slot = null, persistir = true } 
       // e rebentava em contacto repetido sem slot (era o crash silencioso do .capturar!)
       if (slot) { ex.slots = ex.slots || {}; ex.slots[slot] = Date.now(); } // v12.9.23: por qual NÚMERO foi visto
       ex.ts = Date.now();
+      _marcarSujo(num);
     } else {
       novos++;
       state.contactos[num] = { nome: nomeP, jid: jidP, grupos: { [jid]: nome }, addedAt: Date.now(), ts: Date.now(), ddd: dddDe(num), ...(slot ? { slots: { [slot]: Date.now() } } : {}) };
@@ -456,8 +564,17 @@ function stats() {
     for (const jid of Object.keys(c.grupos || {})) _porGrupoTally[jid] = (_porGrupoTally[jid] || 0) + 1;
   }
   const porGrupo = Object.entries(state.grupos)
-    .map(([jid, g]) => ({ jid, nome: g.nome, membros: _porGrupoTally[jid] || 0, capturados: _porGrupoTally[jid] || 0, ts: g.ts }))
-    .sort((a, b) => b.capturados - a.capturados);
+    .map(([jid, bruto]) => {
+      const g = _normalizarGrupo(jid, bruto);
+      return {
+        jid, nome: g.nome, membros: g.membros, capturados: _porGrupoTally[jid] || 0,
+        ts: g.ts, firstSeenAt: g.firstSeenAt, lastSeenAt: g.lastSeenAt,
+        lastCapturedAt: g.lastCapturedAt, leftAt: g.leftAt, status: g.status,
+        comunidade: g.comunidade, parentJid: g.parentJid,
+        isAnnouncement: g.isAnnouncement, slots: g.slots,
+      };
+    })
+    .sort((a, b) => (b.lastCapturedAt || b.ts || 0) - (a.lastCapturedAt || a.ts || 0));
   // v12.9.23: resumo por DDD/país + por slot de captura
   const _ddd = {};
   const _paisesT = {};
@@ -487,6 +604,43 @@ function fonteParaAdd(filtroJid) {
   return out;
 }
 
+/** Fontes históricas, inclusive grupos dos quais a sessão já saiu. */
+function listarGruposHistoricos() {
+  return stats().porGrupo;
+}
+
+function marcarGrupoInativo(jid, dados = {}) {
+  carregar();
+  const anterior = _normalizarGrupo(jid, state.grupos[jid] || { nome: dados.nome || 'grupo' });
+  const agora = Date.now();
+  const nomeSeguro = dados.nome && String(dados.nome).toLowerCase() !== 'grupo' ? dados.nome : anterior.nome;
+  state.grupos[jid] = {
+    ...anterior,
+    nome: String(nomeSeguro || 'grupo').slice(0, 120),
+    status: 'saiu', leftAt: agora, ts: agora,
+    // A relação da comunidade continua visível mesmo com metadata inacessível.
+    parentJid: String(dados.parentJid || anterior.parentJid || ''),
+  };
+  _marcarGrupoSujo(jid);
+  guardar();
+  return state.grupos[jid];
+}
+
+/** Marca grupos que a sessão efectivamente enxerga agora como activos. */
+function registarGruposVivos(grupos = []) {
+  carregar();
+  for (const grupo of grupos) {
+    if (!grupo?.jid) continue;
+    _registarGrupo(grupo.jid, {
+      id: grupo.jid, subject: grupo.nome, size: grupo.size || grupo.membros,
+      isParentGroup: grupo.comunidade, isCommunity: grupo.comunidade,
+      linkedParentJid: grupo.pai || grupo.parentJid || '',
+      isCommunityAnnounce: grupo.isAnnouncement,
+    }, { fonte: 'lista-viva', estado: 'ativo', capturado: false });
+  }
+  guardar();
+}
+
 /**
  * v12.9.24: captura DIRECTA de números (passiva — entrada/saída em grupos).
  * Igual ao capturarGrupo mas recebe os números prontos.
@@ -496,8 +650,7 @@ function capturarContactos(nums, jidGrupo, nomeGrupo, opts = {}) {
   const _paresCC = [];   // v12.9.36: tolera opts=null (era crash silencioso)
   carregar();
   let novos = 0, duplicados = 0;
-  state.grupos[jidGrupo] = state.grupos[jidGrupo] || { nome: String(nomeGrupo || '').slice(0, 120), membros: 0, nomeFonte: 'passiva', ts: Date.now() };
-  state.grupos[jidGrupo].ts = Date.now();
+  const grupo = _registarGrupo(jidGrupo, { subject: nomeGrupo }, { fonte: 'passiva', slot, estado: 'ativo', capturado: false });
   for (const num0 of nums) {
     const num = String(num0 || '').replace(/\D/g, '');
     if (!num || num.length < 7) continue;
@@ -505,19 +658,17 @@ function capturarContactos(nums, jidGrupo, nomeGrupo, opts = {}) {
     if (ex) {
       duplicados++;
       ex.grupos = ex.grupos || {};
-      if (!ex.grupos[jidGrupo]) ex.grupos[jidGrupo] = state.grupos[jidGrupo].nome;
+      if (!ex.grupos[jidGrupo]) ex.grupos[jidGrupo] = grupo?.nome || 'grupo';
       if (slot) { ex.slots = ex.slots || {}; ex.slots[slot] = Date.now(); }
       ex.ts = Date.now();
+      _marcarSujo(num);
     } else {
       novos++;
-      state.contactos[num] = { nome: '', jid: num + '@s.whatsapp.net', grupos: { [jidGrupo]: state.grupos[jidGrupo].nome }, addedAt: Date.now(), ts: Date.now(), ddd: dddDe(num), ...(slot ? { slots: { [slot]: Date.now() } } : {}) };
+      state.contactos[num] = { nome: '', jid: num + '@s.whatsapp.net', grupos: { [jidGrupo]: grupo?.nome || 'grupo' }, addedAt: Date.now(), ts: Date.now(), ddd: dddDe(num), ...(slot ? { slots: { [slot]: Date.now() } } : {}) };
       _marcarSujo(num);
       _paresCC.push([num, '']);
     }
   }
-  // v12.9.36: membros INCREMENTAL — o scan completo da base por chamada
-  // custava O(base) POR LOTE (250M operações a 500k contactos!)
-  state.grupos[jidGrupo].membros = (state.grupos[jidGrupo].membros || 0) + novos;
   guardar();
   _filaUsuarios(_paresCC);
   return { novos, duplicados };
@@ -554,15 +705,18 @@ function remover(num) {
 }
 
 function limpar() {
+  carregar();
+  for (const num of Object.keys(state.contactos)) _marcarSujo(num);
+  for (const jid of Object.keys(state.grupos)) _marcarGrupoSujo(jid);
   state.contactos = {};
   state.grupos = {};
   guardar();
   return true;
 }
 
-// comunidade: grupos filhos do pai (linkedParentJid) a partir da lista viva do bot
+// Comunidade: filhos detectados pelos campos estruturais do Baileys, não pelo nome.
 function filhosComunidade(jidPai, allMeta) {
-  return Object.values(allMeta || {}).filter(g => g && String(g.linkedParentJid || '') === String(jidPai));
+  return Object.values(allMeta || {}).filter((g) => g && communityInfo(g).parentJid === String(jidPai));
 }
 
 // v12.9.37: purga dos LIDs captados antes do fix (jid @lid = lixo p/ grupos)
@@ -588,4 +742,4 @@ function contarLids() {
   return n;
 }
 
-module.exports = { carregar, guardar, capturarGrupo, capturarContactos, stats, fonteParaAdd, fontePorDdd, remover, limpar, filhosComunidade, dddDe, contactosPorDdd, PAISES, carregarMongo, modoMongo, limparLids, contarLids, sincronizarUsuarios, usuariosNaFila };
+module.exports = { carregar, guardar, capturarGrupo, capturarContactos, stats, fonteParaAdd, fontePorDdd, listarGruposHistoricos, marcarGrupoInativo, registarGruposVivos, remover, limpar, filhosComunidade, dddDe, contactosPorDdd, PAISES, carregarMongo, modoMongo, limparLids, contarLids, sincronizarUsuarios, usuariosNaFila };

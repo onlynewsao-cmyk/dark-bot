@@ -106,6 +106,7 @@ async function revokeGroupInviteLink(sock, groupJid) {
 async function leaveGroup(sock, groupJid) {
   try {
     await sock.groupLeave(groupJid);
+    try { require('../../bot/centralBase').marcarGrupoInativo(groupJid); } catch {}
     return { success: true, message: `Saí do grupo` };
   } catch (e) { return { success: false, message: e.message }; }
 }

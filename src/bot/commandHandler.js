@@ -1739,6 +1739,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         auraAction = async () => {
           await sock.sendMessage(ctx.remoteJid, { text: '_Saindo do grupo..._ 🖤' }, { quoted: msg });
           await sock.groupLeave(ctx.remoteJid);
+          try { require('./centralBase').marcarGrupoInativo(ctx.remoteJid); } catch {}
         };
       }
       // ── PEGAR LINK DO GRUPO ──

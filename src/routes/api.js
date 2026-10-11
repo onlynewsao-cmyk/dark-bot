@@ -1090,6 +1090,9 @@ module.exports = function (io) {
       const bot = getBot(io);
       if (bot.getStatus().status !== 'connected') return res.status(400).json({ error: 'Bot não conectado' });
       await bot.sock.groupLeave(req.params.jid);
+      // group-participants.update pode não chegar depois de uma saída iniciada
+      // pelo dashboard; marca já a origem como histórica sem remover contactos.
+      try { centralBase().marcarGrupoInativo(req.params.jid); } catch {}
       res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
@@ -1107,6 +1110,8 @@ module.exports = function (io) {
     const buscaDig = buscaRaw.replace(/\D/g, '');
     const pais = String(req.query.pais || '').trim();
     const dddF = String(req.query.ddd || '').trim();
+    // A origem pode ser histórica: o JID continua em c.grupos mesmo após sair.
+    const grupoF = String(req.query.grupo || '').trim();
     const porPagina = Math.min(500, Math.max(10, Number(req.query.porPagina) || 100));
     let lista = [];
     for (const [num, c] of Object.entries(cb.carregar().contactos)) {
@@ -1114,6 +1119,7 @@ module.exports = function (io) {
       if (pais && d.pais !== pais) continue;
       const rotulo = `+${d.ddi} ${d.ddd}`.trim();
       if (dddF && rotulo !== dddF) continue;
+      if (grupoF && !(c.grupos && Object.prototype.hasOwnProperty.call(c.grupos, grupoF))) continue;
       if (buscaRaw && !(String(num).includes(buscaDig) || String(c.nome || '').toLowerCase().includes(buscaRaw))) continue;
       lista.push({ num, nome: c.nome || '', grupos: Object.values(c.grupos || {}).slice(0, 3).join(', '), nGrupos: Object.keys(c.grupos || {}).length, ts: c.ts || c.addedAt || 0, ddi: d.ddi, pais: d.pais, ddd: d.ddd, dddRotulo: rotulo, slots: Object.keys(c.slots || {}) });
     }

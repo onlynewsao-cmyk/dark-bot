@@ -240,6 +240,18 @@ async function handle(sock, event) {
       console.warn('[GroupEvents] participants ilegíveis:', typeof rawParts[0], JSON.stringify(rawParts[0]).slice(0, 120));
     }
 
+    const botNum  = jidNum(sock.user?.id);
+    const botNums = new Set(
+      [sock.user?.id, sock.user?.lid, sock.user?.phoneNumber, botNum && (botNum + '@s.whatsapp.net')]
+        .filter(Boolean)
+        .map(jidNum)
+        .filter(Boolean),
+    );
+    const botIds = new Set([sock.user?.id, sock.user?.lid, sock.user?.phoneNumber].filter(Boolean).map(x => String(x).toLowerCase()));
+    const participanteDoBot = (p) => (p?.number && botNums.has(p.number)) ||
+      [p?.jid, p?.pnJid, p?.lid, p?.raw?.id, p?.raw?.jid].some((id) => botIds.has(String(id || '').toLowerCase()));
+    const botRemoved = action === 'remove' && parts.some(participanteDoBot);
+
     const meta      = await sock.groupMetadata(groupJid).catch(() => null);
     const groupName = meta?.subject || 'grupo';
 
@@ -249,11 +261,15 @@ async function handle(sock, event) {
       const base = require('./centralBase');
       const slot = String(sock?.user?.id || '').split('@')[0].split(':')[0].replace(/\D/g, '').slice(-2) || '';
       const rotuloSlot = `bot:${slot}`;
-      if (action === 'promote' || action === 'demote') {
+      if (botRemoved) {
+        // Metadata normalmente já fica inacessível neste ponto; conserva o nome
+        // e a proveniência, mas deixa claro no dashboard que esta sessão saiu.
+        base.marcarGrupoInativo(groupJid, { nome: groupName });
+      } else if (action === 'promote' || action === 'demote') {
         base.capturarGrupo(groupJid, meta, { slot: rotuloSlot });
       } else {
         // add/remove: regista o grupo + os participantes do evento
-        const nums = parts.map(p => String(p?.id || '').split('@')[0]).filter(n => n && n.length >= 7 && !n.includes('-'));
+        const nums = parts.map(p => String(p?.number || '').replace(/\D/g, '')).filter(n => n && n.length >= 7 && !n.includes('-'));
         if (nums.length) base.capturarContactos(nums, groupJid, groupName, { slot: rotuloSlot });
       }
     } catch {}
@@ -267,16 +283,9 @@ async function handle(sock, event) {
       });
     } catch (e) {}
 
-    const botNum  = jidNum(sock.user?.id);
-    const botNums = new Set(
-      [sock.user?.id, sock.user?.lid, sock.user?.phoneNumber, botNum && (botNum + '@s.whatsapp.net')]
-        .filter(Boolean)
-        .map(jidNum)
-        .filter(Boolean),
-    );
-
-    const botAdded = action === 'add' && parts.some(p => p.number && botNums.has(p.number));
+    const botAdded = action === 'add' && parts.some(participanteDoBot);
     if (botAdded) {
+      try { require('./centralBase').capturarGrupo(groupJid, meta, { fonte: 'bot-adicionado' }); } catch {}
       await onBotAdded(sock, groupJid, groupName, meta);
       return;
     }

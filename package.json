@@ -138,7 +138,8 @@
     "test:rpgvisuals": "node scripts/test-rpg-visuals.js",
     "test:videowhatsapp": "node scripts/test-video-whatsapp.js",
     "test:decrypter": "node scripts/test-decrypter-dashboard.js",
-    "test:connect": "node scripts/test-connect-central.js"
+    "test:connect": "node scripts/test-connect-central.js",
+    "test:centralhistorico": "node scripts/test-central-historico.js"
   },
   "engines": {
     "node": ">=18.0.0"
