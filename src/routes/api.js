@@ -29,7 +29,7 @@ function decodePathPart(s) {
   catch { return String(s).replace(/\+/g, ' '); }
 }
 
-const DECRYPT_URL_EXT_RE = /\.(ehi|ehic|hat|npv|npv4|npv7|npv8|npvt|dark|darkt|any|tls|nm|nmess|ovpn|ssh|ssl|json|conf|wg|wireguard|txt|bdnet|bd|apna|apnalite|wyrvpn|wyr)(?:[/?#]|$)/i;
+const DECRYPT_URL_EXT_RE = /\.(ehi|ehic|hat|npv|npv4|npv7|npv8|npvt|dark|darkt|any|tls|nm|nmess|ovpn|ssh|ssl|json|v2box|singbox|sb|conf|wg|wireguard|txt|bdnet|bd|apna|apnalite|wyrvpn|wyr)(?:[/?#]|$)/i;
 
 function fileNameFromUrl(url, fallback = 'config.ehi') {
   try {
@@ -63,6 +63,41 @@ async function fetchDecryptFileFromUrl(url) {
   if (!buffer || buffer.length < 16) throw new Error('Arquivo vazio ou inválido');
   if (buffer.length > 30 * 1024 * 1024) throw new Error('Arquivo muito grande (máx. 30MB)');
   return { buffer, fileName: fileNameFromUrl(finalUrl, 'config.ehi'), finalUrl };
+}
+
+// O painel só expõe o botão a Premium, mas a API também precisa impor a
+// regra: chamadas diretas ao endpoint não podem contornar a interface.
+async function dashboardDecryptUser(req, res) {
+  const sessionUser = req.session?.user;
+  const user = sessionUser?.id ? await User.findById(sessionUser.id).catch(() => null) : null;
+  const allowed = sessionUser?.role === 'owner' || user?.role === 'owner' || (user && typeof user.isPremium === 'function' && user.isPremium());
+  if (!allowed) {
+    res.status(403).json({ error: 'Recurso Premium' });
+    return null;
+  }
+  // A sessão de dono continua válida mesmo se a consulta ao perfil falhar
+  // temporariamente; devolvemos um actor mínimo para a auditoria.
+  return user || { _id: sessionUser.id, username: sessionUser.username || sessionUser.name || '', role: sessionUser.role };
+}
+
+// Mantém o histórico útil sem guardar a configuração completa, chaves ou
+// palavras-passe que possam estar presentes no resultado de decryptação.
+async function logDashboardDecrypt(req, user, result) {
+  const sessionUser = req.session?.user || {};
+  await DecryptLog.create({
+    user: user?._id || sessionUser.id,
+    username: user?.username || sessionUser.username || sessionUser.name || '',
+    fileName: result.fileName || '',
+    format: result.format || result.configType || '',
+    success: result.success !== false,
+    source: 'dashboard',
+    extracted: {
+      configName: result.configName || '',
+      host: result.host || result.server?.host || result.proxy?.host || '',
+      port: result.port || result.server?.port || result.proxy?.port || '',
+      mode: result.mode || '',
+    },
+  }).catch(() => {});
 }
 
 // ── Rate limit do envio via WhatsApp ─────────────────────────
@@ -645,24 +680,32 @@ module.exports = function (io) {
   // ===== DECRYPT (via dashboard) =====
   router.post('/decrypt', requireApiAuth, upload.single('file'), async (req, res) => {
     try {
+      const user = await dashboardDecryptUser(req, res);
+      if (!user) return;
       if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado' });
       const result = await decrypter.decrypt(req.file.originalname, req.file.buffer);
+      await logDashboardDecrypt(req, user, result);
       res.json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
   router.post('/decrypt/url', requireApiAuth, async (req, res) => {
     try {
+      const user = await dashboardDecryptUser(req, res);
+      if (!user) return;
       const url = String(req.body.url || '').trim();
       if (!/^https?:\/\//i.test(url)) return res.status(400).json({ error: 'URL inválida' });
       const file = await fetchDecryptFileFromUrl(url);
       const result = await decrypter.decrypt(file.fileName, file.buffer);
+      await logDashboardDecrypt(req, user, result);
       res.json({ ...result, sourceUrl: url, finalUrl: file.finalUrl });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
   router.post('/decrypt/send-wa', requireApiAuth, sendWaLimiter, async (req, res) => {
     try {
+      const user = await dashboardDecryptUser(req, res);
+      if (!user) return;
       const { number, data } = req.body;
       if (!number || !data) return res.status(400).json({ error: 'Número e dados obrigatórios' });
       const cleanNumber = String(number).replace(/\D/g, '');

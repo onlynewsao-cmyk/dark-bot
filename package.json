@@ -136,7 +136,8 @@
     "test:rpgquest": "node scripts/test-rpg-quest-buttons.js",
     "test:rpgcombat": "node scripts/test-rpg-combat-narrative.js",
     "test:rpgvisuals": "node scripts/test-rpg-visuals.js",
-    "test:videowhatsapp": "node scripts/test-video-whatsapp.js"
+    "test:videowhatsapp": "node scripts/test-video-whatsapp.js",
+    "test:decrypter": "node scripts/test-decrypter-dashboard.js"
   },
   "engines": {
     "node": ">=18.0.0"

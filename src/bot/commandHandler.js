@@ -3902,7 +3902,7 @@ async function handleDecryptRequest(sock, downloadMsg, ctx, docMsg, isOwner, rep
   } catch (err) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: replyMsg.key } });
     await sock.sendMessage(ctx.remoteJid, {
-      text: `❌ *Erro ao decryptar*\n\n${err.message}\n\nFormatos suportados: .ehi, .ehic, .hat, .npv4, .dark, .any, .tls, .conf, .nm, .ovpn, .ssh, .json`,
+      text: `❌ *Erro ao decryptar*\n\n${err.message}\n\nFormatos suportados: .ehi, .ehic, .hat, .npv4, .dark, .any, .tls, .conf, .nm, .ovpn, .ssh, .json, .v2box`,
     }, { quoted: replyMsg });
     try {
       await DecryptLog.create({
@@ -3916,7 +3916,7 @@ async function handleDecryptRequest(sock, downloadMsg, ctx, docMsg, isOwner, rep
 }
 
 
-const DECRYPT_URL_EXT_RE = /\.(ehi|ehic|hat|npv|npv4|npv7|npv8|npvt|dark|darkt|any|tls|nm|nmess|ovpn|ssh|ssl|json|conf|wg|wireguard|txt|bdnet|bd|apna|apnalite|wyrvpn|wyr)(?:[/?#]|$)/i;
+const DECRYPT_URL_EXT_RE = /\.(ehi|ehic|hat|npv|npv4|npv7|npv8|npvt|dark|darkt|any|tls|nm|nmess|ovpn|ssh|ssl|json|v2box|singbox|sb|conf|wg|wireguard|txt|bdnet|bd|apna|apnalite|wyrvpn|wyr)(?:[/?#]|$)/i;
 
 function isDecryptFileUrl(url) {
   return /mediafire\.com/i.test(url) || DECRYPT_URL_EXT_RE.test(url);

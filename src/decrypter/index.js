@@ -49,8 +49,8 @@ const EXT_MAP = {
   ovpn: openvpn, conf: wireguard,
   // SSH / SSL
   ssh: ssh, ssl: ssh,
-  // JSON genérico
-  json: jsonFormat,
+  // JSON genérico, V2Box e sing-box (exports legíveis, sem quebrar cifragem proprietária)
+  json: jsonFormat, v2box: jsonFormat, singbox: jsonFormat, sb: jsonFormat,
   // NetMod
   nm: netmod, nmess: netmod,
   // AnyTunnel
@@ -142,23 +142,37 @@ async function decrypt(fileName, buffer) {
   let usedFormat = ext.toUpperCase();
 
   try {
+    // Arquivos .conf/.cfg são ambíguos: podem ser OpenVPN ou WireGuard.
+    // Neles, a estrutura é mais confiável que a extensão e evita interpretar um
+    // OpenVPN válido como WireGuard vazio.
+    const preferContent = ['conf', 'cfg', 'ini', 'txt', 'log'].includes(ext);
+    if (preferContent) {
+      const detected = detectByContent(buffer);
+      if (detected) {
+        try {
+          result = await detected.parse(buffer, fileName);
+          if (result) usedFormat = result.format || 'AUTO-DETECT';
+        } catch (e) {}
+      }
+    }
+
     // 1. Tentar por extensão (match exacto)
     const parser = EXT_MAP[ext];
-    if (parser) {
+    if (!result && parser) {
       try {
-        result = await parser.parse(buffer);
+        result = await parser.parse(buffer, fileName);
         if (result) usedFormat = result.format || ext.toUpperCase();
       } catch (e) {
         // Parser da extensão falhou — tentar detecção por conteúdo
       }
     }
 
-    // 2. Se falhou, tentar detecção automática por conteúdo
+    // 2. Se ainda falhou, tentar detecção automática por conteúdo
     if (!result) {
       const detected = detectByContent(buffer);
       if (detected) {
         try {
-          result = await detected.parse(buffer);
+          result = await detected.parse(buffer, fileName);
           if (result) usedFormat = result.format || 'AUTO-DETECT';
         } catch (e) {}
       }
@@ -166,7 +180,7 @@ async function decrypt(fileName, buffer) {
 
     // 3. Se ainda falhou, brute/blind decrypt (tenta todos e escolhe o melhor candidato)
     if (!result) {
-      result = await blindDecrypt(buffer);
+      result = await blindDecrypt(buffer, fileName);
       if (result) usedFormat = result.format || 'BRUTE-FORCE';
     }
 
@@ -231,7 +245,7 @@ function scoreResult(res) {
  * Tenta todos os decrypters por ordem e escolhe o resultado com maior score.
  * Isso funciona como brute force estrutural: mesmo com extensão errada, o bot tenta todos.
  */
-async function blindDecrypt(buffer) {
+async function blindDecrypt(buffer, fileName = 'arquivo.bin') {
   const allParsers = [
     ehi, hat, npv, darktunnel, tlstunnel,
     jsonFormat, netmod, anytunnel, apnalite,
@@ -240,7 +254,7 @@ async function blindDecrypt(buffer) {
   const candidates = [];
   for (const f of allParsers) {
     try {
-      const res = await f.parse(buffer);
+      const res = await f.parse(buffer, fileName);
       if (res) candidates.push({ res, score: scoreResult(res) });
     } catch (e) {}
   }
