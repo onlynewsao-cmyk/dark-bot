@@ -363,6 +363,35 @@ async function userIsPremiumOrOwner(number, isOwner, msg) {
   return checkIsPremium(u);
 }
 
+// Quando ligado pelo Dono (!pvfree on), este gate vem ANTES de qualquer
+// automação/Aura/botão. Assim utilizadores Free em PV não recebem texto,
+// reação, convite ou resposta acidental; Premium e Dono permanecem normais.
+async function deveSilenciarFreeNoPv(ctx, msg, sock) {
+  if (ctx?.isGroup || msg?.key?.fromMe) return false;
+  const ativo = await botConfigCache.get('free_pv_silent', false).catch(() => false);
+  if (!(ativo === true || ativo === 'true' || ativo === 'on' || ativo === 1 || ativo === '1')) return false;
+
+  const [extraOwners, ownerNumDB, ownerLid] = await Promise.all([
+    botConfigCache.get('owner_numbers', []).catch(() => []),
+    botConfigCache.get('owner_number', '').catch(() => ''),
+    botConfigCache.get('owner_lid', '').catch(() => ''),
+  ]);
+  const normalize = userManager.normalizeNumber;
+  const sender = normalize(ctx?.senderNumber);
+  const ownerNumbers = [config.owner?.number, ownerNumDB]
+    .concat(Array.isArray(extraOwners) ? extraOwners : String(extraOwners || '').split(/[\s,]+/))
+    .map(normalize)
+    .filter(Boolean);
+  const senderJid = String(msg?.key?.participant || msg?.key?.remoteJid || '');
+  const botNumber = normalize(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
+  if (ownerNumbers.includes(sender) ||
+      (ownerLid && (senderJid.includes(ownerLid) || String(ctx?.senderLid || '').includes(ownerLid))) ||
+      (botNumber && sender === botNumber)) return false;
+
+  const user = await require('./hotCache').getUser(msg, sender).catch(() => null);
+  return !checkIsPremium(user);
+}
+
 // ── v6.94: aviso de grupo sem aluguel (a assistente ajuda, não se cala) ──
 const _avisoAluguelTs = new Map(); // "grupo:sender" → ts do último aviso
 const AVISO_ALUGUEL_MS = 6 * 60 * 60 * 1000;
@@ -399,6 +428,9 @@ async function _handleInner(sock, msg) {
   } catch {}
 
   const ctx = getSenderInfo(msg);
+  // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
+  // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
+  if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
   try { require('./stickerWm').bind(ctx); } catch {}
 
   // ── v7.77: listas com escolha por número (play/sly/spotify/...) ──
@@ -4128,4 +4160,4 @@ async function handle(sock, msg) {
   }
 }
 
-module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando };
+module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv };

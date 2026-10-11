@@ -250,6 +250,7 @@ const CATALOG = [
   { name: 'biobot', category: 'dono', emoji: '✍️', description: 'Muda a descrição/About do perfil WhatsApp do bot', ownerOnly: true },
   { name: 'prefixos', category: 'dono', emoji: '⌨️', description: 'Configura multiprefixo', native: true, ownerOnly: true },
   { name: 'setprefix', category: 'dono', emoji: '⌨️', description: 'Alias para prefixos', native: true, ownerOnly: true },
+  { name: 'pvfree', category: 'dono', emoji: '🔕', description: 'Liga/desliga respostas a usuários Free no PV', native: true, ownerOnly: true },
   { name: 'broadcast', category: 'dono', emoji: '📢', description: 'Broadcast pra todos grupos', native: true, ownerOnly: true },
   { name: 'fbset', category: 'dono', emoji: '📘', description: 'Configura Facebook Page ID/Token', native: true, ownerOnly: true },
   { name: 'fbpost', category: 'dono', emoji: '📘', description: 'Publica texto na página Facebook', native: true, ownerOnly: true },

@@ -31,20 +31,8 @@
 
     <% if (user.role === 'owner' || user.role === 'admin') { %>
       <div class="sidebar-section">Bot</div>
-      <a href="/dashboard/connect" class="<%= currentPath.startsWith('/dashboard/connect') ? 'active' : '' %>">
-        <span class="icon">🔌</span> Conectar Bot
-      </a>
-      <a href="/dashboard/sessoes" class="<%= currentPath.startsWith('/dashboard/sessoes') ? 'active' : '' %>">
-        <span class="icon">🕸️</span> Sessões (failover)
-      </a>
-      <a href="/dashboard/central" class="<%= currentPath.startsWith('/dashboard/central') ? 'active' : '' %>">
-        <span class="icon">🗂️</span> Central de Contas
-      </a>
-      <a href="/dashboard/cap" class="<%= currentPath.startsWith('/dashboard/cap') ? 'active' : '' %>">
-        <span class="icon">📸</span> C∆P Stories
-      </a>
-      <a href="/dashboard/igapi" class="<%= currentPath.startsWith('/dashboard/igapi') ? 'active' : '' %>">
-        <span class="icon">🛠️</span> IG APIs
+      <a href="/dashboard/connect" class="<%= currentPath.startsWith('/dashboard/connect') || currentPath.startsWith('/dashboard/sessoes') ? 'active' : '' %>">
+        <span class="icon">🔌</span> Connect &amp; Failover
       </a>
       <a href="/dashboard/control" class="<%= currentPath.startsWith('/dashboard/control') ? 'active' : '' %>">
         <span class="icon">🎛️</span> Painel de Controle
@@ -55,20 +43,20 @@
       <a href="/dashboard/groups" class="<%= currentPath.startsWith('/dashboard/groups') ? 'active' : '' %>">
         <span class="icon">👥</span> Grupos
       </a>
-      <a href="/dashboard/cap" class="<%= currentPath.startsWith('/dashboard/cap') ? 'active' : '' %>">
-        <span class="icon">📡</span> C∆P Capture
-      </a>
-      <a href="/dashboard/igapi" class="<%= currentPath.startsWith('/dashboard/igapi') ? 'active' : '' %>">
-        <span class="icon">🛠️</span> APIs
-      </a>
-      <a href="/dashboard/central" class="<%= currentPath.startsWith('/dashboard/central') ? 'active' : '' %>">
-        <span class="icon">🕸️</span> Central de Contactos
-      </a>
       <a href="/dashboard/broadcast" class="<%= currentPath.startsWith('/dashboard/broadcast') ? 'active' : '' %>">
         <span class="icon">📢</span> Broadcast
       </a>
       <a href="/dashboard/schedule" class="<%= currentPath.startsWith('/dashboard/schedule') ? 'active' : '' %>">
         <span class="icon">📅</span> Agendamentos
+      </a>
+      <a href="/dashboard/central" class="<%= currentPath.startsWith('/dashboard/central') ? 'active' : '' %>">
+        <span class="icon">🗂️</span> Central de Contactos
+      </a>
+      <a href="/dashboard/cap" class="<%= currentPath.startsWith('/dashboard/cap') ? 'active' : '' %>">
+        <span class="icon">📸</span> C∆P Capture
+      </a>
+      <a href="/dashboard/igapi" class="<%= currentPath.startsWith('/dashboard/igapi') ? 'active' : '' %>">
+        <span class="icon">🛠️</span> IG APIs
       </a>
 
       <div class="sidebar-section">Conteúdo</div>
@@ -82,44 +70,16 @@
         <span class="icon">🖼️</span> Mídias
       </a>
       <a href="/dashboard/nuvem" class="<%= currentPath.startsWith('/dashboard/nuvem') ? 'active' : '' %>">
-        <span class="icon">🤖</span> Nuvem do bot
+        <span class="icon">☁️</span> Nuvem do Bot
       </a>
       <a href="/dashboard/ia" class="<%= currentPath.startsWith('/dashboard/ia') ? 'active' : '' %>">
-        <span class="icon">🧠</span> IA Config
+        <span class="icon">🧠</span> Aura · IA
       </a>
       <a href="/dashboard/settings" class="<%= currentPath.startsWith('/dashboard/settings') ? 'active' : '' %>">
         <span class="icon">⚙️</span> Configurações
       </a>
       <a href="/dashboard/internet" class="<%= currentPath.startsWith('/dashboard/internet') ? 'active' : '' %>">
         <span class="icon">📡</span> Atualizações
-      </a>
-
-      <a href="/dashboard/console" class="<%= currentPath.startsWith('/dashboard/console') ? 'active' : '' %>">
-        <span class="icon">📜</span> Console ao Vivo
-      </a>
-      <a href="/dashboard/commands" class="<%= currentPath.startsWith('/dashboard/commands') ? 'active' : '' %>">
-        <span class="icon">⚡</span> Comandos
-      </a>
-      <a href="/dashboard/board" class="<%= currentPath.startsWith('/dashboard/board') ? 'active' : '' %>">
-        <span class="icon">📋</span> Command Board
-      </a>
-      <a href="/dashboard/ia" class="<%= currentPath.startsWith('/dashboard/ia') ? 'active' : '' %>">
-        <span class="icon">🤖</span> Aura · IA
-      </a>
-      <a href="/dashboard/groups" class="<%= currentPath.startsWith('/dashboard/groups') ? 'active' : '' %>">
-        <span class="icon">👥</span> Grupos
-      </a>
-      <a href="/dashboard/broadcast" class="<%= currentPath.startsWith('/dashboard/broadcast') ? 'active' : '' %>">
-        <span class="icon">📢</span> Broadcast
-      </a>
-      <a href="/dashboard/schedule" class="<%= currentPath.startsWith('/dashboard/schedule') ? 'active' : '' %>">
-        <span class="icon">📅</span> Agenda
-      </a>
-      <a href="/dashboard/media" class="<%= currentPath.startsWith('/dashboard/media') ? 'active' : '' %>">
-        <span class="icon">🖼️</span> Mídias
-      </a>
-      <a href="/dashboard/nuvem" class="<%= currentPath.startsWith('/dashboard/nuvem') ? 'active' : '' %>">
-        <span class="icon">☁️</span> Nuvem
       </a>
 
       <div class="sidebar-section">Negócio</div>
@@ -136,9 +96,10 @@
         <span class="icon">💾</span> Backup
       </a>
     <% } %>
-      <a href="/status" target="_blank" class="<%= currentPath === '/status' ? 'active' : '' %>">
-        <span class="icon">📊</span> Status
-      </a>
+
+    <a href="/status" target="_blank" class="<%= currentPath === '/status' ? 'active' : '' %>">
+      <span class="icon">📊</span> Status
+    </a>
   </nav>
 
   <div class="sidebar-footer">

@@ -1236,7 +1236,7 @@ module.exports = {
 ║
 ║ *CONTROLE DO SISTEMA* 🖥️
 ║ ▹ panel ⌁ stats ⌁ restart
-║ ▹ autodecrypt ⌁ prefixos
+║ ▹ autodecrypt ⌁ prefixos ⌁ pvfree
 ║ ▹ broadcast ⌁ send
 ║ ▹ fbpost ⌁ fbfoto ⌁ fbvideo
 ║ ▹ fbstory ⌁ fbstatus
@@ -1247,6 +1247,33 @@ module.exports = {
 ║
 ╚══════════════════════╝`;
     return reply(sock, msg, ctx, text);
+  },
+
+  // !pvfree on|off|status — Dono escolhe se Free recebe respostas no privado.
+  // O gate é aplicado bem no início do commandHandler, antes da Aura e de
+  // automações, para manter o modo realmente silencioso.
+  async pvfree({ sock, msg, ctx, args, isOwner }) {
+    if (!isOwner) return reply(sock, msg, ctx, '🚫 Só o Dono pode alterar o modo de PV Free.');
+    const acao = String(args[0] || 'status').trim().toLowerCase();
+    if (['on', 'ligar', 'ativo', 'silenciar'].includes(acao)) {
+      await botConfigCache.set('free_pv_silent', true);
+      return reply(sock, msg, ctx,
+        '🔕 *PV Free silencioso: ATIVO*\n\n' +
+        'Utilizadores Free não receberão nenhuma resposta no privado. Dono e Premium continuam normais.\n\n' +
+        'Para reativar respostas: *' + (ctx.prefix || '!') + 'pvfree off*');
+    }
+    if (['off', 'desligar', 'inativo', 'normal'].includes(acao)) {
+      await botConfigCache.set('free_pv_silent', false);
+      return reply(sock, msg, ctx,
+        '🔔 *PV Free silencioso: DESATIVADO*\n\n' +
+        'O bot voltou a responder normalmente a utilizadores Free no privado.');
+    }
+    const ativo = await botConfigCache.get('free_pv_silent', false);
+    return reply(sock, msg, ctx,
+      '🔐 *CONTROLE DE PV FREE*\n\n' +
+      'Estado: *' + (ativo === true || ativo === 'true' || ativo === 'on' ? 'SILENCIOSO 🔕' : 'RESPONDE NORMALMENTE 🔔') + '*\n\n' +
+      '• *' + (ctx.prefix || '!') + 'pvfree on* — não responde Free no PV\n' +
+      '• *' + (ctx.prefix || '!') + 'pvfree off* — volta a responder Free no PV');
   },
 
   async figubug({ sock, msg, ctx, config }) {

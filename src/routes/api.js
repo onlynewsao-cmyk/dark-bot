@@ -200,12 +200,11 @@ module.exports = function (io) {
     try {
       const bot = getBot(io);
       await bot.logout();
-      // Limpa a sessão do MongoDB também
-      try {
-        const Session = require('../database/models/Session');
-        await Session.deleteMany({ fileName: { $not: /^call:/ } });
-      } catch (e) {}
-      res.json({ ok: true, message: 'Sessão limpa completamente' });
+      // Limpa credenciais E metadados dos quatro slots. Antes só apagava
+      // Session: o painel continuava mostrando slots ocupados sem creds e
+      // impedia criar novas reservas de failover.
+      await require('../bot/sessionCenter').resetarTodasSessoes();
+      res.json({ ok: true, message: 'Sessão principal e reservas removidas' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }

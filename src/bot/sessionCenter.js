@@ -107,6 +107,10 @@ async function _novoSock(prefixo) { return (_fabrica || _fabricaPadrao)(prefixo)
 const _prefixo = (n) => (n === 1 ? '' : `slot${n}`);
 // v12.9.26: pair codes ACTIVOS por slot (a UI recupera o código mesmo após reload)
 const _pairingAtivos = new Map(); // slot -> { codigo, numero, ate }
+// Um reset completo invalida qualquer pairing ainda em curso. Sem este epoch,
+// um socket atrasado podia terminar depois do reset e voltar a preencher um
+// slot que já deveria estar vazio.
+let _pairingEpoch = 0;
 function codigoDePairing(slotN) {
   const p = _pairingAtivos.get(slotN);
   if (!p || p.ate < Date.now()) { _pairingAtivos.delete(slotN); return null; }
@@ -477,12 +481,14 @@ async function novaSessao(numeroRaw, slotDesejado) {
     }
   }
   if (!slotLivre) return { ok: false, motivo: slotDesejado ? 'slot-ocupado' : 'sem-slot-livre' };
+  const pairingEpoch = _pairingEpoch;
   _pairingEmCurso.add(slotLivre);
-  try { return await _pairingInterno(slotLivre, numero); }
+  try { return await _pairingInterno(slotLivre, numero, pairingEpoch); }
   finally { _pairingEmCurso.delete(slotLivre); }
 }
 
-async function _pairingInterno(slotLivre, numero) {
+async function _pairingInterno(slotLivre, numero, pairingEpoch = _pairingEpoch) {
+  if (pairingEpoch !== _pairingEpoch) return { ok: false, motivo: 'pairing-cancelado' };
   // v12.9.29 — FRESH TRUE DA CENTRAL (a causa do 'não foi possível conectar'):
   // o Connect em modo pair faz SEMPRE fresh (apaga TODA a sessão antes de
   // emparelhar). A Central criava o socket sobre os creds VELHOS do slot —
@@ -503,6 +509,10 @@ async function _pairingInterno(slotLivre, numero) {
     await _gravarSlot(slotLivre, { estado: 'vazia', numero: '', retryAte: null, tentativas: 0, prefixo: _prefixo(slotLivre), motivo: 'socket falhou: ' + String(e.message || e).slice(0, 60) });
     return { ok: false, motivo: e.message };
   }
+  if (pairingEpoch !== _pairingEpoch) {
+    try { sock?.end?.(); } catch {}
+    return { ok: false, motivo: 'pairing-cancelado' };
+  }
   let codigo = '';
   try {
     // MESMAS esperas do Connect (v12.9.25): WS aberto + servidor pronto p/ pair
@@ -522,6 +532,10 @@ async function _pairingInterno(slotLivre, numero) {
     try { sock?.end?.(); } catch {} try { sock?.ev?.removeAllListeners?.(); } catch {}
     return { ok: false, motivo: e.message };
   }
+  if (pairingEpoch !== _pairingEpoch) {
+    try { sock?.end?.(); } catch {}
+    return { ok: false, motivo: 'pairing-cancelado' };
+  }
   // v12.9.22: MESMO formato E MESMO VALOR do Connect — XXXX-XXXX-XXXX-XXXX
   // e publicado no estado do bot: a página Connect passa a mostrar O MESMO
   // código em tempo real (uma só verdade, zero códigos desencontrados).
@@ -534,7 +548,7 @@ async function _pairingInterno(slotLivre, numero) {
     b.emit('bot:status', { status: b.status, pairingCode: codigoFmt, phoneNumber: numero });
   } catch {}
   // vigia do pairing: se abrir, guarda e PROMOVE (a que funciona fica EM USO)
-  _vigiarPair(slotLivre, sock, codigoFmt).catch(() => {});
+  _vigiarPair(slotLivre, sock, codigoFmt, pairingEpoch).catch(() => {});
   return { ok: true, slot: slotLivre, codigo: codigoFmt, timeoutMs: PAIR_TIMEOUT_MS };
 }
 
@@ -586,7 +600,8 @@ function _esperarPosPair(sock, timeoutMs, log) {
   });
 }
 
-async function _vigiarPair(slotN, sock, codigoFmt) {
+async function _vigiarPair(slotN, sock, codigoFmt, pairingEpoch = _pairingEpoch) {
+  if (pairingEpoch !== _pairingEpoch) { try { sock?.end?.(); } catch {} return; }
   const pref = _prefixo(slotN);
   const log = (m) => { try { console.log(`[Central Pair slot${slotN}] ${m}`); } catch {} };
   let vivo = sock;
@@ -598,9 +613,10 @@ async function _vigiarPair(slotN, sock, codigoFmt) {
   const inicio = Date.now();
   const prazo = () => inicio + PAIR_TIMEOUT_MS + 45000;   // 90s do código + margem p/ reinícios
 
-  while (Date.now() < prazo() && !aberta) {
+  while (Date.now() < prazo() && !aberta && pairingEpoch === _pairingEpoch) {
     const resta = prazo() - Date.now();
     const r = await _esperarPosPair(vivo, Math.min(resta, PAIR_TIMEOUT_MS), log);
+    if (pairingEpoch !== _pairingEpoch) break;
     if (r.tipo === 'aberta') { aberta = true; break; }
     if (r.tipo === 'morta') { razaoFinal = r.razao; break; }
     // ── REINICIAR: o mesmo que o motor principal faz no fecho ──
@@ -645,6 +661,7 @@ async function _vigiarPair(slotN, sock, codigoFmt) {
   const numeroFinal = String(vivo?.user?.id || '').replace(/@.*$/, '') || (_pairingAtivos.get(slotN)?.numero ?? '');
   try { sock?.end?.(); } catch {} try { sock?.ev?.removeAllListeners?.(); } catch {}
   try { vivo?.end?.(); } catch {} try { vivo?.ev?.removeAllListeners?.(); } catch {}
+  if (pairingEpoch !== _pairingEpoch) return;
   _pairingAtivos.delete(slotN);
   try {
     const { getBot } = require('./whatsapp');
@@ -694,6 +711,31 @@ async function remover(slotN) {
   d.prefixo = _prefixo(slotN);
   d.retryAte = null; d.ultimaViva = null; await d.save();
   return { ok: true, slot: slotN };
+}
+
+/** Reset completo do Connect: limpa credenciais e o estado dos 4 slots. */
+async function resetarTodasSessoes() {
+  _pairingEpoch++;
+  _pairingAtivos.clear();
+  _pairingEmCurso.clear();
+  const ops = [];
+  for (let slot = 1; slot <= SLOTS; slot++) {
+    ops.push({
+      updateOne: {
+        filter: { slot },
+        update: {
+          $set: {
+            slot, prefixo: _prefixo(slot), estado: 'vazia', numero: '', motivo: '',
+            tentativas: 0, desde: null, ultimaViva: null, ultimaProva: null, retryAte: null,
+          },
+        },
+        upsert: true,
+      },
+    });
+  }
+  await Session.deleteMany({ fileName: { $not: /^call:/ } }).catch(() => {});
+  await SessionSlot.bulkWrite(ops, { ordered: false }).catch(() => {});
+  return { ok: true, slots: SLOTS };
 }
 
 // ── vigia em fundo: «fazer o contacto» para manter vivas ───
@@ -780,7 +822,7 @@ async function socksVivos() {
 module.exports = {
   on: (...a) => eventos.on(...a),
   slotAtual, estadoDetalhado, registarSucesso, falhou,
-  tentarFailover, rodarAgora, promover, novaSessao, remover, capturarComTodosOsSlots, capturarComTodosOsSlotsEmFundo, capturaProgresso,
+  tentarFailover, rodarAgora, promover, novaSessao, remover, resetarTodasSessoes, capturarComTodosOsSlots, capturarComTodosOsSlotsEmFundo, capturaProgresso,
   arrancarVigia,
   _definirFabrica,
   _debug: { _mapa, _slotDoc, _docsDe, _renomearTodos, _provar, _prefixo, RETRY_MS, PROBE_TIMEOUT_MS, _varrerPresos, _gravarSlot, _pairingEmCurso },

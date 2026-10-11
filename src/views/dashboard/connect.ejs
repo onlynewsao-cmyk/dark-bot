@@ -5,8 +5,8 @@
 
     <header class="page-header">
       <div>
-        <h1>🔌 Conectar Bot</h1>
-        <p class="muted">Conecte o <%= bot.name %> ao WhatsApp via QR Code ou Pair Code</p>
+        <h1>🔌 Connect &amp; Failover</h1>
+        <p class="muted">Central única para ligação WhatsApp, QR/Pair Code, sessões de reserva e diagnóstico</p>
       </div>
       <div class="bot-status" id="botStatusBadge">
         <span class="status-dot status-<%= botState.status %>"></span>
@@ -24,6 +24,21 @@
         <span>✅</span>
         <span><strong>Bot conectado!</strong> WhatsApp está online e pronto.</span>
       </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1.2rem">
+      <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">⚙️ Controlo da sessão principal</h2>
+          <p class="muted small" style="margin:.35rem 0 0">Reconectar mantém as credenciais. Reset apaga a sessão principal e as reservas.</p>
+        </div>
+        <div class="button-row">
+          <button class="btn btn-secondary btn-sm" onclick="reconnectBot()">🔄 Reconectar</button>
+          <button class="btn btn-danger btn-sm" onclick="disconnectBot()">🔌 Desconectar</button>
+          <button class="btn btn-ghost btn-sm" onclick="resetBot()">🧹 Reset completo</button>
+        </div>
+      </div>
+      <p class="muted small" id="sessionActionStatus" style="margin:.7rem 0 0"></p>
     </div>
 
     <div class="connect-grid">
@@ -90,6 +105,78 @@
         </button>
       </div>
     </div>
+
+    <!-- FAILOVER — integrado à central Connect -->
+    <section id="failover" class="card" style="margin-top:1.2rem;border:1px solid rgba(0,240,255,.5)">
+      <div style="display:flex;justify-content:space-between;align-items:start;gap:1rem;flex-wrap:wrap">
+        <div>
+          <h2 style="margin:0">🛟 Sessões de reserva / Failover</h2>
+          <p class="muted" style="margin:.4rem 0 0">Adicione até 3 sessões de backup. Quando a principal cair, o failover testa a fila e promove a primeira sessão viva. Os slots não trocam de número.</p>
+        </div>
+        <div class="bot-status">
+          <span class="status-dot status-<%= botState.status %>" id="failoverBotDot"></span>
+          <span id="failoverBotStatus"><%= botState.status || '—' %></span>
+        </div>
+      </div>
+
+      <div class="alert alert-info" style="margin-top:1rem">
+        <span>🛡️</span>
+        <span>O failover tenta uma reserva quando a sessão ativa expira, recebe restrição/403 ou falha repetidamente. Use <strong>Rodar agora</strong> apenas para testar ou assumir manualmente a próxima reserva viva.</span>
+      </div>
+
+      <form id="failoverAddForm" style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:end;margin-top:1rem">
+        <div class="form-group" style="margin:0;flex:1;min-width:220px">
+          <label>Número de reserva (DDI + número)</label>
+          <input type="tel" id="failoverNumber" placeholder="244912345678" autocomplete="off" />
+        </div>
+        <div class="form-group" style="margin:0;min-width:155px">
+          <label>Slot</label>
+          <select id="failoverSlot">
+            <option value="">Automático</option>
+            <% (slots || []).filter(s => s.slot > 1 && s.estado === 'vazia').forEach(s => { %>
+              <option value="<%= s.slot %>">Slot <%= s.slot %></option>
+            <% }) %>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit" id="btnFailoverAdd">🔑 Gerar Pair Code</button>
+      </form>
+      <p class="muted small" style="margin:.55rem 0 0">No WhatsApp do número de reserva: <em>Aparelhos ligados → Ligar com código</em>. A sessão fica guardada na fila, sem substituir a principal de imediato.</p>
+      <p class="muted small" id="failoverAddStatus" style="margin:.55rem 0 0"></p>
+
+      <div id="failoverPairBox" style="display:none;margin:1rem 0;text-align:center;padding:1rem;border:1px solid rgba(0,255,157,.45);border-radius:12px;background:rgba(0,255,157,.05)">
+        <div class="muted small">PAIR CODE DA SESSÃO DE RESERVA</div>
+        <div class="pair-code" id="failoverPairCode" style="margin:.55rem auto"></div>
+        <div class="muted small" id="failoverPairTimer">Aguardando vínculo…</div>
+      </div>
+
+      <div id="failoverSlotsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1rem">
+        <% const slotBadge = (estado) => estado === 'ativa' ? '🟢 EM USO' : estado === 'guardada' ? '🟦 NA FILA' : estado === 'ligacao' ? '⏳ A LIGAR' : estado === 'morta' ? '⛔ INDISPONÍVEL' : '⬜ VAZIA'; %>
+        <% (slots || []).forEach(s => { %>
+          <div class="card" style="margin:0;border:1px solid <%= s.estado === 'ativa' ? '#00ff9d' : s.estado === 'guardada' ? '#00f0ff' : s.estado === 'ligacao' ? '#ffd166' : s.estado === 'morta' ? '#ff4d6d' : '#444' %>">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">
+              <h3 style="margin:0">SLOT <%= s.slot %></h3>
+              <span class="badge"><%= slotBadge(s.estado) %><%= s.proxima ? ' · PRÓXIMA' : '' %></span>
+            </div>
+            <p style="margin:.65rem 0 .25rem"><strong><%= s.numero %></strong></p>
+            <p class="muted small" style="margin:0">
+              <% if (s.ultimaViva) { %>Viva: <%= new Date(s.ultimaViva).toLocaleString('pt-PT') %><br><% } %>
+              <% if (s.ultimaProva) { %>Teste: <%= new Date(s.ultimaProva).toLocaleString('pt-PT') %><br><% } %>
+              <% if (s.motivo) { %>⚠️ <%= s.motivo %><br><% } %>
+              <% if (s.emRetry) { %>🔁 Tentativas: <%= s.tentativas %><% } %>
+            </p>
+            <% if (s.slot !== 1 && s.estado !== 'vazia') { %>
+              <div class="button-row" style="margin-top:.75rem"><button class="btn btn-danger btn-sm" onclick="removeFailoverSlot(<%= s.slot %>)">🗑️ Remover</button></div>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+
+      <div class="button-row" style="margin-top:1rem">
+        <button class="btn btn-secondary" onclick="runFailoverNow()">🔁 Rodar failover agora</button>
+        <button class="btn btn-ghost" onclick="refreshFailover(false)">🔄 Atualizar sessões</button>
+      </div>
+      <p class="muted small" id="failoverOperationStatus" style="margin:.65rem 0 0"></p>
+    </section>
 
     <!-- CHAMADAS DE VOZ (VoIP no socket principal — v7.43+) -->
     <div class="card" style="margin-top:1.2rem;border:1px solid #06B6D4">
@@ -356,6 +443,155 @@
     } catch(e) { toast(e.message, 'error'); }
   }
 
+  function setSessionActionStatus(text, kind = '') {
+    const el = document.getElementById('sessionActionStatus');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = kind === 'error' ? 'var(--neon-red)' : kind === 'success' ? 'var(--neon-green)' : '';
+  }
+
+  async function reconnectBot() {
+    setSessionActionStatus('⏳ Solicitando reconexão sem apagar as credenciais…');
+    try {
+      const r = await postJSON('/api/control/reconnect');
+      setSessionActionStatus(r.message || '🔄 Reconexão iniciada.', 'success');
+      startFastPolling(120);
+    } catch (e) { setSessionActionStatus('❌ ' + e.message, 'error'); }
+  }
+
+  async function resetBot() {
+    if (!confirm('Reset completo? Isto apaga a sessão principal e todas as sessões de reserva.')) return;
+    setSessionActionStatus('⏳ Limpando credenciais…');
+    try {
+      await postJSON('/api/bot/reset');
+      setSessionActionStatus('✅ Sessões removidas. Gere um novo QR ou Pair Code.', 'success');
+      resetConnectButtons();
+      refreshStatus(false);
+      refreshFailover(true);
+    } catch (e) { setSessionActionStatus('❌ ' + e.message, 'error'); }
+  }
+
+  // ══════════════ Failover / sessões de reserva ══════════════
+  const FAILOVER_BADGE = { ativa: '🟢 EM USO', guardada: '🟦 NA FILA', ligacao: '⏳ A LIGAR', morta: '⛔ INDISPONÍVEL', vazia: '⬜ VAZIA' };
+  const FAILOVER_COLOR = { ativa: '#00ff9d', guardada: '#00f0ff', ligacao: '#ffd166', morta: '#ff4d6d', vazia: '#444' };
+  let failoverPairTimer = null;
+  let lastFailoverPair = '';
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c]));
+  }
+  function failoverDate(value) { return value ? new Date(value).toLocaleString('pt-PT') : ''; }
+  function setFailoverStatus(id, text, kind = '') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = kind === 'error' ? 'var(--neon-red)' : kind === 'success' ? 'var(--neon-green)' : '';
+  }
+  function renderFailoverSlots(slots) {
+    const grid = document.getElementById('failoverSlotsGrid');
+    if (!grid || !Array.isArray(slots)) return;
+    grid.innerHTML = slots.map(s => {
+      const canRemove = s.slot !== 1 && s.estado !== 'vazia';
+      const detail = [
+        s.ultimaViva && 'Viva: ' + failoverDate(s.ultimaViva),
+        s.ultimaProva && 'Teste: ' + failoverDate(s.ultimaProva),
+        s.motivo && '⚠️ ' + s.motivo,
+        s.emRetry && '🔁 Tentativas: ' + (s.tentativas || 0),
+      ].filter(Boolean).map(escapeHtml).join('<br>');
+      return '<div class="card" style="margin:0;border:1px solid ' + (FAILOVER_COLOR[s.estado] || '#444') + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">' +
+        '<h3 style="margin:0">SLOT ' + Number(s.slot) + '</h3><span class="badge">' + escapeHtml(FAILOVER_BADGE[s.estado] || s.estado) + (s.proxima ? ' · PRÓXIMA' : '') + '</span></div>' +
+        '<p style="margin:.65rem 0 .25rem"><strong>' + escapeHtml(s.numero || '(sem número)') + '</strong></p>' +
+        '<p class="muted small" style="margin:0">' + detail + '</p>' +
+        (canRemove ? '<div class="button-row" style="margin-top:.75rem"><button class="btn btn-danger btn-sm" onclick="removeFailoverSlot(' + Number(s.slot) + ')">🗑️ Remover</button></div>' : '') +
+      '</div>';
+    }).join('');
+
+    const select = document.getElementById('failoverSlot');
+    if (select) {
+      const selected = select.value;
+      select.innerHTML = '<option value="">Automático</option>' + slots.filter(s => s.slot > 1 && s.estado === 'vazia')
+        .map(s => '<option value="' + Number(s.slot) + '">Slot ' + Number(s.slot) + '</option>').join('');
+      if ([...select.options].some(o => o.value === selected)) select.value = selected;
+    }
+  }
+  function showFailoverPair(slot, code, timeoutMs = 90000) {
+    if (!code) return;
+    lastFailoverPair = code;
+    const box = document.getElementById('failoverPairBox');
+    const codeEl = document.getElementById('failoverPairCode');
+    const timerEl = document.getElementById('failoverPairTimer');
+    if (!box || !codeEl || !timerEl) return;
+    box.style.display = 'block';
+    codeEl.textContent = code;
+    const until = Date.now() + Number(timeoutMs || 90000);
+    try { sessionStorage.setItem('darkFailoverPair', JSON.stringify({ slot, code, until })); } catch {}
+    clearInterval(failoverPairTimer);
+    failoverPairTimer = setInterval(() => {
+      const seconds = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      timerEl.textContent = seconds ? 'Slot ' + slot + ' · aguardando vínculo (' + seconds + 's)' : 'Código expirado — gere outro se ainda não vinculou.';
+      if (!seconds) clearInterval(failoverPairTimer);
+    }, 1000);
+    timerEl.textContent = 'Slot ' + slot + ' · aguardando vínculo…';
+  }
+  async function refreshFailover(silent = true) {
+    try {
+      const r = await fetch('/dashboard/connect/status.json', { cache: 'no-store' });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) throw new Error(data.error || 'Não foi possível atualizar o failover');
+      renderFailoverSlots(data.slots || []);
+      const dot = document.getElementById('failoverBotDot');
+      const text = document.getElementById('failoverBotStatus');
+      if (dot) dot.className = 'status-dot status-' + (data.bot?.status || 'disconnected');
+      if (text) text.textContent = data.bot?.status || '—';
+      const pairing = (data.slots || []).find(s => s.estado === 'ligacao' && s.codigo);
+      if (pairing && pairing.codigo !== lastFailoverPair) showFailoverPair(pairing.slot, pairing.codigo);
+      if (!pairing) { try { sessionStorage.removeItem('darkFailoverPair'); } catch {} }
+      return data;
+    } catch (e) {
+      if (!silent) setFailoverStatus('failoverOperationStatus', '❌ ' + e.message, 'error');
+      return null;
+    }
+  }
+  document.getElementById('failoverAddForm')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const number = String(document.getElementById('failoverNumber')?.value || '').replace(/\D/g, '');
+    const slot = document.getElementById('failoverSlot')?.value || null;
+    if (number.length < 8) { setFailoverStatus('failoverAddStatus', '❌ Informe o número com DDI.', 'error'); return; }
+    const button = document.getElementById('btnFailoverAdd');
+    if (button) { button.disabled = true; button.textContent = '⏳ Gerando…'; }
+    setFailoverStatus('failoverAddStatus', '⏳ Abrindo sessão de reserva e pedindo o código ao WhatsApp…');
+    try {
+      const result = await postJSON('/dashboard/connect/failover/adicionar', { numero: number, slot });
+      if (!result.ok) throw new Error(result.motivo || 'Não foi possível gerar o Pair Code');
+      showFailoverPair(result.slot, result.codigo, result.timeoutMs);
+      setFailoverStatus('failoverAddStatus', '✅ Slot ' + result.slot + ' pronto para vínculo.', 'success');
+      document.getElementById('failoverNumber').value = '';
+      refreshFailover(true);
+    } catch (e) { setFailoverStatus('failoverAddStatus', '❌ ' + e.message, 'error'); }
+    finally { if (button) { button.disabled = false; button.textContent = '🔑 Gerar Pair Code'; } }
+  });
+  async function removeFailoverSlot(slot) {
+    if (!confirm('Remover a sessão de reserva do slot ' + slot + '?')) return;
+    setFailoverStatus('failoverOperationStatus', '⏳ Removendo slot ' + slot + '…');
+    try {
+      const result = await postJSON('/dashboard/connect/failover/remover/' + Number(slot));
+      if (!result.ok) throw new Error(result.motivo || 'Não foi possível remover o slot');
+      setFailoverStatus('failoverOperationStatus', '✅ Slot ' + slot + ' removido.', 'success');
+      refreshFailover(true);
+    } catch (e) { setFailoverStatus('failoverOperationStatus', '❌ ' + e.message, 'error'); }
+  }
+  async function runFailoverNow() {
+    if (!confirm('Testar a fila e promover a primeira sessão de reserva viva?')) return;
+    setFailoverStatus('failoverOperationStatus', '⏳ Testando sessões guardadas…');
+    try {
+      const result = await postJSON('/dashboard/connect/failover/rodar');
+      if (!result.ok) throw new Error(result.motivo === 'sem-suplente-viva' ? 'Nenhuma sessão de reserva respondeu.' : (result.motivo || 'Failover não executado'));
+      setFailoverStatus('failoverOperationStatus', '✅ Slot ' + result.promovida + ' (' + (result.numero || '?') + ') assumiu a sessão principal.', 'success');
+      setTimeout(() => { refreshFailover(true); refreshStatus(true); }, 2500);
+    } catch (e) { setFailoverStatus('failoverOperationStatus', '❌ ' + e.message, 'error'); }
+  }
+
   // ══════════════ Chamadas de Voz (VoIP no socket principal) ══════════════
   function renderVoip(data = {}) {
     const dot = document.getElementById('voipStatusDot');
@@ -401,9 +637,13 @@
   // Polling leve permanente: se WebSocket falhar no Render, a página continua atualizando.
   setInterval(() => refreshStatus(true), 5000);
   setInterval(refreshVoip, 5000);
+  setInterval(() => refreshFailover(true), 15000);
+  try {
+    const savedPair = JSON.parse(sessionStorage.getItem('darkFailoverPair') || 'null');
+    if (savedPair?.until > Date.now()) showFailoverPair(savedPair.slot, savedPair.code, savedPair.until - Date.now());
+  } catch {}
   refreshVoip();
   refreshStatus(true);
-  refreshCallStatus(true);
-  refreshVoipStatus(true);
+  refreshFailover(true);
 </script>
 <%- include('../partials/footer') %>

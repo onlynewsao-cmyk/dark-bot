@@ -31,47 +31,48 @@ router.get('/', async (req, res) => {
   res.render('dashboard/home', { title: 'Dashboard', stats });
 });
 
+// ── CENTRAL CONNECT — sessão principal + QR/pair + failover ─────────
+// Uma única página é a fonte de verdade da conexão. As rotas antigas de
+// /sessoes continuam como compatibilidade, mas levam para esta central.
 router.get('/connect', requireOwner, async (req, res) => {
-  res.render('dashboard/connect', {
-    title: 'Conectar Bot',
-    botState: getBot().getStatus(),
-  });
-});
-
-// ── v9.14 — CENTRAL DE SESSÕES (failover 4 slots) ──────────
-router.get('/sessoes', requireOwner, async (req, res) => {
   const sc = require('../bot/sessionCenter');
-  res.render('dashboard/sessoes', {
-    title: 'Central de Sessões',
+  res.render('dashboard/connect', {
+    title: 'Connect · Central de Sessões',
     botState: getBot().getStatus(),
     slots: await sc.estadoDetalhado().catch(() => []),
   });
 });
 
-router.get('/sessoes/estado.json', requireOwner, async (req, res) => {
+router.get('/sessoes', requireOwner, (req, res) => res.redirect('/dashboard/connect#failover'));
+
+async function failoverStatus(req, res) {
   const sc = require('../bot/sessionCenter');
   res.json({ ok: true, slots: await sc.estadoDetalhado().catch(() => []), bot: getBot().getStatus() });
-});
+}
+router.get(['/connect/status.json', '/sessoes/estado.json'], requireOwner, failoverStatus);
 
-router.post('/sessoes/adicionar', requireOwner, async (req, res) => {
+async function adicionarSessaoFailover(req, res) {
   const sc = require('../bot/sessionCenter');
   const numero = String(req.body?.numero || '').trim();
   const slot = Number(req.body?.slot) || null;
   const r = await sc.novaSessao(numero, slot).catch((e) => ({ ok: false, motivo: e.message }));
   res.json(r);
-});
+}
+router.post(['/connect/failover/adicionar', '/sessoes/adicionar'], requireOwner, adicionarSessaoFailover);
 
-router.post('/sessoes/remover/:slot', requireOwner, async (req, res) => {
+async function removerSessaoFailover(req, res) {
   const sc = require('../bot/sessionCenter');
   const r = await sc.remover(Number(req.params.slot)).catch((e) => ({ ok: false, motivo: e.message }));
   res.json(r);
-});
+}
+router.post(['/connect/failover/remover/:slot', '/sessoes/remover/:slot'], requireOwner, removerSessaoFailover);
 
-router.post('/sessoes/rodar', requireOwner, async (req, res) => {
+async function rodarFailoverAgora(req, res) {
   const sc = require('../bot/sessionCenter');
   const r = await sc.rodarAgora().catch((e) => ({ ok: false, motivo: e.message }));
   res.json(r);
-});
+}
+router.post(['/connect/failover/rodar', '/sessoes/rodar'], requireOwner, rodarFailoverAgora);
 
 // Painel de Controle (owner)
 router.get('/control', requireOwner, async (req, res) => {

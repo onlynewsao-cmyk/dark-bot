@@ -592,7 +592,7 @@ const SUBCATEGORIES = {
   owner: [
     { id: '🏰 RPG / Comunidade', re: /^(darkrpg|rpginit|iniciar-rpg|setgrupo|setarena|setdungeons|settrocas|setcavernas|setlazer|setarsenal|criaclan|criaclã|newclan|menu-rpg|menurpg|rpgmenu|rpgmenu2|comunicado|arsenal|ranking-update|addglb|addglobal|darkrpg-status|rpgstatus|darkrpg-test|rpgtest)$/ },
     { id: '📡 C∆P Capture', re: /^(cap|capture|captura|c∆p)$/ },
-    { id: '👑 Sistema', re: /^(broadcast|send|eval|exec|shell|restart|shutdown|panel|autodecrypt|prefixos|buttonmode|menustyle)$/ },
+    { id: '👑 Sistema', re: /^(broadcast|send|eval|exec|shell|restart|shutdown|panel|autodecrypt|prefixos|pvfree|buttonmode|menustyle)$/ },
     { id: '🧩 Cases', re: /^(addcase|removicase|downcase|listcases|runcase|reloadcases|execcase|testcase|testcasecode|viewcase|getcasecode|listcase|mycases|validarcase|verificarcmds|cmdcheck|vercode|audit|auditcmds|recarregarcases|refreshcases|removecase|remcase|showcase|newcase|listcmds|somcode|codsom)$/ },
     { id: '🎨 Temas', re: /^(change|tema|settheme|themes|temas|listtemas|listthemes|themechange|themeglobal|globaltheme|mudarstema)$/ },
   ],
@@ -722,7 +722,7 @@ function categorizeExtra(c) {
   // Audio extras
   if (/^(8d|8d2|8d3|bass2|bass3|grave2|grave3|reverb2|reverb3|slowed2|slowed3|slowedreverb2|slowedreverb3|chorus2|chorus3|nightcore|vaporwave|hardcore|robot|chipmunk|squirrel|monster|whisper|pitch|deep|echo|stadium|cave|underwater|telephone|radio|lofi|flanger|phaser|tremolo|vibrato|reverse|karaoke|blown|earrape|fat|smooth|fast|slow|menuaudio)/.test(c)) return 'audio';
   // Owner extras
-  if (/^(cmdsocultos|portal18|themechange|themes|broadcast|send|eval|shell|execcase|testcase|viewcase|listcases|downcase|addcase|removicase|reloadcases|runcase|panel|restart|autodecrypt|prefixos|blackhzx|espiar|antidelete)/.test(c)) return 'owner';
+  if (/^(cmdsocultos|portal18|themechange|themes|broadcast|send|eval|shell|execcase|testcase|viewcase|listcases|downcase|addcase|removicase|reloadcases|runcase|panel|restart|autodecrypt|prefixos|pvfree|blackhzx|espiar|antidelete)/.test(c)) return 'owner';
   return null;
 }
 
