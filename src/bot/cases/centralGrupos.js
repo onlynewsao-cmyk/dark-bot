@@ -25,6 +25,33 @@ const only = (isOwner, reply) => isOwner ? true : (reply('👑 A Central é *SÓ
 const fmtN = n => n >= 1000 ? (n / 1000).toFixed(1) + 'K' : String(n);
 const _addsEmCurso = new Set(); // destino → impede duas campanhas simultâneas e tentativas duplicadas
 
+/** Acompanha captura grande sem prender o handler do WhatsApp por minutos. */
+function acompanharCapturaFundo(sock, chatId, chaveMensagem, quoted) {
+  const capViva = require('../capturaViva');
+  let ultimoTexto = '';
+  const verificar = async () => {
+    const p = capViva.progresso();
+    if (p.emCurso) {
+      const texto = `⏳ *CAPTURA EM FUNDO*\n\n📋 ${p.feitos}/${p.total} grupos · ✅ ${p.novos} contactos novos\n📌 ${String(p.grupo || 'a preparar…').slice(0, 55)}\n\n> Continua mesmo que saias desta conversa. Cada grupo fica guardado como fonte da Central.`;
+      if (texto !== ultimoTexto && chaveMensagem) {
+        ultimoTexto = texto;
+        try { await sock.sendMessage(chatId, { edit: chaveMensagem, text: texto }); } catch {}
+      }
+      const timer = setTimeout(verificar, 12000);
+      timer.unref?.();
+      return;
+    }
+    const r = p.resultados || {};
+    const duracao = p.iniciado && p.fim ? Math.max(1, Math.round((p.fim - p.iniciado) / 1000)) : 0;
+    const texto = r.ok
+      ? `✅ *CAPTURA GERAL CONCLUÍDA*\n\n📋 ${r.grupos || 0}/${p.total || 0} grupos guardados${r.falharam ? ` · ⚠️ ${r.falharam} falharam` : ''}\n✅ ${r.novos || 0} contactos novos\n📇 Base: *${fmtN(r.totalBase || 0)}* contactos únicos${duracao ? `\n⏱️ ${duracao}s` : ''}\n\n🗂️ Cada grupo capturado está disponível em *fontescentral* e no Dashboard → Central.`
+      : `❌ A captura em fundo terminou sem concluir: ${r.motivo || 'erro desconhecido'}.`;
+    try { await sock.sendMessage(chatId, { text: texto }, { quoted }); } catch {}
+  };
+  const timer = setTimeout(verificar, 7000);
+  timer.unref?.();
+}
+
 // O WhatsApp recente pode devolver um participante pelo número normal, por
 // JID multi-device (244…:12@s.whatsapp.net) ou por LID (…@lid). Centralizar
 // isto evita tanto um falso "não sou admin" como tentar re-adicionar alguém.
@@ -412,44 +439,40 @@ module.exports = function registerCentralGrupos(registerCase) {
     const g = await pickGrupo(sock, ctx.remoteJid, alvo);
     if (!g) return reply(`Grupo "${alvo}" não encontrado — corre *gruposbot* para ver a lista.`);
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } }).catch(() => {});
-    // comunidade pai → filhos
-    let jids = [g.jid];
+    // Comunidade pode ter centenas de subgrupos. Usa a mesma fila em fundo da
+    // dashboard: não existe limite de 30, nem o handler fica preso por minutos.
     if (g.comunidade) {
-      try { const { all } = await listarGrupos(sock); jids = [g.jid, ...base.filhosComunidade(g.jid, all).map(x => x.id)]; } catch {}
+      const capViva = require('../capturaViva');
+      const inicio = await capViva.capturarFundo({ comunidade: g.jid });
+      if (!inicio.ok) return reply(`❌ Não consegui iniciar a captura: ${inicio.motivo || 'erro'}.`);
+      const st = await reply(`⏳ *CAPTURA DA COMUNIDADE EM FUNDO*\n\n🏘️ ${g.nome.slice(0, 45)}\n📋 ${inicio.total} grupo(s) na fila\n\n> Posso capturar 200, 1000+ grupos; cada origem será guardada na Central.`);
+      acompanharCapturaFundo(sock, ctx.remoteJid, st?.key, msg);
+      return;
     }
-    let novos = 0, duplicados = 0, gruposN = 0;
-    for (const jid of jids) {
-      try {
-        const meta = await sock.groupMetadata(jid);
-        const r = base.capturarGrupo(jid, meta);
-        novos += r.novos; duplicados += r.duplicados; gruposN++;
-        await new Promise(res => setTimeout(res, 400));
-      } catch (e) { return reply(`❌ ${jid}: ${e.message?.slice(0, 80)}`); }
-    }
-    const s = base.stats();
-    await buttonHandler.sendButtons(sock, ctx.remoteJid,
-      `📥 *CAPTURA CONCLUÍDA*\n\n👥 ${gruposN} grupo(s) · ✅ ${novos} novos\n♻️ ${duplicados} duplicados ignorados\n📇 Base: *${fmtN(s.total)}* contactos únicos`,
-      'sem duplicados · visível no dashboard → Central',
-      [{ id: '.capturartodos', text: '📥 Capturar TODOS' }, { id: '.contactos', text: '📊 Estatísticas' }], msg);
+    try {
+      const meta = await sock.groupMetadata(g.jid);
+      const r = base.capturarGrupo(g.jid, meta);
+      const s = base.stats();
+      await buttonHandler.sendButtons(sock, ctx.remoteJid,
+        `📥 *CAPTURA CONCLUÍDA*\n\n👥 1 grupo · ✅ ${r.novos} novos\n♻️ ${r.duplicados} duplicados ignorados\n📇 Base: *${fmtN(s.total)}* contactos únicos`,
+        'sem duplicados · visível no dashboard → Central',
+        [{ id: '.capturartodos', text: '📥 Capturar TODOS' }, { id: '.contactos', text: '📊 Estatísticas' }], msg);
+    } catch (e) { return reply(`❌ ${g.jid}: ${e.message?.slice(0, 80)}`); }
   }, owner);
 
   // ═══════════ CAPTURAR TODOS OS GRUPOS ═══════════
   registerCase(['capturartodos', 'capturargeral'], async ({ sock, msg, ctx, isOwner, reply }) => {
     if (!only(isOwner, reply)) return;
-    const st = await reply('⏳ *CAPTURA GERAL* — a percorrer todos os grupos…');
-    const { arr } = await listarGrupos(sock);
-    let novos = 0, duplicados = 0, okN = 0, fail = [];
-    for (let i = 0; i < arr.length; i++) {
-      try {
-        const meta = await sock.groupMetadata(arr[i].jid);
-        const r = base.capturarGrupo(arr[i].jid, meta);
-        novos += r.novos; duplicados += r.duplicados; okN++;
-        if (i % 5 === 4) { try { await sock.sendMessage(ctx.remoteJid, { edit: st.key, text: `⏳ ${i + 1}/${arr.length} grupos… ✅ ${novos} novos` }); } catch {} }
-        await new Promise(res => setTimeout(res, 500));
-      } catch (e) { fail.push(`${arr[i].nome.slice(0, 20)}: ${e.message?.slice(0, 30)}`); }
+    // Não roda no handler: 200/1000 grupos excedem o tempo de uma mensagem e
+    // podiam parar por volta de 30. A fila continua em fundo e grava a cada 25.
+    const capViva = require('../capturaViva');
+    const inicio = await capViva.capturarFundo({ todos: true });
+    if (!inicio.ok) {
+      if (inicio.motivo === 'captura-ja-em-curso') return reply(`⏳ Já existe uma captura em curso: ${inicio.progresso?.feitos || 0}/${inicio.progresso?.total || 0} grupos.`);
+      return reply(`❌ Não consegui iniciar a captura geral: ${inicio.motivo || 'erro'}.`);
     }
-    const s = base.stats();
-    return reply(`✅ *CAPTURA GERAL CONCLUÍDA*\n\n📋 ${okN}/${arr.length} grupos${fail.length ? ` · ❌ ${fail.length} falhados` : ''}\n✅ ${novos} contactos novos · ♻️ ${duplicados} duplicados ignorados\n📇 Base: *${fmtN(s.total)}* contactos únicos\n\n🌐 Tudo no *dashboard → Central de Contactos*${fail.length ? `\n> ${fail.slice(0, 3).join(' · ')}` : ''}`);
+    const st = await reply(`⏳ *CAPTURA GERAL EM FUNDO*\n\n📋 *${inicio.total} grupos* na fila\n💾 Grava em lotes de 25 e suporta 200, 1000+ grupos.\n🗂️ Cada grupo e os seus contactos ficam guardados como origem da Central para usar depois no ADD.\n\n> Podes continuar a usar o bot; vou actualizar este progresso e avisar no fim.`);
+    acompanharCapturaFundo(sock, ctx.remoteJid, st?.key, msg);
   }, owner);
 
   // ═══════════ STATS DA BASE ═══════════

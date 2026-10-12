@@ -23,7 +23,7 @@ function _sock() {
 }
 
 /** Lista TODOS os grupos do bot (mesma detecção do .comunidade no WhatsApp). */
-async function listarVivos() {
+async function listarVivos({ incluirMetas = false } = {}) {
   const sock = _sock();
   if (!sock) return { ok: false, motivo: 'bot-nao-conectado' };
   const all = await sock.groupFetchAllParticipating().catch(() => ({}));
@@ -41,7 +41,11 @@ async function listarVivos() {
   }).filter((g) => g.jid).sort((a, b) => b.size - a.size);
   // Uma listagem viva confirma a presença sem apagar o histórico dos demais.
   base.registarGruposVivos(grupos);
-  return { ok: true, total: grupos.length, grupos };
+  // `metas` só fica na chamada interna de captura; nunca vai na resposta da
+  // rota HTTP, onde 1000 grupos poderiam gerar uma resposta gigante.
+  return incluirMetas
+    ? { ok: true, total: grupos.length, grupos, metas: all || {} }
+    : { ok: true, total: grupos.length, grupos };
 }
 
 /** Captura UM grupo (sync — uma chamada groupMetadata, devolve na hora). */
@@ -55,20 +59,37 @@ async function capturarUm(jid) {
   return { ok: true, nome: r.nome, novos: r.novos, duplicados: r.duplicados, totalBase: s.total };
 }
 
-/** Loop interno de captura (comunidade ou todos) com pausas humanas. */
-async function _capturarLista(jids, modo) {
+/**
+ * Loop interno de captura (comunidade ou todos), sem limite artificial.
+ * Aceita itens { jid, meta } da listagem viva para escalar a 200/1000 grupos
+ * sem uma chamada groupMetadata extra por grupo. Só busca metadata quando a
+ * lista do WhatsApp não trouxe participantes.
+ */
+async function _capturarLista(itens, modo) {
   _estado.emCurso = true; _estado.modo = modo; _estado.feitos = 0;
-  _estado.total = jids.length; _estado.novos = 0; _estado.resultados = null;
+  _estado.total = itens.length; _estado.novos = 0; _estado.resultados = null;
   _estado.iniciado = Date.now(); _estado.fim = null;
   const sock = _sock();
   if (!sock) { _estado.emCurso = false; _estado.fim = Date.now(); _estado.resultados = { ok: false, motivo: 'bot-nao-conectado' }; return; }
   const resultados = [];
   let novos = 0, feitos = 0, falharam = 0;
   base.carregar();
-  for (const jid of jids) {
+  for (const item of itens) {
+    const jid = typeof item === 'string' ? item : item?.jid;
     try {
-      const meta = await sock.groupMetadata(jid);
-      const r = base.capturarGrupo(jid, meta, { fonte: 'dashboard', persistir: false });
+      let meta = typeof item === 'object' ? item.meta : null;
+      // groupFetchAllParticipating normalmente já inclui participantes. Para
+      // versões que só trazem size, tenta metadata até 3 vezes antes de falhar.
+      if (!Array.isArray(meta?.participants)) {
+        let ultimoErro = null;
+        for (let tentativa = 1; tentativa <= 3; tentativa++) {
+          try { meta = await sock.groupMetadata(jid); if (meta) break; }
+          catch (e) { ultimoErro = e; }
+          if (tentativa < 3) await new Promise((x) => setTimeout(x, 800 * tentativa));
+        }
+        if (!meta) throw ultimoErro || new Error('metadata-indisponivel');
+      }
+      const r = base.capturarGrupo(jid, meta, { fonte: 'captura-geral', persistir: false });
       novos += r.novos;
       resultados.push({ jid, nome: r.nome, novos: r.novos, duplicados: r.duplicados });
     } catch (e) {
@@ -76,14 +97,16 @@ async function _capturarLista(jids, modo) {
       resultados.push({ jid, erro: String(e.message || e).slice(0, 60) });
     }
     feitos++;
-    if (feitos % 25 === 0) base.guardar();   // lote a cada 25 grupos
+    // Persistência em lote: os contactos E cada origem de grupo já foram
+    // registados pela base, inclusive quando não houver contacto novo.
+    if (feitos % 25 === 0) base.guardar();
     _estado.feitos = feitos; _estado.novos = novos; _estado.grupo = (resultados[resultados.length - 1] || {}).nome || '';
-    await new Promise((x) => setTimeout(x, 350 + Math.floor(Math.random() * 250)));   // ritmo humano
+    await new Promise((x) => setTimeout(x, 350 + Math.floor(Math.random() * 250))); // ritmo humano
   }
   base.guardar();
   const s = base.stats();
   _estado.emCurso = false; _estado.fim = Date.now();
-  _estado.resultados = { ok: true, grupos: feitos - falharam, falharam, novos, totalBase: s.total, detalhes: resultados };
+  _estado.resultados = { ok: feitos > falharam, grupos: feitos - falharam, falharam, novos, totalBase: s.total, detalhes: resultados };
 }
 
 /** Captura em FUNDO: { todos: true } ou { comunidade: jid } (pai + filhos). */
@@ -91,22 +114,24 @@ async function capturarFundo(opts = {}) {
   if (_estado.emCurso) return { ok: false, motivo: 'captura-ja-em-curso', progresso: progresso() };
   const sock = _sock();
   if (!sock) return { ok: false, motivo: 'bot-nao-conectado' };
-  let jids = null, modo = '';
+  let itens = null, modo = '';
+  const { grupos, metas } = await listarVivos({ incluirMetas: true });
   if (opts.comunidade) {
-    const { grupos } = await listarVivos();
     const pai = grupos.find((g) => g.jid === opts.comunidade);
     if (!pai) return { ok: false, motivo: 'grupo-indisponivel' };
-    const filhos = grupos.filter((g) => g.pai === opts.comunidade).map((g) => g.jid);
-    jids = [...new Set([opts.comunidade, ...filhos])];
+    const jids = [...new Set([opts.comunidade, ...grupos.filter((g) => g.pai === opts.comunidade).map((g) => g.jid)])];
+    itens = jids.map((jid) => ({ jid, meta: metas?.[jid] || null }));
     modo = 'comunidade';
   } else {
-    const { grupos } = await listarVivos();
-    jids = grupos.map((g) => g.jid);
+    itens = grupos.map((g) => ({ jid: g.jid, meta: metas?.[g.jid] || null }));
     modo = 'todos';
   }
-  if (!jids.length) return { ok: false, motivo: 'sem-grupos' };
-  _capturarLista(jids, modo).catch(() => { _estado.emCurso = false; _estado.fim = Date.now(); });
-  return { ok: true, fundo: true, total: jids.length, progresso: progresso() };
+  if (!itens.length) return { ok: false, motivo: 'sem-grupos' };
+  _capturarLista(itens, modo).catch((e) => {
+    _estado.emCurso = false; _estado.fim = Date.now();
+    _estado.resultados = { ok: false, motivo: String(e?.message || e || 'falha-interna').slice(0, 80) };
+  });
+  return { ok: true, fundo: true, total: itens.length, progresso: progresso() };
 }
 
 module.exports = { listarVivos, capturarUm, capturarFundo, progresso };

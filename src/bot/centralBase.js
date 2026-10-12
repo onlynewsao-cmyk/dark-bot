@@ -549,7 +549,9 @@ function capturarGrupo(jid, meta, { fonte = '', slot = null, persistir = true } 
       _paresNovos.push([num, nomeP]);
     }
   }
-  guardar();
+  // Em capturas grandes o chamador grava em lotes (a cada 25 grupos). Gravar
+  // o JSON inteiro por grupo tornava 200/1000 grupos progressivamente lento.
+  if (persistir) guardar();
   _filaUsuarios(_paresNovos);
   return { novos, duplicados, total: (meta?.participants || []).length, nome, lidsIgnorados };
 }

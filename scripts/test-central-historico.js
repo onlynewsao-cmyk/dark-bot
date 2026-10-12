@@ -37,6 +37,23 @@ assert(grupoPai.comunidade, 'isCommunity deve identificar comunidade sem usar o 
 assert(grupoFilho && grupoFilho.parentJid === pai, 'linkedParentJid deve manter relação pai-filho');
 assert.strictEqual(base.fonteParaAdd(pai).length, 1, 'origem capturada deve fornecer contactos');
 
+// Regressão de escala: a captura em lote precisa aceitar muito mais que 30
+// grupos sem regravar a base inteira a cada item. Exercita 1000 grupos,
+// cobrindo explicitamente os cenários de 200+ e 1000+.
+const TOTAL_ESCALA = 1000;
+for (let i = 0; i < TOTAL_ESCALA; i++) {
+  const jid = `1203631${String(i).padStart(8, '0')}@g.us`;
+  const num = `2448${String(i).padStart(8, '0')}`;
+  base.capturarGrupo(jid, {
+    id: jid,
+    subject: `Escala ${i}`,
+    participants: [{ id: `${num}@s.whatsapp.net` }],
+  }, { persistir: false });
+}
+base.guardar();
+assert(base.stats().nGrupos >= TOTAL_ESCALA + 2, 'captura em lote deve guardar 200+ origens');
+assert.strictEqual(base.fonteParaAdd('120363100000000@g.us').length, 1, 'cada grupo do lote deve continuar fonte para ADD');
+
 base.marcarGrupoInativo(pai, { nome: 'Rede principal' });
 grupos = base.listarGruposHistoricos();
 grupoPai = grupos.find(g => g.jid === pai);
