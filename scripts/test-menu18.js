@@ -132,6 +132,12 @@ const check = (nome, cond, extra = '') => {
   check('Conteúdo vai para o PV, não para o grupo', rDono.pv.length > 200 && !/hentai/i.test(rDono.grupo), `PV ${rDono.pv.length} chars`);
   check('No grupo só fica o aviso', /PV|privad/i.test(rDono.grupo), rDono.grupo);
 
+  // v12.9.50: Com adultMode ON no grupo, o menu vai directo no grupo!
+  grupo.adultMode = true;
+  const rDonoGrupo = await abrir('.menu18', OWNER);
+  check('Com adultMode ON, menu vai no grupo', /PORTAL 18/i.test(rDonoGrupo.grupo), `Grupo ${rDonoGrupo.grupo.length} chars`);
+  grupo.adultMode = false; // restaura
+
   // ══ 4. PROMESSAS CUMPRIDAS ════════════════════════════════
   console.log('\n▸ Todo o comando anunciado EXISTE');
   const nc = require(path.join(__dirname, '..', 'src', 'bot', 'nativeCommands'));
@@ -142,8 +148,8 @@ const check = (nome, cond, extra = '') => {
   // extrai os comandos mencionados no texto do menu
   const anunciados = [...new Set((conteudo.match(/\.([a-z0-9]{3,20})\b/gi) || [])
     .map(x => x.slice(1).toLowerCase()))]
-        // ignora fragmentos de domínios (nekos.life, e621.net, erome.com)
-    .filter(c => !['menu18', 'vip', 'com', 'net', 'wa', 'life', 'org', 're'].includes(c));
+        // ignora fragmentos de domínios (nekos.life, e621.net, erome.com, ladys.one)
+    .filter(c => !['menu18', 'vip', 'com', 'net', 'wa', 'life', 'org', 're', 'one'].includes(c));
   const inexistentes = anunciados.filter(c => !existe(c));
   check('Nenhum comando fantasma no menu', inexistentes.length === 0,
     inexistentes.length ? inexistentes.join(', ') : `${anunciados.length} verificados`);

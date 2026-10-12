@@ -898,10 +898,11 @@ async function resolveAdultDest(sock, ctx) {
   return ctx.senderJid || (String(ctx.senderNumber || '').replace(/\D/g, '') + '@s.whatsapp.net');
 }
 
-/** Portal global OU adultMode do grupo. */
+/** Portal global OU adultMode do grupo OU no PV (para VIP/Dono). */
 async function isAdultEnabled(ctx) {
   const globalOn = await BotConfig.get('adult_mode_enabled', false).catch(() => false);
   if (globalOn) return true;
+  if (!ctx?.isGroup) return true;
   if (ctx?.isGroup && ctx.remoteJid) {
     try {
       const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).lean().catch(() => null);
@@ -1553,6 +1554,12 @@ module.exports = {
       '> Sem adultmode no grupo → mídia vai no *PV*',
       '> ⚠️ O portal/grupo tem de estar ON (' + p + 'adultmode on)',
     ], { botName: localConfig.bot.name });
+
+    // v12.9.50: com adultMode ON num grupo, manda a lista directamente no grupo!
+    // Se não, manda no PV com as mesmas leis de antes.
+    if (ctx.isGroup && (await isAdultEnabled(ctx))) {
+      return reply(sock, msg, ctx, menuText);
+    }
 
     // PV robusto: tenta múltiplos formatos de JID
     const pvJids = [
