@@ -61,7 +61,15 @@ module.exports = function registerIncomingAdmin(registerCase) {
     let admin = false;
     try { admin = isOwner || await isAdminFn(); } catch {}
     if (!admin) return m.reply('🚫 Apenas *admins do grupo* ou o *dono do bot* podem apagar status.');
-    const ctxInfo = msg.message?.extendedTextMessage?.contextInfo;
+    const mi = msg.message || {};
+    const inner = mi.ephemeralMessage?.message || mi.viewOnceMessage?.message || mi.viewOnceMessageV2?.message || mi;
+    const ctxInfo = inner.extendedTextMessage?.contextInfo ||
+                    inner.imageMessage?.contextInfo ||
+                    inner.videoMessage?.contextInfo ||
+                    inner.documentMessage?.contextInfo ||
+                    inner.stickerMessage?.contextInfo ||
+                    ctx.contextInfo ||
+                    (m.quoted?.key ? { stanzaId: m.quoted.key.id, participant: m.quoted.key.participant || m.quoted.sender } : null);
     if (!ctxInfo?.stanzaId) {
       return m.reply('⚠️ Responde ao status que queres apagar e manda de novo.');
     }

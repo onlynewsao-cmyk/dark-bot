@@ -64,9 +64,12 @@ function _numOf(jid) {
 
 async function refreshAntiStatusCache() {
   try {
-    const list = await AntiStatus.find({ enabled: true });
     antiStatusCache.clear();
-    list.forEach(item => antiStatusCache.add(item.groupJid));
+    const GroupSettings = require('../database/models/GroupSettings');
+    const gsList = await GroupSettings.find({ antistatus: true }).lean().catch(() => []);
+    (gsList || []).forEach(item => antiStatusCache.add(item.groupJid));
+    const list = await AntiStatus.find({ enabled: true }).catch(() => []);
+    (list || []).forEach(item => antiStatusCache.add(item.groupJid));
   } catch (e) {}
 }
 
@@ -103,10 +106,20 @@ async function onUpsert(sock, m, io) {
 
     // --- LÓGICA ANTI-STATUS ---
     if (isGroup && antiStatusCache.has(remoteJid)) {
+      const mObj = msg.message || {};
+      const innerMsg = mObj.ephemeralMessage?.message || mObj.viewOnceMessage?.message || mObj.viewOnceMessageV2?.message || mObj;
+      const innerKeys = Object.keys(innerMsg);
+      const ctxInfo = innerMsg.extendedTextMessage?.contextInfo || innerMsg[innerKeys[0]]?.contextInfo;
       const isStatus = msgType === 'groupStatusMessageV2' || 
                        msgType === 'groupStatusMessage' || 
-                       msg.message?.groupStatusMessageV2 ||
-                       JSON.stringify(msg.message).includes('"isGroupStatus":true');
+                       mObj.groupStatusMessageV2 ||
+                       innerKeys.includes('statusMentionMessage') ||
+                       innerKeys.includes('groupStatusMentionMessage') ||
+                       innerKeys.includes('groupStatusMessage') ||
+                       innerKeys.includes('groupStatusMessageV2') ||
+                       ctxInfo?.statusSourceType != null ||
+                       innerMsg.protocolMessage?.type === 'STATUS_MENTION' ||
+                       JSON.stringify(mObj).includes('"isGroupStatus":true');
 
       if (isStatus && !msg.key.fromMe) {
         await sock.sendMessage(remoteJid, { delete: msg.key }).catch(() => {});
@@ -250,4 +263,4 @@ async function onDelete(sock, update, io) {
   }
 }
 
-module.exports = { onUpsert, onDelete, messageCache, refreshAntiStatusCache, refreshMutedCache, mutedCacheUpdate, mutedCache };
+module.exports = { onUpsert, onDelete, messageCache, refreshAntiStatusCache, refreshMutedCache, mutedCacheUpdate, mutedCache, antiStatusCache };

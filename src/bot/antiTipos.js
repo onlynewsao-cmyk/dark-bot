@@ -188,7 +188,7 @@ function detectar(msg, gs, opts = {}) {
   const ci = ctxInfo(m);
   const chave = `${msg.key.remoteJid}:${jidNum(msg.key.participant)}`;
 
-  if (gs.antistatus && (keys.includes('statusMentionMessage') || keys.includes('groupStatusMentionMessage') || keys.includes('groupStatusMessage') || ci?.statusSourceType != null || m.protocolMessage?.type === 'STATUS_MENTION'))
+  if (gs.antistatus && (keys.includes('statusMentionMessage') || keys.includes('groupStatusMentionMessage') || keys.includes('groupStatusMessage') || keys.includes('groupStatusMessageV2') || ci?.statusSourceType != null || m.protocolMessage?.type === 'STATUS_MENTION'))
     return { flag: 'antistatus', motivo: 'menção de estado', label: 'ANTI-STATUS' };
 
   if (gs.antipagamento && keys.some(k => /^(requestPaymentMessage|sendPaymentMessage|paymentInviteMessage|declinePaymentRequestMessage|cancelPaymentRequestMessage)$/.test(k)))
@@ -277,7 +277,7 @@ async function check(sock, msg) {
   try {
     const remoteJid = msg?.key?.remoteJid;
     if (!remoteJid?.endsWith('@g.us') || msg.key.fromMe) return false;
-    const senderJid = msg.key.participant;
+    const senderJid = msg.key.participant || msg.participant;
     if (!senderJid) return false;
     const senderNum = jidNum(senderJid);
     const ownerNum = String(config.owner.number || '').replace(/\D/g, '');

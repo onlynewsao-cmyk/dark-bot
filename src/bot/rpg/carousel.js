@@ -123,12 +123,15 @@ async function enviarCarrossel(sock, msg, ctx, { corpo, rodape, cards, imgW = 76
           ? { title: c.titulo || '', hasMediaAttachment: true, imageMessage }
           : { title: c.titulo || '', hasMediaAttachment: false }
       );
-      return proto.Message.InteractiveMessage.CarouselCard.fromObject({
+      const cardObj = {
         header,
         body: proto.Message.InteractiveMessage.Body.fromObject({ text: String(c.corpo || '') }),
         footer: proto.Message.InteractiveMessage.Footer.fromObject({ text: String(c.rodape || '') }),
         nativeFlowMessage: proto.Message.InteractiveMessage.NativeFlowMessage.fromObject({ buttons: botoes }),
-      });
+      };
+      return (proto.Message.InteractiveMessage.CarouselCard?.fromObject
+        ? proto.Message.InteractiveMessage.CarouselCard.fromObject(cardObj)
+        : proto.Message.InteractiveMessage.fromObject(cardObj));
     }));
 
     const msgObj = generateWAMessageFromContent(ctx.remoteJid, {

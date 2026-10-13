@@ -1738,18 +1738,21 @@ async function enviarCarrossel(sock, msg, ctx, cards) {
           }
         } catch (e) { /* fallback */ }
       }
+      const cObj = {
+        header: proto.Message.InteractiveMessage.Header.fromObject(headerObj),
+        body: proto.Message.InteractiveMessage.Body.fromObject({ text: card.body }),
+        footer: card.footer ? proto.Message.InteractiveMessage.Footer.fromObject({ text: card.footer }) : undefined,
+        nativeFlowMessage: {
+          buttons: (card.buttons || []).map(b => ({
+            name: 'quick_reply',
+            buttonParamsJson: JSON.stringify({ display_text: b.text, id: b.id }),
+          })),
+        },
+      };
       carouselCards.push(
-        proto.Message.InteractiveMessage.CarouselCard.fromObject({
-          header: proto.Message.InteractiveMessage.Header.fromObject(headerObj),
-          body: proto.Message.InteractiveMessage.Body.fromObject({ text: card.body }),
-          footer: card.footer ? proto.Message.InteractiveMessage.Footer.fromObject({ text: card.footer }) : undefined,
-          nativeFlowMessage: {
-            buttons: (card.buttons || []).map(b => ({
-              name: 'quick_reply',
-              buttonParamsJson: JSON.stringify({ display_text: b.text, id: b.id }),
-            })),
-          },
-        })
+        proto.Message.InteractiveMessage.CarouselCard?.fromObject
+          ? proto.Message.InteractiveMessage.CarouselCard.fromObject(cObj)
+          : proto.Message.InteractiveMessage.fromObject(cObj)
       );
     }
     const m = generateWAMessageFromContent(ctx.remoteJid, {

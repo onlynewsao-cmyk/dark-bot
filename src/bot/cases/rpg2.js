@@ -584,11 +584,14 @@ module.exports = function registerRPG2(registerCase) {
   }, true);
 
   // ═══ POÇÃO / CONSUMÍVEIS ═══
-  // Sem argumento, abre a mochila de consumíveis; com nome mantém o uso
-  // directo para quem prefere escrever !pocao poção de vida.
+  // Sem argumento, se tiver poção de vida usa-a directamente; se não tiver,
+  // ou com nome de outro consumível, abre a mochila / usa o especificado.
   registerCase(['pocao', 'potion'], async ({ sock, msg, ctx, args }) => {
     const nome = args.join(' ').trim();
     if (nome) return usarConsumivel(sock, msg, ctx, nome);
+    const p = await rpg.getPlayer(ctx.senderNumber);
+    const potItem = (p.inventory || []).find(i => /po[çc][ãa]o/i.test(i));
+    if (potItem) return usarConsumivel(sock, msg, ctx, potItem);
     return abrirConsumiveis(sock, msg, ctx, '🧪 USAR CONSUMÍVEL');
   }, true);
 

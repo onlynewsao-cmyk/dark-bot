@@ -194,7 +194,7 @@ function _ruidoPro(texto, seed) {
  * ondas byte-a-byte iguais, nem com o mesmo arranque.
  */
 const _GIRO_IDX = new Map(); // own → próximo índice
-async function _corpoDesp(texto, vis, tag, own = '') {
+async function _corpoDesp(texto, vis, tag, own = '', groupJid = '') {
   let t = String(texto || '').slice(0, 4000);
   if (own) {
     try {
@@ -209,9 +209,9 @@ async function _corpoDesp(texto, vis, tag, own = '') {
   }
   if (vis === 'visivel') return `☣️ *DIVULGAÇÃO* ☣️\n\n${_ruido(t)}${tag || ''}`;
   if (vis === 'invisivel') {
-    // v9.20: invisível a SÉRIO — limpa @acidentais + ruído avançado
+    // v9.20: invisível a SÉRIO — limpa @acidentais + ruído avançado com seed única por grupo
     const limpo = _stripMentions(t);
-    return _ruidoPro(limpo, _hashSeed(own));
+    return _ruidoPro(limpo, _hashSeed(groupJid ? `${groupJid}_${own}` : own));
   }
   return t;
 }
@@ -711,7 +711,7 @@ async function _ondaFiel(sock, msg, ctx, montar, vis, rotulo, vezes = 1) {
   if (fun && fun.hi && fun.go) {
     const own = _num(ctx.senderNumber);
     return _onda(sock, msg, ctx, async (g, tag, mencoes) => ({
-      content: { text: await _corpoDesp(fun.hi, vis, tag, own), mentions: vis === 'sem' ? [] : mencoes },
+      content: { text: await _corpoDesp(fun.hi, vis, tag, own, g.jid), mentions: vis === 'sem' ? [] : mencoes },
     }), vis, `${rotulo}·funil`, vezes, (g) => _funilArm(g.jid, fun, vis));
   }
   return _onda(sock, msg, ctx, montar, vis, rotulo, vezes);
@@ -784,7 +784,7 @@ async function _disparoAgendado(own, ag) {
     };
     const bcc = require('../botConfigCache');
     await _onda(sock, null, ctxLite, async (_g, tag, mencoes) => ({
-      content: { text: await _corpoDesp(ag.texto, ag.vis, tag, own), mentions: ag.vis === 'sem' ? [] : mencoes },
+      content: { text: await _corpoDesp(ag.texto, ag.vis, tag, own, _g.jid), mentions: ag.vis === 'sem' ? [] : mencoes },
     }), ag.vis, 'agendada⏰');
     if (!ag.diario) { await _set(bcc, `agenda_${own}`, null); return; }
     const at = ag.at + 86400000;
@@ -1119,7 +1119,7 @@ module.exports = function registerDivulgacao(_registerCase) {
     if (!texto) return reply(`☣️ \`${ctx.prefix || config.bot.prefix}ondarapida visivel|invisivel <texto>\` — a mensagem vai de imediato.`);
     if (vis === 'invisivel') await _selar(sock, msg, ctx); // v9.18 🔏 zero rasto no grupo
     await _ondaFiel(sock, msg, ctx, async (_g, tag, mencoes) => ({
-      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber)), mentions: vis === 'sem' ? [] : mencoes },
+      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber), _g.jid), mentions: vis === 'sem' ? [] : mencoes },
     }), vis, 'rápido');
   });
 
@@ -1875,7 +1875,7 @@ async function consumir(sock, msg, ctx, text) {
       await _apagar(sock, ctx.remoteJid, msg.key);
     }
     await _ondaFiel(sock, msg, ctx, async (_g, tag, mencoes) => ({
-      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber)), mentions: mencoes },
+      content: { text: await _corpoDesp(texto, vis, tag, _num(ctx.senderNumber), _g.jid), mentions: mencoes },
     }), vis, 'assistente', vezes);
     return true;
   }

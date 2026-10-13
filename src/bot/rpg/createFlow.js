@@ -189,6 +189,7 @@ async function _pedirNome(sock, msg, ctx) {
     '🎭 *CRIAÇÃO DE PERSONAGEM — PASSO 1/7*',
     '',
     '🌌 Antes das listas, botões e carrosséis, escolhe o nome da tua personagem.',
+    'Depois poderás escolher a tua raça, classe e atributos.',
     'O teu nome do WhatsApp não será usado automaticamente.',
     '',
     `Escreve: *${p}rpgnome <teu nome>*`,
@@ -472,17 +473,15 @@ async function _stepFinalizar(sock, msg, ctx) {
   p.bio = pend.bio || (bioInfo ? bioInfo.label : 'Aventureiro');
 
   // Stats finais
-  p.stats = { ...pend.stats };
-  p.statPoints = pend.pointsLeft;
-
-  // HP/MP baseados em stats
-  p.maxHp = 100 + (p.stats.vit || 6) * 10;
-  p.hp = p.maxHp;
-  p.maxMp = 50 + (p.stats.int || 6) * 5;
-  p.mp = p.maxMp;
-
-  // Marcar bónus de raça como aplicado
-  p.raceBonusApplied = true;
+  if (!p.raceBonusApplied) {
+    p.stats = { ...pend.stats };
+    p.statPoints = pend.pointsLeft;
+    p.maxHp = 100 + (p.stats.vit || 6) * 10;
+    p.hp = p.maxHp;
+    p.maxMp = 50 + (p.stats.int || 6) * 5;
+    p.mp = p.maxMp;
+    p.raceBonusApplied = true;
+  }
 
   // Equipamento inicial baseado na classe
   const equipInicial = {
@@ -595,6 +594,42 @@ async function definirNome({ sock, msg, ctx, args }) {
 
 /** Processa cliques dos botões/listas */
 async function pick({ sock, msg, ctx, token }) {
+  // Compatibilidade com cliques de raça e classe directos (fluxo v6.89 / testes)
+  const mLegacyR = String(token || '').trim().match(/^RPGPICK_R_(.+)$/i);
+  if (mLegacyR) {
+    let pend = _pendentes.get(ctx.senderNumber);
+    if (!pend) {
+      pend = { step: 'raca', name: 'Aventureiro', stats: { str: 6, dex: 6, int: 6, vit: 6, luk: 6 }, pointsLeft: POINT_BUY_TOTAL, expira: Date.now() + TTL, chatJid: ctx.remoteJid };
+      _pendentes.set(ctx.senderNumber, pend);
+    }
+    if (!pend.stats) pend.stats = { str: 6, dex: 6, int: 6, vit: 6, luk: 6 };
+    if (!pend.name) pend.name = ctx.pushName || 'Aventureiro';
+    if (!pend.pointsLeft) pend.pointsLeft = POINT_BUY_TOTAL;
+    pend.step = 'raca';
+    const race = _acharRaca(mLegacyR[1]) || mLegacyR[1].toLowerCase();
+    await _stepRaca(sock, msg, ctx, race);
+    return true;
+  }
+
+  const mLegacyC = String(token || '').trim().match(/^RPGPICK_C_(.+)$/i);
+  if (mLegacyC) {
+    let pend = _pendentes.get(ctx.senderNumber);
+    if (!pend) {
+      pend = { step: 'classe', name: 'Aventureiro', race: 'humano', stats: { str: 6, dex: 6, int: 6, vit: 6, luk: 6 }, pointsLeft: POINT_BUY_TOTAL, expira: Date.now() + TTL, chatJid: ctx.remoteJid };
+      _pendentes.set(ctx.senderNumber, pend);
+    }
+    if (!pend.stats) pend.stats = { str: 6, dex: 6, int: 6, vit: 6, luk: 6 };
+    if (!pend.name) pend.name = ctx.pushName || 'Aventureiro';
+    if (!pend.race) pend.race = 'humano';
+    if (!pend.pointsLeft) pend.pointsLeft = POINT_BUY_TOTAL;
+    pend.step = 'classe';
+    const cls = _acharClasse(mLegacyC[1]) || mLegacyC[1].toLowerCase();
+    await _stepClasse(sock, msg, ctx, cls);
+    pend.step = 'stats';
+    await _stepFinalizar(sock, msg, ctx);
+    return true;
+  }
+
   // Alguns clientes ainda devolvem IDs dos primeiros carrosséis
   // (RPGPICK_R_/RPGPICK_C_). Normaliza-os antes de processar os IDs actuais.
   const tk = String(token || '').trim().split(/\s+/)[0].replace(/^RPGPICK_/, 'RPGCR_');

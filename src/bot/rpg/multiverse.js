@@ -316,7 +316,7 @@ async function menuTreino(sock, msg, ctx) {
     '',
     `💰 Custo: *${TREINO_CUSTO}* coins por sessão`,
     `⭐ +${TREINO_XP} XP | +1 stat a cada ${TREINO_SESSOES_POR_STAT} sessões`,
-    `⏳ Cooldown: ${TREINO_COOLDOWN / 60000} min por tipo`,
+    `⏱️ Recarga: ${TREINO_COOLDOWN / 60000} min por tipo`,
     '',
     '> Toca num treino para começar!',
   ].join('\n');

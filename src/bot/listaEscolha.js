@@ -59,9 +59,8 @@ async function _renderPage(sock, msg, ctx, state) {
 
   const corpoCurto =
     `${state.titulo}\n${state.intro ? state.intro + '\n' : ''}` +
-    `📄 *${page + 1}/${pages}* · ${total} resultados${state.enviados?.size ? ` · ✅ ${state.enviados.size} já` : ''}\n` +
-    `> Toca em *ESCOLHER* ▾ ou responde *1–${n}*` +
-    (pages > 1 ? `\n> *mais* = próxima página` : '');
+    `> Toca em *${limpaSafe(state.titulo).slice(0, 30) || 'ESCOLHER'}* ▾ — tens ${n} opções 【ou responde com o número 1–${n}】` +
+    (pages > 1 ? `\n> 📄 Pág *${page + 1}/${pages}* (*mais* = próxima)` : '');
 
   state.ts = Date.now();
   state.page = page;
@@ -117,10 +116,13 @@ async function _renderPage(sock, msg, ctx, state) {
   return n;
 }
 
-async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens = [], tipo = 'lista', aoEscolher, dica = '', pageSize } = {}) {
+async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens = [], tipo = 'lista', aoEscolher, dica = '', pageSize, manterVivo = false } = {}) {
   _limpar();
-  const total = Math.min(linhas.length, itens.length);
+  let total = Math.min(linhas.length, itens.length);
   if (!total || typeof aoEscolher !== 'function') throw new Error('lista vazia');
+  if (total <= 20 && !pageSize && total > 10) {
+    total = 10;
+  }
   const state = {
     itens: itens.slice(0, total),
     linhas: linhas.slice(0, total),
@@ -132,6 +134,7 @@ async function mostrar(sock, msg, ctx, { titulo, intro = '', linhas = [], itens 
     dica,
     page: 0,
     pageSize: pageSize || PAGE,
+    manterVivo: !!manterVivo,
     enviados: new Set(),
   };
   return _renderPage(sock, msg, ctx, state);
@@ -175,7 +178,13 @@ async function tentarNumero(sock, msg, ctx, text) {
   if (!m) return false;
   const key = _key(ctx);
   const p = _pendentes.get(key);
-  if (!p) return false;
+  if (!p) {
+    try {
+      const pinAlbum = require('./pinAlbum');
+      if (pinAlbum._pendentes?.has(key)) return pinAlbum.tentarNumero(sock, msg, ctx, text);
+    } catch {}
+    return false;
+  }
   try {
     const somTs = require('./musicaCard')._pendentes?.get(key)?.ts || 0;
     if (somTs > p.ts) return false;
@@ -202,23 +211,27 @@ async function tentarNumero(sock, msg, ctx, text) {
   try {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } }).catch(() => {});
     await p.aoEscolher({ sock, msg, ctx, item, idx: globalIdx });
-    if (!p.enviados) p.enviados = new Set();
-    p.enviados.add(globalIdx);
-    p.ts = Date.now();
-    _pendentes.set(key, p);
-    const { page, pages, total } = _pageSlice(p);
-    const restantes = total - p.enviados.size;
-    if (restantes > 0) {
-      await sock.sendMessage(ctx.remoteJid, {
-        text: `✅ Nº ${globalIdx+1} enviado e expirado ✅ (não repete).\n📌 ${total} itens, pág ${page+1}/${pages} · ✅ ${p.enviados.size} enviados · ${restantes} restantes\n> Escolhe outro número, *mais*, ou *sair* para fechar.`,
-      }, { quoted: msg }).catch(() => {});
-      await new Promise(r => setTimeout(r, 800));
-      await _renderPage(sock, msg, ctx, p).catch(()=>{});
-    } else {
-      await sock.sendMessage(ctx.remoteJid, {
-        text: `✅ Todos os ${total} itens enviados! Pesquisa encerrada.`,
-      }, { quoted: msg }).catch(() => {});
+    if (!p.manterVivo) {
       _pendentes.delete(key);
+    } else {
+      if (!p.enviados) p.enviados = new Set();
+      p.enviados.add(globalIdx);
+      p.ts = Date.now();
+      _pendentes.set(key, p);
+      const { page, pages, total } = _pageSlice(p);
+      const restantes = total - p.enviados.size;
+      if (restantes > 0) {
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `✅ Nº ${globalIdx+1} enviado e expirado ✅ (não repete).\n📌 ${total} itens, pág ${page+1}/${pages} · ✅ ${p.enviados.size} enviados · ${restantes} restantes\n> Escolhe outro número, *mais*, ou *sair* para fechar.`,
+        }, { quoted: msg }).catch(() => {});
+        await new Promise(r => setTimeout(r, 800));
+        await _renderPage(sock, msg, ctx, p).catch(()=>{});
+      } else {
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `✅ Todos os ${total} itens enviados! Pesquisa encerrada.`,
+        }, { quoted: msg }).catch(() => {});
+        _pendentes.delete(key);
+      }
     }
   } catch (e) {
     await sock.sendMessage(ctx.remoteJid, { text: `❌ ${String(e?.message || e).slice(0, 120)}` }, { quoted: msg }).catch(() => {});

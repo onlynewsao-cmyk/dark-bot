@@ -246,6 +246,15 @@ module.exports = function registerAudioAdmin2(registerCase) {
         if (cmd === 'antifigurinha' || cmd === 'antifig') upd = { antifigurinha: isOn, antifig: isOn };
         if (cmd === 'autovisu1') upd = { autoVisu1: isOn };   // v7.89: nome REAL do campo (leitor: antiTipos)
         if (cmd === 'autodl')    upd = { autoDl: isOn };      // v7.89: idem (leitor: autoDl/antiLink)
+        if (cmd === 'antistatus') {
+          try {
+            const { antiStatusCache } = require('../messageListener');
+            if (isOn) antiStatusCache?.add?.(ctx.remoteJid);
+            else antiStatusCache?.delete?.(ctx.remoteJid);
+            const AntiStatus = require('../../database/models/AntiStatus');
+            await AntiStatus.findOneAndUpdate({ groupJid: ctx.remoteJid }, { enabled: isOn }, { upsert: true }).catch(() => {});
+          } catch {}
+        }
         await GroupSettings.findOneAndUpdate(
           { groupJid: ctx.remoteJid },
           upd,

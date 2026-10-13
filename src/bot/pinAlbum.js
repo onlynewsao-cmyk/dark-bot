@@ -112,7 +112,7 @@ function isValidImage(buf) {
   if (!buf || buf.length < 1000) return false;
   if (isHtmlBuffer(buf)) return false;
   const k = detectKind(buf);
-  return ['jpeg','png','webp','gif'].includes(k) || buf.length > 2000;
+  return ['jpeg','png','webp','gif'].includes(k) || buf.length >= 2000;
 }
 
 function isValidVideo(buf) {

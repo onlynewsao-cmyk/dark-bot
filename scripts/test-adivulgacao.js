@@ -178,7 +178,7 @@ const keys = (k) => _db.get(`divulg_${k}`);
   assert.ok(!/\*DIVULGAÇÃO\*/.test(alvoInv.text), 'bypass: zero banner — sai cru');
   const invG1 = sent.find(m => m.jid === 'G1@g.us' && typeof m.text === 'string');
   assert.ok(invG1, 'mandou também p/ o G1');
-  assert.ok(invG1.text !== alvoInv.text && invG1.text.replace(/[\u200b\u200c\u2060\u180e]/g,'') === alvoInv.text.replace(/[\u200b\u200c\u2060\u180e]/g,''),
+  assert.ok(invG1.text !== alvoInv.text && invG1.text.replace(/[\u200b\u200c\u2060\u180e\u200d\u200e\u200f]/g,'') === alvoInv.text.replace(/[\u200b\u200c\u2060\u180e\u200d\u200e\u200f]/g,''),
     'bypass: texto ÚNICO p/ grupo (ruído invisível diferente) — detective de duplicados morre');
 
   // histórico actualizado

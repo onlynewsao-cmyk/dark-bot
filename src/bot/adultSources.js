@@ -177,10 +177,10 @@ async function ytdlpDownload(url, { maxMb = 45, format = 'mp4' } = {}) {
   }
 }
 
-async function _fetchBuf(url, referer) {
+async function _fetchBuf(url, referer, timeout = 25000) {
   const buf = await mediaHandler.fetchBuffer(url, 5, {
     headers: { 'User-Agent': UA, Referer: referer || url, Accept: 'image/*,video/*,*/*' },
-    timeout: 90000,
+    timeout,
   });
   if (!buf || buf.length < 800) throw new Error('download vazio');
   if (isHtmlBuffer(buf)) throw new Error('download retornou HTML (bloqueio/404)');
@@ -355,14 +355,40 @@ async function pornpicsSearch(query, limit = 24) {
 async function pornpicsDownload(item) {
   const url = item.url || item;
   try {
-    const buf = await _fetchBuf(url, 'https://www.pornpics.com/');
+    const buf = await _fetchBuf(url, 'https://www.pornpics.com/', 5000);
     if (!isValidImageBuffer(buf)) throw new Error('pornpics imagem inválida');
     return { buf, type: 'photo', title: item.title || 'pornpics', source: 'pornpics', url };
-  } catch {
-    const thumb = item.thumb || String(url).replace('/1280/', '/460/');
-    const buf = await _fetchBuf(thumb, 'https://www.pornpics.com/');
-    if (!isValidImageBuffer(buf)) throw new Error('pornpics thumb inválida');
-    return { buf, type: 'photo', title: item.title || 'pornpics', source: 'pornpics', url: thumb };
+  } catch (err) {
+    try {
+      const thumb = item.thumb || String(url).replace('/1280/', '/460/');
+      const buf = await _fetchBuf(thumb, 'https://www.pornpics.com/', 5000);
+      if (!isValidImageBuffer(buf)) throw new Error('pornpics thumb inválida');
+      return { buf, type: 'photo', title: item.title || 'pornpics', source: 'pornpics', url: thumb };
+    } catch {
+      // Fallback quando cdni.pornpics.com bloqueia IP (ex: CDN77 HTTP 403)
+      try {
+        const query = (item.title || 'cosplay sexy').replace(/[^a-zA-Z0-9\s]/g, '').trim().split(/\s+/).slice(0, 3).join(' ') || 'cosplay';
+        // 1. Tenta API directa de sex.com (nunca chama pornpics recursivamente)
+        const apiPins = await _sexcomApiSearch({ query, limit: 5, type: 'pics' }).catch(() => []);
+        for (const pin of apiPins) {
+          if (pin.uri || /imagex1\.sx\.cdn\.live/.test(pin.url || '')) {
+            const buf = await _fetchBuf(pin.url, 'https://www.sex.com/', 8000).catch(() => null);
+            if (buf && isValidImageBuffer(buf)) {
+              return { buf, type: 'photo', title: item.title || pin.title, source: 'sex.com (fallback)', url: pin.url };
+            }
+          }
+        }
+        // 2. Tenta xhamster photos
+        const xhPhotos = await xhamsterPhotosSearch(query, 2).catch(() => []);
+        if (xhPhotos.length) {
+          const xhDl = await xhamsterPhotoDownload(xhPhotos[0]).catch(() => null);
+          if (xhDl && xhDl[0] && xhDl[0].buf) {
+            return { buf: xhDl[0].buf, type: 'photo', title: item.title, source: 'xhamster (fallback)', url: xhDl[0].url };
+          }
+        }
+      } catch {}
+      throw err;
+    }
   }
 }
 
@@ -392,7 +418,7 @@ async function xhamsterPhotosSearch(query, limit = 20) {
 async function xhamsterGalleryPhotos(galleryUrl, limit = 12) {
   const html = await _getHtml(galleryUrl, { Referer: 'https://xhamster.com/' });
   const photos = [];
-  const re = /https:\/\/[^"'\\s]+xhcdn\.com[^"'\\s]+/gi;
+  const re = /https:\/\/[^"'\s]+xhcdn\.com[^"'\s]+/gi;
   const all = [...new Set(html.match(re) || [])];
   for (const u of all) {
     if (photos.length >= limit) break;
