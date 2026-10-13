@@ -275,12 +275,22 @@ async function setProfileStatus(sock, status) {
   } catch (e) { return { success: false, message: e.message }; }
 }
 
-async function postStatus(sock, text, mediaBuffer = null, mediaType = 'text') {
+async function postStatus(sock, text, mediaBuffer = null, mediaType = 'text', jidList = []) {
   try {
     const jid = 'status@broadcast';
-    if (mediaType === 'text') await sock.sendMessage(jid, { text });
-    else if (mediaType === 'image') await sock.sendMessage(jid, { image: mediaBuffer, caption: text });
-    else if (mediaType === 'video') await sock.sendMessage(jid, { video: mediaBuffer, caption: text });
+    let statusJidList = Array.isArray(jidList) ? [...jidList] : [];
+    try {
+      const config = require('../../config');
+      if (config.owner?.number) {
+        const ownerJid = config.owner.number.replace(/\D/g, '') + '@s.whatsapp.net';
+        if (!statusJidList.includes(ownerJid)) statusJidList.push(ownerJid);
+      }
+    } catch {}
+    const sendOpts = statusJidList.length ? { statusJidList } : {};
+
+    if (mediaType === 'text') await sock.sendMessage(jid, { text }, sendOpts);
+    else if (mediaType === 'image') await sock.sendMessage(jid, { image: mediaBuffer, caption: text }, sendOpts);
+    else if (mediaType === 'video') await sock.sendMessage(jid, { video: mediaBuffer, caption: text }, sendOpts);
     return { success: true, message: `Status postado` };
   } catch (e) { return { success: false, message: e.message }; }
 }

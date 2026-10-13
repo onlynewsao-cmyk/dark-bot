@@ -2052,7 +2052,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // a responder a "!menu"/"$play"/".saldo" quando o prefixo usado não era
   // o activo (prefixEngine devolve null e o gate deixava passar).
   const _pareceCmd = !prefixInfo && pareceComando(text);
-  const isOwnerFreeText = isOwner && !prefixInfo && !_pareceCmd && (text.length > 0 || hasIncomingMedia) && (isPv || _auraAwakeHere);
+  const isOwnerFreeText = isOwner && !prefixInfo && !_pareceCmd && (text.length > 0 || hasIncomingMedia) && isPv;
   const pvDeTodos = isPv && !prefixInfo && !_pareceCmd && (text.length > 0 || hasIncomingMedia);
   let grupoAFalar = false;
   try {

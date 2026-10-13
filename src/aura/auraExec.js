@@ -29,18 +29,26 @@ function alvoDaMensagem(msg, ctx) {
 /** Descarrega a imagem da mensagem (ou da que foi citada). */
 async function imagemDaMensagem(msg, sock) {
   try {
-    const direta = msg?.message?.imageMessage;
-    const citada = msg?.message?.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
-    if (!direta && !citada) return null;
+    const raw = msg?.message;
+    const ctxInfo = raw?.extendedTextMessage?.contextInfo;
+    const quoted = ctxInfo?.quotedMessage;
 
-    const alvo = direta
+    const unwrap = (m) => m?.viewOnceMessage?.message || m?.viewOnceMessageV2?.message || m?.viewOnceMessageV2Extension?.message || m;
+    const mDireta = unwrap(raw);
+    const mCitada = unwrap(quoted);
+
+    const imgDireta = mDireta?.imageMessage || mDireta?.stickerMessage;
+    const imgCitada = mCitada?.imageMessage || mCitada?.stickerMessage;
+    if (!imgDireta && !imgCitada) return null;
+
+    const alvo = imgDireta
       ? msg
-      : { key: msg.key, message: { imageMessage: citada } };
+      : { key: { remoteJid: msg.key?.remoteJid, id: ctxInfo?.stanzaId, participant: ctxInfo?.participant }, message: mCitada };
 
     const { downloadMediaMessage } = require('@systemzero/baileys');
     const buf = await downloadMediaMessage(alvo, 'buffer', {}, {
       reuploadRequest: sock?.updateMediaMessage,
-    });
+    }).catch(() => null);
     return buf && buf.length > 500 ? buf : null;
   } catch {
     return null;
@@ -223,16 +231,26 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
 
     // ══ STATUS ════════════════════════════════════════════
     case 'postar_status': {
+      const tLower = String(texto || arg || '').toLowerCase();
+      if (ctx?.isGroup && /\b(?:grupo|deste grupo|desse grupo|gp)\b/i.test(tLower)) {
+        return {
+          ok: false,
+          msg: 'O WhatsApp não possui a aba "Status" em grupos (apenas em contas e canais). 😅\n\n' +
+               'Se quiseres, posso colocar como *foto do grupo*, na *descrição do grupo*, ou postar no *status da minha conta* ou no nosso *canal*! 🖤'
+        };
+      }
       const img = await imagemDaMensagem(msg, sock);
       const legenda = (arg || '').trim();
       if (!img && !legenda) {
         return { ok: false, msg: 'Manda a foto (ou diz-me o texto) que eu ponho no status.' };
       }
+      const jids = [];
+      if (ctx?.senderNumber) jids.push(ctx.senderNumber.replace(/\D/g, '') + '@s.whatsapp.net');
       const r = img
-        ? await mega.postStatus(sock, legenda, img, 'image')
-        : await mega.postStatus(sock, legenda, null, 'text');
+        ? await mega.postStatus(sock, legenda, img, 'image', jids)
+        : await mega.postStatus(sock, legenda, null, 'text', jids);
       return r?.success
-        ? { ok: true, msg: 'Publicado no status. ✅' }
+        ? { ok: true, msg: 'Publicado no status do meu WhatsApp! ✅' }
         : { ok: false, msg: `Não deu para publicar: ${r?.message || 'erro'}` };
     }
 

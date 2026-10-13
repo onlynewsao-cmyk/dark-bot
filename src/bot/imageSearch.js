@@ -104,7 +104,7 @@ const COISA_RE = /\b(foto|fotos|imagem|imagens|figura|figuras|retrato|pic|wallpa
 // pedido de imagem: ninguém diz "me dá um cavalo" à espera de texto.
 const PEDIR_COISA_RE = /^\s*(me\s+)?(d[êea]|manda|mande|envia|envie|traz|traga|mostra|mostre|monstra|mosta|arranja|quero)\s+(me\s+)?(um|uma|uns|umas|o|a)?\s*([a-zà-ú0-9][\w\sà-ú-]{1,40})\s*$/i;
 
-const NAO_IMAGEM = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call|menu|comandos|membros|admins|saldo|regras|normas|descricao|descrição|lista|ranking|horario|horário|status|prefixo|admin|admins|dono|quem|qual)\b/i;
+const NAO_IMAGEM = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|cantada|cantadas|resultado|resultados|placar|futebol|jogo|jogos|tabela|noticia|noticias|novidade|novidades|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call|menu|comandos|membros|admins|saldo|regras|normas|descricao|descrição|lista|ranking|horario|horário|status|prefixo|admin|admins|dono|quem|qual)\b/i;
 
 // v6.85 — "mostra o Drake e o Kendrick" (print do Dark): verbo de
 // MOSTRAR + coisa concreta É pedido de foto, mesmo sem a palavra
@@ -134,7 +134,7 @@ function detectarPedidoImagem(texto) {
     if (m) {
       const coisa = String(m[5] || '').trim();
       // exclui pedidos que claramente não são de imagem
-      const naoEhImagem = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call)\b/i;
+      const naoEhImagem = /\b(audio|áudio|voz|ptt|beijo|abraço|abraco|ajuda|conselho|opinião|opiniao|piada|cantada|cantadas|resultado|resultados|placar|futebol|jogo|jogos|tabela|noticia|noticias|novidade|novidades|musica|música|tempo|minuto|segundo|momento|desconto|dinheiro|coins?|resposta|explicação|explicacao|link|convite|invite|grupo|chamada|call)\b/i;
       if (coisa.length >= 3 && !naoEhImagem.test(coisa)) {
         return { gerar: false, termo: coisa.slice(0, 80) };
       }
