@@ -21,6 +21,7 @@ const path   = require('path');
 const QRCode = require('qrcode');
 const { useMongoAuthState } = require('./mongoAuthState');
 const mongoose = require('mongoose');
+const { withTimeoutCleanup } = require('./waTimeout');
 
 const config          = require('../config');
 const messageListener = require('./messageListener');
@@ -85,10 +86,7 @@ let _waVersionTs = 0;
 async function _resolverWaVersion(log) {
   if (_waVersionCache && Date.now() - _waVersionTs < 6 * 60 * 60 * 1000) return _waVersionCache;
   try {
-    const latest = await Promise.race([
-      fetchLatestBaileysVersion(),
-      new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 4000)),
-    ]);
+    const latest = await withTimeoutCleanup(fetchLatestBaileysVersion(), 4000, 'timeout');
     if (latest && Array.isArray(latest.version) && latest.version.length === 3) {
       _waVersionCache = latest.version;
       _waVersionTs = Date.now();
@@ -118,6 +116,7 @@ class WhatsAppBot {
     this.logs = [];
     this.mongoAuth = null;
     this._reconnectTimer = null;
+    this._connectionTimer = null;
     this._healthTimer = null;
     // v9.14 — CENTRAL DE SESSÕES: quando uma slot guardada é promovida
     // (nova sessão que FUNCIONA), reinicia o socket principal já com as
@@ -188,6 +187,7 @@ class WhatsAppBot {
   }
 
   async closeSocket() {
+    this._clearConnectionTimer();
     if (!this.sock) return;
     try { this.sock.ev.removeAllListeners(); } catch {}
     try { this.sock.end(); } catch {}
@@ -197,6 +197,31 @@ class WhatsAppBot {
 
   _clearTimer() {
     if (this._reconnectTimer) { clearTimeout(this._reconnectTimer); this._reconnectTimer = null; }
+  }
+
+  _clearConnectionTimer() {
+    if (this._connectionTimer) { clearTimeout(this._connectionTimer); this._connectionTimer = null; }
+  }
+
+  /** Recupera um socket que fica preso em connecting sem emitir QR/close. */
+  _armConnectionTimeout(sock, timeoutMs = 60000) {
+    this._clearConnectionTimer();
+    this._connectionTimer = setTimeout(() => {
+      this._connectionTimer = null;
+      if (this.sock !== sock || !['connecting', 'pairing'].includes(this.status)) return;
+
+      const message = 'Timeout ao ligar ao WhatsApp — vou tentar novamente.';
+      this.lastError = message;
+      this.log('error', `⏱️ ${message}`);
+      this.setStatus('disconnected', { reason: 'connection-timeout', error: message });
+      if (this._qrTimer) { clearTimeout(this._qrTimer); this._qrTimer = null; }
+      this.starting = false;
+      try { sock.ev.removeAllListeners(); } catch {}
+      try { sock.end(); } catch {}
+      if (this.sock === sock) this.sock = null;
+      this._scheduleReconnect(nextDelay(), 'timeout de conexão WhatsApp');
+    }, Math.max(1000, Number(timeoutMs) || 60000));
+    this._connectionTimer.unref?.();
   }
 
   /** Agenda UMA reconexão. Impede timers duplicados após vários eventos close. */
@@ -263,10 +288,11 @@ class WhatsAppBot {
     const sock = this.sock;
     if (sock?.ws?.isOpen) return Promise.resolve(true);
     if (typeof sock?.waitForSocketOpen === 'function') {
-      return Promise.race([
+      return withTimeoutCleanup(
         sock.waitForSocketOpen().then(() => true),
-        new Promise((_, r) => setTimeout(() => r(new Error('Timeout a abrir ligação (sem ligação ao WhatsApp)')), timeoutMs)),
-      ]);
+        timeoutMs,
+        'Timeout a abrir ligação (sem ligação ao WhatsApp)'
+      );
     }
     // fallback: poll do ws cru
     return new Promise((resolve, reject) => {
@@ -398,6 +424,7 @@ class WhatsAppBot {
       });
 
       this.setStatus('connecting', { mode: cleanMode });
+      this._armConnectionTimeout(this.sock, cleanMode === 'pair' ? 90000 : 60000);
       // v7.45 — comportamento humano: lido + 'a escrever…/a gravar…' + atraso proporcional antes de cada envio
       try { require('./humanizer').wrap(this.sock); } catch (e) { this.log('warn', 'humanizer: ' + e.message); }
       this.sock.ev.on('creds.update', saveCreds);
@@ -408,6 +435,7 @@ class WhatsAppBot {
         if (qr && cleanMode === 'qr') {
           try {
             this.qrCode = await QRCode.toDataURL(qr, { width: 420, margin: 2, color: { dark: '#0a0a0a', light: '#ffffff' } });
+            this._clearConnectionTimer();
             this.setStatus('qr', { qr: this.qrCode });
             this.log('info', '📱 QR Code gerado');
             // Auto-renova se não escanear em 55s
@@ -422,6 +450,7 @@ class WhatsAppBot {
         }
 
         if (connection === 'open') {
+          this._clearConnectionTimer();
           this._clearTimer();
           if (this._qrTimer) { clearTimeout(this._qrTimer); this._qrTimer = null; }
           resetDelay();
@@ -451,6 +480,8 @@ class WhatsAppBot {
         }
 
         if (connection === 'close') {
+          this._clearConnectionTimer();
+          if (this._qrTimer) { clearTimeout(this._qrTimer); this._qrTimer = null; }
           const code   = lastDisconnect?.error?.output?.statusCode;
           const reason = lastDisconnect?.error?.message || '?';
           const isLoggedOut = code === DisconnectReason.loggedOut || code === 401;
@@ -673,17 +704,20 @@ class WhatsAppBot {
           });
 
           // Pede o código imediatamente (como na documentação Baileys)
-          const code = await Promise.race([
+          const code = await withTimeoutCleanup(
             this.sock.requestPairingCode(clean),
-            new Promise((_, r) => setTimeout(() => r(new Error('Timeout ao pedir pair code (30s)')), 30000))
-          ]);
+            30000,
+            'Timeout ao pedir pair code (30s)'
+          );
           this.pairingCode = code?.match(/.{1,4}/g)?.join('-') || code;
+          this._clearConnectionTimer();
 
           this.setStatus('pairing', { pairingCode: this.pairingCode, phoneNumber: clean });
           this.log('success', `🔐 Pair Code gerado: ${this.pairingCode}`);
           this.log('info', `Aguarde a notificação no WhatsApp do número ${clean}`);
 
         } catch (e) {
+          this._clearConnectionTimer();
           this.lastError = e.message;
           this.log('error', 'Pair Code falhou: ' + e.message);
           this.setStatus('disconnected', { error: e.message });
@@ -693,6 +727,7 @@ class WhatsAppBot {
 
       this.starting = false;
     } catch (e) {
+      this._clearConnectionTimer();
       this.starting = false;
       this.lastError = e.message;
       this.setStatus('disconnected', { error: e.message });
@@ -706,6 +741,7 @@ class WhatsAppBot {
   }
 
   async logout() {
+    this._clearConnectionTimer();
     this._clearTimer();
     try { if (this.sock) await this.sock.logout(); } catch {}
     await this.clearSession();

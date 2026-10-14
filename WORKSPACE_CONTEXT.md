@@ -1,5 +1,19 @@
 # DARK BOT — Contexto de trabalho local
 
+> **Estado mais recente deste checkout (14/10/2026):** repositório `onlynewsao-cmyk/darknet-tunnel`, pasta `/home/user/dark-bot`, branch `fix/aura-stability-2026-10`, base/HEAD `b43da6ab23f7c1820614bfc58ded181b21756cc8`, pacote `dark-bot@9.20.0`. Clone raso (`--depth 1`); sem `.env` e sem `node_modules/`; `git remote -v` vazio. Ainda sem commit ou push.
+>
+> **Correcções locais:** `src/bot/ai.js` aplica orçamento total de 30 s (prioritário) / 45 s (normal), aborta pedidos de provider/pesquisa web e limpa timers; `src/bot/whatsapp.js` tem timeout de ligação e retry, com timers de espera limpos; `src/aura/auraConfirmacao.js` exige `CONFIRMAR`/`CANCELAR` do mesmo Dono/chat para `canal_apagar`, `sair_grupo` e `limpar_chat`, com bloqueio redundante em `auraExec`.
+>
+> **Validação actual:** `node --check` nos 8 ficheiros de aplicação e 3 scripts de teste; `test-aura-brain.js` (21), `test-aura-vontade-cerebro.js` (39), os três novos testes de timeout/confirmação e `git diff --check` passam. Sem `npm ci`, suite completa, providers/WhatsApp/MongoDB reais ou deploy.
+>
+> Não foram incluídos na selecção os oito scripts de teste que já tinham alterações locais de modo. A credencial de push não foi impressa nem copiada para o projecto. Persistem riscos descritos no relatório, sobretudo fila sem limite, mapas/caches, bootstrap, tratamento de crash e readiness.
+>
+> Ver o mapa do projecto em [`docs/PROJECT_GUIDE_PT.md`](docs/PROJECT_GUIDE_PT.md) e os achados/estado das correcções em [`docs/AURA_STABILITY_REVIEW_PT.md`](docs/AURA_STABILITY_REVIEW_PT.md).
+>
+> **Fotografia-base da revisão antes das correcções (14/10/2026):** branch `main`, commit `b43da6ab23f7c1820614bfc58ded181b21756cc8`; ainda não havia alteração de código da aplicação. Nessa fotografia, 306 ficheiros JS passaram a verificação de sintaxe, 37 templates EJS tinham tags equilibradas e `git diff --check` estava OK. Não foram executados `npm ci`, `npm test`, serviços externos, WhatsApp, MongoDB ou deploy.
+>
+> As secções abaixo preservam alterações históricas e fotografias de versões anteriores. Não usar as versões/contagens antigas como estado actual sem confirmar o código.
+
 ## Anti-link — permissões reais e aviso próprio
 
 Pedido: não remover os links permitidos e usar uma mensagem própria do DARK BOT. Implementada base de domínios de YouTube/Facebook/Kwai/Threads/Spotify/TikTok/Twitter-X/Instagram, com aliases e subdomínios legítimos, em `src/bot/linkPolicy.js`.

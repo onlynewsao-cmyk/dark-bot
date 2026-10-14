@@ -128,6 +128,24 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
   if (!Array.isArray(acoes) || !acoes.length) return out;
   const brain = _brain();
   const cmds = _cmds();
+
+  // Acções destrutivas sugeridas pela IA nunca são executadas no mesmo
+  // turno em que foram interpretadas; só ficam pendentes de confirmação.
+  const destrutiva = acoes.slice(0, 2).find(a => {
+    if (!a || String(a.id || '').startsWith('cmd_')) return false;
+    const cap = brain.POR_ID.get(a.id);
+    return cap?.risco === 'destrutivo' && brain.podeFazer(cap, { isOwner, isAdmin }).pode;
+  });
+  if (destrutiva) {
+    const pedido = require('./auraConfirmacao').pedir({
+      id: destrutiva.id, arg: destrutiva.arg, texto, ctx, isOwner,
+    });
+    if (pedido.necessaria) {
+      out.respostas.push(pedido.mensagem);
+      return out;
+    }
+  }
+
   for (const a of acoes.slice(0, 2)) {
     try {
       if (a.id.startsWith('cmd_')) {

@@ -906,6 +906,13 @@ async function _handleInner(sock, msg) {
   ctx.isSubOwner = isOwner && !(ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum));
   ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
 
+  // Confirmações da AURA são consumidas antes de regras/IA ou comandos,
+  // sempre no mesmo chat e pelo mesmo Dono que pediu a acção.
+  try {
+    const confirmacaoAura = require('../aura/auraConfirmacao');
+    if (await confirmacaoAura.processar({ sock, msg, ctx, texto: text, isOwner, isAdmin: ctx.isAdmin })) return true;
+  } catch (e) { console.warn('[Aura confirmação]', e.message?.slice(0, 60)); }
+
   // ── v7.28: IDENTIDADE — quem fala, pelo NÚMERO/LID (nunca pelo nome) ──
   // Regista TODAS as mensagens (com ou sem comando) no perfil da pessoa
   // neste chat: histórico, palavras, a quem respondeu. A AURA/IA recebe
@@ -2818,6 +2825,19 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
         }
 
         if (achados.length) {
+          // Uma acção destrutiva por pedido, sempre com confirmação explícita.
+          // Se houver multi-intenção, não executa as restantes em paralelo.
+          const destrutiva = achados.slice(0, 2).find(a => a.cap?.risco === 'destrutivo');
+          if (destrutiva && brain.podeFazer(destrutiva.cap, { isOwner, isAdmin: ctx.isAdmin }).pode) {
+            const pedido = require('../aura/auraConfirmacao').pedir({
+              id: destrutiva.id, arg: destrutiva.arg, texto: cleanText, ctx, isOwner,
+            });
+            if (pedido.necessaria) {
+              await sock.sendMessage(ctx.remoteJid, { text: pedido.mensagem }, { quoted: msg }).catch(() => {});
+              return true;
+            }
+          }
+
           const exec = require('../aura/auraExec');
           let executou = false;
           for (const achado of achados.slice(0, 2)) {
@@ -3113,10 +3133,23 @@ Responde como pessoa real que está olhando — comenta o que salta à vista pri
         }
       }
 
-      // Salva resposta na memória
+      // Salva resposta na memória. Não regista como facto um "já fiz" gerado
+      // pela IA quando a acção destrutiva ainda aguarda confirmação.
+      let respostaMemoria = answer;
+      if (/\[\s*FAZ\s*:/i.test(String(answer || ''))) {
+        try {
+          const cerMemoria = require('../aura/auraCerebro');
+          const brainMemoria = require('../aura/auraBrain');
+          const acaoDestrutivaAutorizada = cerMemoria.interpretar(answer).acoes.some(a => {
+            const cap = brainMemoria.POR_ID.get(a.id);
+            return cap?.risco === 'destrutivo' && brainMemoria.podeFazer(cap, { isOwner, isAdmin: ctx.isAdmin }).pode;
+          });
+          if (acaoDestrutivaAutorizada) respostaMemoria = 'Pedi confirmação antes de executar uma acção destrutiva.';
+        } catch {}
+      }
       try {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
-        mem.addMessage('assistant', answer);
+        mem.addMessage('assistant', respostaMemoria);
         await mem.save().catch(() => {});
       } catch {}
 
@@ -3167,6 +3200,16 @@ Responde como pessoa real que está olhando — comenta o que salta à vista pri
           const _isVipA = !!(ctx.userData?.isPremium && ctx.userData.isPremium());
           let _adm = ctx.isAdmin;
           if (ctx.isGroup && _adm == null) { try { _adm = await isGroupAdminForHandler(sock, ctx); } catch {} }
+          let aguardaConfirmacaoDestrutiva = false;
+          try {
+            const brainConfirmacao = require('../aura/auraBrain');
+            aguardaConfirmacaoDestrutiva = _acoesIA.some(a => {
+              if (!a || String(a.id || '').startsWith('cmd_')) return false;
+              const cap = brainConfirmacao.POR_ID.get(a.id);
+              return cap?.risco === 'destrutivo' && brainConfirmacao.podeFazer(cap, { isOwner, isAdmin: !!_adm }).pode;
+            });
+          } catch {}
+          if (aguardaConfirmacaoDestrutiva) finalAnswer = '';
           if (finalAnswer.length > 0) { await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg }); finalAnswer = ''; }
           const r = await cer.executarAcoes(_acoesIA, {
             sock, msg, ctx, texto: cleanText, isOwner, isAdmin: !!_adm, isVip: _isVipA, caseHandler, config: commandConfig,

@@ -76,9 +76,7 @@ const NEWS_TTL  = 10 * 60 * 1000;
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
-function withTimeout(p, ms) {
-  return Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
-}
+const { withTimeout } = require('./aiTimeout');
 
 // ─────────────────────────────────────────────
 // CIRCUIT BREAKER DE PROVIDERS (v6.42 → v9.20)
@@ -305,14 +303,20 @@ function needsWeb(text = '') {
   return /\b(hoje|agora|atual|actual|atualmente|actualmente|not[ií]cia|recente|[uú]ltim[oa]s?|202[4-9]|angola|luanda|mundo|futebol|jogo de|pre[çc]o|custa|quanto est[aá]|cota[çc][ãa]o|d[óo]lar|kwanza|tempo|clima|resultado|evento|quem [ée] o (presidente|ministro|treinador|campe[ãa]o)|ainda (existe|est[aá]|vive)|j[áa] saiu|lan[çc]ou|vers[ãa]o (nova|mais recente)|morreu|faleceu|ganhou|elei[çc]|guerra|greve|festival|pesquis\w*|busc\w*|procur\w*|investig\w*)\b/i.test(text);
 }
 
-async function fastFetch(url, ms = 5000) {
+async function fastFetch(url, ms = 5000, parentSignal = null) {
   const ctrl = new AbortController();
+  const abortFromParent = () => ctrl.abort();
+  if (parentSignal?.aborted) ctrl.abort();
+  else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
     const r = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'DarkBot/5.0' } });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.text();
-  } finally { clearTimeout(t); }
+  } finally {
+    clearTimeout(t);
+    parentSignal?.removeEventListener('abort', abortFromParent);
+  }
 }
 
 function parseNews(xml, max = 4) {
@@ -322,7 +326,7 @@ function parseNews(xml, max = 4) {
     .filter(Boolean);
 }
 
-async function getWebContext(prompt) {
+async function getWebContext(prompt, options = {}) {
   const key = 'web:' + prompt.slice(0, 100).toLowerCase();
   const cached = newsCache.get(key);
   if (cached && Date.now() - cached.ts < NEWS_TTL) return cached.v;
@@ -331,15 +335,19 @@ async function getWebContext(prompt) {
   // no config sem nunca ser usada no caminho da Aura; RSS de fallback.
   if (config.ai.tavilyKey) {
     try {
-      const tv = await withTimeout(searchTavily(prompt.slice(0, 300), 5), 4500);
+      const tv = await searchTavily(prompt.slice(0, 300), 5, { signal: options.signal });
       if (tv && tv !== 'Sem resultados') {
         const v = `[INFO ACTUAL — ${new Date().toLocaleDateString('pt-PT')}]\n${tv}\n[/INFO]`;
         newsCache.set(key, { ts: Date.now(), v });
         return v;
       }
-    } catch (e) { console.warn('[Web] Tavily falhou:', shortErr(e)); }
+    } catch (e) {
+      if (options.signal?.aborted) throw e;
+      console.warn('[Web] Tavily falhou:', shortErr(e));
+    }
   }
 
+  if (options.signal?.aborted) throw new Error('aborted');
   const parts = [];
   const feeds = [
     ['Angola', 'https://news.google.com/rss?hl=pt-PT&gl=AO&ceid=AO:pt-PT'],
@@ -348,12 +356,13 @@ async function getWebContext(prompt) {
 
   await Promise.all(feeds.map(async ([label, url]) => {
     try {
-      const xml = await fastFetch(url, 4000);
+      const xml = await fastFetch(url, 4000, options.signal);
       const items = parseNews(xml, 3);
       if (items.length) parts.push(`${label}:\n${items.join('\n')}`);
     } catch {}
   }));
 
+  if (options.signal?.aborted) throw new Error('aborted');
   const v = parts.length ? `[INFO ACTUAL — ${new Date().toLocaleDateString('pt-PT')}]\n${parts.join('\n\n')}\n[/INFO]` : '';
   newsCache.set(key, { ts: Date.now(), v });
   return v;
@@ -362,8 +371,10 @@ async function getWebContext(prompt) {
 // ─────────────────────────────────────────────
 // HTTP POST
 // ─────────────────────────────────────────────
-function post(url, body, headers = {}) {
+function post(url, body, headers = {}, options = {}) {
   return new Promise((resolve, reject) => {
+    const signal = options?.signal;
+    if (signal?.aborted) return reject(new Error('aborted'));
     const lib  = url.startsWith('https') ? require('https') : require('http');
     const data = JSON.stringify(body);
     const u    = new URL(url);
@@ -374,6 +385,7 @@ function post(url, body, headers = {}) {
       method:   'POST',
       headers:  { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), ...headers },
       timeout:  22000,
+      signal,
     }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
@@ -398,7 +410,7 @@ function post(url, body, headers = {}) {
 // ─────────────────────────────────────────────
 // GROQ
 // ─────────────────────────────────────────────
-async function chatGroq(messages, system) {
+async function chatGroq(messages, system, options = {}) {
   if (!config.ai.groqApiKey) throw new Error('sem chave');
   let lastErr;
   for (const model of GROQ_MODELS) {
@@ -409,12 +421,12 @@ async function chatGroq(messages, system) {
         temperature: 0.75,
         max_tokens:  2000,   // v7.40: respostas longas sem corte
         stream:      false,
-      }, { Authorization: `Bearer ${config.ai.groqApiKey}` });
+      }, { Authorization: `Bearer ${config.ai.groqApiKey}` }, { signal: options.signal });
       const out = data.choices?.[0]?.message?.content;
       if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
-      if (/401|invalid.*key/i.test(e.message)) break;
+      if (options.signal?.aborted || /401|invalid.*key/i.test(e.message)) break;
     }
   }
   throw lastErr || new Error('sem resposta');
@@ -445,13 +457,16 @@ const GEMINI_SAFETY = [
   { category: 'HARM_CATEGORY_CIVIC_INTEGRITY',   threshold: 'BLOCK_NONE' },
 ];
 
-async function getGeminiModels() {
+async function getGeminiModels(parentSignal = null) {
   // Cache fresco → usa
   if (_geminiModelCache.list && (Date.now() - _geminiModelCache.ts) < GEMINI_MODEL_TTL) {
     return _geminiModelCache.list;
   }
   try {
     const ctrl = new AbortController();
+    const abortFromParent = () => ctrl.abort();
+    if (parentSignal?.aborted) ctrl.abort();
+    else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
     const to = setTimeout(() => ctrl.abort(), 8000);
     let data;
     try {
@@ -461,7 +476,10 @@ async function getGeminiModels() {
       );
       if (!r.ok) throw new Error('HTTP ' + r.status);
       data = await r.json();
-    } finally { clearTimeout(to); }
+    } finally {
+      clearTimeout(to);
+      parentSignal?.removeEventListener('abort', abortFromParent);
+    }
 
     const live = (data.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
@@ -477,13 +495,16 @@ async function getGeminiModels() {
       _geminiModelCache = { list: [...preferred, ...extras], ts: Date.now() };
       return _geminiModelCache.list;
     }
-  } catch { /* API de listagem falhou → usa a lista fixa */ }
+  } catch (e) {
+    if (parentSignal?.aborted) throw e;
+    // API de listagem falhou → usa a lista fixa.
+  }
 
   _geminiModelCache = { list: GEMINI_MODELS, ts: Date.now() };
   return GEMINI_MODELS;
 }
 
-async function chatGemini(messages, system) {
+async function chatGemini(messages, system, options = {}) {
   if (!config.ai.geminiApiKey) throw new Error('sem chave');
   const contents = messages.map(m => ({
     role:  m.role === 'assistant' ? 'model' : 'user',
@@ -496,18 +517,20 @@ async function chatGemini(messages, system) {
     contents.unshift({ role: 'user', parts: [{ text: system }] });
   }
   let lastErr;
-  const modelList = await getGeminiModels();  // v6.41: lista viva
+  const modelList = await getGeminiModels(options.signal);  // v6.41: lista viva
   for (const model of modelList) {
     try {
       const data = await post(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${config.ai.geminiApiKey}`,
-        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 2000 }, safetySettings: GEMINI_SAFETY }
+        { contents, generationConfig: { temperature: 0.8, maxOutputTokens: 2000 }, safetySettings: GEMINI_SAFETY },
+        {},
+        { signal: options.signal }
       );
       const out = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('').trim();
       if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
-      if (/401|invalid.*key/i.test(e.message)) break;
+      if (options.signal?.aborted || /401|invalid.*key/i.test(e.message)) break;
     }
   }
   throw lastErr || new Error('sem resposta');
@@ -516,7 +539,7 @@ async function chatGemini(messages, system) {
 // ─────────────────────────────────────────────
 // OPENROUTER
 // ─────────────────────────────────────────────
-async function chatRouter(messages, system) {
+async function chatRouter(messages, system, options = {}) {
   if (!config.ai.openrouterApiKey) throw new Error('sem chave');
   const model = config.ai.model || 'meta-llama/llama-3.1-8b-instruct:free';
   const data = await post('https://openrouter.ai/api/v1/chat/completions', {
@@ -527,7 +550,7 @@ async function chatRouter(messages, system) {
     Authorization: `Bearer ${config.ai.openrouterApiKey}`,
     'HTTP-Referer': config.appUrl || 'https://northflank.com',
     'X-Title': config.bot.name || 'DARK BOT',
-  });
+  }, { signal: options.signal });
   const out = data.choices?.[0]?.message?.content;
   if (!out) throw new Error('sem resposta');
   return stripThinking(out);
@@ -536,7 +559,7 @@ async function chatRouter(messages, system) {
 // ─────────────────────────────────────────────
 // OPENAI (v7.63 — a chave existia, a função não)
 // ─────────────────────────────────────────────
-async function chatOpenAI(messages, system) {
+async function chatOpenAI(messages, system, options = {}) {
   if (!config.ai.openaiApiKey) throw new Error('sem chave');
   let lastErr;
   for (const model of OPENAI_MODELS) {
@@ -545,12 +568,12 @@ async function chatOpenAI(messages, system) {
         model,
         messages: [{ role: 'system', content: system }, ...messages],
         temperature: 0.75, max_tokens: 2000,
-      }, { Authorization: `Bearer ${config.ai.openaiApiKey}` });
+      }, { Authorization: `Bearer ${config.ai.openaiApiKey}` }, { signal: options.signal });
       const out = data.choices?.[0]?.message?.content;
       if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
-      if (/401|invalid.*key/i.test(e.message)) break;
+      if (options.signal?.aborted || /401|invalid.*key/i.test(e.message)) break;
     }
   }
   throw lastErr || new Error('sem resposta');
@@ -595,13 +618,28 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   const cached = aiCacheGet(cacheKey, system);
   if (cached) return cached;
 
-  // Contexto web se necessário
+  // Orçamento total: limita a cadeia inteira, não apenas cada provider.
+  // Cada request recebe também um AbortSignal para não continuar em fundo
+  // depois de passar para o provider seguinte.
+  const TOTAL_TIMEOUT = isPriority ? 30000 : 45000;
+  const PER_PROVIDER_TIMEOUT = isPriority ? 8000 : 10000;
+  const deadline = Date.now() + TOTAL_TIMEOUT;
+
+  // Contexto web se necessário — faz parte do mesmo orçamento total.
   let finalPrompt = prompt;
   if (allowWeb && needsWeb(prompt)) {
-    try {
-      const web = await withTimeout(getWebContext(prompt), 5000);
-      if (web) finalPrompt = web + '\nPergunta: ' + prompt;
-    } catch {}
+    const remaining = deadline - Date.now();
+    if (remaining > 0) {
+      const webController = new AbortController();
+      try {
+        const web = await withTimeout(
+          getWebContext(prompt, { signal: webController.signal }),
+          Math.min(5000, remaining),
+          webController
+        );
+        if (web) finalPrompt = web + '\nPergunta: ' + prompt;
+      } catch {}
+    }
   }
 
   // Histórico de conversa (últimas 16 mensagens, ou 6 para modo simples)
@@ -612,84 +650,40 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   }));
   const messages = [...histMsgs, { role: 'user', content: finalPrompt }];
 
-  // Timeout menor para VIP/Dono (prioridade de resposta)
-  const TIMEOUT = isPriority ? 15000 : 22000;
+  async function tentarProvider(name, enabled, label, chamar) {
+    if (!enabled || !providerUp(name)) return null;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return null;
+    const timeoutMs = Math.min(PER_PROVIDER_TIMEOUT, remaining);
+    const controller = new AbortController();
+    try {
+      const answer = await withTimeout(chamar({ signal: controller.signal }), timeoutMs, controller);
+      providerReset(name);
+      aiCacheSet(cacheKey, system, answer);
+      return answer;
+    } catch (e) {
+      providerFail(name, e);
+      console.warn(`[IA] ${label}:`, shortErr(e));
+      return null;
+    }
+  }
 
-  let result = null;
+  // Fallback sequencial com um limite total de latência.
+  const providers = [
+    ['groq', !!config.ai.groqApiKey, 'Groq', o => chatGroq(messages, system, o)],
+    ['deepseek', !!config.ai.deepseekApiKey, 'DeepSeek', o => chatDeepSeek(messages, system, o)],
+    ['gemini', !!config.ai.geminiApiKey, 'Gemini', o => chatGemini(messages, system, o)],
+    ['huggingface', !!config.ai.huggingfaceKey, 'HuggingFace', o => chatHuggingFace(messages, system, o)],
+    ['cerebras', !!config.ai.cerebrasApiKey, 'Cerebras', o => chatCerebras(messages, system, o)],
+    ['apifreellm', !!config.ai.apifreellmKey, 'ApiFreeLLM', o => chatApiFreeLLM(messages, system, o)],
+    ['openrouter', !!config.ai.openrouterApiKey, 'Router', o => chatRouter(messages, system, o)],
+    ['openai', !!config.ai.openaiApiKey, 'OpenAI', o => chatOpenAI(messages, system, o)],
+  ];
 
-  // 1. Groq (MAIS RÁPIDO — primário)
-  if (config.ai.groqApiKey && providerUp('groq')) {
-    try {
-      result = await withTimeout(chatGroq(messages, system), TIMEOUT);
-      providerReset('groq');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('groq', e); console.warn('[IA] Groq:', shortErr(e)); }
-  }
-  // 2. DeepSeek (v9.20 — gratuito, 671B MoE, muito capaz)
-  if (config.ai.deepseekApiKey && providerUp('deepseek')) {
-    try {
-      result = await withTimeout(chatDeepSeek(messages, system), TIMEOUT);
-      providerReset('deepseek');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('deepseek', e); console.warn('[IA] DeepSeek:', shortErr(e)); }
-  }
-  // 3. Gemini (visão + áudio)
-  if (config.ai.geminiApiKey && providerUp('gemini')) {
-    try {
-      result = await withTimeout(chatGemini(messages, system), TIMEOUT);
-      providerReset('gemini');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('gemini', e); console.warn('[IA] Gemini:', shortErr(e)); }
-  }
-  // 4. Hugging Face — v6.42: subiu à frente do Cerebras porque funciona
-  if (config.ai.huggingfaceKey && providerUp('huggingface')) {
-    try {
-      result = await withTimeout(chatHuggingFace(messages, system), TIMEOUT);
-      providerReset('huggingface');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('huggingface', e); console.warn('[IA] HuggingFace:', shortErr(e)); }
-  }
-  // 5. Cerebras — ⚠️ conta sem créditos (HTTP 402 em todos os modelos).
-  //    O circuit breaker evita gastar tempo nisto a cada mensagem.
-  if (config.ai.cerebrasApiKey && providerUp('cerebras')) {
-    try {
-      result = await withTimeout(chatCerebras(messages, system), TIMEOUT);
-      providerReset('cerebras');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('cerebras', e); console.warn('[IA] Cerebras:', shortErr(e)); }
-  }
-  // 6. ApiFreeLLM — ⚠️ o tier grátis bloqueia IPs de datacenter, por isso
-  //    NUNCA funciona a partir do Render (HTTP 403). Só é tentado em local.
-  if (config.ai.apifreellmKey && providerUp('apifreellm')) {
-    try {
-      result = await withTimeout(chatApiFreeLLM(messages, system), TIMEOUT);
-      providerReset('apifreellm');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('apifreellm', e); console.warn('[IA] ApiFreeLLM:', shortErr(e)); }
-  }
-  // 7. OpenRouter (25+ modelos)
-  if (config.ai.openrouterApiKey && providerUp('openrouter')) {
-    try {
-      result = await withTimeout(chatRouter(messages, system), TIMEOUT);
-      providerReset('openrouter');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('openrouter', e); console.warn('[IA] Router:', shortErr(e)); }
-  }
-  // 8. OpenAI (pago — último recurso antes de desistir)
-  if (config.ai.openaiApiKey && providerUp('openai')) {
-    try {
-      result = await withTimeout(chatOpenAI(messages, system), TIMEOUT);
-      providerReset('openai');
-      aiCacheSet(cacheKey, system, result);
-      return result;
-    } catch (e) { providerFail('openai', e); console.warn('[IA] OpenAI:', shortErr(e)); }
+  for (const [name, enabled, label, chamar] of providers) {
+    if (Date.now() >= deadline) break;
+    const answer = await tentarProvider(name, enabled, label, chamar);
+    if (answer) return answer;
   }
   // v7.63: SEM fallback público — o PopCat morreu ("Timed Out" sempre),
   // o Pollinations exige chave e o DuckDuckGo mete captcha anti-bot.
@@ -845,7 +839,7 @@ async function transcribeWhisper(audioBuffer, language = 'pt') {
 // ─────────────────────────────────────────────
 // CEREBRAS (2100 tokens/sec — o mais rápido!)
 // ─────────────────────────────────────────────
-async function chatCerebras(messages, system) {
+async function chatCerebras(messages, system, options = {}) {
   if (!config.ai.cerebrasApiKey) throw new Error('sem chave Cerebras');
   let lastErr;
   for (const model of CEREBRAS_MODELS) {
@@ -853,10 +847,13 @@ async function chatCerebras(messages, system) {
       const data = await post('https://api.cerebras.ai/v1/chat/completions', {
         model, messages: [{ role: 'system', content: system }, ...messages],
         temperature: 0.7, max_completion_tokens: 1024, stream: false,
-      }, { Authorization: `Bearer ${config.ai.cerebrasApiKey}` });
+      }, { Authorization: `Bearer ${config.ai.cerebrasApiKey}` }, { signal: options.signal });
       const out = data.choices?.[0]?.message?.content;
       if (out) return stripThinking(out);
-    } catch (e) { lastErr = e; if (/401|invalid/i.test(e.message)) break; }
+    } catch (e) {
+      lastErr = e;
+      if (options.signal?.aborted || /401|invalid/i.test(e.message)) break;
+    }
   }
   throw lastErr || new Error('sem resposta Cerebras');
 }
@@ -864,14 +861,14 @@ async function chatCerebras(messages, system) {
 // ─────────────────────────────────────────────
 // APIFREELLM (ILIMITADO, grátis, 200B+ params)
 // ─────────────────────────────────────────────
-async function chatApiFreeLLM(messages, system) {
+async function chatApiFreeLLM(messages, system, options = {}) {
   if (!config.ai.apifreellmKey) throw new Error('sem chave ApiFreeLLM');
   try {
     const prompt = messages.map(m => m.content).join(' ');
     const data = await post('https://apifreellm.com/api/chat', {
       message: prompt,
       system: system,
-    }, { Authorization: `Bearer ${config.ai.apifreellmKey}` });
+    }, { Authorization: `Bearer ${config.ai.apifreellmKey}` }, { signal: options.signal });
     const out = data.choices?.[0]?.message?.content || data.message || data.response;
     if (out) return stripThinking(out);
   } catch (e) { throw e; }
@@ -881,7 +878,7 @@ async function chatApiFreeLLM(messages, system) {
 // ─────────────────────────────────────────────
 // HUGGING FACE (300+ modelos)
 // ─────────────────────────────────────────────
-async function chatHuggingFace(messages, system) {
+async function chatHuggingFace(messages, system, options = {}) {
   if (!config.ai.huggingfaceKey) throw new Error('sem chave Hugging Face');
   
   // v6.42: api-inference.huggingface.co foi descontinuada.
@@ -896,14 +893,14 @@ async function chatHuggingFace(messages, system) {
         messages: [{ role: 'system', content: system }, ...messages],
         max_tokens: 700,
         temperature: 0.75,
-      }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` });
+      }, { Authorization: `Bearer ${config.ai.huggingfaceKey}` }, { signal: options.signal });
 
       const out = data.choices?.[0]?.message?.content?.trim();
       if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
-      // chave inválida → não vale a pena tentar os outros modelos
-      if (/401|invalid.*(key|token)/i.test(e.message)) break;
+      // Cancelamento e chave inválida não devem tentar outros modelos.
+      if (options.signal?.aborted || /401|invalid.*(key|token)/i.test(e.message)) break;
       continue;
     }
   }
@@ -917,7 +914,7 @@ async function chatHuggingFace(messages, system) {
 // Gratuito com registo em platform.deepseek.com.
 // R1 tem raciocínio profundo (cot) — ideal para perguntas complexas,
 // código, matemática e tradução.
-async function chatDeepSeek(messages, system) {
+async function chatDeepSeek(messages, system, options = {}) {
   if (!config.ai.deepseekApiKey) throw new Error('sem chave DeepSeek');
   let lastErr;
   for (const model of DEEPSEEK_MODELS) {
@@ -928,12 +925,12 @@ async function chatDeepSeek(messages, system) {
         temperature: 0.75,
         max_tokens: 2000,
         stream: false,
-      }, { Authorization: `Bearer ${config.ai.deepseekApiKey}` });
+      }, { Authorization: `Bearer ${config.ai.deepseekApiKey}` }, { signal: options.signal });
       const out = data.choices?.[0]?.message?.content;
       if (out) return stripThinking(out);
     } catch (e) {
       lastErr = e;
-      if (/401|invalid.*key/i.test(e.message)) break;
+      if (options.signal?.aborted || /401|invalid.*key/i.test(e.message)) break;
     }
   }
   throw lastErr || new Error('sem resposta DeepSeek');
@@ -1030,12 +1027,12 @@ async function speakElevenLabs(text, voiceId = null) {
 // ─────────────────────────────────────────────
 // TAVILY (pesquisa web optimizada para IA 🌐)
 // ─────────────────────────────────────────────
-async function searchTavily(query, maxResults = 5) {
+async function searchTavily(query, maxResults = 5, options = {}) {
   if (!config.ai.tavilyKey) throw new Error('sem chave Tavily');
   const data = await post('https://api.tavily.com/search', {
     api_key: config.ai.tavilyKey, query: query.slice(0, 500),
     max_results: maxResults, search_depth: 'basic', include_answer: true,
-  });
+  }, {}, { signal: options.signal });
   const answer = data.answer || '';
   const results = (data.results || []).map(r => '• ' + r.title + ': ' + (r.content || '').slice(0, 500) + (r.url ? '\nURL: ' + r.url : '') + (r.published_date ? '\nData: ' + r.published_date : '')).join('\n');
   return answer ? answer + '\n\nFontes:\n' + results : results || 'Sem resultados';

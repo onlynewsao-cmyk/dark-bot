@@ -63,7 +63,15 @@ function emojiDaFrase(texto) {
 
 // ── Executor ────────────────────────────────────────────────
 
-async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
+async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, confirmado = false }) {
+  const cap = brain.POR_ID.get(id);
+  if (cap?.risco === 'destrutivo' && !confirmado) {
+    return {
+      ok: false,
+      confirmacaoNecessaria: true,
+      msg: 'Esta acção é destrutiva e precisa de confirmação explícita antes de ser executada.',
+    };
+  }
   const jid = ctx.remoteJid;
   const M = brain.modos(jid);
 
