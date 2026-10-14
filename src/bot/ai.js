@@ -179,9 +179,10 @@ function aiCacheSet(prompt, system, response) {
  */
 function stripThinking(txt) {
   let t = String(txt || '');
-  t = t.replace(/<\s*think\s*>[\s\S]*?(?:<\s*\/\s*think\s*>|$)/gi, '');
-  t = t.replace(/<\s*\/\s*think\s*>/gi, '');
+  t = t.replace(/<\s*(?:think|thought|reasoning)\s*>[\s\S]*?(?:<\s*\/\s*(?:think|thought|reasoning)\s*>|$)/gi, '');
+  t = t.replace(/<\s*\/\s*(?:think|thought|reasoning)\s*>/gi, '');
   t = t.replace(/^here'?s?\s+a?\s*thinking process[\s:]*/gi, '');
+  t = t.replace(/^(?:thinking process|thought process|racioc[ií]nio|an[aá]lise interna)[\s:]*/gim, '');
   t = t.replace(/\n{3,}/g, '\n\n');
   return t.trim();
 }

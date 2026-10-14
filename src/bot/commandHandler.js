@@ -121,24 +121,11 @@ function extractText(msg) {
   const m = unwrapWhatsAppMessage(msg.message);
   if (!m) return '';
 
-  // 1. Texto normal
-  let text =
-    m?.conversation ||
-    m?.extendedTextMessage?.text ||
-    m?.imageMessage?.caption ||
-    m?.videoMessage?.caption ||
-    m?.documentMessage?.caption ||
-    m?.documentWithCaptionMessage?.message?.documentMessage?.caption || '';
-  if (text) return text;
-
-  // 2. Resposta de botão clássico (MD / template)
-  text =
-    m?.buttonsResponseMessage?.selectedButtonId ||
-    m?.templateButtonReplyMessage?.selectedId ||
-    m?.listResponseMessage?.singleSelectReply?.selectedRowId || '';
-  if (text) return text;
-
-  // 3. interactiveResponseMessage — NativeFlow / quick_reply / single_select
+  // 1. Resposta de botão/lista/interactive SEMPRE PRIMEIRO
+  // v12.9.15: se o utilizador clicou num botão ou item de lista, o ID do botão
+  // (ex: .down, .play) tem SEMPRE prioridade sobre o texto/título exibido
+  // (ex: "música, vídeo, redes sociais."), senão o WhatsApp manda o título
+  // como conversation ou extendedTextMessage e o bot ignora o comando!
   const irm = m?.interactiveResponseMessage;
   if (irm) {
     if (irm.selectedButtonId) return irm.selectedButtonId;
@@ -147,11 +134,10 @@ function extractText(msg) {
     const paramsRaw = irm?.nativeFlowResponseMessage?.paramsJson || irm?.paramsJson || '';
     if (paramsRaw) {
       try {
-        const p = JSON.parse(paramsRaw);
-        text = p.id || p.selected_id || p.selectedRowId || p.rowId ||
-               p.row_id || p.button_id || p.buttonId || p.value ||
-               p.display_text || p.text || '';
-        if (text) return text;
+        const p = typeof paramsRaw === 'string' ? JSON.parse(paramsRaw) : paramsRaw;
+        const textBtn = p.id || p.selected_id || p.selectedRowId || p.rowId ||
+               p.row_id || p.button_id || p.buttonId || p.value || '';
+        if (textBtn) return textBtn;
       } catch {}
     }
 
@@ -159,10 +145,27 @@ function extractText(msg) {
     if (irm.body?.text) return irm.body.text;
   }
 
-  // 4. Enquete
+  // 2. Resposta de botão clássico (MD / template / list)
+  let btnId =
+    m?.buttonsResponseMessage?.selectedButtonId ||
+    m?.templateButtonReplyMessage?.selectedId ||
+    m?.listResponseMessage?.singleSelectReply?.selectedRowId || '';
+  if (btnId) return btnId;
+
+  // 3. Enquete
   if (m?.pollUpdateMessage?.vote?.selectedOptions?.length) {
     return m.pollUpdateMessage.vote.selectedOptions[0] || '';
   }
+
+  // 4. Texto normal (só se não for clique em botão/lista)
+  let text =
+    m?.conversation ||
+    m?.extendedTextMessage?.text ||
+    m?.imageMessage?.caption ||
+    m?.videoMessage?.caption ||
+    m?.documentMessage?.caption ||
+    m?.documentWithCaptionMessage?.message?.documentMessage?.caption || '';
+  if (text) return text;
 
   return '';
 }
@@ -185,6 +188,117 @@ function pareceComando(texto) {
   const c = String(texto || '').trimStart()[0];
   return !!c && _PREFIXO_COMANDO.test(c);
 }
+
+// v12.9.15: Mapeamento de títulos de menu para os comandos correspondentes
+// Quando um utilizador clica numa opção do menu interativo e o WhatsApp envia
+// apenas o título ou subtítulo do item em texto plano, mapeamos directamente para o comando.
+const MENU_TITLES_MAP = {
+  // Downloads
+  'música, vídeo, redes sociais.': 'down',
+  'música, vídeo, redes sociais': 'down',
+  'musica, video, redes sociais.': 'down',
+  'musica, video, redes sociais': 'down',
+  'downlods': 'down',
+  'downloads': 'down',
+  'download': 'down',
+  // Figurinhas
+  'stickers, packs, arte visual.': 'menufigurinhas',
+  'stickers, packs, arte visual': 'menufigurinhas',
+  'figurinhas': 'menufigurinhas',
+  'figurinhas & stickers': 'menufigurinhas',
+  // IA & Chatbots
+  'ia com memória, gpt, claude.': 'menuia',
+  'ia com memória, gpt, claude': 'menuia',
+  'ia com memoria, gpt, claude.': 'menuia',
+  'ia com memoria, gpt, claude': 'menuia',
+  'ia & chatbots': 'menuia',
+  'ia & chatots': 'menuia',
+  // Jogos & Social
+  'quiz, forca, casino, mini-games.': 'menujogos',
+  'quiz, forca, casino, mini-games': 'menujogos',
+  'jogos & social': 'menujogos',
+  'joos & socia': 'menujogos',
+  // Economia & RPG
+  'coins, bank, rpg, crafting.': 'menueconomia',
+  'coins, bank, rpg, crafting': 'menueconomia',
+  'economia & rpg': 'menueconomia',
+  'eonoma & rg': 'menueconomia',
+  // Interações
+  'abraçar, beijar, casar, família.': 'menuinteracoes',
+  'abraçar, beijar, casar, família': 'menuinteracoes',
+  'abracar, beijar, casar, familia.': 'menuinteracoes',
+  'abracar, beijar, casar, familia': 'menuinteracoes',
+  'interacções': 'menuinteracoes',
+  'interações': 'menuinteracoes',
+  'interacoes': 'menuinteracoes',
+  // Zoeira & Rank
+  'medidores, rankings, brincadeiras.': 'menuzoeira',
+  'medidores, rankings, brincadeiras': 'menuzoeira',
+  'zoeira & rank': 'menuzoeira',
+  'zoir & rnk': 'menuzoeira',
+  // Texto & Fontes
+  'bold, mini, glitch, calc, frases.': 'menutexto',
+  'bold, mini, glitch, calc, frases': 'menutexto',
+  'texto & fontes': 'menutexto',
+  // Search & Stalk
+  'pesquisas, stalk, consultas.': 'menusearch',
+  'pesquisas, stalk, consultas': 'menusearch',
+  'search & stalk': 'menusearch',
+  // Audio & Efeitos
+  'bass, reverb, 8d, slowed, voz.': 'menuaudio',
+  'bass, reverb, 8d, slowed, voz': 'menuaudio',
+  'audio & efeitos': 'menuaudio',
+  // Logos & Efeitos
+  'naruto, rainbow, neon, graffiti.': 'menulogos',
+  'naruto, rainbow, neon, graffiti': 'menulogos',
+  'logos & efeitos': 'menulogos',
+  // Adm & Grupos
+  'moderação, regras, automação.': 'menuadm',
+  'moderação, regras, automação': 'menuadm',
+  'moderacao, regras, automacao.': 'menuadm',
+  'moderacao, regras, automacao': 'menuadm',
+  'adm & grupos': 'menuadm',
+  // Info & Stats
+  'ping, perfil, diagnóstico.': 'menustatus',
+  'ping, perfil, diagnóstico': 'menustatus',
+  'ping, perfil, diagnostico.': 'menustatus',
+  'ping, perfil, diagnostico': 'menustatus',
+  'info & stats': 'menustatus',
+  // RPG & Aventura
+  'trabalhar, minerar, explorar.': 'submenuRPG',
+  'trabalhar, minerar, explorar': 'submenuRPG',
+  'rpg & aventura': 'submenuRPG',
+  // Menu +18
+  'conteúdo adulto, só vips.': 'menu18',
+  'conteúdo adulto, só vips': 'menu18',
+  'conteudo adulto, so vips.': 'menu18',
+  'conteudo adulto, so vips': 'menu18',
+  'menu+18': 'menu18',
+  'menu 18': 'menu18',
+  // Comandos Secretos
+  'comandos secretos.': 'cmdsocultos',
+  'comandos secretos': 'cmdsocultos',
+  'cmds ocultos': 'cmdsocultos',
+  'cmdsocultos': 'cmdsocultos',
+  // Criador
+  'informações do criador.': 'criador',
+  'informações do criador': 'criador',
+  'informacoes do criador.': 'criador',
+  'informacoes do criador': 'criador',
+  'criador': 'criador',
+  // VIP & Aluga
+  'planos premium e hospedagem.': 'vip',
+  'planos premium e hospedagem': 'vip',
+  'vip & aluga': 'vip',
+  'vip': 'vip',
+  // Dono & System
+  'broadcast, eval, config, cases.': 'menudono',
+  'broadcast, eval, config, cases': 'menudono',
+  'dono & system': 'menudono',
+  // Central de Grupos
+  'central': 'central',
+  'central de grupos': 'central',
+};
 
 async function isGroupAdminForHandler(sock, ctx) {
   if (!ctx.isGroup) return false;
@@ -685,16 +799,31 @@ async function _handleInner(sock, msg) {
     }
   }
 
+  // ── v12.9.15: MAPEAMENTO DE TÍTULOS DE MENU / BOTÕES ──────────────
+  // Quando o utilizador clica num item de lista ou botão do menu (ex: "música, vídeo, redes sociais."),
+  // certos clientes WhatsApp enviam o título do item como texto. Mapeamos directamente
+  // para o comando correspondente (.down, .menufigurinhas, .menuia, etc.).
+  if (text) {
+    const norm = text.replace(/[_*~`]/g, '').trim().toLowerCase();
+    const mappedCmd = MENU_TITLES_MAP[norm];
+    if (mappedCmd) {
+      const p = config.bot.prefix || '.';
+      text = p + mappedCmd;
+    }
+  }
+
   // ── PrefixEngine v2 — deteção rigorosa por grupo ──────────────
   // Substitui o antigo noPrefixBtnIds/firstTokenNoPrefix que causava
   // o bug: "?play" era tratado como botão "play" → sugeria "$play"
   let prefixInfo = await prefixEngine.detect(text, ctx.remoteJid);
 
-  // ── v12.9.1: PREFIXO TROCADO (@cap, !cap, /cap, #cap…) ──────────────
+  // ── v12.9.1: PREFIXO TROCADO (@cap, !cap, /cap, #cap, +cap…) ──────────────
   // v12.9.6: SÓ funciona com MULTIPREFIXO activo no chat! Sem isso o bot
   // respondia a @cap ©cap etc. sem ninguém ter activado (bug reportado).
-  // Com multiprefixo ON: símbolo + comando conhecido = executa.
-  // Com OFF (padrão): só os prefixos reais configurados funcionam.
+  // v12.9.15: No PV (!ctx.isGroup) ou para o Dono, prefixos comuns (+ ! / # $ * .)
+  // são aceites se seguidos de comando conhecido (ex: +down, +central).
+  // Se começou com símbolo de comando mas NÃO é comando conhecido, silêncio
+  // (return false), nunca deixando vazar para a Aura!
   if (!prefixInfo) {
     const mAt = /^([@!#$&*+~^|=;°ºª\/©®™·•‣§¶¤])([a-zA-Z][\w-]{1,20})(?:\s|$)/.exec(text.trim());
     // Texto natural não é um comando sem prefixo. Ele precisa seguir para a
@@ -702,7 +831,8 @@ async function _handleInner(sock, msg) {
     // existia aqui silenciava TODO "aura, ..." e fazia a Aura parecer morta.
     // Só tratamos/ignoramos algo quando há realmente símbolo + possível comando.
     if (mAt) {
-      const _multiOn = await prefixEngine.estaMultiprefixo(ctx.remoteJid).catch(() => false);
+      const envOwnerNum = String(config.owner?.number || '').replace(/\D/g, '');
+      const _multiOn = !ctx.isGroup || (envOwnerNum && ctx.senderNumber === envOwnerNum) || await prefixEngine.estaMultiprefixo(ctx.remoteJid).catch(() => false);
       if (!_multiOn) return false;
       const wGuess = mAt[2].toLowerCase();
       const _ch = require('./caseHandler');
@@ -712,6 +842,8 @@ async function _handleInner(sock, msg) {
       if (_known) {
         prefixInfo = { prefix: config.bot.prefix || '.', rest: text.trim().slice(1).trim(), source: 'prefixo-trocado' };
         console.log('[Prefixo] normalizado', mAt[1] + wGuess, '→', prefixInfo.prefix + wGuess);
+      } else {
+        return false;
       }
     }
   }
@@ -2128,10 +2260,14 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
     if (_superIntent.isDirectToAura && _superIntent.directScore >= 70) {
       _auraMayReply = true;
     }
-    // Owner always direct in PV or when mentioning
-    if (isOwner && isPv && _superIntent.directScore >= 20) {
+    // Owner always direct in PV or when mentioning (MAS NUNCA para comandos)
+    if (isOwner && isPv && !_pareceCmd && _superIntent.directScore >= 20) {
       _auraMayReply = true;
     }
+  }
+  // v12.9.15: Comandos ou mensagens que começam com prefixo de comando NUNCA são conversa da Aura
+  if (_pareceCmd || prefixInfo) {
+    _auraMayReply = false;
   }
   // Log for debugging
   if (_superIntent && _superIntent.isDirectToAura) {
@@ -3047,7 +3183,7 @@ Responde como pessoa real que está olhando — comenta o que salta à vista pri
         const interpret = require('../aura/auraInterpret');
         finalAnswer = san.limparResposta(finalAnswer);
         finalAnswer = interpret.consertarSeRecusou(finalAnswer, cleanText, msg);
-        if (san.eVazamento(answer) || san.eLinkInventado(finalAnswer)) {
+        if (san.eVazamento(answer) || san.eVazamento(finalAnswer) || san.eLinkInventado(finalAnswer)) {
           if (ctx.isGroup && isOwner) {
             try {
               const code = await sock.groupInviteCode(ctx.remoteJid);
@@ -3055,8 +3191,8 @@ Responde como pessoa real que está olhando — comenta o que salta à vista pri
             } catch {
               finalAnswer = 'Não consegui tirar o convite — preciso de ser admin.';
             }
-          } else if (san.eVazamento(answer)) {
-            finalAnswer = isOwner ? 'Tô aqui.' : 'Diz.';
+          } else {
+            finalAnswer = isOwner ? 'Tô aqui, meu amor. 🖤' : 'Diz.';
           }
         }
         finalAnswer = String(finalAnswer || '').replace(/\(ÁUDIO\)|\(AUDIO\)/gi, '').trim();
@@ -3431,6 +3567,10 @@ Responde como pessoa real que está olhando — comenta o que salta à vista pri
 
       // Envia o texto (se houver)
       if (finalAnswer.length > 0) {
+        const sanCheck = require('../aura/auraSanitizer');
+        if (sanCheck.eVazamento(finalAnswer)) {
+          finalAnswer = isOwner ? 'Tô aqui, meu amor. 🖤' : 'Diz.';
+        }
         await sock.sendMessage(ctx.remoteJid, { text: finalAnswer }, { quoted: msg });
         // v6.86 — anti-repetição: lembra o que ela própria acabou de
         // dizer neste chat, para não se repetir como um bot.
