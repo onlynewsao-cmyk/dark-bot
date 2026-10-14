@@ -107,8 +107,9 @@ async function _tratarUma(bot, batch, raw) {
     if (typeof commandHandler.normalizeIncomingMsg === 'function') {
       msg = commandHandler.normalizeIncomingMsg(raw);
     }
-    // v7.52: feed de estados — nada no pipeline o trata; sair antes de I/O.
-    if (msg.key?.remoteJid === 'status@broadcast') return;
+    // v7.52: feed de estados e canais (@newsletter) — nada no pipeline de comandos/chat o trata; sair antes de I/O.
+    const _rJid = msg.key?.remoteJid || '';
+    if (_rJid === 'status@broadcast' || _rJid.endsWith('@broadcast') || _rJid.endsWith('@newsletter')) return;
     bot.msgCount = (bot.msgCount || 0) + 1;
     const entry = {
       ts: new Date().toISOString().slice(11, 19),

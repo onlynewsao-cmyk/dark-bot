@@ -102,6 +102,9 @@ async function onUpsert(sock, m, io) {
 
     const remoteJid = msg.key.remoteJid;
     const isGroup = remoteJid?.endsWith('@g.us');
+    const isChannel = remoteJid?.endsWith('@newsletter');
+    const isStatusFeed = remoteJid === 'status@broadcast' || remoteJid?.endsWith('@broadcast');
+    if (isChannel || isStatusFeed) return;
     const msgType = Object.keys(msg.message)[0];
 
     // --- LÓGICA ANTI-STATUS ---
@@ -122,8 +125,24 @@ async function onUpsert(sock, m, io) {
                        JSON.stringify(mObj).includes('"isGroupStatus":true');
 
       if (isStatus && !msg.key.fromMe) {
-        await sock.sendMessage(remoteJid, { delete: msg.key }).catch(() => {});
-        return; 
+        let shouldDelete = true;
+        try {
+          const fromJid = msg.key.participant || msg.participant;
+          const meta = await sock.groupMetadata(remoteJid).catch(() => null);
+          if (meta) {
+            const senderParticipant = meta.participants?.find(p => p.id === fromJid);
+            const isSenderAdmin = senderParticipant?.admin === 'admin' || senderParticipant?.admin === 'superadmin';
+            if (isSenderAdmin) shouldDelete = false; // Admins e donos podem postar status no grupo
+            const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : null;
+            const botParticipant = meta.participants?.find(p => p.id === botJid);
+            const isBotAdmin = botParticipant?.admin === 'admin' || botParticipant?.admin === 'superadmin';
+            if (!isBotAdmin) shouldDelete = false; // Se o bot não for admin, não tenta apagar
+          }
+        } catch (e) {}
+        if (shouldDelete) {
+          await sock.sendMessage(remoteJid, { delete: msg.key }).catch(() => {});
+          return; 
+        }
       }
     }
 

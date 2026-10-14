@@ -235,8 +235,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       if (ctx?.isGroup && /\b(?:grupo|deste grupo|desse grupo|gp)\b/i.test(tLower)) {
         return {
           ok: false,
-          msg: 'O WhatsApp não possui a aba "Status" em grupos (apenas em contas e canais). 😅\n\n' +
-               'Se quiseres, posso colocar como *foto do grupo*, na *descrição do grupo*, ou postar no *status da minha conta* ou no nosso *canal*! 🖤'
+          msg: 'Para postar no estado do grupo ou canal, podes adicionar directamente na aba de actualizações do WhatsApp ou usar o comando de canal (`!canal postar` ou `!statuscanal`). Se quiseres, posso postar no status da minha conta! 🖤'
         };
       }
       const img = await imagemDaMensagem(msg, sock);

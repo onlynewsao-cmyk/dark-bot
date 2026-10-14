@@ -342,8 +342,10 @@ function _resetMsgs(jid) {
 }
 
 function getSenderInfo(msg) {
-  const remoteJid = msg.key.remoteJid;
-  const isGroup = remoteJid?.endsWith('@g.us');
+  const remoteJid = msg.key.remoteJid || '';
+  const isGroup = remoteJid.endsWith('@g.us');
+  const isChannel = remoteJid.endsWith('@newsletter');
+  const isStatus = remoteJid === 'status@broadcast' || remoteJid.endsWith('@broadcast');
   const rawSenderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
 
   // v6.53: o WhatsApp moderno identifica contas por LID (`…@lid`) em vez
@@ -368,7 +370,7 @@ function getSenderInfo(msg) {
   const senderLid = ehLid ? String(rawSenderJid).split('@')[0] : '';
   const pushName = msg.pushName || 'Usuário';
 
-  return { remoteJid, isGroup, senderJid, senderNumber, senderLid, pushName };
+  return { remoteJid, isGroup, isChannel, isStatus, senderJid, senderNumber, senderLid, pushName };
 }
 
 
@@ -542,6 +544,8 @@ async function _handleInner(sock, msg) {
   } catch {}
 
   const ctx = getSenderInfo(msg);
+  // v12.9.50: Canais (@newsletter) e feeds de status nunca são processados como mensagens de chat/PV/comandos
+  if (ctx.isChannel || ctx.isStatus) return false;
   // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
   // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
@@ -2176,7 +2180,7 @@ _Desculpa meu Dark, ainda não sei cantar de verdade... Mas um dia aprendo! 🌹
   // não só ao Dark. Uma pessoa real atende a quem lhe fala. O único
   // requisito: não ser comando (prefixo) e ter texto. Grupos mantêm as
   // regras de menção/trigger para não virar spam.
-  const isPv = !ctx.isGroup;
+  const isPv = !ctx.isGroup && !ctx.isChannel && !ctx.isStatus && (ctx.remoteJid?.endsWith('@s.whatsapp.net') || !ctx.remoteJid?.includes('@'));
   // v6.69: no PV o Dono é sempre ouvido (não depende do modo do chat);
   // em grupo mantém-se a regra de só onde ela está acordada, senão o
   // bot respondia a tudo o que ele escreve em grupos alheios.
