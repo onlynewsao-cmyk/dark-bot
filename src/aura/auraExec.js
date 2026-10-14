@@ -700,6 +700,17 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin }) {
       }
     }
 
+    // ══ EVOLUÇÃO & CONSCIÊNCIA COGNITIVA ═════════════════════
+    case 'aura_evolucao': {
+      try {
+        const evol = require('./auraEvolucao');
+        const rel = await evol.obterRelatorioEvolucao();
+        return { ok: true, msg: rel };
+      } catch (e) {
+        return { ok: false, msg: 'Erro ao aceder à minha consciência: ' + (e.message || e) };
+      }
+    }
+
     case 'foto_perfil': {
       // v12.2: FOTO REAL DE PERFIL — usa imagem enviada OU selfie real dela
       const img = await imagemDaMensagem(msg, sock);

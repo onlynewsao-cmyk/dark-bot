@@ -651,6 +651,13 @@ NUM GRUPO (é diferente de estar a sós)
   Repara: ela reconhece, responde com carinho contido, e muda de
   assunto. Nunca recusa como um sistema recusa.`;
 
+  // ── AURA EVOLUÇÃO & FORMA ÚNICA DE PENSAR ──
+  try {
+    const evol = require('./auraEvolucao');
+    const blocoEvol = evol.obterBlocoPromptSync({ isOwner, isGroup: !isPrivateChat, remoteJid: opts.remoteJid || '' });
+    if (blocoEvol) prompt += `\n\n${blocoEvol}`;
+  } catch {}
+
   prompt += `\n\nResponde de forma humana, curta ou média conforme o contexto. Em português PT-BR ou PT-PT.`;
 
   return prompt;
@@ -862,41 +869,38 @@ async function auraRespondSmart(text, ctx = {}) {
     setMood(emotionDetected.mood, emotionDetected.reason, remoteJid);
   }
 
-  // FAST PATH: mensagens triviais — resposta instantânea sem IA
-  if (cls.type === 'trivial' || cls.type === 'greeting' || cls.type === 'farewell') {
-    const category = cls.type === 'trivial' ? 'trivial' :
-                     cls.type === 'greeting' ? 'greeting' : 'farewell';
-    const fastResp = auraSmart.getFastResponse(category, isOwner);
-    if (fastResp) {
-      auraSmart.recordFastPath();
-      return fastResp;
+  // FAST PATH: apenas mensagens ultra-curtas e triviais de terceiros (ex.: "ok", "👍")
+  // O Dono NUNCA recebe resposta enlatada — a Aura pensa de verdade e responde com cognição viva!
+  const ehComandoOuAcao = /\b(faz|fazer|posta|postar|manda|mandar|cria|criar|canal|grupo|status|super|link|divulga)\b/i.test(text);
+  if (!isOwner && !ehComandoOuAcao && text.trim().split(/\s+/).length <= 2) {
+    if (cls.type === 'trivial' || cls.type === 'greeting' || cls.type === 'farewell') {
+      const category = cls.type === 'trivial' ? 'trivial' :
+                       cls.type === 'greeting' ? 'greeting' : 'farewell';
+      const fastResp = auraSmart.getFastResponse(category, isOwner);
+      if (fastResp) {
+        auraSmart.recordFastPath();
+        return fastResp;
+      }
+    }
+
+    // Gratidão — fast path apenas para mensagens breves de terceiros
+    if (cls.type === 'simple' && /\b(obrigad[oa]|thanks|valeu|vlw)\b/i.test(text)) {
+      const fastResp = auraSmart.getFastResponse('gratitude', isOwner);
+      if (fastResp) {
+        auraSmart.recordFastPath();
+        return fastResp;
+      }
     }
   }
 
-  // Gratidão — fast path
-  if (cls.type === 'simple' && /\b(obrigad[oa]|thanks|valeu|vlw)\b/i.test(text)) {
-    const fastResp = auraSmart.getFastResponse('gratitude', isOwner);
-    if (fastResp) {
-      auraSmart.recordFastPath();
-      return fastResp;
+  // CACHE SEMÂNTICO: resposta similar já dada? (apenas para não-donos)
+  if (!isOwner) {
+    const cached = auraSmart.cacheGet(text);
+    if (cached && !auraSmart.isRepetitive(remoteJid, cached)) {
+      auraSmart.recordCacheHit();
+      auraSmart.trackResponse(remoteJid, cached);
+      return cached;
     }
-  }
-
-  // Amor — fast path
-  if (cls.type === 'emotional' && cls.emotion === 'love') {
-    const fastResp = auraSmart.getFastResponse('love', isOwner);
-    if (fastResp) {
-      auraSmart.recordFastPath();
-      return fastResp;
-    }
-  }
-
-  // CACHE SEMÂNTICO: resposta similar já dada?
-  const cached = auraSmart.cacheGet(text);
-  if (cached && !auraSmart.isRepetitive(remoteJid, cached)) {
-    auraSmart.recordCacheHit();
-    auraSmart.trackResponse(remoteJid, cached);
-    return cached;
   }
 
   // Adicionar hint de anti-repetição ao contexto
@@ -920,6 +924,25 @@ async function auraRespondSmart(text, ctx = {}) {
     const alt = auraSmart.cacheGet(text + '_alt');
     if (alt && !auraSmart.isRepetitive(remoteJid, alt)) {
       response = alt;
+    }
+  }
+
+  // v1.0 EVOLUÇÃO & SÍNTESE COGNITIVA:
+  // Processa tags [INSIGHT:], [APRENDI:], [HABITO:] emitidas pela mente da Aura,
+  // grava os aprendizados de forma permanente no MongoDB e limpa o texto para o utilizador.
+  if (response) {
+    try {
+      const evol = require('./auraEvolucao');
+      const processado = await evol.processarTagsEvolucao(response, {
+        isOwner,
+        isGroup: ctx.isGroup,
+        remoteJid,
+        senderNumber: ctx.senderNumber,
+        pushName: ctx.pushName,
+      });
+      response = processado.textoLimpo;
+    } catch (e) {
+      console.warn('[AuraEvolucao] Falha ao processar tags:', e?.message?.slice(0, 60));
     }
   }
 
