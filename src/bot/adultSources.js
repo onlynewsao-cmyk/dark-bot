@@ -834,6 +834,131 @@ async function pornhubShortsDownload(url) {
   return pornhubDownload(url);
 }
 
+/**
+ * ══ LEAKGALLERY.COM ══════════════════════════════════════════
+ * Scraping de modelos e mídias vazadas (OnlyFans/Fansly) reais.
+ */
+async function leakgallerySearch(query = 'pinkchyu', limit = 20) {
+  const q = String(query || '').trim();
+  if (isAnimalContent(q)) return [];
+  const headers = _headers({ Referer: 'https://leakgallery.com/' });
+  const results = [];
+
+  // 1. Tenta direct user profile
+  try {
+    const userUrl = `https://leakgallery.com/user/${encodeURIComponent(q.toLowerCase())}`;
+    const r = await axios.get(userUrl, { headers, timeout: 15000, responseType: 'text', validateStatus: () => true });
+    const m = String(r.data || '').match(/<script id="ng-state" type="application\/json">([\s\S]*?)<\/script>/);
+    if (m) {
+      const data = JSON.parse(m[1]);
+      for (const k of Object.keys(data)) {
+        if (Array.isArray(data[k])) {
+          for (const it of data[k]) {
+            if (it.file_path) {
+              const isVid = !!it.is_video || it.file_path.endsWith('.mp4');
+              const fullUrl = 'https://cdn.leakgallery.com/' + it.file_path;
+              const thumbUrl = it.thumbnail_path ? ('https://cdn.leakgallery.com/' + it.thumbnail_path) : fullUrl;
+              results.push({
+                title: it.caption_title || `${q} media ${it.id || ''}`,
+                url: fullUrl,
+                thumb: thumbUrl,
+                type: isVid ? 'video' : 'image',
+                source: 'leakgallery',
+                author: it.profile?.username || q
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Se poucos resultados ou busca de termo geral, pesquisa modelos
+  if (results.length < limit) {
+    try {
+      const searchUrl = `https://leakgallery.com/search?q=${encodeURIComponent(q)}`;
+      const r = await axios.get(searchUrl, { headers, timeout: 15000, responseType: 'text', validateStatus: () => true });
+      const m = String(r.data || '').match(/<script id="ng-state" type="application\/json">([\s\S]*?)<\/script>/);
+      if (m) {
+        const data = JSON.parse(m[1]);
+        const searchList = data['httpGet:search'] || [];
+        for (const user of searchList) {
+          if (user.username) {
+            results.push({
+              title: `Model @${user.username}`,
+              url: user.profile_pic || user.banner_pic,
+              thumb: user.profile_pic,
+              type: 'image',
+              source: 'leakgallery',
+              author: user.username,
+              isModel: true
+            });
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return _uniqBy(results, 'url').slice(0, limit);
+}
+
+async function leakgalleryDownload(itemOrUrl) {
+  const url = typeof itemOrUrl === 'string' ? itemOrUrl : itemOrUrl?.url;
+  if (!url) throw new Error('URL inválida');
+  const buf = await _fetchBuf(url, 'https://leakgallery.com/');
+  const ct = detectContainer(buf);
+  return { buf, container: ct, type: ct === 'mp4' ? 'video' : 'image', url };
+}
+
+/**
+ * ══ THOTSTER.COM ════════════════════════════════════════════
+ * Scraping de vídeos e fotos de influenciadoras adultas reais.
+ */
+async function thotsterSearch(query = 'cosplay', limit = 20) {
+  const q = String(query || '').trim();
+  if (isAnimalContent(q)) return [];
+  const headers = _headers({ Referer: 'https://thotster.com/' });
+  const urls = [
+    `https://thotster.com/search?q=${encodeURIComponent(q)}`,
+    'https://thotster.com/explore',
+    'https://thotster.com/'
+  ];
+
+  const results = [];
+  for (const u of urls) {
+    try {
+      const r = await axios.get(u, { headers, timeout: 15000, responseType: 'text', validateStatus: () => true });
+      const html = String(r.data || '');
+      const rMedia = /\\"mediaItem\\":\{\\"type\\":\\"([^"\\]+)\\",\\"url\\":\\"([^"\\]+)\\",\\"thumbnail\\":\\"([^"\\]+)\\"\}/g;
+      let m;
+      while ((m = rMedia.exec(html)) !== null) {
+        const type = m[1];
+        const mediaUrl = m[2];
+        const thumb = m[3];
+        if (!results.some(x => x.url === mediaUrl)) {
+          results.push({
+            title: `Thotster ${type} — ${q}`,
+            url: mediaUrl,
+            thumb: thumb,
+            type: type,
+            source: 'thotster'
+          });
+        }
+      }
+      if (results.length >= limit) break;
+    } catch {}
+  }
+  return _uniqBy(results, 'url').slice(0, limit);
+}
+
+async function thotsterDownload(itemOrUrl) {
+  const url = typeof itemOrUrl === 'string' ? itemOrUrl : itemOrUrl?.url;
+  if (!url) throw new Error('URL inválida');
+  const buf = await _fetchBuf(url, 'https://thotster.com/');
+  const ct = detectContainer(buf);
+  return { buf, container: ct, type: ct === 'mp4' ? 'video' : 'image', url };
+}
+
 module.exports = {
   isAnimalContent,
   ANIMAL_BLOCK,
@@ -857,6 +982,10 @@ module.exports = {
   cosplaySearch,
   cosplayDownload,
   cosplayDownloadMany,
+  leakgallerySearch,
+  leakgalleryDownload,
+  thotsterSearch,
+  thotsterDownload,
   placa18,
   ytdlpDownload,
 };

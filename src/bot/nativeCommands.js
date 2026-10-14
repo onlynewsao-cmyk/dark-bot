@@ -1508,6 +1508,10 @@ module.exports = {
       '💎 ' + p + 'cosplay [tema] — cosplay / fantasia',
       '💎 ' + p + 'gostosas [tema] — fotos sexy HD',
       '💎 ' + p + 'sexyfoto [tema] — alias gostosas',
+      '💎 ' + p + 'leakgallery <modelo/termo> — Leaks OnlyFans/Fansly (leakgallery.com)',
+      '💎 ' + p + 'leakg <modelo> — alias leakgallery',
+      '💎 ' + p + 'thotster <termo> — Nude Influencers (thotster.com)',
+      '💎 ' + p + 'thot <termo> — alias thotster',
       '',
       '📸 *IMAGENS / BOORUS*',
       '👑 ' + p + 'hentai [tags] — anime adulto',
@@ -3403,6 +3407,80 @@ module.exports = {
   },
   async gostosas(a) { return module.exports.cosplay(a); },
   async sexyfoto(a) { return module.exports.cosplay(a); },
+
+  async leakgallery({ sock, msg, ctx, args }) {
+    const q = portal18.cleanQuery(args.join(' ') || 'pinkchyu');
+    if (portal18.isBlocked(q) || (require('./adultSources').isAnimalContent(q))) {
+      return reply(sock, msg, ctx, '🚫 Termo bloqueado (inclui animal/furry).');
+    }
+    if (!(await isAdultEnabled(ctx))) return reply(sock, msg, ctx, '🛑 Adult mode OFF. ADM: *adultmode on*');
+    await react(sock, msg, '🔞');
+    try {
+      const src = require('./adultSources');
+      const pinAlbum = require('./pinAlbum');
+      const results = await src.leakgallerySearch(q, 24);
+      if (!results.length) throw new Error('Sem mídias encontradas no LeakGallery');
+      await pinAlbum.mostrar(sock, msg, ctx, {
+        titulo: `🔥 *LEAKGALLERY PIN* — ${q.slice(0, 32)}`,
+        intro: `*${results.length}* resultados · OnlyFans/Fansly leaks reais · 📡 leakgallery.com`,
+        linhas: results.map(r => {
+          const isVid = r.type === 'video';
+          return `*${String(r.title).slice(0, 50)}*\n   ${isVid ? '🎬 VÍDEO' : '📸 FOTO'} · 📡 LeakGallery (@${r.author || q})`;
+        }),
+        itens: results,
+        tipo: 'leakgallery',
+        manterVivo: true,
+        maxAlbum: 6,
+        resolver: async (item) => {
+          const dl = await src.leakgalleryDownload(item);
+          return [{ buf: dl.buf, type: dl.type, title: item.title, source: 'leakgallery', url: item.url }];
+        },
+      });
+      await react(sock, msg, '✅');
+    } catch (e) {
+      await react(sock, msg, '❌');
+      return reply(sock, msg, ctx, '❌ LeakGallery: ' + e.message);
+    }
+  },
+  async leakg(a) { return module.exports.leakgallery(a); },
+  async leaks(a) { return module.exports.leakgallery(a); },
+
+  async thotster({ sock, msg, ctx, args }) {
+    const q = portal18.cleanQuery(args.join(' ') || 'cosplay');
+    if (portal18.isBlocked(q) || (require('./adultSources').isAnimalContent(q))) {
+      return reply(sock, msg, ctx, '🚫 Termo bloqueado (inclui animal/furry).');
+    }
+    if (!(await isAdultEnabled(ctx))) return reply(sock, msg, ctx, '🛑 Adult mode OFF. ADM: *adultmode on*');
+    await react(sock, msg, '🔞');
+    try {
+      const src = require('./adultSources');
+      const pinAlbum = require('./pinAlbum');
+      const results = await src.thotsterSearch(q, 24);
+      if (!results.length) throw new Error('Sem mídias encontradas no Thotster');
+      await pinAlbum.mostrar(sock, msg, ctx, {
+        titulo: `✨ *THOTSTER PIN* — ${q.slice(0, 32)}`,
+        intro: `*${results.length}* resultados · Nude Influencer Content · 📡 thotster.com`,
+        linhas: results.map(r => {
+          const isVid = r.type === 'video';
+          return `*${String(r.title).slice(0, 50)}*\n   ${isVid ? '🎬 VÍDEO' : '📸 FOTO'} · 📡 Thotster`;
+        }),
+        itens: results,
+        tipo: 'thotster',
+        manterVivo: true,
+        maxAlbum: 6,
+        resolver: async (item) => {
+          const dl = await src.thotsterDownload(item);
+          return [{ buf: dl.buf, type: dl.type, title: item.title, source: 'thotster', url: item.url }];
+        },
+      });
+      await react(sock, msg, '✅');
+    } catch (e) {
+      await react(sock, msg, '❌');
+      return reply(sock, msg, ctx, '❌ Thotster: ' + e.message);
+    }
+  },
+  async thot(a) { return module.exports.thotster(a); },
+  async thots(a) { return module.exports.thotster(a); },
 
   async placa18({ sock, msg, ctx, args }) {
     if (!(await isAdultEnabled(ctx))) return reply(sock, msg, ctx, '🛑 Adult mode OFF.\nADM/dono: *adultmode on* no grupo (ou global).');
