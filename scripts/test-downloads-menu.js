@@ -38,7 +38,7 @@ try {
     assert.ok(item.desc && !/undefined/i.test(item.desc), `${item.cmd} has a useful description`);
   }
   assert.match(menu.SUBMENU_META.downloads.sub, /Conversões/);
-  console.log(`DOWNLOADS MENU: ${built.length} comandos canónicos visíveis; ${commands.length} aliases continuam classificados e descritos.`);
+  console.log(`DOWNLOADS MENU: ${built.length} comandos canónicos visíveis; ${commands.length} nomes (${commands.length - visible.length} aliases) classificados e descritos.`);
 } finally {
   Module.prototype.require = originalRequire;
 }
