@@ -1,14 +1,14 @@
 /**
  * DARK BOT — Cases de Downloads 🎵
  *
- * play   → um card compacto com botões directos de áudio/vídeo — resultado #1
- * play2  → mesmo estilo — resultado alternativo #2
- * play3  → mesmo estilo — resultado #3 (qualidade alta)
- * ytd    → áudio MP3 enviado após um toque no botão do card
- * gyt    → vídeo MP4 enviado após um toque no botão do card
+ * play   → envia áudio 128k + card compacto com botão de vídeo 480p — resultado #1
+ * play2  → card normal de áudio/vídeo — resultado alternativo #2
+ * play3  → card DARK TOXIC — resultado #3 (qualidade alta)
+ * ytd    → áudio MP3 por URL
+ * gyt    → vídeo MP4 por URL
  *
- * O primeiro resultado usa áudio 128k e vídeo 480p para reduzir espera;
- * sem ButtonV2, o card degrada para texto com os mesmos comandos directos.
+ * O resultado #1 privilegia rapidez e entrega o áudio automaticamente;
+ * sem ButtonV2, o card degrada para texto mantendo a opção de vídeo.
  */
 
 'use strict';
@@ -74,19 +74,22 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
 
-// ── Card compacto e único: áudio directo num toque + opção vídeo ──
-async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer) {
+// ── Card de resultado; permite card só de vídeo quando o áudio é automático ──
+async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, options = {}) {
   const mediaUrl = String(video.youtube_url || video.url || '').trim();
   if (!mediaUrl) throw new Error('resultado sem URL de mídia');
 
   const author = String(video.author || 'Canal desconhecido').slice(0, 44);
   const duration = String(video.duration || '?').slice(0, 12);
   const views = Number(video.views || 0).toLocaleString('pt-BR');
+  const qualityLine = options.videoOnly
+    ? `🎵 Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})  ·  🎬 ${Q.video}p`
+    : `🎵 ${Q.audio}  ·  🎬 ${Q.video}p`;
   const lines = [
     bodyExtra ? `🔎 ${bodyExtra}` : '',
     `👤 ${author}`,
     `⏱️ ${duration}  ·  👁️ ${views}`,
-    `🎵 ${Q.audio}  ·  🎬 ${Q.video}p`,
+    qualityLine,
   ].filter(Boolean);
   const body = lines.join('\n');
   const audioCmd = `${prefix}ytd ${mediaUrl} | ${Q.audio}`;
@@ -99,9 +102,12 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer)
       const card = new ButtonV2(sock);
       card.setTitle(String(video.title || 'Música').slice(0, 60));
       card.setBody(body);
-      card.setFooter(String(footer || 'DARK BOT · escolhe áudio ou vídeo').slice(0, 64));
+      const fallbackFooter = options.videoOnly
+        ? 'DARK BOT · áudio automático + vídeo'
+        : 'DARK BOT · escolhe áudio ou vídeo';
+      card.setFooter(String(footer || fallbackFooter).slice(0, 64));
       if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
-      card.addButton(`🎵 Áudio ${Q.audio}`, audioCmd);
+      if (!options.videoOnly) card.addButton(`🎵 Áudio ${Q.audio}`, audioCmd);
       card.addButton(`🎬 Vídeo ${Q.video}p`, videoCmd);
       await card.send(m.chat, { quoted: msg });
       return;
@@ -110,10 +116,27 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer)
     }
   }
 
-  // Fallback simples: os dois comandos continuam disponíveis sem a biblioteca de botões.
+  // Fallback simples mantém a opção de vídeo mesmo sem a biblioteca de botões.
+  const actionsText = options.videoOnly
+    ? `Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})\nVídeo: ${videoCmd}`
+    : `Áudio: ${audioCmd}\nVídeo: ${videoCmd}`;
   await sock.sendMessage(m.chat, {
-    text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\nÁudio: ${audioCmd}\nVídeo: ${videoCmd}`,
+    text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\n${actionsText}`,
   }, { quoted: msg });
+}
+
+async function enviarAudioResultado(sock, jid, msg, video, quality) {
+  const mediaUrl = String(video.youtube_url || video.url || '').trim();
+  if (!mediaUrl) throw new Error('resultado sem URL de áudio');
+  const result = await systemZeroPlay.ytAudio(mediaUrl, quality);
+  if (!result || (!result.buffer && !result.url)) throw new Error('provider não devolveu áudio');
+  await sendAudioCard(sock, jid, msg, {
+    ...result,
+    title: result.title || video.title || 'Áudio',
+    author: result.author || video.author || '',
+    duration: result.duration || video.duration || '',
+    mimetype: result.mimetype || 'audio/mpeg',
+  });
 }
 
 async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0, quality = {}) {
@@ -139,9 +162,26 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ DARK BOT` : '© DARK BOT v6');
     const video = resultados[Math.min(resultIndex, resultados.length - 1)];
     const bodyExtra = resultIndex > 0 ? `Resultado #${resultIndex + 1}` : '';
+    let audioFailed = false;
 
-    await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer);
-    sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
+    if (quality.toxic) {
+      await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg, Q, bodyExtra);
+    } else if (quality.autoAudio) {
+      // O card de vídeo chega sem esperar pelo provider; o áudio acompanha automaticamente.
+      await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, {
+        videoOnly: true, autoAudio: true,
+      });
+      try {
+        await enviarAudioResultado(sock, m.chat, msg, video, Q.audio);
+      } catch (audioError) {
+        audioFailed = true;
+        console.warn('[PLAY AUDIO]', audioError.message?.slice(0, 100));
+        await m.reply('⚠️ O card de vídeo foi enviado, mas não consegui entregar o áudio desta vez.');
+      }
+    } else {
+      await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer);
+    }
+    sock.sendMessage(m.chat, { react: { text: audioFailed ? '⚠️' : '✅', key: m.key } });
   } catch (e) {
     if (!e.message?.includes('rate-overlimit')) {
       console.error('[PLAY ERROR]', e.message);
@@ -157,22 +197,22 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
 module.exports = function registerDownloadCases(registerCase) {
 
   // ════════════════════════════════════════════════
-  // case 'play' — card compacto, igual ao estilo play3 (resultado #1)
+  // case 'play' — áudio automático e card simples só com vídeo (#1)
   // ════════════════════════════════════════════════
   registerCase(['play', 'music', 'musica', 'yt', 'ytmp3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Rápido' }));
+    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Rápido', autoAudio: true }));
 
   // ════════════════════════════════════════════════
-  // case 'play2' — resultado alternativo (#2)
+  // case 'play2' — card normal de áudio/vídeo, resultado alternativo (#2)
   // ════════════════════════════════════════════════
   registerCase(['play2', 'music2'], (caseCtx) =>
     runPlaySearch(caseCtx, 1, { audio: '192k', video: '720', label: 'Medium' }));
 
   // ════════════════════════════════════════════════
-  // case 'play3' — resultado #3
+  // case 'play3' — resultado #3 no estilo DARK TOXIC
   // ════════════════════════════════════════════════
   registerCase(['play3', 'music3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality' }));
+    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality', toxic: true }));
 
   // ════════════════════════════════════════════════
   // case 'playhq' — alta qualidade directa (320kbps)

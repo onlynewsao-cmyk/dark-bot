@@ -112,10 +112,12 @@ Module.prototype.require = function (id) {
 
   cards.length = 0;
   await playCases.get('play')({ sock, msg, m, ctx, text: 'smoke media', prefix: '!', command: 'play' });
-  assert.strictEqual(cards.length, 1, '!play must return one compact choice card');
-  assert(cards[0].buttons.some(button => button.id.startsWith('!ytd ')), 'card must offer audio');
+  assert.strictEqual(cards.length, 1, '!play must return one compact video card');
   assert(cards[0].buttons.some(button => button.id.startsWith('!gyt ')), 'card must offer video');
-  passed.push('!play card: botões directos de áudio e vídeo');
+  assert(!cards[0].buttons.some(button => button.id.startsWith('!ytd ')), 'auto-sent audio should not be a redundant button');
+  assert(sent.some(payload => payload.audio?.equals(samples.mp3) && payload.mimetype === 'audio/mpeg'),
+    '!play must auto-send the real MP3 bytes');
+  passed.push('!play: áudio MP3 real automático + botão de vídeo');
 
   let out = await run(playCases, 'ytd', { text: 'https://youtu.be/AAAAAAAAAAA | 128k' });
   assert(out.some(payload => payload.audio?.equals(samples.mp3)

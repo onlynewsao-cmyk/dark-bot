@@ -231,25 +231,29 @@ function playFallbackText(video, prefix) {
 }
 
 // ─────────────────────────────────────────────
-// CARD PLAY — estilo DARK TÓXICO (apenas play)
+// CARD PLAY — estilo DARK TÓXICO (usado por play3)
 // ─────────────────────────────────────────────
-// Mantém os IDs dos botões compatíveis com ytd/gyt. O play3 continua
-// a usar o card normal e não passa por este fluxo.
-async function sendToxicPlayCard(sock, jid, video, prefix, quoted = null) {
-  const audioCmd = `${prefix}ytd ${video.youtube_url}`;
+// Mantém os IDs compatíveis com ytd/gyt e respeita as qualidades pedidas
+// pelo comando; os padrões preservam compatibilidade com chamadas antigas.
+async function sendToxicPlayCard(sock, jid, video, prefix, quoted = null, quality = {}, bodyExtra = '') {
+  const audioQuality = String(quality.audio || '128k');
+  const videoQuality = String(quality.video || '480');
+  const audioCmd = `${prefix}ytd ${video.youtube_url} | ${audioQuality}`;
   const title = String(video.title || 'Música').slice(0, 70);
   const author = String(video.author || 'Canal desconhecido').slice(0, 60);
   const duration = video.duration || '—';
-  // A duração segue no ID invisível do botão para não se perder no download.
-  const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | 480 | ${duration}`;
+  // A duração segue no ID do botão para não se perder no download.
+  const videoCmd = `${prefix}gyt ${video.youtube_url} | mp4 | ${videoQuality} | ${duration}`;
   const views = Number(video.views || 0).toLocaleString('pt-BR');
   const body =
     `╭━━━〔 ☠️ 𖤐 ᴅᴀʀᴋ ᴛᴏxɪᴄ ᴘʟᴀʏ 𖤐 ☠️ 〕━━━╮\n` +
     `┃ 🩸 *${title}*\n` +
+    (bodyExtra ? `┃ 🔎 *${bodyExtra}*\n` : '') +
     `┃\n` +
     `┃ 👤 𝙲𝚊𝚗𝚊𝚕: *${author}*\n` +
     `┃ ⏱️ 𝙳𝚞𝚛𝚊𝚌̧𝚊̃𝚘: *${duration}*\n` +
     `┃ 👁️ 𝚅𝚒𝚜𝚞𝚊𝚕𝚒𝚣𝚊𝚌̧𝚘̃𝚎𝚜: *${views}*\n` +
+    `┃ 🎚️ ${audioQuality}  ·  ${videoQuality}p\n` +
     `┃\n` +
     `┃ ⚠️ 𓆩 𝙴𝚜𝚌𝚘𝚕𝚑𝚊 𝚘 𝚊𝚝𝚊𝚚𝚞𝚎 𓆪 ⚠️\n` +
     `╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n` +
@@ -263,10 +267,9 @@ async function sendToxicPlayCard(sock, jid, video, prefix, quoted = null) {
       card.setBody(body);
       card.setFooter(footer);
       if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
-      // Rótulos curtos: o ButtonV2 coloca os dois botões na mesma linha.
-      // Texto comprido força quebra no WhatsApp e deixa o card vertical.
-      card.addButton('🩸 ÁUDIO', audioCmd);
-      card.addButton('☠️ VÍDEO', videoCmd);
+      // Rótulos curtos mantêm os dois botões na mesma linha.
+      card.addButton(`🩸 ÁUDIO ${audioQuality}`, audioCmd);
+      card.addButton(`☠️ VÍDEO ${videoQuality}p`, videoCmd);
       await card.send(jid, { quoted });
       return 'toxic-buttonv2';
     } catch (e) { console.warn('[ToxicPlay] ButtonV2 falhou:', e.message?.slice(0, 80)); }
