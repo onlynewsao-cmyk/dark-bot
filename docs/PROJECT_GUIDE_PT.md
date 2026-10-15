@@ -1,11 +1,11 @@
 # DARK BOT (`darknet-tunnel`) — guia técnico para continuidade
 
 > **Fotografia-base analisada:** 14/10/2026 · branch `main` · commit `b43da6ab23f7c1820614bfc58ded181b21756cc8`
-> **Branch de revisão actual:** `fix/aura-stability-2026-10` · ainda sem commit/push.
+> **Branch de revisão actual:** `fix/aura-stability-2026-10` · destino `origin/fix/aura-stability-2026-10` (nunca `main`). `origin/main` avançou para `1c1be5c`; esta branch permanece baseada em `b43da6a` e não foi rebaseada sobre a alteração independente.
 > **Pasta local:** `/home/user/dark-bot` · clone feito com `--depth 1` (histórico completo não transferido).
 > **Pacote:** `dark-bot@9.20.0`. O número do pacote, os badges do README e os comentários internos não estão sincronizados; ver “Desfasamentos” abaixo.
 
-Este documento descreve o **código que está neste checkout**, não certifica o comportamento de produção. Não foi criado `.env`, não foram instaladas dependências, nem foram ligados WhatsApp, MongoDB, Instagram, IA ou serviços de deploy. Desde a fotografia-base, esta branch recebeu correcções locais para limite/cancelamento da cadeia de IA, timeout de ligação WhatsApp e confirmação de acções destrutivas da AURA; o estado detalhado está em `docs/AURA_STABILITY_REVIEW_PT.md`.
+Este documento descreve o **código que está neste checkout**, não certifica o comportamento de produção. Não foi criado `.env`, não foram instaladas dependências, nem foram ligados WhatsApp, MongoDB, Instagram, IA ou serviços de deploy. Desde a fotografia-base, esta branch recebeu correcções para limite/cancelamento da cadeia de IA, timeout de ligação WhatsApp, confirmação de acções destrutivas e três adições funcionais: transparência da persona AURA, aprendizagem de preferências globais do Dono com escopo seguro, tarefas persistentes com confirmação privada e vídeo de submenu em GIF mudo/loop. O estado detalhado está em `docs/AURA_STABILITY_REVIEW_PT.md`; os testes são mocks, sem validação de serviços reais.
 
 ## 1. Em poucas palavras
 
@@ -17,16 +17,16 @@ Apesar do nome GitHub `onlynewsao-cmyk/darknet-tunnel`, o projecto é uma aplica
 
 | Item | Estado observado |
 |---|---|
-| Origem identificada | `https://github.com/onlynewsao-cmyk/darknet-tunnel.git` (URL prevista; `git remote -v` local está vazio) |
-| Base da análise | `main` · `b43da6ab23f7c1820614bfc58ded181b21756cc8` |
-| Branch local de revisão | `fix/aura-stability-2026-10` · sem commit/push até ao momento |
+| Origem identificada | `https://github.com/onlynewsao-cmyk/darknet-tunnel.git` (`origin` configurado) |
+| Base da análise | `main` · `b43da6ab23f7c1820614bfc58ded181b21756cc8`; remoto `origin/main` em `1c1be5c` |
+| Branch local de revisão | `fix/aura-stability-2026-10` · destino de publicação `origin/fix/aura-stability-2026-10`; sem alterações directas a `main` |
 | Mensagem do commit-base | `fix(channels-status): prevent channel auto-replies, preserve admin group status, and fix Baileys imports` |
 | Data do commit-base | `2026-10-14T08:35:31Z` |
 | Ficheiros versionados na fotografia-base | 658 |
 | `src/` na fotografia-base | 358 ficheiros; 306 JavaScript; 37 templates EJS |
 | Módulos principais na fotografia-base | 53 ficheiros em `src/aura/`; 68 módulos em `src/bot/cases/`; 24 modelos MongoDB; 188 scripts em `scripts/` |
 | Verificações da fotografia-base | 306 JS sem erros de sintaxe; 37 EJS com tags equilibradas; `git diff --check` sem erros |
-| Verificações da branch | `node --check` nos ficheiros alterados e testes isolados de timeout/confirmação passam; ver o relatório AURA |
+| Verificações da branch | `node --check` em todos os JS alterados/novos; testes mockados: aprendizagem/agenda 16, política GIF 7, assistente 33, modos 28, cérebro 21, vontade/cérebro 39, confirmação, timeout de IA 3, timeout WhatsApp e assunto 5. `git diff --check` passou. `test-aura-avancada.js` e `test-aura-proativa.js` bloqueados por falta de `mongoose` |
 | Dependências/runtime | Node `v20.20.2` e npm `10.8.2` disponíveis; `node_modules/` não instalado |
 | Segredos | Não foi copiado `.env`; `.env.example` contém placeholders. Uma pesquisa estática por padrões comuns de tokens não encontrou um segredo óbvio; isso não substitui uma auditoria de segredos completa. |
 
@@ -55,7 +55,7 @@ WhatsApp (@systemzero/baileys)
 1. `src/index.js` carrega `src/config.js`, tenta ligar ao MongoDB e sincroniza/cria a conta do Dono se as variáveis necessárias existirem. Em produção, o arranque é terminado se a ligação Mongo falhar.
 2. É criado o servidor Express, as sessões do dashboard são persistidas pelo `connect-mongo`, registam-se as rotas e o Socket.IO. O bot pode reconectar automaticamente se existir o documento de credenciais `creds`.
 3. `src/bot/whatsapp.js` cria o socket Baileys, usa `src/bot/mongoAuthState.js` com Mongo disponível e ficheiros locais como fallback. Suporta QR/pair-code, backoff, watchdog, reconexão e failover de sessões.
-4. Há inicialização de agendadores e módulos de domínio. O arranque chama também `src/bot/rpg/reset788.js`; verificar cuidadosamente a condição de execução desse reset antes de alterar dados RPG ou a rotina de boot.
+4. Há inicialização de agendadores e módulos de domínio. O arranque chama também `src/bot/rpg/reset788.js`; verificar cuidadosamente a condição de execução desse reset antes de alterar dados RPG ou a rotina de boot. `src/aura/memory/scheduledActions.js` mantém tarefas pontuais em `BotConfig`, interpreta `Africa/Luanda` e pede confirmação privada antes de executar.
 
 ### Entrada e execução de mensagens
 
@@ -77,6 +77,9 @@ O código usa Dono, número do próprio bot/subdono, utilizadores premium/VIP, a
 - **Identidade e entrega:** `auraIdentidade.js`, `auraHuman.js`, `auraFala.js`, `auraVoz.js`, `auraMedia.js`, `auraDelivery.js`.
 - **IA externa:** `src/bot/ai.js` agrega providers e fallback — Groq, DeepSeek, Gemini, Hugging Face, Cerebras, ApiFreeLLM, OpenRouter e OpenAI, de acordo com configuração. Há cache e circuit breaker. A visão, transcrição, pesquisa web/Tavily e voz usam caminhos/providers adicionais.
 - **Limite importante:** uma resposta da AURA pode envolver excertos de conversa, nomes/números, imagens ou áudio enviados a um provider externo. Confirmar minimização de dados e consentimento antes de ampliar memória, proactividade ou análise multimodal.
+- **Identidade:** a persona é uma assistente automatizada com estilo goth ficcional. Os prompts não devem afirmar que é humana, consciente, parceira romântica ou uma pessoa/cosplayer real. `auraSelfie.getSelfie()` selecciona apenas imagens `aura_virtual_*`; novas gerações pedem ilustração não fotorealista e deixam claro que é personagem.
+- **Aprendizagem:** preferências explícitas do Dono são guardadas globalmente e incluídas no contexto em todos os chats; a instrução mais recente prevalece. Factos pessoais não são generalizados; correcções de terceiros são locais. Regras condicionais destrutivas e links de convite permanecem limitados ao grupo em que foram ensinados.
+- **Tarefas agendadas:** mensagens sem prefixo podem criar tarefas do Dono principal. Na hora definida, o bot envia pedido privado `CONFIRMAR TAREFA <id>`/`CANCELAR TAREFA <id>`. Só executa após confirmar e persistir a remoção da tarefa; pedidos sem capacidade reconhecida produzem lembrete, não alegação de execução.
 
 ## 4. Mapa dos componentes
 

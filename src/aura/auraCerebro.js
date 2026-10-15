@@ -97,6 +97,8 @@ function instrucaoAprendizagem({ isOwner = false } = {}) {
     'Se nesta conversa descobrires algo que vale a pena lembrar sobre a pessoa (nome real, gosto, cidade, relação, algo que te pediu para nunca fazer), anota no fim:  [APRENDI:<facto curto>]',
     'Se for sobre o grupo/chat (regra do grupo, quem manda, assunto habitual):  [APRENDI_GRUPO:<facto curto>]',
     'Máximo 2 anotações por resposta e só quando for mesmo novo. Os marcadores são invisíveis para a pessoa.',
+    'Factos pessoais continuam associados à pessoa; regras e preferências explícitas do Dono podem ser globais. Não generalizes dados pessoais para outros chats.',
+    'Só confirma que uma preferência foi guardada quando o contexto indicar que a gravação teve sucesso; isto é memória/regra, não treino do modelo nem sentimento real.',
     isOwner ? 'O Dark também te pode ensinar regras fixas ("quando eu disser X faz Y") — se ele repetir muito um pedido, sugere-lhe isso.' : '',
   ].filter(Boolean).join('\n');
 }

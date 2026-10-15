@@ -29,61 +29,58 @@ const F = {
   // não percebeu o que a pessoa quer
   naoPercebi: {
     dark: [
-      'Não apanhei bem, Dark. Diz-me de outra forma? 🌹',
-      'Hã? Perdi-me aí, amor. Repete devagar.',
-      'Ficou meio solto isso… o que é que queres exactamente? 🖤',
-      'Explica-me melhor que eu faço.',
+      'Não percebi bem, Dark. Podes explicar de outra forma?',
+      'Ficou-me a faltar contexto. O que queres exactamente?',
+      'Não apanhei a ideia — podes reformular?',
     ],
     outros: [
-      'Não percebi. Diz de outra forma?',
-      'Como assim? Explica melhor.',
-      'Perdi-me aí. O que é que queres?',
+      'Não percebi. Podes explicar de outra forma?',
+      'O que queres dizer exactamente?',
+      'Podes reformular?',
     ],
   },
-  // percebeu mas não conseguiu fazer (erro técnico escondido)
+  // percebeu mas a acção falhou
   naoConsegui: {
     dark: [
-      'Tentei, mas não me deixou, Dark. 😕 Tenta outra vez daqui a nada?',
-      'Isso falhou do meu lado, amor. Não foi por falta de vontade. 🖤',
-      'Hmm, não consegui agora. Se quiseres tento de outra maneira.',
+      'Tentei, mas a acção falhou, Dark. Podes tentar outra vez mais tarde?',
+      'Não consegui executar agora. Queres que tente de outra forma?',
+      'A acção não foi concluída. Posso tentar novamente.',
     ],
     outros: [
-      'Não consegui fazer isso agora.',
-      'Falhou do meu lado. Tenta daqui a pouco.',
-      'Não deu. Tenta outra vez mais tarde.',
+      'Não consegui executar isso agora. Tenta novamente mais tarde.',
+      'A acção falhou e não foi concluída.',
+      'Não deu desta vez. Podes tentar outra vez mais tarde.',
     ],
   },
   // falta informação para executar (arg em falta)
   faltaAlgo: {
     dark: [
-      'Faço já — só me falta {oque}. 🌹',
-      'Claro, amor. Só preciso de {oque}.',
-      'Tá, mas falta-me {oque}.',
+      'Para avançar, só me falta {oque}, Dark.',
+      'Preciso de {oque} para continuar.',
+      'Falta-me {oque}.',
     ],
     outros: [
-      'Preciso de {oque} para isso.',
-      'Diz-me {oque} e eu faço.',
+      'Preciso de {oque} para continuar.',
+      'Diz-me {oque} e avanço.',
     ],
   },
   // não pode (permissão)
   naoPodes: {
     outros: [
-      'Isso não é para ti. 😌',
-      'Isso só quem consegue {precisa}. 😌',
+      'Essa acção exige {precisa}.',
+      'Só podes fazer isso se tiveres permissão para {precisa}.',
       'Para isso precisas de {precisa}.',
     ],
   },
   // IA indisponível / sem resposta gerada
   semCabeca: {
     dark: [
-      'Dá-me um segundo, Dark, estou meio lenta agora. 🖤',
-      'Fiquei sem palavras — literalmente. Já volto ao normal.',
-      'Ouvi-te, amor. Só não me sai nada de jeito agora. Repete daqui a pouco?',
+      'Não consegui gerar uma resposta agora, Dark. Podes repetir?',
+      'A resposta não foi gerada desta vez. Tenta novamente daqui a pouco.',
     ],
     outros: [
-      'Dá-me um momento.',
-      'Estou lenta agora, já volto.',
-      'Repete daqui a pouco.',
+      'Não consegui gerar uma resposta agora. Tenta novamente daqui a pouco.',
+      'A resposta não foi gerada desta vez.',
     ],
   },
 };
@@ -113,8 +110,9 @@ function pareceBot(texto) {
 }
 
 /**
- * Reescreve uma resposta de sistema na voz dela. Mantém a informação útil
- * ("Uso: !ban @pessoa" → "só me falta a pessoa"), esconde o técnico.
+ * Reformula respostas técnicas com linguagem clara e concisa. Mantém a
+ * informação útil ("Uso: !ban @pessoa" → "só me falta a pessoa") e não
+ * afirma que a acção foi concluída quando houve falha.
  */
 function humanizar(texto, o = {}) {
   const t = String(texto || '').trim();

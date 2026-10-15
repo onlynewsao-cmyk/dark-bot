@@ -6,8 +6,9 @@
 'use strict';
 
 const sd = require('../submenuData');
+const menuMediaPolicy = require('../menuMediaPolicy');
 
-// v12.0 PINKCHYU — categoria dynSub → chave do !setmenu (menu_media_<key>_*).
+// v12.0 AURA — categoria dynSub → chave do !setmenu (menu_media_<key>_*).
 // Todas as chaves do setmenu têm de aparecer em ALGUM submenu —
 // chaves órfãs = "defini e nada". Inclui menu18 para +18.
 // Suporta foto/vídeo/GIF que reproduz como GIF (gifPlayback:true)
@@ -89,20 +90,24 @@ async function dynSub(sock, msg, ctx, config, category) {
   
   // v7.66: mídia do !setmenu (era ignorada — "defini e nada").
   const target = CATEGORY_TARGET[category] || '';
-  let _mmBuf = null, _mmType = 'none';
+  let _mmBuf = null, _mmGifBuf = null, _mmType = 'none', _mmUrl = '';
   if (target) {
     try {
       const bcc = require('../botConfigCache');
-      const _mmUrl = await bcc.get(`menu_media_${target}_url`, '').catch(() => '');
+      _mmUrl = await bcc.get(`menu_media_${target}_url`, '').catch(() => '');
       _mmType = await bcc.get(`menu_media_${target}_type`, 'none').catch(() => 'none');
       if (_mmUrl && _mmType && _mmType !== 'none') {
         _mmBuf = await nativeCommands.getMenuMediaBuf(target, _mmUrl).catch(() => null);
         if (!_mmBuf?.length) { _mmBuf = null; _mmType = 'none'; }
+        else if (menuMediaPolicy.shouldUseGifPlayback(target, _mmType)) {
+          _mmGifBuf = await nativeCommands.getMenuGifBuf(target, _mmUrl, _mmBuf).catch(() => null);
+        }
       }
-    } catch { _mmBuf = null; _mmType = 'none'; }
+    } catch { _mmBuf = null; _mmGifBuf = null; _mmType = 'none'; }
   }
 
   let sent = false;
+  let submenuGifSent = false;
   if (rows.length) {
     try {
       const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
@@ -111,16 +116,21 @@ async function dynSub(sock, msg, ctx, config, category) {
         sections: [{ title: `${t.icon || '🕸️'} AÇÕES DIRECTAS`, rows }],
       };
       let dynHeader = { title: '', hasMediaAttachment: false };
-      if (_mmBuf?.length) {
+      if (_mmGifBuf?.length) {
+        // GIF separado da lista: reprodução automática/loop é mais fiável
+        // do que anexar videoMessage ao header de uma lista nativa.
+        try {
+          await sock.sendMessage(ctx.remoteJid, {
+            video: _mmGifBuf, mimetype: 'video/mp4', gifPlayback: true,
+            caption: `🎞️ ${meta.title} · ${botName}`,
+          }, { quoted: msg });
+          submenuGifSent = true;
+        } catch {}
+      } else if (_mmBuf?.length && _mmType === 'image') {
         try {
           const { prepareWAMessageMedia } = require('@systemzero/baileys');
-          if (_mmType === 'image') {
-            const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
-            if (_mm?.imageMessage) dynHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
-          } else {
-            const _mm = await prepareWAMessageMedia({ video: _mmBuf, gifPlayback: _mmType === 'gif' }, { upload: sock.waUploadToServer });
-            if (_mm?.videoMessage) dynHeader = { title: '', hasMediaAttachment: true, videoMessage: _mm.videoMessage };
-          }
+          const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
+          if (_mm?.imageMessage) dynHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
         } catch {}
       }
       const m = generateWAMessageFromContent(ctx.remoteJid, {
@@ -147,19 +157,22 @@ async function dynSub(sock, msg, ctx, config, category) {
   if (!sent) {
     const footer = `\n\n> ${t.icon || '🕸️'} ${roleInfo.cargo} · VIP: ${roleInfo.vip}`;
     const fullText = textBody + footer;
-    // v7.66: com mídia — legenda só se o texto couber (limite WA ~1024);
-    // texto longo: mídia primeiro + texto completo a seguir (nada é cortado).
-    if (_mmBuf?.length && _mmType && _mmType !== 'none') {
-      const mediaMsg = _mmType === 'image'
-        ? { image: _mmBuf }
-        : { video: _mmBuf, mimetype: 'video/mp4', ...(_mmType === 'gif' ? { gifPlayback: true } : {}) };
+    // GIF em mensagem própria: header de lista nativa pode ignorar gifPlayback.
+    if (submenuGifSent) {
+      await sock.sendMessage(ctx.remoteJid, { text: fullText }, { quoted: msg });
+    } else if (_mmGifBuf?.length) {
+      const mediaMsg = { video: _mmGifBuf, mimetype: 'video/mp4', gifPlayback: true };
       if (fullText.length <= 950) {
         await sock.sendMessage(ctx.remoteJid, { ...mediaMsg, caption: fullText }, { quoted: msg });
       } else {
-        await sock.sendMessage(ctx.remoteJid, { ...mediaMsg, caption: `${meta.title} · ${botName}` }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { ...mediaMsg, caption: `🎞️ ${meta.title} · ${botName}` }, { quoted: msg });
         await sock.sendMessage(ctx.remoteJid, { text: fullText }, { quoted: msg });
       }
+    } else if (_mmBuf?.length && _mmType === 'image') {
+      await sock.sendMessage(ctx.remoteJid, { image: _mmBuf, caption: fullText }, { quoted: msg });
     } else {
+      // Nunca enviar o vídeo de submenu original se a conversão falhar:
+      // pode conter áudio e não reproduzir em loop. A lista continua em texto.
       await sock.sendMessage(ctx.remoteJid, { text: fullText }, { quoted: msg });
     }
   }

@@ -17,8 +17,8 @@
  *     erro duas vezes.
  *
  *  3. ANTI-REPETIÇÃO (registarFala/ultimasFalas) — guarda as últimas
- *     falas dela no chat; o prompt proíbe repeti-las. Acaba o
- *     copy-paste que denuncia bot.
+ *     respostas do chat para reduzir fórmulas repetidas e melhorar
+ *     a qualidade da conversa; não serve para ocultar automação.
  *
  *  4. FACTOS COM TEMPO (factoTemporal) — "meu aniversário é em
  *     março", "amanhã tenho prova" — marca o facto com o QUANDO,
@@ -82,21 +82,34 @@ function contextoParaPrompt(jid) {
 }
 
 // ── 2. APRENDE COM CORRECÇÕES ─────────────────────────────────
-const CORRECCAO_RE = /\b(n[ãa]o fa[cç]as?|n[ãa]o mandes?|n[ãa]o uses?|n[ãa]o digas?|para (de|com)|pára (de|com)|nunca mais|deixa de|proibido|faz assim|faz sempre|sempre que|a partir de agora)\b/i;
+const CORRECCAO_RE = /\b(?:n[ãa]o\s+(?:fa[cç]as?|mandes?|uses?|digas?|respondas?|fales?|perguntes?|envies?|chames?|finjas?|inventes?|repitas?|voltes?\s+a)|(?:para|p[aá]ra)\s+(?:de|com)|nunca\s+mais|deixa\s+de|proibido|faz\s+assim|faz\s+sempre|(?:usa|responde|fala|trata|escreve)\s+sempre|sempre\s+que|quando\s+eu\s+(?:disser|pedir|falar)|se\s+eu\s+(?:disser|pedir)|a\s+partir\s+de\s+agora|daqui\s+(?:em\s+diante|para\s+a\s+frente)|da\s+pr[oó]xima\s+vez|prefiro|preferia\s+que|gostaria?\s+que|quero\s+que.{0,50}\b(?:sempre|nunca|quando)\b|por\s+(?:defeito|padr[aã]o)|sem\s+(?:emojis?|caps|mai[uú]sculas))\b/i;
 
-async function aprenderRegra(jid, texto) {
+async function aprenderRegra(jid, texto, { isOwner = false } = {}) {
   const t = String(texto || '').trim();
   if (!t || t.length > 140 || !CORRECCAO_RE.test(t)) return null;
   try {
     const bcc = require('../bot/botConfigCache');
-    const key = 'aura_regras_' + String(jid || '').replace(/\W/g, '');
+    // O Dono ensina preferências globais; as correcções de outras pessoas
+    // continuam limitadas ao chat onde foram feitas.
+    const key = isOwner
+      ? 'aura_regras_global'
+      : 'aura_regras_' + String(jid || '').replace(/\W/g, '');
     const cur = (await bcc.get(key, [])) || [];
     const arr = Array.isArray(cur) ? cur : [];
-    if (arr.includes(t)) return t;
+    const existente = arr.findIndex(x => String(x).toLowerCase() === t.toLowerCase());
+    if (existente >= 0) return t;
     arr.push(t);
-    await bcc.set(key, arr.slice(-8));
-    return t;
+    const saved = await bcc.set(key, arr.slice(-20));
+    return saved == null ? null : t;
   } catch { return null; }
+}
+
+async function regrasGlobais() {
+  try {
+    const bcc = require('../bot/botConfigCache');
+    const cur = (await bcc.get('aura_regras_global', [])) || [];
+    return Array.isArray(cur) ? cur : [];
+  } catch { return []; }
 }
 
 async function regrasDe(jid) {
@@ -161,6 +174,7 @@ module.exports = {
   contextoSocial,
   contextoParaPrompt,
   aprenderRegra,
+  regrasGlobais,
   regrasDe,
   registarFala,
   ultimasFalas,

@@ -549,6 +549,11 @@ async function bootstrap() {
       require('./aura/auraAgenda').arrancar(() => bot.getSock?.() || bot.sock || null);
     } catch (e) { console.warn('[Agenda]', e.message); }
 
+    // Tarefas pontuais da AURA: lembretes persistentes e execução após confirmação.
+    try {
+      require('./aura/memory/scheduledActions').arrancar(() => bot.getSock?.() || bot.sock || null);
+    } catch (e) { console.warn('[Aura tarefas]', e.message); }
+
     // v7.69 — watcher de aluguel: avisa 3d/1d antes de expirar e desliga expirados.
     try {
       require('./bot/cases/rental2').arrancarRental(() => bot.getSock?.() || bot.sock || null);

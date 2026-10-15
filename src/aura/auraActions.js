@@ -599,10 +599,10 @@ async function executar(acao, valor, { sock, ctx }) {
           sock.sendMessage(jid, { text: 'A ligar… atende aí! 📞' }).catch(() => {});
           const rv = await voip.ligar(sock, alvoV);
           if (rv.ok) {
-            setTimeout(() => voip.falar(sock, alvoV, 'Oi. Estou aqui. Diz-me que música queres ouvir, ou fala comigo por áudio.').catch(() => {}), 1200);
-            return { ok: true, msg: 'Estou na chamada. 🎧 Pede-me uma música ("toca X") quando quiseres.' };
+            setTimeout(() => voip.falar(sock, alvoV, 'Sou a AURA, assistente automatizada do DARK BOT. Podes pedir música ou falar por áudio.').catch(() => {}), 1200);
+            return { ok: true, msg: 'O sistema iniciou a chamada de voz. A ligação só se confirma quando for atendida; depois podes pedir música ou enviar áudio.' };
           }
-          if (/atendeu|recusou/.test(rv.motivo || '')) return { ok: true, msg: 'Liguei e não atendeste… 😕 Quando quiseres, diz "liga-me" outra vez.' };
+          if (/atendeu|recusou/.test(rv.motivo || '')) return { ok: false, msg: 'A chamada não foi atendida. Podes pedir outra tentativa.' };
         }
       } catch (e) { console.warn('[Aura ligar voip]', e.message?.slice(0, 60)); }
       const bridge = require('../bot/callBridge');
@@ -614,12 +614,13 @@ async function executar(acao, valor, { sock, ctx }) {
         : jid;
       const r = await bridge.tentarLigar(sock, alvo, { tipo: valor || 'voice', pushName: ctx.pushName || '' });
       const tipo = (valor === 'video') ? 'vídeo' : 'voz';
-      return {
-        ok: true,
-        msg: r.ok
-          ? `Já te liguei em ${tipo}. Atende — se a chamada nativa não abrir, manda áudio que eu estou na linha.`
-          : `Tentei ligar em ${tipo}. Manda um áudio que eu atendo já.`,
-      };
+      if (!r?.ok) return { ok: false, msg: `Não consegui iniciar a chamada de ${tipo}. Tenta novamente mais tarde.` };
+      if (r.tocou) return { ok: true, msg: `O WhatsApp iniciou uma chamada de ${tipo}. A ligação só fica estabelecida se atenderes.` };
+      if (/^https:\/\/call\.whatsapp\.com\//i.test(String(r.url || ''))) {
+        return { ok: true, msg: `Criei um link para iniciar uma chamada de ${tipo} e enviei-o no PV.` };
+      }
+      if (r.url) return { ok: true, msg: 'A chamada automática não foi iniciada; enviei um link para abrir o teu contacto no WhatsApp.' };
+      return { ok: true, msg: `Enviei um pedido de chamada de ${tipo} pelo WhatsApp. A ligação ainda depende de ser aceite.` };
     }
 
     case 'ligarGrupo': {
@@ -631,12 +632,18 @@ async function executar(acao, valor, { sock, ctx }) {
         const voip = require('../bot/callVoip');
         if (voip.suportado(sock)) {
           const rv = await voip.ligar(sock, jid);
-          if (rv.ok) return { ok: true, msg: 'Abri a chamada de voz no grupo (até 6 pessoas). Entrem! 📞 Pede-me músicas com "toca X".' };
+          if (rv.ok) return { ok: true, msg: 'O sistema iniciou uma chamada de voz no grupo. Os participantes precisam de atender; a AURA não participa na chamada de grupo.' };
         }
       } catch {}
       const bridge = require('../bot/callBridge');
-      await bridge.ligarGrupo(sock, jid);
-      return { ok: true, msg: 'Abri a chamada no grupo. Entram pelo link / botão de chamada.' };
+      const resultadoGrupo = await bridge.ligarGrupo(sock, jid);
+      if (!resultadoGrupo?.ok) return { ok: false, msg: 'Não consegui iniciar a chamada de grupo.' };
+      return {
+        ok: true,
+        msg: resultadoGrupo.url
+          ? 'Enviei um link para iniciar a chamada de grupo. A AURA não participa na chamada de voz.'
+          : 'Enviei instruções para iniciar a chamada pelo WhatsApp. A AURA não participa na chamada de voz.',
+      };
     }
 
     // ════ v7.9 ETAPA 3 — INFORMAÇÃO DA COMUNIDADE ════

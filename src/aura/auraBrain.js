@@ -145,7 +145,7 @@ const CAPACIDADES = [
   },
   {
     id: 'o_que_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',
-    desc: 'Mostrar as últimas mensagens de uma pessoa no grupo + ver conversa com alguém como pessoa real',
+    desc: 'Consultar mensagens recentes disponíveis de uma pessoa no grupo ou no histórico',
     gatilhos: [
       /\b(o que|mostra o que|que)\b.{0,10}\b(?:e que\s+)?(?:o|a|ao)\s+@?[a-z0-9_\-]{2,30}\s+(?:escreveu|disse|mandou|falou|enviou)\b/,
       /\b(o que|mostra o que)\b.{0,10}\b(?:escreveu|disse|mandou|falou)\s+(?:o|a)\s+@?[a-z0-9_\-]{2,30}\b/,
@@ -159,7 +159,7 @@ const CAPACIDADES = [
   },
   {
     id: 'ver_conversa', nivel: 'todos', arg: 'depois', risco: 'seguro',
-    desc: 'Ver conversa/histórico com alguém como pessoa real no WhatsApp — vê mensagens antigas',
+    desc: 'Consultar o histórico disponível de mensagens com uma pessoa',
     gatilhos: [
       /\b(ver|mostra|mostrar|puxa|recupera|ve)\b.{0,16}\b(conversa|chat|historico|histórico|mensagens)\b/,
       /\b(o que|oq)\b.{0,10}\b(conversei|conversamos)\b/,
@@ -512,19 +512,18 @@ const CAPACIDADES = [
   },
   {
     id: 'foto_aura', nivel: 'todos', arg: 'tipo', risco: 'seguro',
-    desc: 'Mostrar foto dela mesma — Pinkchyu selfie (goth, cosplay, cute, stream) com empoderamento e intimidade',
+    desc: 'Enviar uma ilustração da persona virtual AURA (goth, cosplay, cute ou cenário gaming), nunca uma selfie real',
     gatilhos: [
       /\b(foto tua|foto sua|manda foto|mostra foto|selfie tua|foto da aura|manda selfie|quero.*foto.*tua|quero.*te.*ver|mostra.*voce)\b/,
-      /\b(pinkchyu|aura).*\b(foto|selfie)\b/,
-      /\bpinkchyu\b/,
-      /\b(fotinha|foto|selfie)\b.{0,12}\b(tua|sua|dela|aura|pinkchyu)\b/,
+      /\baura.*\b(foto|selfie)\b/,
+      /\b(fotinha|foto|selfie)\b.{0,12}\b(tua|sua|dela|aura)\b/,
       /\b(manda|mostra|quero)\b.{0,12}\b(foto|selfie)\b/,
       /\b(goth|cosplay|cute|stream)\b.{0,12}\b(foto|selfie|tua|sua)\b/,
     ],
   },
   {
     id: 'foto_perfil', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
-    desc: 'Mudar a foto de perfil do bot para a imagem enviada ou colocar selfie dela como perfil',
+    desc: 'Mudar a foto de perfil do bot para uma imagem enviada ou uma ilustração virtual da AURA',
     gatilhos: [/\b(muda|troca|poe|coloca|altera|atualiza)\b.{0,20}\b(tua foto|foto de perfil|teu perfil|minha foto|perfil do bot)\b/, /\b(coloca|poe).{0,12}\b(tua|essa|minha)\b.{0,12}\b(perfil|foto)\b/],
   },
   {
@@ -563,7 +562,7 @@ const CAPACIDADES = [
   },
   {
     id: 'limpar_chat', nivel: 'dono', arg: 'nenhum', risco: 'destrutivo',
-    desc: 'Limpar a conversa com decisão e certeza — apaga como pessoa real',
+    desc: 'Limpar a conversa após a confirmação explícita do Dono',
     gatilhos: [
       /\b(limpa|apaga)\b.{0,14}\b(o chat|a conversa|tudo aqui|conversa)\b/,
       /\b(apagar|limpar)\b.{0,12}\b(conversa|chat)\b/,

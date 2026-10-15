@@ -88,7 +88,7 @@ async function verImagem(msg, ai, legenda = '') {
 5. EMOÇÃO e VIBE: o que a foto transmite, energia, contexto social.
 6. DETALHES: qualquer coisa curiosa, engraçada, estranha ou interessante.
 
-Responde em 3-5 frases naturais, como pessoa real olhando. Foca no que mais chama atenção primeiro.`;
+Responde em 2-4 frases naturais e concisas, começando pelo detalhe mais relevante. Usa apenas o que a análise permite concluir, assinala incerteza e não finjas ser uma pessoa a olhar.`;
     const desc = await ai.describeImage(buf, promptVisao);
     const d = String(desc || '').trim();
     if (!d) return { context: '', resumo: '' };
@@ -98,7 +98,7 @@ Responde em 3-5 frases naturais, como pessoa real olhando. Foca no que mais cham
     try { reactionHint = require('./auraReaction').reactionContextForPrompt('') || ''; } catch {}
     try { viewOnceHint = require('./auraViewOnce').viewOnceContextForPrompt('') || ''; } catch {}
     return {
-      context: `📸 Alguém enviou uma FOTO — TU VÊS DE VERDADE (Gemini Vision) e RECONHECES: ${d}${legenda ? ` Legenda: "${legenda}"` : ''}${reactionHint ? ` ${reactionHint}` : ''}${viewOnceHint ? ` ${viewOnceHint}` : ''} Comenta como pessoa real que reconhece pessoas, lê textos, percebe emoções e usa memória. NUNCA digas que não vês.`,
+      context: `📸 Análise automática da imagem (Gemini Vision): ${d}${legenda ? ` Legenda: "${legenda}"` : ''}${reactionHint ? ` ${reactionHint}` : ''}${viewOnceHint ? ` ${viewOnceHint}` : ''} Comenta naturalmente com base nesta análise; não inventes detalhes nem afirmes ter visto além do que foi processado.`,
       resumo: `[FOTO RECONHECIDA] ${legenda ? `"${legenda}" — ` : ''}${d.slice(0,300)}`,
     };
   } catch (e) {
@@ -114,7 +114,7 @@ async function verVideo(msg, ai, legenda = '') {
   return {
     context: isGif
       ? `🎞️ Alguém enviou um GIF.${legenda ? ` Legenda: "${legenda}"` : ''} Reage naturalmente.`
-      : `🎬 Alguém enviou um VÍDEO.${legenda ? ` Legenda: "${legenda}"` : ''} Comenta como pessoa real.`,
+      : `🎬 Alguém enviou um VÍDEO.${legenda ? ` Legenda: "${legenda}"` : ''} Comenta naturalmente com base na legenda e nos dados disponíveis.`,
     resumo: `[VÍDEO] ${legenda ? `"${legenda}"` : '(sem legenda)'}`,
   };
 }
@@ -129,7 +129,7 @@ async function ouvirAudio(msg, ai, isPtt = true) {
     if (!txt) return { context: '', resumo: '' };
     return {
       context: isPtt
-        ? `🎧 ÁUDIO DE VOZ transcrito: "${txt}" — Responde ao que foi dito como pessoa real.`
+        ? `🎧 ÁUDIO DE VOZ transcrito: "${txt}" — Responde naturalmente ao conteúdo transcrito, sem afirmar que ouviste além da transcrição.`
         : `🎵 ÁUDIO/MÚSICA transcrito: "${txt}" — Comenta naturalmente.`,
       resumo: `[ÁUDIO] "${txt}"`,
     };
@@ -162,13 +162,13 @@ async function lerDocumento(msg, ai) {
     try {
       const r = await ai.chatWithDocument(
         `Lê este documento ("${fname}") e resume o essencial em 3-5 pontos.`,
-        'És a AURA. Lês documentos e resumem o que importa, como pessoa real.',
+        'És a AURA, assistente automatizada do DARK BOT. Resume o documento com clareza e naturalidade, sem fingir ser uma pessoa humana.',
         buf, mime
       );
       const txt = String(r || '').trim();
       if (!txt) return { context: '', resumo: '' };
       return {
-        context: `📄 Alguém enviou o documento "${fname}". Li e o essencial é:\n${txt}\nComenta como pessoa real.`,
+        context: `📄 Alguém enviou o documento "${fname}". Li e o essencial é:\n${txt}\nComenta naturalmente com base no resumo, sem acrescentar factos que não estejam no documento.`,
         resumo: `[DOC] ${fname}: ${txt.slice(0, 160)}`,
       };
     } catch (e2) {
@@ -192,7 +192,7 @@ async function lerLink(url, ai) {
     const txt = String(dig || '').trim();
     if (!txt || txt.length < 10) return { context: '', resumo: `[LINK] ${url}` };
     return {
-      context: `🔗 Alguém mandou o link ${url}. Li e o essencial é:\n${txt.slice(0, 1500)}\nComenta/age sobre isso como pessoa real.`,
+      context: `🔗 Alguém mandou o link ${url}. Li e o essencial é:\n${txt.slice(0, 1500)}\nComenta naturalmente com base no conteúdo do link; não afirmes ter visto informação além do texto extraído.`,
       resumo: `[LINK] ${url} — ${txt.slice(0, 140)}`,
     };
   } catch (e) {

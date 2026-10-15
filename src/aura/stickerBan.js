@@ -8,13 +8,13 @@
  *   1. APRENDIZAGEM — o Dono diz, com um sticker anexado/citado
  *      (ou logo a seguir a ele):
  *        "Se eu responder alguém com este sticker de ban vc remove ele tá"
- *      Ela confirma como pessoa:
- *        "Tá. Responderes com o sticker de ban, eu removo a pessoa. 🖤"
+ *      O bot confirma a regra aprendida, sem sugerir que é uma pessoa:
+ *        "Entendido. Se responderes com o sticker registado, executo a remoção. 🖤"
  *      e guarda a regra + o hash do sticker.
  *
  *      Se a frase vier SEM sticker → a regra fica PENDENTE e o próximo
  *      sticker que o Dono mandar nesse chat fica registado:
- *        "Tá. Agora manda-me o sticker de ban para eu o reconhecer. 🖤"
+ *        "Entendido. Envia o sticker de ban para o sistema o registar. 🖤"
  *
  *   2. EXECUÇÃO — o Dono RESPONDE a alguém com o sticker de ban →
  *      o bot remove a pessoa citada e confirma:
@@ -127,7 +127,7 @@ async function aprender({ sock, msg, ctx, texto }) {
     _regra = { activa: true, pendente: false, hash, chat: '', dono: ctx.senderNumber, criadaEm: Date.now() };
     await _guardar();
     await sock.sendMessage(ctx.remoteJid, {
-      text: 'Tá. Responderes com o sticker de ban, eu removo a pessoa. 🖤',
+      text: 'Entendido. Se responderes com o sticker registado, o bot executará a remoção conforme as permissões do grupo. 🖤',
     }, { quoted: msg }).catch(() => {});
     return true;
   }

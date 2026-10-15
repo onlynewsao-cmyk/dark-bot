@@ -134,12 +134,51 @@ Para distinguir falha de IA lenta, queda de WebSocket, conflito de sessão 440, 
 
 ## Estado das alterações e push
 
-As correcções estão na branch de revisão `fix/aura-stability-2026-10`, baseada em `b43da6ab23f7c1820614bfc58ded181b21756cc8`:
+O trabalho está isolado na branch de revisão `fix/aura-stability-2026-10`, baseada em `b43da6ab23f7c1820614bfc58ded181b21756cc8`; o destino remoto é `origin/fix/aura-stability-2026-10`, nunca `main`:
 
 - IA: orçamento total, cancelamento dos requests e limpeza dos timers.
 - WhatsApp: timeout de ligação, limpeza de timers em conclusão e retry com backoff.
-- AURA: confirmação exacta e temporária para `canal_apagar`, `sair_grupo` e `limpar_chat`, com bloqueio adicional no executor.
-- O teste completo, serviços reais e deploy ainda não foram feitos. As oito alterações locais de modo nos scripts de teste ficam fora do commit.
-- Neste ponto não há commit ou push. `git remote -v` não devolve remoto nesta cópia; a credencial fornecida não foi impressa nem copiada para os ficheiros do projecto.
+- AURA: confirmação exacta e temporária para `canal_apagar`, `sair_grupo` e `limpar_chat`, com bloqueio adicional no executor, além das funcionalidades descritas nesta adenda.
+- `origin/main` está em `1c1be5c`, um commit posterior ao base analisado; esta branch não foi rebaseada nem mesclada sobre essa alteração independente.
+- O teste completo, serviços reais e deploy ainda não foram feitos. As oito alterações locais de modo nos scripts de teste ficam fora da selecção.
+- A credencial fornecida não foi impressa, copiada para o projecto ou incluída em Git. O estado efectivo da publicação deve ser lido no histórico da branch de revisão.
 
 Continuam por tratar, entre outros, A2 (backpressure da fila), A4 (limites/limpeza de mapas), A5 (modo durante falha Mongo), S2 (failover após fechos), S3 (retry do cold start), S4 (política de crash) e S5 (readiness). Atribuir a causa de incidentes reais ainda exige logs de produção.
+
+## Adenda de 15/10/2026 — aprendizagem, agenda, transparência e mídia
+
+Esta adenda regista os requisitos funcionais escolhidos depois da revisão de estabilidade; não substitui a fotografia-base nem altera o que foi/ não foi comprovado em produção.
+
+### AURA e transparência
+
+- A persona identifica-se como assistente automatizada do DARK BOT, com estilo goth ficcional. Prompts e respostas evitam alegações de consciência, sentidos, vida física ou relação romântica; a orientação de “sentir/ver/entender” é tratada como estilo ou interpretação do contexto disponível.
+- `auraSelfie.getSelfie()` e os comandos `.fotinha`/`foto_aura` só seleccionam ficheiros com prefixo `aura_virtual_`; imagens legadas não são reutilizadas. Novas gerações pedem ilustrações não fotorealistas e incluem legenda de personagem virtual. O alias legado `pinkchyu` recusa atribuir a identidade real à AURA.
+- As mensagens de chamada, activação do modo AURA, cantar/sussurrar e resultados de acções foram ajustados para distinguir uma solicitação iniciada de uma ligação/execução confirmada. O fallback de pesquisa de conteúdo adulto deixou de escolher automaticamente o nome de uma pessoa como alvo.
+- Teste de assistente: 33 verificações passaram, incluindo preservação da identidade automatizada e fallback neutro. Isto valida lógica local mockada; não mede todas as respostas de providers externos.
+
+### Preferências e regras ensinadas
+
+- Preferências explícitas do Dono, incluindo correcções (“não uses…”) e preferências positivas (“prefiro…”), são guardadas e adicionadas ao contexto em todos os chats; as instruções mais recentes prevalecem quando houver conflito.
+- Factos pessoais continuam associados à pessoa. Correcções de outras pessoas ficam locais. Regras condicionais seguras podem ser globais; remoção, apagamento e partilha de links de convite são limitados ao grupo onde foram ensinados.
+- O prompt só incentiva a confirmar que uma preferência foi guardada quando existe marcador de gravação; memória/regra não é apresentada como treino do modelo.
+
+### Tarefas pontuais persistentes
+
+- `src/aura/memory/scheduledActions.js` interpreta intervalos e horas locais de Luanda, guarda a tarefa no `BotConfig` e limita duração/quantidade pendente. Só o Dono principal pode criar ou confirmar.
+- Na hora marcada, a AURA envia uma solicitação privada e aguarda `CONFIRMAR TAREFA <id>`; `CANCELAR TAREFA <id>` cancela. Sem capacidade real reconhecida, envia apenas um lembrete e não afirma que executou.
+- Antes da execução confirmada, a tarefa é removida duravelmente; no caminho Mongo, o `$pull` condicionado por ID, Dono, estado e expiração é atómico. Se a persistência falhar, não executa. A execução revalida capacidade/permissão, inclusive cargo de admin no grupo.
+- O scheduler é iniciado por `src/index.js`; mensagens sem prefixo passam pelo handler. Teste mockado: 16 verificações passaram, incluindo confirmação privada, execução única simulada, rejeição de outro utilizador, cancelamento e bloqueio por falha de persistência.
+- Não houve MongoDB/WhatsApp real nem teste de crash multi-processo. O teste da operação Mongo usa um mock; a atomicidade depende do comportamento do MongoDB real e do schema `BotConfig.value`.
+
+### GIFs dos submenus
+
+- `menuMediaPolicy` mantém vídeo normal no menu principal. Vídeos configurados para qualquer submenu são armazenados/servidos como MP4 mudo com `gifPlayback:true`; vídeos legados também são convertidos no envio e a conversão é cacheada.
+- Se a conversão falhar, o vídeo original não é enviado como vídeo normal (que poderia conter áudio ou não fazer loop); a lista/texto do submenu continua disponível.
+- Teste da política: 7 verificações passaram. O checkout não tem `ffmpeg-static` instalado; não foi feita conversão real, nem teste de entrega em cliente WhatsApp.
+
+### Validação adicional e limitações
+
+- `node --check` passou em todos os ficheiros JavaScript alterados e novos.
+- Passaram também os testes mockados de AURA: memória/regras/tarefas (16), política GIF (7), assistente (33), modos (28), cérebro (21), vontade/cérebro (39), confirmação, timeout de IA (3), timeout WhatsApp e assunto (5).
+- `test-aura-avancada.js` e `test-aura-proativa.js` não arrancaram por falta de `mongoose`; não foram instaladas dependências. `git diff --check` passou; não houve validação de MongoDB, WhatsApp, FFmpeg ou deploy reais.
+- Os oito scripts de teste com alteração local apenas de modo ficam fora da selecção. Não usar `main` como destino do push.

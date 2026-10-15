@@ -882,33 +882,35 @@ const THEMES = {
   },
 
   pinkchyu: {
-    name:       'pinkchyu',
+    // Chave mantida por compatibilidade com configurações antigas; o tema
+    // apresentado é o estilo virtual da AURA, não a identidade de terceiros.
+    name:       'aura-goth',
+    aliases:    ['pinkchyu'],
     fonte:      'scriptnegrito',
-    label:      '💜 PINKCHYU — Lin Lamar Goth Baddie',
+    label:      '💜 AURA GOTH — Persona Virtual',
     emoji:      '💜',
     style:      4,
-    // estética: soft goth, black/pink, ankh, cute aggressive, rawr
     frame:      ['꒰','꒱','꒰','꒱','─','│'],
     bullet:     '𓂀',
     sep:        '🖤',
     accent:     '☥',
     icon:       '💜',
-    vibe:       '☥ Lin Lamar 🖤 ur fav goth girl rawr 💜 @pinkchyuwu',
-    headerDec:  '💜꒰ ☥ {TITLE} ☥ ꒱🖤 rawr',
+    vibe:       '☥ AURA virtual 🖤 estética goth, luzes roxas e humor leve',
+    headerDec:  '💜꒰ ☥ {TITLE} ☥ ꒱🖤',
     react:      '💜',
-    tip:        '💜 rawr x3 — goth baddie supreme tá on ☥ Lin Lamar te observa 🖤 hehe~',
-    menuTitle:  '💜 PINKCHYU — Goth Baddie Supreme',
-    menuFooter: '> ☥ Lin Lamar 🖤 ur favorite goth girl rawr 💜 5\'2 Austin TX | @pinkchyuwu @gothchyu',
-    thumbText:  '☥ {BOT} 💜 rawr',
+    tip:        '💜 Tom goth, resposta clara e sem exagerar nos bordões.',
+    menuTitle:  '💜 AURA — Persona Goth Virtual',
+    menuFooter: '> ☥ AURA é uma assistente automatizada com estilo goth ficcional.',
+    thumbText:  '☥ {BOT} 💜',
     sectionSep: '꒰💜─────────☥─────────💜꒱',
     topBorder:  '💜╭─꒰ ☥ {TITLE} ☥ ꒱─╮💜',
     bottomBorder: '💜╰──────────☥──────────╯💜',
     linePrefix: '│ 𓂀 ',
-    headerTop: '💜 rawr ✨ ☥ Lin Lamar is watching 🖤',
+    headerTop: '💜 AURA — assistente virtual do DARK BOT',
     infoLine: '│ ☥ ',
-    sectionTop: '꒰💜 {ICON} {TITLE} ☥ rawr ꒱',
+    sectionTop: '꒰💜 {ICON} {TITLE} ☥ ꒱',
     separator: '💜───☥───🖤───☥───💜',
-    footerLine: '> 💜 rawr hehe~ goth mommy supreme 🖤 ☥',
+    footerLine: '> 💜 Persona goth ficcional da AURA 🖤 ☥',
     font: 'scriptnegrito',
     personality: 'cute',
   },
@@ -936,6 +938,9 @@ const THEMES = {
 
 
 };
+
+// Mantém chaves antigas e a nova chave visível para configurações/handlers.
+THEMES['aura-goth'] = THEMES.pinkchyu;
 
 // ── Exportações ────────────────────────────────────────────────────────────────
 
@@ -968,7 +973,7 @@ function _inferFont(name) {
 }
 
 function listThemes() {
-  return Object.values(THEMES);
+  return [...new Set(Object.values(THEMES))];
 }
 
 /**
@@ -1033,14 +1038,15 @@ function previewTheme(theme, botName = 'DARK BOT', prefix = '!') {
  * Lista todos os temas em texto
  */
 function listThemesText(prefix = '!', currentTheme = 'dark') {
-  const all = Object.values(THEMES);
+  const all = listThemes();
+  const currentName = String(currentTheme || 'dark').toLowerCase() === 'pinkchyu' ? 'aura-goth' : String(currentTheme || 'dark');
   let txt  = `╔══════════════════════════════╗\n`;
   txt     += `║  🎭 *TEMAS DO BOT*            ║\n`;
   txt     += `╚══════════════════════════════╝\n\n`;
-  txt     += `Tema actual: *${currentTheme.toUpperCase()}*\n\n`;
+  txt     += `Tema actual: *${currentName.toUpperCase()}*\n\n`;
 
   for (const t of all) {
-    const active = t.name === currentTheme ? ' ◄ *ACTIVO*' : '';
+    const active = t.name === currentName ? ' ◄ *ACTIVO*' : '';
     txt += `${t.emoji} *${t.name.toUpperCase()}*${active}\n`;
     txt += `  _${t.vibe.slice(0, 40)}_\n`;
     txt += `  ${t.frame[0]}${t.frame[4].repeat(3)}${t.frame[1]} ${t.bullet} ${t.sep}\n\n`;

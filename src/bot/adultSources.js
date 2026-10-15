@@ -838,7 +838,8 @@ async function pornhubShortsDownload(url) {
  * ══ LEAKGALLERY.COM ══════════════════════════════════════════
  * Scraping de modelos e mídias vazadas (OnlyFans/Fansly) reais.
  */
-async function leakgallerySearch(query = 'pinkchyu', limit = 20) {
+async function leakgallerySearch(query = '', limit = 20) {
+  if (!String(query || '').trim()) return [];
   const q = String(query || '').trim();
   if (isAnimalContent(q)) return [];
   const headers = _headers({ Referer: 'https://leakgallery.com/' });

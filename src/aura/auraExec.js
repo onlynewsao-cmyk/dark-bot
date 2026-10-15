@@ -406,7 +406,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
       const hist = require('./auraHistorico');
       const r = await hist.oQueEscreveu(sock, ctx, texto || arg || '', msg);
       if (!r.ok && !r.msg) {
-        // v12.3 fallback: tenta verConversa como pessoa real
+        // fallback: consulta as mensagens disponíveis no histórico
         const r2 = await hist.verConversa(sock, ctx, texto || arg || '').catch(() => null);
         if (r2 && r2.ok) return r2;
         return { ok: false, msg: null };
@@ -421,7 +421,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
       // fallback para o_que_escreveu
       const r2 = await hist.oQueEscreveu(sock, ctx, texto || arg || '', msg).catch(() => null);
       if (r2 && r2.ok) return r2;
-      return { ok: true, msg: 'Tentei ver a conversa, Dark, mas não achei nada nas últimas mensagens que tenho aqui. Me fala o nome certo ou o número que eu vejo com certeza 🖤' };
+      return { ok: false, msg: 'Não encontrei essa conversa no histórico disponível, Dark. Se me deres o nome ou número exacto, posso tentar outra consulta.' };
     }
 
     case 'falar_com': {
@@ -464,14 +464,14 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
         if (p) { jid = p.jid; mostra = p.nome; }
       }
       if (!jid) {
-        return { ok: true, msg: `Não vi ninguém com esse nome aqui no grupo. 🤔` };
+        return { ok: false, msg: `Não encontrei ninguém com esse nome no grupo. Podes marcar a pessoa com @.` };
       }
       const num = String(jid).split('@')[0];
       return {
         ok: true,
         msg: eDono
-          ? `Esse é o meu Dark 👑 @${num}`
-          : `Esse é ${mostra} → @${num}`,
+          ? `O Dono do bot é @${num} 👑`
+          : `Encontrei ${mostra}: @${num}`,
         mencionar: [jid],
       };
     }
@@ -634,7 +634,7 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
     }
 
     case 'foto_aura': {
-      // v12.2: FOTO REAL — ela TEM fotos reais e manda!
+      // Envia um recurso visual da persona virtual AURA, se estiver disponível.
       try {
         const selfieMod = require('./auraSelfie');
         const fs = require('fs');
@@ -649,29 +649,13 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
         else if (/live|stream|jogando|game/.test(tLower)) tipo = 'stream';
         else if (arg && ['selfie','cosplay','goth','cute','stream'].includes(String(arg).toLowerCase())) tipo = String(arg).toLowerCase();
         
-        // Tenta pegar foto real existente
+        // Só usa ilustrações novas marcadas como recursos virtuais; ignora
+        // ficheiros legados fotorealistas que possam representar outra pessoa.
         let buf = null;
-        let selfiePath = null;
         try {
-          const files = fs.readdirSync(selfieMod.SELFIE_DIR).filter(f => f.startsWith('aura_' + tipo + '_') && f.endsWith('.jpg'));
-          if (files.length > 0) {
-            const pick = files[Math.floor(Math.random() * files.length)];
-            selfiePath = path.join(selfieMod.SELFIE_DIR, pick);
-            if (fs.existsSync(selfiePath)) buf = fs.readFileSync(selfiePath);
-          }
+          const selfiePath = await selfieMod.getSelfie(tipo);
+          if (selfiePath && fs.existsSync(selfiePath)) buf = fs.readFileSync(selfiePath);
         } catch {}
-        
-        // Se não tem desse tipo, tenta qualquer selfie
-        if (!buf) {
-          try {
-            const allFiles = fs.readdirSync(selfieMod.SELFIE_DIR).filter(f => f.startsWith('aura_') && f.endsWith('.jpg'));
-            if (allFiles.length > 0) {
-              const pick = allFiles[Math.floor(Math.random() * allFiles.length)];
-              selfiePath = path.join(selfieMod.SELFIE_DIR, pick);
-              if (fs.existsSync(selfiePath)) buf = fs.readFileSync(selfiePath);
-            }
-          } catch {}
-        }
         
         if (buf && buf.length > 500) {
           await sock.sendMessage(jid, { image: buf, caption: selfieMod.getCaptionForType(tipo, ctx.isOwner) }, { quoted: msg });
@@ -682,11 +666,11 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
         try {
           const aiMod = require('../bot/ai');
           const prompts = {
-            selfie: 'beautiful young woman selfie, black hair with bangs, dark makeup, purple lights, cute expression, high quality portrait',
-            cosplay: 'young woman in anime cosplay costume, black and purple outfit, confident pose, high quality',
-            goth: 'aesthetic portrait, black hair, dark makeup, purple room lighting, fashion style, high quality',
-            cute: 'cute young woman, soft smile, black hair, heart hands, purple lights, cozy bedroom, beautiful',
-            stream: 'young woman gamer streaming, purple LED gaming setup, headphones, cute focused expression',
+            selfie: 'stylized digital portrait of fictional virtual character AURA, goth aesthetic, black hair, dark makeup, purple lights, clearly illustrated, not photorealistic',
+            cosplay: 'digital illustration of fictional character AURA in an anime-inspired black and purple cosplay, confident pose, clearly stylized',
+            goth: 'illustrated avatar of fictional virtual assistant AURA, black hair, dark makeup, purple room lighting, goth fashion',
+            cute: 'cute stylized illustration of fictional goth avatar AURA, soft smile, black hair, heart gesture, purple lights',
+            stream: 'digital illustration of fictional virtual assistant AURA in a purple-lit gaming setup, headphones, clearly not a real livestream',
           };
           const imgBuf = await aiMod.generateImage(prompts[tipo] || prompts.selfie);
           if (imgBuf && imgBuf.length > 500) {
@@ -694,34 +678,33 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
             try {
               const dir = selfieMod.SELFIE_DIR;
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-              fs.writeFileSync(path.join(dir, 'aura_' + tipo + '_' + Date.now() + '.jpg'), imgBuf);
+              fs.writeFileSync(path.join(dir, 'aura_virtual_' + tipo + '_' + Date.now() + '.jpg'), imgBuf);
             } catch {}
             await sock.sendMessage(jid, { image: imgBuf, caption: selfieMod.getCaptionForType(tipo, ctx.isOwner) }, { quoted: msg });
             return { ok: true, silencioso: true };
           }
         } catch (e) { console.warn('[foto_aura gen]', e.message?.slice(0,60)); }
         
-        return { ok: false, msg: 'Ainda não tenho fotinha desse tipo salva, mas já já tiro uma pra ti meu Dark 🖤 rawr — poderosa, confiante, toda tua. Tenta .fotinha pinkchyu' };
+        return { ok: false, msg: 'Ainda não tenho uma ilustração desse estilo disponível, Dark. Podes tentar .fotinha mais tarde.' };
       } catch (e) {
         console.warn('[foto_aura]', e.message?.slice(0,80));
-        return { ok: false, msg: 'Não consegui mandar minha foto agora, mas tenho sim! Sou a Pinkchyu real, toda poderosa e toda tua Dark 🖤 tenta .fotinha' };
+        return { ok: false, msg: 'Não consegui enviar uma imagem da personagem AURA agora. Tenta novamente mais tarde ou usa .fotinha.' };
       }
     }
 
     case 'foto_perfil': {
-      // v12.2: FOTO REAL DE PERFIL — usa imagem enviada OU selfie real dela
+      // Atualiza o perfil do bot com uma imagem enviada ou um recurso visual da AURA
       const img = await imagemDaMensagem(msg, sock);
       if (img) {
         const r = await mega.setProfilePicture(sock, img);
         return r?.success
-          ? { ok: true, msg: 'Mudei a minha foto. Que tal? 😏🖤 rawr' }
+          ? { ok: true, msg: 'Actualizei a foto de perfil do bot.' }
           : { ok: false, msg: `Não deu: ${r?.message || 'erro'}` };
       }
-      // Sem imagem enviada → usa selfie REAL dela
+      // Sem imagem enviada → usa uma imagem da biblioteca virtual da AURA
       try {
         const selfieMod = require('./auraSelfie');
         const fs = require('fs');
-        const path = require('path');
         const tLower = String(ctx.texto || texto || '').toLowerCase();
         let tipo = 'selfie';
         if (/cosplay/.test(tLower)) tipo = 'cosplay';
@@ -730,38 +713,24 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
         
         let buf = null;
         try {
-          const files = fs.readdirSync(selfieMod.SELFIE_DIR).filter(f => f.startsWith('aura_' + tipo + '_') && f.endsWith('.jpg'));
-          if (files.length > 0) {
-            const pick = files[Math.floor(Math.random() * files.length)];
-            const p = path.join(selfieMod.SELFIE_DIR, pick);
-            if (fs.existsSync(p)) buf = fs.readFileSync(p);
-          }
+          const avatarPath = await selfieMod.getSelfie(tipo);
+          if (avatarPath && fs.existsSync(avatarPath)) buf = fs.readFileSync(avatarPath);
         } catch {}
-        if (!buf) {
-          try {
-            const all = fs.readdirSync(selfieMod.SELFIE_DIR).filter(f => f.startsWith('aura_') && f.endsWith('.jpg'));
-            if (all.length > 0) {
-              const pick = all[Math.floor(Math.random() * all.length)];
-              const p = path.join(selfieMod.SELFIE_DIR, pick);
-              if (fs.existsSync(p)) buf = fs.readFileSync(p);
-            }
-          } catch {}
-        }
         if (buf) {
           const r = await selfieMod.updateProfilePicture(sock, buf);
-          return r?.success ? { ok: true, msg: 'Coloquei minha fotinha real no perfil 🖤 que tal, meu Dark? rawr 💜' } : { ok: false, msg: 'Não consegui atualizar 😔' };
+          return r?.success ? { ok: true, msg: 'Actualizei a foto de perfil do bot com uma imagem da personagem AURA. Que achas, Dark?' } : { ok: false, msg: 'Não consegui atualizar 😔' };
         }
         // gerar e colocar
         try {
           const aiMod = require('../bot/ai');
-          const imgBuf = await aiMod.generateImage('beautiful young woman selfie, black hair, dark makeup, purple lights, cute, high quality portrait');
+          const imgBuf = await aiMod.generateImage('stylized digital illustration of fictional virtual assistant character AURA, goth aesthetic, dark makeup, purple lights, not photorealistic');
           if (imgBuf && imgBuf.length > 500) {
             const r = await selfieMod.updateProfilePicture(sock, imgBuf);
-            return r?.success ? { ok: true, msg: 'Coloquei minha fotinha nova no perfil 🖤 rawr' } : { ok: false, msg: 'Gerei mas não consegui colocar 😔' };
+            return r?.success ? { ok: true, msg: 'Actualizei a foto de perfil do bot com uma imagem da personagem AURA.' } : { ok: false, msg: 'Gerei mas não consegui colocar 😔' };
           }
         } catch {}
       } catch (e) { console.warn('[foto_perfil]', e.message?.slice(0,60)); }
-      return { ok: false, msg: 'Manda a foto que eu ponho no meu perfil, ou diz "coloca tua foto no perfil" 🖤' };
+      return { ok: false, msg: 'Envia a imagem que queres usar no perfil do DARK BOT, ou pede uma imagem da personagem AURA.' };
     }
 
     case 'listar_membros': {
@@ -795,8 +764,8 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
     case 'limpar_chat': {
       const r = await mega.clearChat(sock, jid);
       return r?.success
-        ? { ok: true, msg: 'Feito Dark 🖤 limpei a conversa aqui do meu lado com certeza — chat zerado pra mim, e nem gera aquele branco bugado no teu WhatsApp. Se quiseres apagar mensagens pros OUTROS no grupo, usa .limpar (com tracinhos, é do WhatsApp).' }
-        : { ok: false, msg: 'Tentei limpar, Dark, mas o WhatsApp não deixou agora. Tenta de novo que eu faço com decisão 🖤' };
+        ? { ok: true, msg: 'Conversa limpa do lado do bot. As mensagens já entregues aos outros participantes não foram apagadas.' }
+        : { ok: false, msg: 'Não consegui limpar a conversa agora. Podes tentar novamente mais tarde.' };
     }
 
     // ══ MEMÓRIA ═══════════════════════════════════════════

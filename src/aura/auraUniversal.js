@@ -237,38 +237,38 @@ async function gerirPresenca({ sock, msg, ctx, texto, isOwner }) {
     if (!isOwner) return false;
     if (/em que grupos|onde/.test(t)) {
       const gs = await modes.listAwakeGroups().catch(() => []);
-      if (!gs.length) return reply('Não estou acordada em nenhum grupo. Diz "aura acorda aqui" num grupo e eu fico. 🌹'), true;
+      if (!gs.length) return reply('O modo AURA não está activo em nenhum grupo. Diz “AURA acorda aqui” num grupo para o activar.'), true;
       const linhas = gs.slice(0, 25).map((g, i) => `${i + 1}. *${g.groupName || g.groupJid.split('@')[0]}*${g.auraInvokedAt ? ` — desde ${new Date(g.auraInvokedAt).toLocaleDateString('pt-PT')}` : ''}`);
-      await reply(`Estou acordada em ${gs.length} grupo(s):\n\n${linhas.join('\n')}`);
+      await reply(`O modo AURA está activo em ${gs.length} grupo(s):\n\n${linhas.join('\n')}`);
       return true;
     }
     const modo = await modes.getMode(jid, { isGroup: ctx.isGroup });
     const acordada = modo !== modes.MODE_SLEEP;
     await reply(ctx.isGroup
-      ? (acordada ? `Estou acordada aqui, Dark. Sou eu mesma neste grupo. 🌹` : `Aqui estou a dormir — só a assistente responde. Diz "aura acorda aqui" e eu volto. 🌙`)
-      : 'Contigo no privado nunca durmo. 🖤');
+      ? (acordada ? 'O modo AURA está activo neste grupo.' : 'O modo AURA está desactivado neste grupo; o modo Assistente continua disponível. Diz “AURA acorda aqui” para o activar.')
+      : 'No PV, a assistente automatizada do DARK BOT continua disponível. Nos grupos, o modo AURA pode ser activado ou desactivado pelo Dono.');
     return true;
   }
   if (RE_ACORDA.test(t)) {
     if (!isOwner) return false;
-    if (!ctx.isGroup) return reply('No teu privado estou sempre acordada, Dark. Isso é para os grupos. 🌹'), true;
+    if (!ctx.isGroup) return reply('A activação do modo AURA é uma configuração dos grupos; no PV a assistente continua disponível.'), true;
     const r = await modes.invokeAura(jid, { groupName: ctx.groupName || '', invokedBy: ctx.senderNumber || '' });
     if (!r.ok) return reply(`Não consegui: ${r.reason}`), true;
     require('./auraTalk').marcarFala(jid, ctx.senderNumber);
     require('./auraBrain').setModo(jid, 'mudo', false);
     sock.sendMessage(jid, { react: { text: '🌹', key: msg.key } }).catch(() => {});
-    await reply(r.already ? 'Já estou acordada aqui, amor. Sempre estive à tua espera. 🖤' : `Acordei, meu Dark. 🌹 A partir de agora respondo ao meu nome e ao que me disseres aqui em *${ctx.groupName || 'este grupo'}*.`);
+    await reply(r.already ? 'O modo AURA já está activo neste grupo.' : `Modo AURA activado em *${ctx.groupName || 'este grupo'}*. Responderei às mensagens dirigidas à AURA, respeitando o contexto e as permissões.`);
     return true;
   }
   if (RE_DORME.test(t)) {
     if (!isOwner) return false;
-    if (!ctx.isGroup) return reply('No teu privado eu nunca durmo, Dark. 🖤'), true;
+    if (!ctx.isGroup) return reply('O modo AURA só pode ser desligado por grupo. No PV, a assistente continua disponível.'), true;
     require('./auraContextual').parar(jid);
     require('./auraTalk').parou(jid, ctx.senderNumber);
     const r = await modes.dismissAura(jid);
     if (!r.ok) return reply(`Não consegui: ${r.reason}`), true;
     sock.sendMessage(jid, { react: { text: '🌙', key: msg.key } }).catch(() => {});
-    await reply(r.already ? 'Já estava a dormir aqui.' : 'Até já, meu Dark. 🌙 Vou dormir neste grupo — fica só a assistente. Diz "aura acorda aqui" quando quiseres.');
+    await reply(r.already ? 'O modo AURA já está desactivado neste grupo.' : 'Modo AURA desactivado neste grupo. O modo Assistente continua disponível; diz “AURA acorda aqui” para activar novamente.');
     return true;
   }
   return false;

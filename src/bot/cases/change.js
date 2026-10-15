@@ -58,9 +58,10 @@ module.exports = function registerChangeCases(registerCase) {
         return reply(`↩️ *O BOT ANTEIRO RECU SOZINHO* — tema global outra vez *${(reversao.prev || 'DARK').toUpperCase()}*.\n> ${t.tip}`);
       }
 
-      const currentThemeName = await botConfigCache
+      const storedThemeName = await botConfigCache
         .get('active_theme', 'dark').catch(() => 'dark');
-      const currentTheme = changeThemes.getTheme(currentThemeName);
+      const currentTheme = changeThemes.getTheme(storedThemeName);
+      const currentThemeName = currentTheme.name || storedThemeName;
 
       const { generateWAMessageFromContent, proto } =
         require('@systemzero/baileys');
@@ -165,7 +166,7 @@ module.exports = function registerChangeCases(registerCase) {
           if (!isAdm) return reply('🚫 Só o Dono ou ADM do grupo pode mudar o tema.');
           // ADM muda só o tema do grupo
           const themeName = args[0].toLowerCase().trim();
-          const found = changeThemes.listThemes().find(t => t.name === themeName);
+          const found = changeThemes.listThemes().find(t => t.name === themeName || t.aliases?.includes(themeName));
           if (!found) {
             const list = changeThemes.listThemes().map(t => (t.icon || '🕸️') + ' ' + t.name).join(', ');
             return reply('❓ Tema não encontrado.\nDisponíveis: ' + list);
@@ -187,7 +188,7 @@ module.exports = function registerChangeCases(registerCase) {
       if (!isOwner) return reply('🚫 Só o Dono pode mudar o tema global.');
 
       const themeName = args[0].toLowerCase().trim();
-      const found = changeThemes.listThemes().find(t => t.name === themeName);
+      const found = changeThemes.listThemes().find(t => t.name === themeName || t.aliases?.includes(themeName));
 
       if (!found) {
         const list = changeThemes.listThemes().map(t => `${t.emoji} ${t.name}`).join('\n');
@@ -216,10 +217,11 @@ module.exports = function registerChangeCases(registerCase) {
 
   // ── !temas — alias rápido ────────────────────────────────────────────
   registerCase(['temas', 'themes', 'listthemes', 'listtemas'], async ({ prefix, reply }) => {
-    const currentThemeName = await botConfigCache
+    const storedThemeName = await botConfigCache
       .get('active_theme', 'dark').catch(() => 'dark');
+    const t   = changeThemes.getTheme(storedThemeName);
+    const currentThemeName = t.name || storedThemeName;
     const all = changeThemes.listThemes();
-    const t   = changeThemes.getTheme(currentThemeName);
     let txt = `${t.icon} *TEMAS DO BOT*\n\nTema actual: *${currentThemeName.toUpperCase()}*\n\n`;
     for (const th of all) {
       const active = th.name === currentThemeName ? ' ◄ ACTIVO' : '';

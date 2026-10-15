@@ -8,9 +8,9 @@
  *   "Ela tá parecendo um bot. Responde SEMPRE às minhas mensagens,
  *    mesmo o que não é pra ela."
  *
- *   Uma pessoa real num grupo não comenta tudo o que ouve. Lê,
- *   acha graça, e só fala quando faz sentido. O que a denunciava
- *   como bot não era o texto — era responder a 100% das mensagens.
+ *   Responder a todas as mensagens num grupo gera ruído e interrompe
+ *   conversas. A regra prioriza o contexto e evita respostas desnecessárias;
+ *   não tem o objectivo de ocultar que a AURA é automatizada.
  *
  * COMO DECIDE:
  *   Sempre → falam com ela (nome, menção, resposta directa, pergunta
@@ -18,8 +18,8 @@
  *   Talvez → conversa de grupo onde ela pode meter-se
  *   Nunca  → conversa entre outros que não lhe diz respeito
  *
- * E escolhe o FORMATO: texto, áudio, figurinha ou reacção — como
- * uma pessoa que às vezes só manda um emoji em vez de escrever.
+ * E escolhe o FORMATO: texto, áudio, figurinha ou reacção — conforme
+ * o pedido e o contexto, sem interromper a conversa.
  */
 
 'use strict';
@@ -156,8 +156,8 @@ function deveResponder(o = {}) {
 }
 
 /**
- * Escolhe COMO responder — como uma pessoa que às vezes manda áudio,
- * às vezes só um emoji.
+ * Escolhe o formato de resposta — texto, áudio ou reacção — conforme
+ * o pedido e as capacidades disponíveis, sem simular uma identidade humana.
  *
  * @returns {'texto'|'audio'|'reacao'}
  */

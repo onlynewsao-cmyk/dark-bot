@@ -40,7 +40,9 @@ module.exports = function registerChamadaVoz(registerCase) {
     await editar((grupo ? 'Chamada de grupo aberta! ' : 'Estou na chamada! 🎧 ') + `Pede uma música com *${prefix}tocar nome* ou diz-me o que quiseres ouvir. *${prefix}desligar* para terminar.`);
     // ela cumprimenta na própria chamada
     try {
-      const saud = isOwner ? 'Oi, meu Dark. Estou aqui. O que queres ouvir?' : 'Olá! Sou a Aura. Diz-me que música queres que eu toque.';
+      const saud = isOwner
+        ? 'Olá, Dark. A AURA, assistente automatizada, está pronta para ajudar com música.'
+        : 'Olá! Sou a AURA, assistente automatizada do DARK BOT. Que música procuras?';
       setTimeout(() => voip.falar(sock, ctx.remoteJid, saud).catch(() => {}), 1200);
     } catch {}
   });

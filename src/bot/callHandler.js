@@ -319,14 +319,14 @@ async function gerarRespostaChamada(texto, { isOwner, pushName }) {
   try {
     const r = await ai.chat(
       `Estás numa chamada. A pessoa disse: "${texto}". Responde em 1-2 frases faladas, sem emojis.`,
-      'És a AURA ao telefone. Natural, curta, humana.',
+      'És a AURA, assistente automatizada do DARK BOT, numa chamada de voz. Responde com naturalidade e brevidade, sem fingir ser humana nem afirmar sentimentos reais.',
       {},
       !!isOwner
     );
     if (r && !String(r).trim().startsWith('❌')) return String(r).trim();
   } catch {}
   return isOwner
-    ? 'Estou aqui, meu Dark. Diz outra vez.'
+    ? 'Não percebi o áudio, Dark. Podes repetir?'
     : 'Estou aqui. Manda outro áudio que eu ouço.';
 }
 
@@ -363,7 +363,7 @@ async function continuarConversa(sock, jid, audioBuf, { pushName = '' } = {}) {
 
   if (ehDespedida(ouviu)) {
     const despedida = activa.isOwner
-      ? 'Tchau, meu Dark. Estou aqui quando ligares.'
+      ? 'Até logo, Dark. Se precisares, podes iniciar outra chamada.'
       : 'Até já. Quando quiseres, liga outra vez.';
     await falar(sock, jid, despedida).catch(() => {});
     const turnos = activa.turnos;
@@ -422,7 +422,7 @@ async function ligar(sock, jid, { tipo = 'voice', pushName = '' } = {}) {
   const url = `https://wa.me/${num}`;
   try {
     await sock.sendMessage(jid, {
-      text: `📞 Quero falar contigo. Responde aqui ou liga-me no WhatsApp.\n${url}`,
+      text: `📞 Não consegui iniciar a chamada automaticamente. Podes responder por aqui ou iniciar uma chamada no WhatsApp: ${url}`,
     });
     return { ok: true, tipo: isVideo ? 'video' : 'voice', url };
   } catch (e) {
@@ -433,8 +433,8 @@ async function ligar(sock, jid, { tipo = 'voice', pushName = '' } = {}) {
 function _saudacao(ownerCall, isVideo) {
   return ownerCall
     ? (isVideo
-      ? 'Oi meu Dark. Não consigo entrar no vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
-      : 'Oi meu Dark. Estou aqui. Manda um áudio que eu ouço e respondo já.')
+      ? 'Olá, Dark. A AURA não processa vídeo nesta chamada, mas pode receber áudio e responder.'
+      : 'Olá, Dark. A AURA está pronta para receber áudio e responder.')
     : (isVideo
       ? 'Olá! Não consigo entrar na chamada de vídeo, mas estou aqui: manda um áudio que eu ouço e respondo.'
       : 'Olá! Não consigo falar pela chamada, mas estou aqui: manda um áudio que eu ouço e respondo.');
@@ -442,8 +442,8 @@ function _saudacao(ownerCall, isVideo) {
 
 function _saudacaoCallback(ownerCall) {
   return ownerCall
-    ? 'Oi meu Dark, sou eu, a Aura. Estou na linha. Fala comigo.'
-    : 'Olá, sou a Aura. Estou na linha. Fala comigo.';
+    ? 'Olá, Dark. Sou a AURA, assistente automatizada do DARK BOT. Podes falar agora.'
+    : 'Olá. Sou a AURA, assistente automatizada do DARK BOT. Podes falar agora.';
 }
 
 /**

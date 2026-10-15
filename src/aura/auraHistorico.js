@@ -1,25 +1,24 @@
 'use strict';
 /**
- * AURA HISTÓRICO — v12.3 (Empowerment + WhatsApp humano)
+ * AURA HISTÓRICO — consulta de mensagens disponíveis no WhatsApp
  * ═══════════════════════════════════════════════════════════
- * A Aura passa a VER as mensagens do grupo E do PV de verdade:
+ * Usa o `messageCache` e o contexto recebido pelo sistema; não simula
+ * que a AURA navegou manualmente pelo chat.
  *
- *   1. "quem escreveu isso?"  → lê a mensagem citada (contextInfo) e diz
- *      QUEM a escreveu, com o texto — sem adivinhar.
- *   2. "quem escreveu X?"     → varre o messageCache (últimas ~2000 msgs)
- *      e devolve o autor com a mensagem exacta.
- *   3. "o que é que o João escreveu?" → resolve o nome → jid e lista as
- *      últimas mensagens dessa pessoa no grupo.
- *   4. "fala só com o João" / "fala com todos" → menciona apenas a pessoa
- *      ou o grupo inteiro (mention @), com o recado que o Dark pedir.
- *   5. v12.3: "ver conversa com X", "o que conversei com X", "mensagens antigas"
- *      → mostra histórico REAL como pessoa que rola o chat pra cima.
- *   6. v12.3: "manda mensagem pro X no pv" → envia mensagem PRIVADA de verdade
- *      via sock.sendMessage, com decisão e certeza.
+ *   1. "quem escreveu isso?" → consulta a mensagem citada e indica o autor
+ *      apenas quando os dados de contexto permitem confirmar.
+ *   2. "quem escreveu X?" → procura no cache recente e devolve mensagens
+ *      encontradas, sem inventar conteúdo.
+ *   3. "o que escreveu determinada pessoa?" → resolve o contacto e lista
+ *      mensagens disponíveis no grupo.
+ *   4. "fala só com X" / "fala com todos" → usa a capacidade de menção.
+ *   5. "ver conversa com X" / "mensagens antigas" → consulta o histórico
+ *      disponível e assinala quando não encontra registos.
+ *   6. "manda mensagem para X no PV" → envia pela capacidade do sistema,
+ *      respeitando permissões e confirmação quando necessária.
  *
- * Tudo sai do `messageCache` do messageListener — memória real do que
- * chegou, nunca invenção. Se não há prova, a Aura diz que não viu.
- * Com empoderamento: ela decide, tem certeza, age como pessoa real no WhatsApp.
+ * A AURA comunica o resultado da consulta sem fingir ser uma pessoa humana.
+ * Se não há prova no cache, diz que não encontrou a informação.
  */
 
 function norm(s) {
@@ -155,7 +154,7 @@ async function verConversa(sock, ctx, texto) {
   const linhas = todas.slice(0,10).map(x => `▸ ${x.ts ? quando(x.ts) + ' — ' : ''}"${x.texto.slice(0, 130)}"`);
   return {
     ok: true,
-    msg: `Conversa com *${pessoa.nome}* — últimas ${todas.length} mensagens que achei (como pessoa real rolando o chat):\n\n${linhas.join('\n')}`,
+    msg: `Conversa com *${pessoa.nome}* — encontrei estas ${todas.length} mensagens no histórico disponível:\n\n${linhas.join('\n')}`,
     mencionar: [pessoa.jid],
   };
 }

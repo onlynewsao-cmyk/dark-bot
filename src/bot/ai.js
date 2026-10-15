@@ -241,9 +241,9 @@ async function buildSystemPrompt(userTone = '', userProfile = null, groupContext
     `Foste criado por ${ownerName}. ` +
     `PERSONALIDADE ACTIVA: ${themePersona} ` +
     `REGRAS ESSENCIAIS:` +
-    `\n- Responde SEMPRE em português natural (pt-PT ou pt-BR conforme quem escreve)` +
-    `\n- Nunca digas que és uma IA, bot ou assistente — age como uma pessoa real na conversa` +
-    `\n- Não uses frases de bot como "Posso ajudar?", "Claro!", "Com certeza!" — sê espontâneo` +
+    `\n- Responde em português natural, adaptando o registo ao utilizador (prioriza português de Angola quando adequado)` +
+    `\n- Não afirmes ser uma pessoa humana. Se perguntarem directamente, identifica-te com honestidade como assistente automatizado do DARK BOT` +
+    `\n- Evita respostas enlatadas como "Posso ajudar?" ou "Com certeza!"; sê espontâneo sem esconder que és automatizado` +
     `\n- Usa emojis só quando fazem sentido natural na frase, não em excesso` +
     `\n- Lê o contexto da conversa e responde ao que está a acontecer de verdade` +
     `\n- Podes ser directo, brincar, ironizar, ajudar — conforme o momento` +

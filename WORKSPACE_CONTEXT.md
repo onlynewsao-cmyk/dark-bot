@@ -1,5 +1,24 @@
 # DARK BOT — Contexto de trabalho local
 
+> **Estado actual deste checkout (15/10/2026):** repo `onlynewsao-cmyk/darknet-tunnel`, `/home/user/dark-bot`, branch de revisão `fix/aura-stability-2026-10`, baseada em `b43da6ab23f7c1820614bfc58ded181b21756cc8`. O remoto `origin` aponta para `onlynewsao-cmyk/darknet-tunnel`; `origin/main` avançou para `1c1be5c`. A branch de revisão permanece isolada no base anterior; não foi rebased/mesclada com essa alteração independente. Destino de publicação: `origin/fix/aura-stability-2026-10`, nunca `main`. Sem `.env`, sem `node_modules/`, sem credenciais guardadas no projecto.
+>
+> **AURA e memória:** prompts, respostas e imagens agora identificam a AURA como assistente automatizada com persona goth ficcional; imagens antigas fotorealistas não são seleccionadas e novas imagens são ilustrações virtuais. Preferências explícitas do Dono (incluindo “prefiro…”) são injectadas globalmente; correcções de outras pessoas continuam locais. Regras seguras ensinadas em formato condicional podem ser globais; remoções, apagamentos e links de convite ficam limitados ao grupo.
+>
+> **Tarefas pontuais:** `src/aura/memory/scheduledActions.js` persiste no `BotConfig`, interpreta horários de `Africa/Luanda`, pede confirmação privada na hora marcada e só executa depois de `CONFIRMAR TAREFA <id>`; `CANCELAR TAREFA <id>` cancela. A confirmação é retirada de forma atómica antes da execução Mongo; falha ao persistir bloqueia a acção. Sem capacidade reconhecida, fica apenas um lembrete. O scheduler arranca em `src/index.js`.
+>
+> **Mídia dos menus:** todos os vídeos configurados para submenus passam a MP4 curto, mudo e com `gifPlayback` (loop GIF); em falha de conversão, é omitido o vídeo original. O vídeo do menu principal mantém o modo normal.
+>
+> **Validação local desta continuação:** `node --check` passou em todos os JS alterados/novos; testes mockados: `test-aura-learning-schedule.js` (16), `test-menu-gif-policy.js` (7), `test-aura-assistente.js` (33), `test-aura-modes.js` (28), `test-aura-brain.js` (21), `test-aura-vontade-cerebro.js` (39), `test-aura-confirmation.js`, `test-ai-timeout.js` (3), `test-wa-timeout.js` e `test-aura-assunto.js` (5). `git diff --check` passou. `test-aura-avancada.js` e `test-aura-proativa.js` não arrancaram: `mongoose` não está instalado. Não houve validação de FFmpeg real, MongoDB, WhatsApp ou deploy.
+>
+> **Publicação:** destino exclusivamente `origin/fix/aura-stability-2026-10`; nunca enviar directamente para `main`. Os oito scripts de teste com alterações locais apenas de modo ficam fora da selecção. A branch não foi rebaseada sobre `origin/main` (`1c1be5c`), para manter separado o trabalho desta revisão da alteração independente em `main`. Credencial anexada nunca deve ser impressa, copiada para o projecto ou incluída em Git.
+>
+> Guia técnico: [`docs/PROJECT_GUIDE_PT.md`](docs/PROJECT_GUIDE_PT.md). Achados/estado das correcções: [`docs/AURA_STABILITY_REVIEW_PT.md`](docs/AURA_STABILITY_REVIEW_PT.md).
+
+---
+
+## Registo histórico — fotografia de 14/10/2026 (preservada)
+
+
 > **Estado mais recente deste checkout (14/10/2026):** repositório `onlynewsao-cmyk/darknet-tunnel`, pasta `/home/user/dark-bot`, branch `fix/aura-stability-2026-10`, base/HEAD `b43da6ab23f7c1820614bfc58ded181b21756cc8`, pacote `dark-bot@9.20.0`. Clone raso (`--depth 1`); sem `.env` e sem `node_modules/`; `git remote -v` vazio. Ainda sem commit ou push.
 >
 > **Correcções locais:** `src/bot/ai.js` aplica orçamento total de 30 s (prioritário) / 45 s (normal), aborta pedidos de provider/pesquisa web e limpa timers; `src/bot/whatsapp.js` tem timeout de ligação e retry, com timers de espera limpos; `src/aura/auraConfirmacao.js` exige `CONFIRMAR`/`CANCELAR` do mesmo Dono/chat para `canal_apagar`, `sair_grupo` e `limpar_chat`, com bloqueio redundante em `auraExec`.

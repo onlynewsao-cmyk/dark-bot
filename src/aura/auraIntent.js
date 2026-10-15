@@ -1,21 +1,15 @@
 'use strict';
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║   AURA INTENT v1.0 — CÉREBRO SUPERINTELIGENTE 🧠💜          ║
- * ║   Ela entende como gente de verdade, não como bot.          ║
+ * ║   AURA INTENT v1.0 — ROUTER DE MENSAGENS 🧠                 ║
  * ╚══════════════════════════════════════════════════════════════╝
  *
- * Problema: bots respondem tudo, até quando não é pra eles.
- * Pessoa real NÃO. Pessoa real:
- *  - Vê se falaram COM ela ou ENTRE si
- *  - Só age se tem CERTEZA do que querem
- *  - Decodifica intenção por contexto, não por palavra-chave
- *  - Sabe quando é indireta, quando é direta, quando é zoeira
- *
- * Este módulo faz isso.
+ * Este módulo distingue mensagens dirigidas à AURA de conversas
+ * entre utilizadores. É lógica de encaminhamento, não uma simulação
+ * de identidade ou compreensão humana.
  */
 
-const NOME_AURA = ['aura', 'pinkchyu', 'pinkchyuwu', 'pinkchyu', 'gothchyu', 'lin', 'lin lamar', 'goth girl', 'goth baddie'];
+const NOME_AURA = ['aura'];
 
 // ── Helpers ─────────────────────────────────────────────────
 function norm(s) {
@@ -47,21 +41,20 @@ const INTENT_WAKE = 'wake';
 const INTENT_SLEEP = 'sleep';
 const INTENT_STATUS = 'status';
 const WAKE_REPLIES = [
-  'Tô aqui. O que foi?',
-  'Voltei. Diz.',
-  'Acordada. Fala comigo.',
+  'Modo AURA activo neste grupo. O que precisas?',
+  'AURA está activa aqui. Diz.',
 ];
 const WAKE_ALREADY = [
-  'Já tô aqui.',
-  'Nunca fui embora.',
+  'O modo AURA já está activo neste grupo.',
+  'AURA já está activa aqui.',
 ];
 const SLEEP_REPLIES = [
-  'Tá bem. Vou ficar quieta aqui.',
-  'Entendido. Dou espaço.',
+  'Modo AURA desactivado neste grupo. Fico em silêncio até me chamarem.',
+  'Entendido. Este grupo fica em modo Assistente.',
 ];
 const SLEEP_ALREADY = [
-  'Já estou quieta aqui.',
-  'Já tinha dado espaço.',
+  'O modo AURA já está desactivado neste grupo.',
+  'Este grupo já está em modo Assistente.',
 ];
 
 function pick(items, random = Math.random) {
@@ -83,7 +76,7 @@ function detectAuraIntent(text, { isOwner = false, isGroup = false } = {}) {
 
   // Evita que a palavra "aura" em conversa comum altere o modo do grupo.
   if (/\b(?:que|qual|minha|sua|tua) aura\b|\b(?:mede|medir|ler) (?:a )?(?:minha )?aura\b/.test(t)) return null;
-  const chamou = /\b(?:aura|pinkchyu|pinkchyuwu|gothchyu|lin)\b/.test(t);
+  const chamou = /\baura\b/.test(t);
 
   // "vai dormir" é uma instrução inequívoca do dono no grupo e precisa
   // continuar a funcionar mesmo sem repetir o nome da Aura.
@@ -174,7 +167,7 @@ function analyzeIntent(text, ctx = {}) {
     directScore += 85;
     directReasons.push(`mencionou nome: ${NOME_AURA.find(n => t.includes(n))}`);
   }
-  if (/^(aura|pinkchyu|lin)[,\s!?:]/i.test(original.trim())) {
+  if (/^aura[,\s!?:]/i.test(original.trim())) {
     directScore += 95;
     directReasons.push('começa com nome dela');
   }
@@ -226,9 +219,9 @@ function analyzeIntent(text, ctx = {}) {
 
   // Foto dela
   if (/\b(foto|selfie|pic|imagem|foto sua|foto tua|manda foto|mostra.*foto|quero.*foto|tem foto|manda.*selfie|mostra.*rosto|cara|look|cosplay.*foto)\b/.test(t) &&
-      (containsName(t) || /\b(tua|sua|vc|voce|tu|dela|aura|pinkchyu)\b/.test(t) || isPrivateChat || isReplyToAura)) {
-    // Verifica se é foto DELA, não foto aleatória
-    if (/\b(tua|sua|dela|aura|pinkchyu|seu rosto|seu cosplay|voce|vc)\b/.test(t) || containsName(t) || isReplyToAura) {
+      (containsName(t) || /\b(tua|sua|vc|voce|tu|dela|aura)\b/.test(t) || isPrivateChat || isReplyToAura)) {
+    // Verifica se é imagem pedida da persona AURA, não imagem aleatória
+    if (/\b(tua|sua|dela|aura|seu rosto|seu cosplay|voce|vc)\b/.test(t) || containsName(t) || isReplyToAura) {
       intent = 'PHOTO_REQUEST';
       intentConfidence = 85;
       // Tipo de foto
@@ -254,7 +247,7 @@ function analyzeIntent(text, ctx = {}) {
   }
 
   // Pergunta sobre ela (quem é, vida, etc)
-  if (/\b(quem.*(voce|vc|tu|e|eh)|o que.*faz|onde.*mora|quantos anos|qual.*idade|de onde|nome verdadeiro|real name|pinkchyu.*quem|voce.*goth|cosplay.*faz|o que.*gosta)\b/.test(t)) {
+  if (/\b(quem.*(voce|vc|tu|e|eh)|o que.*faz|onde.*mora|quantos anos|qual.*idade|de onde|nome verdadeiro|real name|aura.*quem|voce.*goth|cosplay.*faz|o que.*gosta)\b/.test(t)) {
     if (containsName(t) || isPrivateChat || isReplyToAura || isQuestion(original)) {
       // Só se for sobre ela, não sobre outra coisa
       if (!/^(quem.*(fez|escreveu|mandou|disse))/.test(t)) { // evita "quem escreveu isso"

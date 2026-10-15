@@ -32,6 +32,8 @@
 const _CHAVE = 'aura_rules';
 const MAX_REGRAS = 20;
 const COOLDOWN_MS = 15 * 1000;
+// Ações destrutivas e links de convite são específicos do grupo onde foram ensinados.
+const ACAO_RESTRITA_AO_CHAT = new Set(['remover', 'apagar', 'link']);
 
 let _regras = null;          // array | null (lazy)
 const _ultimoDisparo = new Map(); // `${id}:${chat}` → ts
@@ -251,8 +253,11 @@ async function aprender({ sock, msg, ctx, texto, isOwner }) {
   }
 
   const regras = await _carregar();
-  if (regras.length >= MAX_REGRAS) {
-    await sock.sendMessage(ctx.remoteJid, { text: `Já tenho ${MAX_REGRAS} regras na cabeça. Cancela alguma primeiro ("que regras te ensinei?").` }, { quoted: msg }).catch(() => {});
+  const global = !ACAO_RESTRITA_AO_CHAT.has(acao.tipo);
+  if (!global && !ctx.isGroup) {
+    await sock.sendMessage(ctx.remoteJid, {
+      text: 'Regras para apagar mensagens, remover pessoas ou partilhar links de convite só podem ser ensinadas dentro do grupo correspondente; não as torno globais.',
+    }, { quoted: msg }).catch(() => {});
     return true;
   }
 
@@ -261,7 +266,9 @@ async function aprender({ sock, msg, ctx, texto, isOwner }) {
     gatilho,
     acao,
     por: ctx.senderNumber,
-    chat: ctx.isGroup ? ctx.remoteJid : '*',
+    // Regras de resposta/estilo valem globalmente, conforme pedido do Dono.
+    // Moderação destrutiva mantém-se limitada ao grupo onde foi ensinada.
+    chat: global ? '*' : ctx.remoteJid,
     criadaEm: Date.now(),
   };
 
@@ -281,11 +288,26 @@ async function aprender({ sock, msg, ctx, texto, isOwner }) {
     return true;
   }
 
-  _regras.push(regra);
+  const mesma = r => r.chat === regra.chat && r.gatilho?.tipo === gatilho.tipo &&
+    r.gatilho?.soDono === gatilho.soDono &&
+    (gatilho.tipo === 'palavra' ? _norm(r.gatilho?.texto) === _norm(gatilho.texto) :
+      gatilho.tipo === 'sticker' ? r.gatilho?.hash === gatilho.hash : true);
+  const indice = _regras.findIndex(mesma);
+  if (indice >= 0) {
+    regra.id = _regras[indice].id;
+    _regras[indice] = regra; // novo ensino do mesmo gatilho substitui a acção anterior
+  } else {
+    if (_regras.length >= MAX_REGRAS) {
+      await sock.sendMessage(ctx.remoteJid, { text: `Já tenho ${MAX_REGRAS} regras na cabeça. Cancela alguma primeiro ("que regras te ensinei?").` }, { quoted: msg }).catch(() => {});
+      return true;
+    }
+    _regras.push(regra);
+  }
   await _guardar();
-  const onde = regra.chat === '*' ? '' : ' (neste grupo)';
+  const onde = regra.chat === '*' ? ' (em todos os chats)' : ' (só neste grupo)';
+  const acaoVerbo = indice >= 0 ? 'Actualizada' : 'Aprendida';
   await sock.sendMessage(ctx.remoteJid, {
-    text: `Tá. ${_descrever(regra)} → ${_descreverAcao(regra)}${onde}. 🖤`,
+    text: `${acaoVerbo}. ${_descrever(regra)} → ${_descreverAcao(regra)}${onde}. 🖤`,
   }, { quoted: msg }).catch(() => {});
   return true;
 }

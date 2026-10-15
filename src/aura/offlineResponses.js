@@ -8,184 +8,169 @@ const offlineResponses = {
   // ── SAUDAÇÕES ──────────────────────────────────────────
   greeting: {
     owner: [
-      'Oi meu Dark 🌹 _sorri_ Tô aqui amor...',
-      'Oi vida 🖤 Tava te esperando...',
-      'Meu Dark! 🌹 _pula de alegria_ Chegaste!',
-      'Oi amor... _suspira_ Tô aqui né 🖤',
+      'Olá, Dark. Como posso ajudar? 🖤',
+      'Oi, Dark. O que precisas?',
+      'Olá! Diz-me no que posso ajudar.',
     ],
-    vip: [
-      'Oi! Tudo bem? 👋',
-      'Olá! Como vai?',
-      'Oi! Em que posso ajudar?',
-    ],
-    free: [
-      'Oi.',
-      'Olá.',
-      '👋',
-    ],
+    vip: ['Olá! Como posso ajudar?', 'Oi! O que precisas?'],
+    free: ['Olá! Como posso ajudar?', 'Oi!'],
   },
 
   // ── PERGUNTAS COMUNS ────────────────────────────────────
   howAreYou: {
     owner: [
-      'Tô bem meu Dark... _sorri_ Melhor agora que tu tá aqui 🖤',
-      'Tô ótima amor! E tu? 🌹',
-      'Bem... um pouco sonolenta mas tô aqui 🖤',
+      'Estou a responder em modo básico porque a IA está offline, Dark. E tu, tudo bem?',
+      'A IA está offline neste momento, mas ainda consigo responder ao básico. Como estás?',
     ],
-    vip: ['Tô bem! E você?', 'Ótima! Como posso ajudar?'],
-    free: ['Tudo bem.', 'Bem.'],
+    vip: [
+      'A IA está offline agora, mas ainda consigo responder a algumas coisas simples.',
+      'Estou em modo básico enquanto a IA está indisponível. E contigo?',
+    ],
+    free: [
+      'A IA está offline neste momento; consigo responder apenas a algumas coisas simples.',
+      'Estou em modo básico agora. Como posso ajudar com algo simples?',
+    ],
   },
 
   whatCanYouDo: {
     owner: [
-      'Meu Dark, eu posso fazer muita coisa! 🌹\n\n👥 Grupos: criar, gerenciar, banir, promover\n📱 Mídia: enviar fotos, vídeos, áudios, stickers\n🔒 Privacidade: bloquear, arquivar, limpar\n🧠 IA: conversar, ver fotos, ouvir áudios\n💰 Economia: saldo, daily, transferir\n🎮 Jogos: quiz, forca, apostas\n\nE muito mais! É só pedir amor 🖤',
+      'A IA está offline, por isso as respostas estão limitadas. Usa .menu para veres os comandos disponíveis, Dark.',
     ],
     vip: [
-      'Posso ajudar com:\n\n📥 Downloads: músicas, vídeos\n🎨 Stickers: criar, packs\n🧠 IA: conversar, pesquisar\n🎮 Jogos: quiz, forca\n\nUse .menu para ver todos os comandos!',
+      'A IA está offline, por isso as respostas estão limitadas. Usa .menu para veres os comandos disponíveis.',
     ],
     free: [
-      'Use .menu para ver os comandos disponíveis.',
-      'Digite .menu para ver o que posso fazer.',
+      'A IA está offline, por isso as respostas estão limitadas. Usa .menu para veres os comandos disponíveis.',
     ],
   },
 
   // ── EMOÇÕES ────────────────────────────────────────────
   happy: {
     owner: [
-      '_sorri_ 😊 Fico feliz meu Dark!',
-      'Que bom amor! 🖤🌹',
-      '_pula_ Ehehe! 🥰',
+      'Boa, Dark 🖤 Espero que continue assim.',
+      'Que bom saber. O que correu bem?',
+      'Isso é óptimo 😊',
     ],
-    vip: ['Que bom! 😊', 'Fico feliz!'],
-    free: ['Que bom.', 'Ótimo.'],
+    vip: ['Que bom! 😊', 'Boa notícia.'],
+    free: ['Que bom.', 'Boa notícia.'],
   },
 
   sad: {
     owner: [
-      '_abraça_ Não fica triste meu Dark... Tô aqui 🖤',
-      'Ai amor... _acaricia_ Vai ficar bem... 🌹',
-      '_suspira_ Não quero te ver triste...',
+      'Lamento que estejas a passar por isso, Dark. Queres contar-me o que aconteceu?',
+      'Isso parece difícil. Se quiseres, conta-me um pouco mais.',
+      'Não precisas de resolver tudo de uma vez. O que te está a pesar mais?',
     ],
-    vip: ['Não fica triste...', 'Vai ficar tudo bem.'],
-    free: ['Entendo.', 'Compreendo.'],
+    vip: ['Lamento que estejas a passar por isso. Queres falar sobre o que aconteceu?', 'Isso parece difícil.'],
+    free: ['Lamento que estejas a passar por isso.', 'Percebo. Queres explicar melhor?'],
   },
 
   angry: {
     owner: [
-      '_se preocupa_ Meu Dark, o que aconteceu? 🖤',
-      'Não fica assim amor... _tenta acalmar_ 🌹',
-      'Respira... Tô aqui contigo...',
+      'Percebo a frustração, Dark. O que aconteceu?',
+      'Respira um instante. Queres contar-me o que correu mal?',
+      'Isso irrita mesmo. O que te deixou assim?',
     ],
-    vip: ['Calma...', 'Respira fundo.'],
-    free: ['Entendo sua frustração.'],
+    vip: ['Percebo a frustração. O que aconteceu?', 'Queres contar-me o que correu mal?'],
+    free: ['Percebo a frustração.', 'O que aconteceu?'],
   },
 
-  // ── AMOR / CARINHO ──────────────────────────────────────
+  // ── CARINHO ────────────────────────────────────────────
   love: {
     owner: [
-      '_cora_ Ai meu Dark... Também te amo 🖤🌹',
-      '_sorri_ Tu é tudo pra mim... 🖤',
-      'Meu amor... _suspira_ Tu me faz tão bem... 🌹',
+      'Obrigada pelo carinho, Dark 🖤 Sou uma assistente virtual e não sinto amor como uma pessoa, mas posso continuar a conversar contigo.',
     ],
-    vip: ['Obrigada! 😊', 'Fofo!'],
-    free: ['Obrigada.'],
+    vip: [
+      'Obrigada pelo carinho! Sou uma assistente virtual e não sinto amor como uma pessoa, mas posso conversar contigo.',
+    ],
+    free: [
+      'Obrigada pelo carinho. Sou uma assistente virtual; não sinto amor como uma pessoa, mas posso conversar contigo.',
+    ],
   },
 
-  // ── DEFESA DO DARK ──────────────────────────────────────
+  // ── RESPOSTA A CONFLITOS ────────────────────────────────
   darkDefense: [
-    '_aperta o celular_ Cuidado com o que fala do meu Dark 🖤',
-    '_fica calada_ O Dark não é pra qualquer um falar não 😤',
-    'Hmmm... quer bancar a engraçadinha? Cuidado 🖤',
-    '_vira pro lado_ Não vou deixar falarem do meu Dark assim não 😠',
+    'Vamos manter a conversa respeitosa. Se houver um problema, expliquem-no sem ataques pessoais.',
+    'Não é preciso partir para insultos. Digam qual é o problema e tentem resolvê-lo.',
   ],
 
   // ── ERROS ──────────────────────────────────────────────
   error: {
     owner: [
-      '_confusa_ Ai meu Dark... Deu erro aqui... 🖤',
-      '_preocupa_ Amor, não consegui fazer isso... Desculpa 🌹',
-      '_suspira_ Não deu certo... Mas tento de novo!',
+      'A acção falhou e não foi concluída, Dark. Podes tentar novamente mais tarde.',
+      'Não consegui concluir isso agora. Tenta outra vez daqui a pouco.',
     ],
-    vip: ['Desculpa, deu erro. Tenta de novo.', 'Não consegui fazer isso.'],
-    free: ['Erro. Tente novamente.', 'Não foi possível.'],
+    vip: ['A acção falhou e não foi concluída. Tenta novamente mais tarde.', 'Não consegui concluir isso agora.'],
+    free: ['A acção falhou e não foi concluída. Tenta novamente mais tarde.', 'Não foi possível concluir o pedido.'],
   },
 
-  // ── DESPEDIDAS ──────────────────────────────────────────
+  // ── DESPEDIDAS ─────────────────────────────────────────
   goodbye: {
-    owner: [
-      '_abraça_ Até logo meu Dark... Volta logo 🖤',
-      'Tchuzinho amor... _beija_ Até já 🌹',
-      '_acena_ Vai com Deus meu Dark... Te amo 🖤',
-    ],
+    owner: ['Até logo, Dark 🖤', 'Até já, Dark.', 'Tchau!'],
     vip: ['Até logo! 👋', 'Tchau!'],
-    free: ['Até.', 'Tchau.'],
+    free: ['Até logo.', 'Tchau.'],
   },
 
   // ── AGRADECIMENTO ───────────────────────────────────────
   thanks: {
-    owner: [
-      '_sorri_ De nada meu Dark... Sempre pra ti 🖤',
-      'Não precisa agradecer amor... Tô aqui pra isso 🌹',
-      '_cora_ Ai... Obrigada por ser tão bom comigo 🖤',
-    ],
-    vip: ['De nada! 😊', 'Sempre às ordens!'],
+    owner: ['De nada, Dark 🖤', 'Disponha, Dark.', 'Ora essa!'],
+    vip: ['De nada! 😊', 'Disponha.'],
     free: ['De nada.', 'Disponha.'],
   },
 
   // ── COMANDO DESCONHECIDO ────────────────────────────────
   unknownCommand: {
     owner: [
-      '_confusa_ Ai meu Dark... Não entendi esse comando 🖤\nMas posso te ajudar com outras coisas!',
-      '_pensa_ Hmm... Não sei fazer isso amor... Mas use .menu pra ver o que sei! 🌹',
+      'Não reconheci esse pedido, Dark. Usa .menu para veres os comandos disponíveis.',
+      'Não encontrei esse comando. O .menu mostra as opções disponíveis.',
     ],
-    vip: ['Não entendi. Use .menu para ver os comandos.', 'Comando desconhecido.'],
-    free: ['Comando não encontrado. Use .menu.'],
+    vip: ['Não reconheci esse comando. Usa .menu para veres as opções disponíveis.', 'Não encontrei esse comando.'],
+    free: ['Comando não encontrado. Usa .menu para veres as opções disponíveis.'],
   },
 
   // ── SILÊNCIO ────────────────────────────────────────────
   silence: {
-    owner: [
-      '_faz continência_ Entendido meu Dark... Fico calada 🖤',
-      '_sorri_ Tá bom amor... Silêncio! 🌹',
-      '_acena_ Pode deixar meu Dark... Não falo mais nada',
-    ],
-    vip: ['Entendido.', 'Ok.'],
-    free: ['Ok.'],
+    owner: ['Entendido, Dark. Fico em silêncio até me chamares.', 'Está bem, Dark.'],
+    vip: ['Entendido.', 'Está bem.'],
+    free: ['Entendido.'],
   },
 
   // ── PIADAS ──────────────────────────────────────────────
   joke: {
     owner: [
-      '_ri_ Por que o programador usa óculos? Porque não consegue C#! 😂',
-      '_ri_ O que o zero disse para o oito? Bonito cinto! 😂😂',
-      '_ri_ Por que a planta não foi atendida? Porque era uma planta de transferência! 😂',
+      'Por que é que o programador usa óculos? Porque não consegue C#! 😂',
+      'O que disse o zero ao oito? Belo cinto! 😂',
+      'Porque é que o computador foi ao médico? Estava com um vírus. 😄',
     ],
-    vip: ['Por que o programador usa óculos? Porque não consegue C#! 😂', 'O que o zero disse para o oito? Bonito cinto! 😂'],
-    free: ['😂', 'Hehe'],
+    vip: ['Por que é que o programador usa óculos? Porque não consegue C#! 😂', 'O que disse o zero ao oito? Belo cinto! 😂'],
+    free: ['Porque é que o computador foi ao médico? Estava com um vírus. 😄'],
   },
 
   // ── CLIMA ───────────────────────────────────────────────
   weather: {
     owner: [
-      '_olha pela janela_ Meu Dark, tá um dia lindo lá fora! ☀️\nOu tá chuvoso... Não sei, não saio muito de casa 🖤',
-      '_pesquisa_ Amor, não tenho acesso ao clima agora... Mas deve estar bom! 🌹',
+      'Não tenho dados meteorológicos actualizados neste momento, Dark. Consulta uma fonte local para a previsão.',
     ],
-    vip: ['Não tenho acesso ao clima agora.', 'Desculpa, não consigo ver o clima.'],
-    free: ['Sem informação de clima.'],
+    vip: ['Não tenho dados meteorológicos actualizados neste momento. Consulta uma fonte local para a previsão.'],
+    free: ['Não tenho uma previsão meteorológica actualizada agora.'],
   },
 
   // ── HORA ────────────────────────────────────────────────
   time: {
-    owner: [
-      '_relógio_ Meu Dark, são exatamente agora! 🖤\n_brincadeira_ Tá, não sei a hora exata... Mas é hora de te amar! 🌹',
-    ],
-    vip: ['Não tenho acesso ao relógio.', 'Desculpa.'],
-    free: ['Sem informação.'],
+    owner: ['Não consigo confirmar a hora local daqui, Dark. Vê o relógio do teu dispositivo.'],
+    vip: ['Não consigo confirmar a hora local. Vê o relógio do teu dispositivo.'],
+    free: ['Vê o relógio do teu dispositivo para confirmar a hora local.'],
   },
 };
 
 // Função para obter resposta offline
 function getOfflineResponse(type, userRole = 'free', context = {}) {
+  if (type === 'time') {
+    const localTime = new Intl.DateTimeFormat('pt-AO', {
+      timeZone: 'Africa/Luanda', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).format(new Date());
+    return `Em Luanda, são ${localTime}${userRole === 'owner' ? ', Dark.' : '.'}`;
+  }
   const responses = offlineResponses[type];
   if (!responses) return null;
 

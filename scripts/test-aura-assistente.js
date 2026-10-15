@@ -72,10 +72,10 @@ function stubAi(responder) {
     t('prompt tem contexto (PV)', /Conversa privada/i.test(capturado));
     if (real1) require.cache[require.resolve('../src/bot/ai')] = real1;
 
-    // 2b. resposta de robô → sanitizada
+    // 2b. mantém identidade automatizada, mas remove a fórmula de call-center
     const real2 = stubAi(async () => 'Sou uma assistente virtual e estou aqui para ajudar.');
     const r2 = await modes.assistantRespond('quem és?', { botName: 'DARK BOT', userName: 'Zé', prefix: '!' });
-    t('limpa "sou uma assistente virtual"', r2 && !/assistente virtual/i.test(r2));
+    t('preserva a identidade automatizada', r2 && /assistente (virtual|automatizada)/i.test(r2));
     t('limpa call-center', r2 && !/estou aqui para ajudar/i.test(r2));
     if (real2) require.cache[require.resolve('../src/bot/ai')] = real2;
 

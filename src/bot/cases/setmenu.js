@@ -20,6 +20,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const menuMediaPolicy = require('../menuMediaPolicy');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const MEDIA_DIR = path.join(ROOT, 'assets', 'menu-media');
@@ -138,7 +139,9 @@ async function compressVideo(buf, gif) {
     const outBuf = fs.readFileSync(out);
     if (!outBuf?.length) throw new Error('compressão gerou vazio');
     const isMp4 = buf.length > 8 && buf.toString('ascii', 4, 8) === 'ftyp';
-    if (isMp4 && buf.length <= outBuf.length) return buf;
+    // GIF playback exige MP4 mudo e curto; nunca devolver o original com
+    // áudio/codec/duração incompatíveis, mesmo se o original for menor.
+    if (!gif && isMp4 && buf.length <= outBuf.length) return buf;
     return outBuf;
   } finally {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
@@ -149,7 +152,7 @@ function cache() { return require('../botConfigCache'); }
 
 async function showPanel(prefix, reply) {
   const c = cache();
-  // v12.0 PINKCHYU — todos submenus do menu principal mapeados, incluindo 18+
+  // v12.0 AURA — todos os submenus do menu principal mapeados, incluindo 18+
   const keys = ['menu', 'menu_downloads', 'menu_stickers', 'menujogos', 'menueconomia', 'menuia', 'menugrupo', 'menustatus', 'menulogos', 'menuinteracoes', 'alteradores', 'menuzoeira', 'menutexto', 'menusearch', 'menudono', 'menu_alugar', 'menu18'];
   const rows = await Promise.all(keys.map(async (k) => {
     const t = await c.get(`menu_media_${k}_type`, 'none').catch(() => 'none');
@@ -165,11 +168,12 @@ async function showPanel(prefix, reply) {
     return `${ok ? '✅' : '⚠️'} \`${k}\` (${t})`;
   }));
   return reply(
-    `💜 *MÍDIA DOS MENUS — PINKCHYU EDITION* 🖤☥\n\n${rows.join('\n')}\n\n` +
+    `💜 *MÍDIA DOS MENUS — AURA GOTH EDITION* 🖤☥\n\n${rows.join('\n')}\n\n` +
     `*Definir* (responde a foto/vídeo/GIF):\n` +
     `\`${prefix}setmenu menu\` — menu principal\n` +
     `\`${prefix}setmenu <submenu> [foto|video|gif]\`\n` +
-    `ex: \`${prefix}setmenu downloads video\`\n\n` +
+    `ex: \`${prefix}setmenu downloads video\`\n` +
+    `Vídeos dos submenus são convertidos para GIF mudo em loop; o vídeo do menu principal mantém-se normal.\n\n` +
     `*Remover:* \`${prefix}setmenu <alvo> off\`\n\n⚠️ = ficheiro perdido no restart — redefine a mídia.\n✅ = guardado (sobrevive a restarts).`,
   );
 }
@@ -209,13 +213,16 @@ function registerSetmenu(registerCase) {
 
     const kind = detectKind(hasImage, hasVideo, !!qv?.gifPlayback, args[1]);
     if (!kind) return reply(`❓ Tipo? Usa: \`${prefix}setmenu ${args[0]} foto|video|gif\``);
+    if (kind !== 'foto' && !hasVideo) return reply('❓ Para vídeo/GIF, responde a um vídeo ou GIF animado.');
+    const storedType = menuMediaPolicy.storedType(t.key, kind);
+    const asGif = storedType === 'gif';
 
     await reply('⏳ A comprimir mídia (menos tamanho, mesma qualidade)...').catch(() => {});
     try {
       const mh = require('../mediaHandler');
       const buf = await mh.downloadFromMessage(srcMsg);
       if (!buf?.length) throw new Error('mídia vazia');
-      const comp = kind === 'foto' ? await compressImage(buf) : await compressVideo(buf, kind === 'gif');
+      const comp = kind === 'foto' ? await compressImage(buf) : await compressVideo(buf, asGif);
       if (!comp?.length) throw new Error('compressão falhou');
 
       fs.mkdirSync(MEDIA_DIR, { recursive: true });
@@ -231,7 +238,7 @@ function registerSetmenu(registerCase) {
       }
       const c = cache();
       await c.set(`menu_media_${t.key}_url`, `local:menu-media/${t.key}.${ext}?v=${Date.now()}`);
-      await c.set(`menu_media_${t.key}_type`, kind === 'foto' ? 'image' : kind);
+      await c.set(`menu_media_${t.key}_type`, storedType);
       // v7.64: bytes no Mongo — ficheiros locais evaporam a cada restart
       // da Northflank (contentor efémero, sem volumes); o binário sobrevive.
       let binOk = false;
@@ -240,7 +247,7 @@ function registerSetmenu(registerCase) {
         binOk = true;
       }
       const kb = (b) => (b.length / 1024).toFixed(0);
-      return reply(`✅ *${t.key}* agora tem ${kind === 'foto' ? '🖼️ foto' : kind === 'gif' ? '🎞️ GIF' : '🎬 vídeo'}!\n📦 ${kb(buf)}KB → ${kb(comp)}KB\nVê com o comando do menu.${binOk ? '' : ' (⚠️ pesado: só neste servidor)'}`);
+      return reply(`✅ *${t.key}* agora tem ${storedType === 'image' ? '🖼️ foto' : storedType === 'gif' ? '🎞️ GIF mudo em loop' : '🎬 vídeo normal'}!\n📦 ${kb(buf)}KB → ${kb(comp)}KB\nVê com o comando do menu.${binOk ? '' : ' (⚠️ pesado: só neste servidor)'}`);
     } catch (e) {
       return reply('❌ setmenu: ' + String(e?.message || e).slice(0, 120));
     }

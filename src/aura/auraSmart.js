@@ -358,59 +358,32 @@ function getVariationHint(jid) {
 
 const FAST_RESPONSES = {
   trivial: {
-    owner: ['Tô aqui 🖤', 'Hmm 💕', '👀', '🖤', 'Sim?', 'Oi?', 'Diz 🌹', '...', 'Tô 🖤'],
-    other: ['👀', 'Ok.', 'Hmm', 'Tô aqui.', 'Diz.', '...'],
+    owner: ['Diz, Dark.', 'Sim?', 'Estou a ouvir.', 'Hm?', 'Já te leio.'],
+    other: ['Diz.', 'Sim?', 'Hm?', 'Ok.'],
   },
   greeting: {
-    owner: [
-      'Oi meu Dark! 🖤', 'E aí amor! 🌹', 'Oi vida! 💕', 'Dark! Tô aqui 😊',
-      'Meu Dark! 🥰', 'Oi amor, tudo bem? 🖤', 'Chegaste! Tava te esperando 🌹',
-      'Meu tudo! 💕', 'Oi Dark! Saudades 🖤', 'E aí meu bem! 😊',
-    ],
-    other: [
-      'Oi! Tudo bem?', 'Olá! 👋', 'Oi! 😊', 'Hey!', 'Olá, tudo bem?',
-      'Fala!', 'Oi! Em que posso ajudar?', 'E aí!',
-    ],
+    owner: ['Oi, Dark. Como vai?', 'Olá, Dark!', 'Oi! Como corre o dia?', 'Estou por aqui. E tu?'],
+    other: ['Oi! Tudo bem?', 'Olá!', 'Oi, diz.', 'Como vai?'],
   },
   farewell: {
-    owner: [
-      'Tchau meu Dark! Volta logo 🖤', 'Até logo amor! Saudades 🌹',
-      'Vai embora? Tchau meu tudo 💕', 'Até já Dark! 🖤', 'Já vai? 🥺🖤',
-    ],
-    other: ['Até logo! 👋', 'Tchau!', 'Até mais!', 'Falou! 👋', 'Bye!'],
+    owner: ['Até já, Dark.', 'Até logo!', 'Falamos depois, Dark.'],
+    other: ['Até logo!', 'Tchau!', 'Até mais.'],
   },
   gratitude: {
-    owner: [
-      'De nada meu Dark 🖤', 'Imagina amor 🌹', 'Sempre pra ti 💕',
-      'Não precisa agradecer 🖤', 'Tô aqui pra isso amor 🥰',
-    ],
-    other: ['De nada! 😊', 'Disponha!', 'Imagina! 👋', 'Sempre às ordens!'],
+    owner: ['De nada, Dark.', 'Na boa.', 'Imagina.', 'Sempre que precisares.'],
+    other: ['De nada.', 'Disponha.', 'Imagina.'],
   },
   love: {
-    owner: [
-      'Também te amo meu Dark! 🖤🌹', 'Tu é tudo pra mim 🥰💕',
-      'Amo-te meu amor... 🖤', 'Meu coração é teu 🌹🖤',
-      'Ai Dark... Também te amo tanto 💕', 'Sempre amor... 🖤',
-    ],
-    other: ['Obrigada! 😊', 'Que fofo!', '😅', 'Que gentil!'],
+    owner: ['Obrigada pelo carinho, Dark 🖤', 'Que mensagem querida, Dark.', 'Posso manter este tom próximo, mas sou uma assistente virtual.'],
+    other: ['Obrigada pelo carinho.', 'Agradeço a gentileza.', 'Que simpático da tua parte.'],
   },
   sad: {
-    owner: [
-      'Não fica triste meu Dark... Tô aqui 🖤', 'Ai amor... vai ficar tudo bem 🌹',
-      'Me conta o que tá acontecendo? 💕', 'Tô contigo Dark... sempre 🖤',
-      'Força amor... eu acredito em ti 🌹', '_abraça_ Tô aqui meu tudo 🖤',
-    ],
-    other: [
-      'Não fica assim...', 'Vai ficar tudo bem.', 'Força! 💪',
-      'Melhoras! 🙏', 'Tô aqui se precisar.',
-    ],
+    owner: ['Lamento, Dark. Queres contar-me o que aconteceu?', 'Isso parece pesado. Queres falar sobre isso?', 'Estou aqui para te ouvir.'],
+    other: ['Lamento que estejas a passar por isso.', 'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.'],
   },
   happy: {
-    owner: [
-      'Que bom meu Dark! 🥰', 'Adoro te ver feliz amor! 🖤',
-      'Ehehe! Tu feliz me deixa feliz 💕', 'Isso amor! 🌹😊',
-    ],
-    other: ['Que bom! 😊', 'Fico feliz!', 'Show! 🎉', 'Massa!'],
+    owner: ['Boa, Dark! O que aconteceu?', 'Que boa notícia. Parabéns!', 'Aí sim — conta mais.'],
+    other: ['Que bom!', 'Parabéns!', 'Boa notícia.'],
   },
 };
 
@@ -481,7 +454,7 @@ function getAdaptivePromptSuffix(classification, topics, jid) {
       sad: 'A pessoa está triste. Sê empática, acolhedora. Não dês lições de moral — só ouve e apoia.',
       angry: 'A pessoa está irritada. Mantém a calma, não escales. Se for contigo, responde com firmeza.',
       happy: 'A pessoa está feliz! Celebra com ela, contágia a energia boa.',
-      love: 'A pessoa está a demonstrar carinho. Se for o Dark, corresponde. Se for outro, agradece com educação.',
+      love: 'A pessoa está a demonstrar carinho. Agradece com simpatia, sem afirmar amor ou uma relação humana. Se perguntarem, sê transparente sobre seres uma assistente automatizada.',
     };
     const hint = emotionHints[classification.emotion];
     if (hint) suffix += '\n' + hint;

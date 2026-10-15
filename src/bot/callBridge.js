@@ -33,7 +33,7 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
       const alvo = alvoJid;
       const r = await Promise.race([
         live.ligarAoVivo(num, {
-          saudacao: 'Oi, sou a Aura. Estou na linha.',
+          saudacao: 'Olá, sou a AURA, assistente automatizada do DARK BOT. A chamada de voz está pronta.',
           onEscuta: async (wavBuf) => {
             try {
               const ch = require('./callHandler');
@@ -107,7 +107,7 @@ async function tentarLigar(sock, alvoJid, { tipo = 'voice', pushName = '' } = {}
   const num = String(alvoJid).split('@')[0].replace(/\D/g, '');
   const url = `https://wa.me/${num}`;
   await sock.sendMessage(alvoJid, {
-    text: `📞 Estou a ligar. Se a chamada não abrir sozinha, toca aqui: ${url}`,
+    text: `📞 Não consegui iniciar a chamada automaticamente. Abre o chat do WhatsApp por este link para tentares ligar: ${url}`,
   }).catch(() => {});
   callHandler._activas.set(String(alvoJid), {
     id: 'out-' + Date.now(), from: alvoJid, isVideo, inicio: Date.now(),
@@ -130,7 +130,7 @@ async function ligarGrupo(sock, groupJid) {
     }
   }
   await sock.sendMessage(groupJid, {
-    text: '📞 Chamada de grupo: usem o botão de chamada do WhatsApp neste grupo. Eu fico na linha por voz.',
+    text: '📞 Usem o botão de chamada do WhatsApp neste grupo. A AURA não participa numa chamada de grupo.',
   });
   return { ok: true, metodo: 'aviso' };
 }

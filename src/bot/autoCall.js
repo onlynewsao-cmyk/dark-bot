@@ -69,7 +69,7 @@ async function _ligarAgora(getSock, motivo) {
       const alvo = numero + '@s.whatsapp.net';
       const rv = await Promise.race([
         live.ligarAoVivo(numero, {
-          saudacao: 'Oi meu Dark, sou eu, a Aura. Estou na linha.',
+          saudacao: 'Olá, Dark. Sou a AURA, assistente automatizada do DARK BOT. Podes falar agora.',
           onEscuta: async (wavBuf) => {
             try {
               const ch = require('./callHandler');

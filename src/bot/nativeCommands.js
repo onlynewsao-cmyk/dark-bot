@@ -28,6 +28,7 @@ const { sendWithGif } = require('./gifHelper');
 const facebookPublisher = require('./facebookPublisher');
 const menuThemes   = require('./menuThemes');
 const changeThemes = require('./changeThemes');
+const menuMediaPolicy = require('./menuMediaPolicy');
 
 const startTime = Date.now();
 
@@ -145,6 +146,23 @@ async function getMenuMediaBuf(target, mediaUrl) {
   if (!mediaUrl) return null;
   return mediaHandler.fetchBuffer(mediaUrl).catch(() => null);
 }
+
+const _menuGifCache = new Map(); // `${target}:${url}` → MP4 mudo pronto a reproduzir
+async function getMenuGifBuf(target, mediaUrl, buffer) {
+  if (!buffer?.length) return null;
+  const key = `${target}:${mediaUrl || 'buffer'}`;
+  const cached = _menuGifCache.get(key);
+  if (cached && Date.now() - cached.ts < MENU_MEDIA_TTL) return cached.buf;
+  try {
+    const kind = detectVideoContainer(buffer);
+    const converted = await compressVideoForGif(buffer, kind);
+    if (!converted?.length || detectVideoContainer(converted) !== 'mp4') return null;
+    if (_menuGifCache.size >= 20) _menuGifCache.delete(_menuGifCache.keys().next().value);
+    _menuGifCache.set(key, { buf: converted, ts: Date.now() });
+    return converted;
+  } catch { return null; }
+}
+
 async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
   const mediaUrl = await botConfigCache.get(`menu_media_${target}_url`, '');
   const mediaType = await botConfigCache.get(`menu_media_${target}_type`, 'none');
@@ -164,29 +182,23 @@ async function sendMenuWithMedia(sock, msg, ctx, menuText, target = 'menu') {
           _menuMediaCache.set(mediaUrl, { buf, ts: Date.now() });
         }
       }
-      // v7.60: mídia local: do !setmenu já vem comprimida (não recomprime =
-      // não perde qualidade); URL remota (dashboard) mantém fluxo antigo.
-      const isLocal = String(mediaUrl).startsWith('local:');
-      if (mediaType === 'gif') {
-        // GIF → loop animado, sem áudio
-        const compressed = isLocal ? buf : await compressVideoForGif(buf);
+      if (menuMediaPolicy.shouldUseGifPlayback(target, mediaType)) {
+        const compressed = await getMenuGifBuf(target, mediaUrl, buf);
+        if (!compressed) throw new Error('não consegui converter a mídia do submenu para GIF compatível');
         return sock.sendMessage(ctx.remoteJid, {
           video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
-      } else if (mediaType === 'video') {
-        if (isLocal) {
-          // Vídeo NORMAL do !setmenu (com áudio, sem gifPlayback)
-          return sock.sendMessage(ctx.remoteJid, {
-            video: buf, caption: finalText, mimetype: 'video/mp4',
-          }, { quoted: msg });
-        }
-        const compressed = await compressVideoForGif(buf);
+      }
+      if (mediaType === 'video') {
+        // Vídeo normal só é preservado no menu principal.
         return sock.sendMessage(ctx.remoteJid, {
-          video: compressed, gifPlayback: true, caption: finalText, mimetype: 'video/mp4',
+          video: buf, caption: finalText, mimetype: 'video/mp4',
         }, { quoted: msg });
-      } else {
+      }
+      if (mediaType === 'image') {
         return sock.sendMessage(ctx.remoteJid, { image: buf, caption: finalText }, { quoted: msg });
       }
+      throw new Error('tipo de mídia inválido');
     } catch (e) {
       // Fallback para texto
     }
@@ -320,10 +332,11 @@ async function compressVideoForGif(buffer, kind = 'unknown') {
   try {
     fs.writeFileSync(inputPath, buffer);
     // Para GIF: CRF 28 (mais compressão), preset fast, sem áudio
-    // Resolução máxima 480px de largura para reduzir tamanho
+    // Resolução máxima 480px e duração até 15 s para playback do WhatsApp
     await execFileAsync(getFfmpegBin(), [
       '-y',
       '-i', inputPath,
+      '-t', '15',
       '-map', '0:v:0?',
       '-vf', 'scale=\'min(480,iw)\':-2',
       '-c:v', 'libx264',
@@ -620,6 +633,7 @@ const selCmds = allowed.filter(it => it.sel === true);
 
   // Tenta enviar com botão interativo (como na imagem: texto + botão "Abrir")
   let sent = false;
+  let submenuGifSent = false;
   if (rows.length) {
     try {
       const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
@@ -627,20 +641,31 @@ const selCmds = allowed.filter(it => it.sel === true);
         title:    `${t.icon} ${title}`,
         sections: [{ title: `${t.icon} COMANDOS`, rows }],
       };
-      // v7.60: mídia do submenu (!setmenu) no cabeçalho interactivo
+      // Imagens podem ficar no cabeçalho interactivo. GIFs de submenu
+      // seguem como mensagem MP4 separada: o header de listas nativas não
+      // reproduz de forma fiável gifPlayback em todos os clientes WhatsApp.
       let subMediaHeader = { title: '', hasMediaAttachment: false };
       try {
         const _mmUrl = await botConfigCache.get(`menu_media_${target}_url`, '').catch(() => '');
         const _mmType = await botConfigCache.get(`menu_media_${target}_type`, 'none').catch(() => 'none');
         if (_mmUrl && _mmType && _mmType !== 'none') {
           const _mmBuf = await getMenuMediaBuf(target, _mmUrl);
-          if (_mmBuf?.length) {
+          if (_mmBuf?.length && menuMediaPolicy.shouldUseGifPlayback(target, _mmType)) {
+            const _gifBuf = await getMenuGifBuf(target, _mmUrl, _mmBuf);
+            if (_gifBuf?.length) {
+              await sock.sendMessage(ctx.remoteJid, {
+                video: _gifBuf, mimetype: 'video/mp4', gifPlayback: true,
+                caption: `🎞️ ${title} · ${botName}`,
+              }, { quoted: msg });
+              submenuGifSent = true;
+            }
+          } else if (_mmBuf?.length) {
             const { prepareWAMessageMedia } = require('@systemzero/baileys');
             if (_mmType === 'image') {
               const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
               if (_mm?.imageMessage) subMediaHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
-            } else {
-              const _mm = await prepareWAMessageMedia({ video: _mmBuf, gifPlayback: _mmType === 'gif' }, { upload: sock.waUploadToServer });
+            } else if (_mmType === 'video') {
+              const _mm = await prepareWAMessageMedia({ video: _mmBuf }, { upload: sock.waUploadToServer });
               if (_mm?.videoMessage) subMediaHeader = { title: '', hasMediaAttachment: true, videoMessage: _mm.videoMessage };
             }
           }
@@ -677,7 +702,12 @@ const selCmds = allowed.filter(it => it.sel === true);
   }
 
   if (!sent) {
-    await sendMenuWithMedia(sock, msg, ctx, textBody, target); // v7.60: mídia do !setmenu
+    if (submenuGifSent) {
+      const fallbackText = await appendChannel(textBody);
+      await sock.sendMessage(ctx.remoteJid, { text: fallbackText }, { quoted: msg });
+    } else {
+      await sendMenuWithMedia(sock, msg, ctx, textBody, target); // v7.60: mídia do !setmenu
+    }
   }
 }
 
@@ -3409,7 +3439,9 @@ module.exports = {
   async sexyfoto(a) { return module.exports.cosplay(a); },
 
   async leakgallery({ sock, msg, ctx, args }) {
-    const q = portal18.cleanQuery(args.join(' ') || 'pinkchyu');
+    const termo = String(args.join(' ') || '').trim();
+    if (!termo) return reply(sock, msg, ctx, 'Indica um termo de pesquisa para este comando; não uso um nome de pessoa como alvo predefinido.');
+    const q = portal18.cleanQuery(termo);
     if (portal18.isBlocked(q) || (require('./adultSources').isAnimalContent(q))) {
       return reply(sock, msg, ctx, '🚫 Termo bloqueado (inclui animal/furry).');
     }
@@ -4540,5 +4572,6 @@ ${trailer ? `\n╎ 🎬 𝐓𝐫𝐚𝐢𝐥𝐞𝐫: ${trailer}` : ''}
 // do nativeCommands são varridos como comandos (audit-org-comandos,
 // submenu). Não-enumerável: invisível para Object.keys, acessível direto.
 Object.defineProperty(module.exports, 'getMenuMediaBuf', { value: getMenuMediaBuf, enumerable: false });
+Object.defineProperty(module.exports, 'getMenuGifBuf', { value: getMenuGifBuf, enumerable: false });
 // v7.66: dynSub (submenus dinâmicos) reutiliza o envio com mídia.
 Object.defineProperty(module.exports, 'sendMenuWithMedia', { value: sendMenuWithMedia, enumerable: false });

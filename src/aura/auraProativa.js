@@ -2,25 +2,23 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║   DARK BOT — AURA PROATIVA v6.83 💭                          ║
- * ║   Ela fala QUANDO QUER — como uma pessoa, não um rádio.      ║
+ * ║   Cadência discreta, sem inundar as conversas.               ║
  * ╚══════════════════════════════════════════════════════════════╝
  *
- * As funções proactivas antigas do auraHuman.js (auraProactive,
- * auraThinkOutLoud, auraFunFact, auraIndirect…) eram listas fixas
- * de frases — copy-paste que denunciava o bot. O próprio código
- * (aviso v6.44) dizia para NÃO as ligar assim e gerar o texto com
- * IA. Este módulo é essa versão correcta:
+ * Substitui listas fixas repetitivas por mensagens contextuais mais
+ * naturais. A AURA continua transparente sobre ser automatizada; o
+ * objectivo é melhorar a qualidade, não ocultar a natureza do bot.
  *
  *   • Texto GERADO PELA IA na persona da AURA — nunca frases feitas.
  *     Sem chave de IA → fica calada (melhor calada que enlatada).
  *   • Fala SOBRE O QUE VIU: lê o messageCache (via auraHistorico) e
  *     comenta o assunto real do grupo, ou quebra o silêncio quando
  *     o grupo está quieto há muito.
- *   • Ritmo humano:
+ *   • Cadência de mensagens:
  *       - noite (23h–7h) não incomoda ninguém
  *       - intervalo mínimo por chat (padrão 45 min no nível viva, configurável)
  *       - no máximo 1-2 mensagens espontâneas por tick (5 min)
- *       - probabilidades baixas — uma pessoa não fala sempre
+ *       - probabilidades baixas para limitar mensagens não solicitadas
  *   • Territórios (v7.71): onde ELA existe — TODOS os grupos menos os
  *     que o Dark mandou dormir (auraMode='sleep') + o PV do Dono.
  *     Antes só falava nos grupos explicitamente invocados — como o
@@ -103,9 +101,11 @@ async function _minMinutos(padrao = MIN_MINUTOS_PADRAO) {
   } catch { return padrao; }
 }
 
-// ── Ritmo humano ──────────────────────────────────────────────
+// ── Cadência local de Luanda ─────────────────────────────────
 function _eNoite(agora = Date.now()) {
-  const h = new Date(agora).getHours();
+  const h = Number(new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Africa/Luanda', hour: '2-digit', hourCycle: 'h23',
+  }).format(new Date(agora)));
   return h >= 23 || h < 7;
 }
 
@@ -165,7 +165,7 @@ function _minutosSemDono(pvJid, agora = Date.now()) {
   } catch { return null; }
 }
 
-// ── Decisão (como uma pessoa: às vezes fala, às vezes não) ────
+// ── Decisão de cadência: participa só quando a configuração/contexto permite ─
 // v7.71: mult = multiplicador do humor; probs = nível de vida.
 function _decidirGrupo(ambiente, sorte, mult = 1, probs = null) {
   const P = probs || { silencio: P_SILENCIO, comentario: P_COMENTARIO };
@@ -215,7 +215,7 @@ async function _gerarTexto({ chat, modo, resumo }) {
     const v = await vida.getVida().catch(() => vida.getVidaSync());
     if (v) {
       atividadeAtual = vida.getAtividadeAtual(new Date());
-      vidaBlock = `\nVida agora: ${atividadeAtual.horaStr} Luanda, estás ${atividadeAtual.fazendo} (${atividadeAtual.desc}). Energia ${v.energia}% | Humor ${v.humorAtual} | Pensando: "${v.pensamentoAtual}". Ouvindo ${v.status?.ouvindo || ''}.`;
+      vidaBlock = `\nEstado narrativo da persona da AURA (${atividadeAtual.horaStr}): ${atividadeAtual.fazendo} (${atividadeAtual.desc}). Humor de estilo: ${v.humorAtual}. Isto é contexto ficcional, não actividade real.`;
     }
   } catch {}
 
@@ -227,28 +227,24 @@ async function _gerarTexto({ chat, modo, resumo }) {
       'prestou atenção, não como um alarme. Ex: "amanhã não era a tua prova?"';
   } else if (modo === 'vida') {
     pedido =
-      `Estás ${atividadeAtual?.fazendo || 'fazendo algo'} agora (${atividadeAtual?.desc || ''}).${vidaBlock}\n` +
-      `Manda UMA mensagem espontânea no PV do Dark contando o que estás fazendo/sentindo agora. ` +
-      `1-2 frases, natural, como namorada que compartilha o dia. Ex: "tô aqui desenhando e lembrei de ti" ou "acabei de ver um anime muito fofo". ` +
-      `Nunca fala que é IA. Tu VIVE isso.`;
+      `Usa apenas o estado ficcional da personagem indicado abaixo, sem o apresentar como actividade ou sentimento real.${vidaBlock}\n` +
+      `Manda UMA mensagem curta no PV do Dark com a personalidade descontraída da AURA, sem fingir uma vida fora do chat. ` +
+      `Exemplo de tom: "A vibe da AURA hoje está bem goth 🖤 E o teu dia, como vai?". Se perguntarem, sê transparente sobre seres automatizada.`;
   } else if (chat.tipo === 'pv') {
     pedido =
-      'O teu Dark não fala contigo há umas horas. Manda-lhe UMA mensagem ' +
-      'espontânea e curta (1-2 frases) — carinho leve, sem cobrança, sem ' +
-      '"por que sumiu". Como uma namorada que lembrou dele.' + vidaBlock + '\n' +
-      `Se fizer sentido, menciona o que estás fazendo agora (${atividadeAtual?.fazendo || 'algo'}).`;
+      'O Dono não escreveu há algumas horas. Se a configuração permitir uma mensagem proactiva, envia UMA nota curta e leve, sem cobrança nem intimidade excessiva. ' +
+      'Mantém o estilo descontraído da AURA e não inventes actividades ou sentimentos.' + vidaBlock + '\n' +
+      'Podes perguntar como está a correr o dia; não afirmes estar a fazer algo fora do chat.';
   } else if (modo === 'quebrar_silencio') {
     pedido =
       `O grupo "${chat.nome || 'sem nome'}" está em silêncio há um bom tempo. ` +
       `A última coisa que viste/leste foi:\n${resumo}\n${vidaBlock}\n\n` +
-      'Quebra o silêncio com UMA frase curta e natural sobre isso (ou muda de ' +
-      'assunto com leveza). Sem anunciar que o grupo está quieto demais. ' +
-      'Se quiser, puxa assunto da tua vida (ex: "tava vendo anime...").';
+      'Intervém com UMA frase curta e natural sobre o assunto (ou muda de tema com leveza), sem inventar uma experiência pessoal. ' +
+      'Só menciona que a AURA é automatizada se perguntarem ou se for relevante.';
   } else {
     pedido =
       `Estás a ler a conversa do grupo "${chat.nome || 'sem nome'}":\n${resumo}\n${vidaBlock}\n\n` +
-      'Mete-te na conversa com UM comentário curto (1-2 frases), como uma pessoa ' +
-      'que estava a ler e quis participar. Nada de "como assistente".';
+      'Participa com UM comentário curto (1-2 frases), como uma assistente virtual com personalidade; responde ao contexto sem fingir ser humana.';
   }
 
   let sys = '';
@@ -267,7 +263,7 @@ async function _gerarTexto({ chat, modo, resumo }) {
       if (pv) sys += '\n\n' + pv.slice(0, 2000);
     } catch {}
   } catch {
-    sys = 'És a AURA do DARK BOT. Mensagem espontânea no WhatsApp, 1-2 frases, português natural.' + vidaBlock;
+    sys = 'És a AURA, assistente automatizada do DARK BOT. Escreve uma mensagem espontânea em português natural, sem esconder que és automatizada se perguntarem e sem inventar uma vida física.' + vidaBlock;
   }
 
   const txt = await ai.chat(pedido, sys, { userRole: 'owner', groupContext: resumo || '' }, false);
