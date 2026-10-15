@@ -61,6 +61,11 @@ const PADROES = [
   [/^apk\d*$/,                   'Procura e baixa aplicações Android'],
   [/^(dlmp3|dlmp3s|baixaraudio|audiodl)\d*$/, 'Baixa o áudio de um link'],
   [/^(dlmp4|baixarvideo|videodl)\d*$/, 'Baixa o vídeo de um link'],
+  [/^(mp4to3|4to3|mp4paraaudio|videoparamp3|tomp3|tomp3video|videoaomp3)$/, 'Extrai e envia o áudio do vídeo'],
+  [/^(tovoice|topt|tovn|mp4tovoice|mp3tovoice|audioparavoice)$/, 'Converte mídia em nota de voz'],
+  [/^(togif|mp4togif|videoparagif)$/, 'Converte vídeo num GIF em loop'],
+  [/^(videoaimg|mp4toimg|primeiraframe|videoframe)$/, 'Extrai a primeira imagem do vídeo'],
+  [/^(todoc|todocx|mediatodoc|enviarcomodocumento)$/, 'Envia a mídia como documento'],
   [/^(down|downloads|dl)\d*$/,   'Abre o menu de downloads'],
 
   // ── Conteúdo +18 (descrições específicas — antes dos padrões genéricos) ──

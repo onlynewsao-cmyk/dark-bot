@@ -428,6 +428,8 @@ function categorize(cmd) {
   // Downloads
   if (/^(down|downloads)$/.test(c)) return 'info'; // navegação de submenu
   if (/^(play|video|ytd|gyt|tiktok|instagram|fb|twitter|spotify|soundcloud|pinterest|pinpack|pinmp4|pinsticker|statusvideo|yt3v2|yt4v2|playid|playhq|tomp3|shazam|myinstants|pintemp|instamp|letra|kwai|igstory|gdrive|mediafire|mcplugin|ttk|scdl|spotify2|twitterdl|playvid|pinterest2|sc$)/.test(c)) return 'downloads';
+  // v9.21: expõe conversões de mídia dentro do menu Downloads.
+  if (/^(mp4to3|4to3|mp4paraaudio|videoparamp3|tomp3video|videoaomp3|tovoice|topt|tovn|mp4tovoice|mp3tovoice|audioparavoice|togif|mp4togif|videoparagif|videoaimg|mp4toimg|primeiraframe|videoframe|todoc|todocx|mediatodoc|enviarcomodocumento)$/.test(c)) return 'downloads';
   // Stickers & Imagens
   if (/^(sticker|sfull|figubug|toimg|attp|ttp|imagem|figura|gimage|stickerrename|brat|legenda|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada|aisticker|jeff|faber|norian|totext|ptvmsg|gerarlink|rvisu|8d$)/.test(c)) return 'stickers';
   // IA
@@ -474,7 +476,7 @@ function categorize(cmd) {
 const { describe } = require('./commandDescriptions');
 
 const SUBMENU_META = {
-  downloads:    { title: '📥 DOWNLOADS',              sub: 'Música • Vídeo • Redes Sociais',     btn: '📥 Downloads' },
+  downloads:    { title: '📥 DOWNLOADS',              sub: 'Música • Vídeo • Redes • Conversões', btn: '📥 Downloads' },
   stickers:     { title: '🎨 STICKERS & IMAGENS',     sub: 'Figurinhas • Packs • Arte Visual',   btn: '🎨 Stickers' },
   ia:           { title: '🤖 IA & CHATBOTS',           sub: 'Inteligência Artificial com Memória', btn: '🤖 IA' },
   admin:        { title: '👥 ADM & GRUPOS',            sub: 'Moderação • Regras • Automação',     btn: '👥 ADM & GRUPOS' },
@@ -521,6 +523,7 @@ const SUBCATEGORIES = {
     { id: '🎵 Música', re: /^(play|play2|play3|playhq|hq|playmax|music|musica|yt|ytmp3|ytd|baixaraudio|dlmp3|som|song|faixa|track|musik|disco|qualmusica|shazam|identificar|tomp3|letra|spotify|scdl)$/ },
     { id: '🎬 Vídeo', re: /^(video|vid|ytmp4|yt4|gyt|baixarvideo|dlmp4|pinvideo|pinmp4|pinvd|playvid|playid|fhd|fullhd|ytfhd|ythd)$/ },
     { id: '📱 Redes Sociais', re: /^(tiktok|tt|instagram|ig|facebook|fb|twitter|tw|x|pinterest|pinpack|pinpacks|kwai|igstory|gdrive|mediafire|mcplugin|scdl)$/ },
+    { id: '🛠️ Conversões', re: /^(mp4to3|4to3|mp4paraaudio|videoparamp3|tomp3video|videoaomp3|tovoice|topt|tovn|mp4tovoice|mp3tovoice|audioparavoice|togif|mp4togif|videoparagif|videoaimg|mp4toimg|primeiraframe|videoframe|todoc|todocx|mediatodoc|enviarcomodocumento)$/ },
   ],
   admin: [
     { id: '🛡️ Moderação', re: /^(kick|ban|ban2|bam|mute|desmute|mute2|desmute2|tempban|tempkick|warn|advertir|unwarn|warnings|resetwarn|promote|demote|rebaixar|promover|calar|unmute|unadmin|silenciar|del|apagar|deletar|delete|limpar|dam|fakeban|fakelog|fakeedit|fakemsg)$/ },

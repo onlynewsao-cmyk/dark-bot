@@ -1,20 +1,14 @@
 /**
- * DARK BOT v5.1 — Cases de Downloads 🎵
- * Estilo switch/case com ButtonV2 real do @systemzero/baileys
+ * DARK BOT — Cases de Downloads 🎵
  *
- * play   → busca + card ButtonV2 (Áudio / Vídeo) — resultado #1
- * play2  → mesmo fluxo — resultado #2 (alternativo)
- * play3  → mesmo fluxo — resultado #3
- * ytd    → download áudio por URL (disparado pelo botão)
- * gyt    → download vídeo por URL (disparado pelo botão)
- * playhq → áudio alta qualidade directa (320kbps)
- * video  → vídeo HD 720p directo
- * video2 → vídeo FHD 1080p directo
+ * play   → um card compacto com botões directos de áudio/vídeo — resultado #1
+ * play2  → mesmo estilo — resultado alternativo #2
+ * play3  → mesmo estilo — resultado #3 (qualidade alta)
+ * ytd    → áudio MP3 enviado após um toque no botão do card
+ * gyt    → vídeo MP4 enviado após um toque no botão do card
  *
- * v5.1: código play baseado no formato de referência exacto
- * (`systemZone.ytsearch` → `resultados`), com fallback automático:
- * ButtonV2 → interactive viewOnce → texto. A busca também tem
- * fallback: API systemzone → pacote yt-search local.
+ * O primeiro resultado usa áudio 128k e vídeo 480p para reduzir espera;
+ * sem ButtonV2, o card degrada para texto com os mesmos comandos directos.
  */
 
 'use strict';
@@ -80,36 +74,46 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
 
-// ── v7.77: cartão do play (extraído do runPlaySearch p/ reusar na escolha) ──
-async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, toxic, footer) {
-  const { ButtonV2 } = require('@systemzero/baileys/lib/MB.cjs');
-  if (toxic) {
-    await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg);
-    return;
-  }
-  let sent = false;
-  try {
-    const msgBtn = new ButtonV2(sock);
-    msgBtn.setTitle(`${video.title}`.slice(0, 60));
-    msgBtn.setBody(
-      `\u{1F464} ${video.author || 'Desconhecido'}\n` +
-      `\u23F1\uFE0F ${video.duration || '?'} \u2022 \u{1F441}\uFE0F ${Number(video.views || 0).toLocaleString('pt-BR')}\n\n` +
-      bodyExtra
-    );
-    msgBtn.setFooter(footer);
-    if (video.thumbnail) {
-      try { msgBtn.setThumbnail(video.thumbnail); } catch {}
+// ── Card compacto e único: áudio directo num toque + opção vídeo ──
+async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer) {
+  const mediaUrl = String(video.youtube_url || video.url || '').trim();
+  if (!mediaUrl) throw new Error('resultado sem URL de mídia');
+
+  const author = String(video.author || 'Canal desconhecido').slice(0, 44);
+  const duration = String(video.duration || '?').slice(0, 12);
+  const views = Number(video.views || 0).toLocaleString('pt-BR');
+  const lines = [
+    bodyExtra ? `🔎 ${bodyExtra}` : '',
+    `👤 ${author}`,
+    `⏱️ ${duration}  ·  👁️ ${views}`,
+    `🎵 ${Q.audio}  ·  🎬 ${Q.video}p`,
+  ].filter(Boolean);
+  const body = lines.join('\n');
+  const audioCmd = `${prefix}ytd ${mediaUrl} | ${Q.audio}`;
+  const videoCmd = `${prefix}gyt ${mediaUrl} | mp4 | ${Q.video} | ${video.duration || ''}`;
+
+  let ButtonV2 = null;
+  try { ButtonV2 = require('@systemzero/baileys/lib/MB.cjs').ButtonV2; } catch {}
+  if (ButtonV2) {
+    try {
+      const card = new ButtonV2(sock);
+      card.setTitle(String(video.title || 'Música').slice(0, 60));
+      card.setBody(body);
+      card.setFooter(String(footer || 'DARK BOT · escolhe áudio ou vídeo').slice(0, 64));
+      if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
+      card.addButton(`🎵 Áudio ${Q.audio}`, audioCmd);
+      card.addButton(`🎬 Vídeo ${Q.video}p`, videoCmd);
+      await card.send(m.chat, { quoted: msg });
+      return;
+    } catch (e) {
+      console.warn('[PLAY] ButtonV2 falhou; a enviar opções em texto:', e.message?.slice(0, 80));
     }
-    msgBtn.addButton(`\uD83C\uDFB5 Baixar \u00C1udio (${Q.audio})`, `${prefix}ytd ${video.youtube_url} | ${Q.audio}`);
-    msgBtn.addButton(`\uD83C\uDFAC Baixar V\u00EDdeo (${Q.video}p)`, `${prefix}gyt ${video.youtube_url} | mp4 | ${Q.video} | ${video.duration || ''}`);
-    await msgBtn.send(m.chat, { quoted: msg });
-    sent = true;
-  } catch (e) {
-    console.warn('[PLAY] ButtonV2 falhou, a usar cascata:', e.message?.slice(0, 80));
   }
-  if (!sent) {
-    await systemZeroPlay.sendPlayCard(sock, m.chat, video, prefix, msg, bodyExtra.trim());
-  }
+
+  // Fallback simples: os dois comandos continuam disponíveis sem a biblioteca de botões.
+  await sock.sendMessage(m.chat, {
+    text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\nÁudio: ${audioCmd}\nVídeo: ${videoCmd}`,
+  }, { quoted: msg });
 }
 
 async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0, quality = {}) {
@@ -125,8 +129,6 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
   sock.sendMessage(m.chat, { react: { text: '🫡', key: m.key } });
 
   try {
-    const { ButtonV2 } = require('@systemzero/baileys/lib/MB.cjs');
-
     const searchData = await systemZeroPlay.ytsearch(text);
     if (!searchData?.resultados?.length) {
       sock.sendMessage(m.chat, { react: { text: '❌', key: m.key } });
@@ -136,12 +138,9 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     const resultados = searchData.resultados || [];
     const footer = config.footer || (config.bot?.name ? `${config.bot.name} 🕸️ DARK BOT` : '© DARK BOT v6');
     const video = resultados[Math.min(resultIndex, resultados.length - 1)];
-    const bodyExtra =
-      resultIndex === 0 ? '✦ ݁˖ Selecione o formato desejado. .✦ ݁˖\n\n'
-      : resultIndex === 1 ? '✦ ݁˖ Resultado alternativo (#2) ✦ ݁˖\n\n'
-      : `✦ ݁˖ Resultado #${resultIndex + 1} ✦ ݁˖\n\n`;
+    const bodyExtra = resultIndex > 0 ? `Resultado #${resultIndex + 1}` : '';
 
-    await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, quality.toxic, footer);
+    await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer);
     sock.sendMessage(m.chat, { react: { text: '✅', key: m.key } });
   } catch (e) {
     if (!e.message?.includes('rate-overlimit')) {
@@ -158,10 +157,10 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
 module.exports = function registerDownloadCases(registerCase) {
 
   // ════════════════════════════════════════════════
-  // case 'play' — busca + ButtonV2 (resultado #1)
+  // case 'play' — card compacto, igual ao estilo play3 (resultado #1)
   // ════════════════════════════════════════════════
   registerCase(['play', 'music', 'musica', 'yt', 'ytmp3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Standard', toxic: true }));
+    runPlaySearch(caseCtx, 0, { audio: '128k', video: '480', label: 'Rápido' }));
 
   // ════════════════════════════════════════════════
   // case 'play2' — resultado alternativo (#2)
