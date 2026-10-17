@@ -16,6 +16,14 @@ Module.prototype.require = function (s) {
   if (s === 'dotenv') return { config: () => ({}) };
   if (s === 'bcryptjs') return { hash: async () => '', compare: async () => true, genSalt: async () => '' };
   if (s === 'axios') return { get: async () => ({ data: {} }), post: async () => ({ data: {} }) };
+  if (s === 'yt-search') return async () => ({ videos: [] });
+  if (s === '@systemzero/baileys' || s.endsWith('/baileys')) {
+    return {
+      downloadContentFromMessage: async function* () { yield Buffer.from('data'); },
+      downloadMediaMessage: async () => Buffer.from('data'),
+      proto: { Message: class {} }
+    };
+  }
   if (s === 'mongoose' || s.endsWith('/mongoose')) {
     class Schema {
       constructor() { this.statics = {}; this.methods = {}; }
