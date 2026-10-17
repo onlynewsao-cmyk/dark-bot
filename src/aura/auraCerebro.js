@@ -24,14 +24,22 @@
  */
 
 const RE_FAZ = /\[\s*FAZ\s*:\s*([a-z_]+)(?:\s+([^\]]{0,200}))?\s*\]/gi;
-const RE_APRENDI = /\[\s*APRENDI\s*:\s*([^\]]{3,160})\s*\]/gi;
-const RE_APRENDI_GRUPO = /\[\s*APRENDI_GRUPO\s*:\s*([^\]]{3,160})\s*\]/gi;
+const RE_APRENDI = /\[\s*(?:APRENDI|INSIGHT|EVOLUCAO|MEMORIA)\s*:\s*([^\]]{3,200})\s*\]/gi;
+const RE_APRENDI_GRUPO = /\[\s*APRENDI_GRUPO\s*:\s*([^\]]{3,200})\s*\]/gi;
+const RE_HABITO = /\[\s*(?:HABITO|PREFERENCIA)\s*:\s*([^\]]{3,200})\s*\]/gi;
 
 // Comandos (auraCommands) que a IA pode invocar por [FAZ:cmd_<nome>].
-// Curto de propósito: são os que fazem sentido em conversa.
+// Inclui funções vitais de canais, grupos, status, mídias e evolução.
 const CMDS_IA = {
   play: 'tocar/enviar música (arg: nome da música)',
   sticker: 'fazer figurinha da imagem/vídeo citado',
+  canal: 'gerir canal ou publicar (arg: postar <texto> | info | stats | divulgar)',
+  super: 'publicar em todos os canais e grupos (arg: grupos <texto> ou <texto>)',
+  statuscanal: 'postar no canal oficial do bot (arg: texto)',
+  divulgar: 'disparar onda de divulgação para grupos (arg: <texto> ou add)',
+  statusvideo: 'converter vídeo para formato ideal de status',
+  evolucao: 'ver meu nível de evolução cognitiva e consciência',
+  insights: 'ver os aprendizados e epifanias da minha mente',
   menu: 'mostrar o menu do bot',
   ping: 'ver se o bot está vivo / latência',
   saldo: 'ver saldo/moedas da pessoa',
@@ -114,10 +122,20 @@ function interpretar(resposta) {
   RE_FAZ.lastIndex = 0;
   while ((m = RE_FAZ.exec(r)) && acoes.length < 2) acoes.push({ id: m[1].toLowerCase(), arg: String(m[2] || '').trim() });
   RE_APRENDI.lastIndex = 0;
-  while ((m = RE_APRENDI.exec(r)) && factos.length < 2) factos.push(m[1].trim());
+  while ((m = RE_APRENDI.exec(r)) && factos.length < 3) factos.push(m[1].trim());
   RE_APRENDI_GRUPO.lastIndex = 0;
   while ((m = RE_APRENDI_GRUPO.exec(r)) && factosGrupo.length < 2) factosGrupo.push(m[1].trim());
-  const texto = r.replace(RE_FAZ, '').replace(RE_APRENDI, '').replace(RE_APRENDI_GRUPO, '').replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+  RE_HABITO.lastIndex = 0;
+  while ((m = RE_HABITO.exec(r)) && factos.length < 5) factos.push(m[1].trim());
+
+  const texto = r
+    .replace(RE_FAZ, '')
+    .replace(RE_APRENDI, '')
+    .replace(RE_APRENDI_GRUPO, '')
+    .replace(RE_HABITO, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   return { acoes, factos, factosGrupo, texto };
 }
 
@@ -152,7 +170,7 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
     try {
       if (a.id.startsWith('cmd_')) {
         const nome = a.id.slice(4);
-        if (!CMDS_IA[nome] || cmds.estaBloqueado(nome)) continue;
+        if (cmds.estaBloqueado(nome)) continue;
         if (!cmds.podeExecutar(nome, { isOwner, isVip, isAdmin }).pode) continue;
         const args = a.arg ? a.arg.split(/\s+/) : [];
         const prefix = ctx.prefix || config?.bot?.prefix || '!';
@@ -182,8 +200,12 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
         }
         // não é case → nativo/pacote (menu, saldo…), igual ao auraCommands
         if (!correu && typeof runNativo === 'function') correu = await runNativo(nome, { ctx: fakeCtx, args }).catch(() => false);
-        if (correu) out.executadas++;
-        else out.respostas.push(`Não encontrei a função "${nome}" aqui.`);
+        if (correu) {
+          out.executadas++;
+          try { require('./auraEvolucao').registrarAcaoExecutada(nome, a.arg); } catch {}
+        } else {
+          out.respostas.push(`Não encontrei a função "${nome}" aqui.`);
+        }
         continue;
       }
       const cap = brain.POR_ID.get(a.id);
@@ -192,6 +214,7 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
       const exec = require('./auraExec');
       const r = await exec.executar(a.id, a.arg, { sock, msg, ctx, texto, isOwner, isAdmin });
       out.executadas++;
+      try { require('./auraEvolucao').registrarAcaoExecutada(a.id, a.arg); } catch {}
       if (r?.msg && !r.gerar) out.respostas.push(String(r.msg));
     } catch (e) {
       out.respostas.push(`Tentei ${a.id} mas não consegui: ${String(e.message || e).slice(0, 80)}`);
@@ -226,8 +249,20 @@ async function saberGrupo(jid) {
 }
 
 /** Guarda o que a IA anotou (pessoa + grupo). */
-async function aprender({ factos = [], factosGrupo = [], senderNumber, remoteJid, isGroup }) {
+async function aprender({ factos = [], factosGrupo = [], senderNumber, remoteJid, isGroup, isOwner = false }) {
   let n = 0;
+  try {
+    const evolucao = require('./auraEvolucao');
+    for (const f of factos) {
+      const tipo = isOwner ? 'dono' : 'geral';
+      await evolucao.gravarInsight(tipo, f, { senderNumber, remoteJid, isOwner });
+      n++;
+    }
+    for (const f of factosGrupo) {
+      await evolucao.gravarInsight('grupo', f, { senderNumber, remoteJid, isGroup });
+      n++;
+    }
+  } catch {}
   try {
     const mem = require('./auraMemory');
     for (const f of factos) { await mem.guardar(senderNumber, f, { importante: true }); n++; }
@@ -237,8 +272,13 @@ async function aprender({ factos = [], factosGrupo = [], senderNumber, remoteJid
 }
 
 /** Bloco "o que já sabes" para o prompt. */
-async function saberParaPrompt({ senderNumber, remoteJid, isGroup }) {
+async function saberParaPrompt({ senderNumber, remoteJid, isGroup, isOwner = false }) {
   const partes = [];
+  try {
+    const evolucao = require('./auraEvolucao');
+    const blocoEvol = await evolucao.obterBlocoPrompt({ isOwner, isGroup, remoteJid });
+    if (blocoEvol) partes.push(blocoEvol);
+  } catch {}
   try {
     const mem = require('./auraMemory');
     const m = await mem.lembrar(senderNumber);

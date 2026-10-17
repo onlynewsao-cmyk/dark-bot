@@ -522,6 +522,14 @@ const CAPACIDADES = [
     ],
   },
   {
+    id: 'aura_evolucao', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
+    desc: 'Ver o nível de evolução cognitiva, consciência e aprendizados da Aura',
+    gatilhos: [
+      /\b(como est[aá] (a )?tua (mente|consciencia|evolu[cç][aã]o)|tua mente|teu nivel|tua evolu[cç][aã]o|como tu evoluis|o que tu aprendeste|mostra tua mente)\b/i,
+      /\b(nivel cognitivo|pontos de xp|grau de consciencia|painel da mente)\b/i,
+    ],
+  },
+  {
     id: 'foto_perfil', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
     desc: 'Mudar a foto de perfil do bot para uma imagem enviada ou uma ilustração virtual da AURA',
     gatilhos: [/\b(muda|troca|poe|coloca|altera|atualiza)\b.{0,20}\b(tua foto|foto de perfil|teu perfil|minha foto|perfil do bot)\b/, /\b(coloca|poe).{0,12}\b(tua|essa|minha)\b.{0,12}\b(perfil|foto)\b/],

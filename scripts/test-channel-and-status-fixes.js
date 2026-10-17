@@ -8,6 +8,36 @@
  */
 
 const assert = require('assert');
+const Module = require('module');
+
+// Mock mongoose e dotenv se não estiverem instalados no sandbox
+const _orig = Module.prototype.require;
+Module.prototype.require = function (s) {
+  if (s === 'dotenv') return { config: () => ({}) };
+  if (s === 'bcryptjs') return { hash: async () => '', compare: async () => true, genSalt: async () => '' };
+  if (s === 'axios') return { get: async () => ({ data: {} }), post: async () => ({ data: {} }) };
+  if (s === 'mongoose' || s.endsWith('/mongoose')) {
+    class Schema {
+      constructor() { this.statics = {}; this.methods = {}; }
+      index() { return this; } set() { return this; } static() { return this; } method() { return this; }
+      pre() { return this; } post() { return this; } virtual() { return { get: () => this, set: () => this }; }
+      static plugin() { return this; }
+      static get Types() { return { Mixed: Object, ObjectId: class {} }; }
+    }
+    const mkModel = () => {
+      const M = function () {};
+      M.findOne = () => ({ lean: async () => null, sort: () => ({ lean: async () => [] }), exec: async () => null });
+      M.find = () => ({ lean: async () => [] });
+      M.updateOne = async () => ({});
+      M.findOneAndUpdate = async () => ({});
+      M.create = async () => ({});
+      M.model = M;
+      return M;
+    };
+    return { Schema, model: () => mkModel(), connect: async () => ({}), Types: { ObjectId: class {} }, connection: { readyState: 1 } };
+  }
+  return _orig.apply(this, arguments);
+};
 
 async function run() {
   console.log('--- Testing Channel & Group Status Fixes ---');
