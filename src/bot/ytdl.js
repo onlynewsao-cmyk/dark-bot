@@ -24,6 +24,7 @@ const yts        = require('yt-search');
 const SZ_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
 const SZ_KEY = process.env.SYSTEMZONE_API_KEY || 'freekey';
 const MAX_SEC = Number(process.env.MAX_YOUTUBE_SECONDS || 5400);
+const videoCompat = require('./videoCompat');
 
 // ─── ffmpeg ──────────────────────────────────────────────────
 let _ffmpeg = null;
@@ -51,6 +52,20 @@ function isUrl(s) { return /^https?:\/\//i.test(String(s || '')); }
 
 function safeTitle(s = '') {
   return String(s).replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 60) || 'audio';
+}
+
+function normalizeVideoHeight(value = '720') {
+  const match = String(value || '720').trim().match(/(\d{3,4})\s*p?/i);
+  const height = Number(match?.[1] || 720);
+  if (height <= 360) return '360';
+  if (height <= 480) return '480';
+  if (height <= 720) return '720';
+  return '1080';
+}
+
+function actualVideoQuality(buffer) {
+  const dimensions = videoCompat.dimensionsFromMp4(buffer);
+  return dimensions?.height ? `${dimensions.height}p` : 'resolução não verificada';
 }
 
 function parseDuration(s = '') {
@@ -416,6 +431,7 @@ async function getAudio(query, quality = '128k') {
 
 /** Busca + baixa vídeo MP4 — 5 fallbacks */
 async function getVideo(query, maxHeight = '720') {
+  maxHeight = normalizeVideoHeight(maxHeight);
   const meta = await searchVideo(query);
   if (meta.seconds > MAX_SEC) {
     throw new Error('⏱️ Vídeo muito longo (' + Math.floor(meta.seconds / 60) + ' min). Limite: ' + Math.floor(MAX_SEC / 60) + ' min.');
@@ -426,21 +442,21 @@ async function getVideo(query, maxHeight = '720') {
   // 1. yt-dlp
   try {
     const buf = await ytdlpDownload(meta.url, false, '128k', maxHeight);
-    return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'yt-dlp' };
+    return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(buf), source: 'yt-dlp' };
   } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
 
   // 2. youtubei.js
   if (meta.videoId) {
     try {
       const buf = await youtubeijsStream(meta.videoId, false);
-      return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'youtubei.js' };
+      return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(buf), source: 'youtubei.js' };
     } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
   }
 
   // 3. Loader.to
   try {
-    const r = await loaderDownload(meta.url, maxHeight === '360' ? '360' : maxHeight === '480' ? '480' : '720');
-    return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: maxHeight + 'p', source: 'loader.to' };
+    const r = await loaderDownload(meta.url, maxHeight);
+    return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(r.buffer), source: 'loader.to' };
   } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
 
   // 4. SystemZone
@@ -448,7 +464,7 @@ async function getVideo(query, maxHeight = '720') {
     const info = await szDownloadMP4(meta.url);
     const buf = await fetchBuf(info.url, 180000);
     if (buf && buf.length > 10240) {
-      return { ...meta, title: info.title || meta.title, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: info.quality || maxHeight + 'p', source: 'SystemZone' };
+      return { ...meta, title: info.title || meta.title, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(buf), source: 'SystemZone' };
     }
   } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
 
@@ -474,4 +490,7 @@ async function searchVideoList(query, limit = 8) {
   }));
 }
 
-module.exports = { getAudio, getVideo, search, searchVideo, searchVideoList, extractAudioFromBuffer };
+module.exports = {
+  getAudio, getVideo, search, searchVideo, searchVideoList,
+  extractAudioFromBuffer, normalizeVideoHeight, actualVideoQuality,
+};

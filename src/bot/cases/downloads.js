@@ -58,9 +58,13 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
     maxHeight: opts.maxHeight || 480,
   });
   const duration = compatible.duration || opts.duration || '';
-  const finalCaption = duration && !/⏱️\s*(?:\?|—)?\s*(?:\||$)/.test(caption)
-    ? caption
-    : (duration ? String(caption).replace(/⏱️\s*(?:\?|—)?/, `⏱️ ${duration}`) : caption);
+  const actualQuality = compatible.dimensions?.height
+    ? `${compatible.dimensions.height}p`
+    : 'resolução não verificada';
+  const measuredCaption = String(caption || '').replace(/📺\s*[^\n]*/u, `📺 ${actualQuality}`);
+  const finalCaption = duration && !/⏱️\s*(?:\?|—)?\s*(?:\||$)/.test(measuredCaption)
+    ? measuredCaption
+    : (duration ? measuredCaption.replace(/⏱️\s*(?:\?|—)?/, `⏱️ ${duration}`) : measuredCaption);
   return sock.sendMessage(jid, {
     video: compatible.buffer,
     caption: finalCaption,
