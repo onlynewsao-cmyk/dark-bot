@@ -109,7 +109,9 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
       if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
       if (!options.videoOnly) card.addButton(`🎵 Áudio ${Q.audio}`, audioCmd);
       card.addButton(`🎬 Vídeo ${Q.video}p`, videoCmd);
-      await card.send(m.chat, { quoted: msg });
+      // Quando o áudio é automático, só ele responde/cita o comando; o card
+      // fica como mensagem simples com o único botão de vídeo.
+      await card.send(m.chat, options.autoAudio ? {} : { quoted: msg });
       return;
     } catch (e) {
       console.warn('[PLAY] ButtonV2 falhou; a enviar opções em texto:', e.message?.slice(0, 80));
@@ -122,7 +124,7 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
     : `Áudio: ${audioCmd}\nVídeo: ${videoCmd}`;
   await sock.sendMessage(m.chat, {
     text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\n${actionsText}`,
-  }, { quoted: msg });
+  }, options.autoAudio ? {} : { quoted: msg });
 }
 
 async function enviarAudioResultado(sock, jid, msg, video, quality) {
