@@ -46,7 +46,7 @@ async function makeThemedSticker(sock, msg, ctx, styleName, overlayText = '') {
       authorName: `${ctx.pushName} | ${config.bot.name}`,
     });
     if (stk && stk.length > 50) {
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } else throw new Error('Sticker vazio');
   } catch (e) {
@@ -99,7 +99,7 @@ module.exports = function registerStickers2(registerCase) {
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
         packName: ' brat', authorName: ctx.pushName,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -175,7 +175,7 @@ module.exports = function registerStickers2(registerCase) {
           packName: ' brat2', authorName: ctx.pushName,
         });
       }
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -200,18 +200,20 @@ module.exports = function registerStickers2(registerCase) {
     if (!buf) return sock.sendMessage(ctx.remoteJid, { text: '📸 Marca uma imagem!' }, { quoted: msg });
     try {
       const sharp = require('sharp');
-      const img = sharp(buf).resize(512, 512, { fit: 'cover' });
-      const metadata = await img.metadata();
-      const svg = Buffer.from(`<svg width="${metadata.width}" height="${metadata.height}">
-        <rect y="${metadata.height - 100}" width="100%" height="100" fill="rgba(0,0,0,0.6)"/>
-        <text x="50%" y="${metadata.height - 40}" font-family="Arial" font-size="32" fill="white" text-anchor="middle">${text.slice(0, 30)}</text>
+      const base = await sharp(buf)
+        .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png().toBuffer();
+      const safeText = text.slice(0, 30).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]));
+      const svg = Buffer.from(`<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+        <rect y="412" width="512" height="100" fill="rgba(0,0,0,0.6)"/>
+        <text x="256" y="472" font-family="Arial" font-size="32" fill="white" text-anchor="middle">${safeText}</text>
       </svg>`);
-      const composited = await img.composite([{ input: svg }]).webp({ quality: 80 }).toBuffer();
+      const composited = await sharp(base).composite([{ input: svg, left: 0, top: 0 }]).webp({ quality: 80 }).toBuffer();
       const stk = await stickerMaker.create(composited, {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });
@@ -258,7 +260,7 @@ module.exports = function registerStickers2(registerCase) {
     sock.sendMessage(ctx.remoteJid, { react: { text: '⏳', key: msg.key } });
     try {
       const sharp = require('sharp');
-      const webpBuf = await sharp(buf).resize(512, 512, { fit: 'cover' }).webp({ quality: 80 }).toBuffer();
+      const webpBuf = await sharp(buf).resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).webp({ quality: 80 }).toBuffer();
       // Enviar como PTV (video message com gifPlayback)
       await sock.sendMessage(ctx.remoteJid, {
         video: webpBuf, mimetype: 'video/mp4', gifPlayback: true,
@@ -279,7 +281,7 @@ module.exports = function registerStickers2(registerCase) {
     try {
       const sharp = require('sharp');
       const processed = await sharp(buf)
-        .resize(512, 512, { fit: 'cover' })
+        .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .negate() // inverter cores
         .modulate({ brightness: 1.2, saturation: 1.5 })
         .webp({ quality: 80 })
@@ -288,7 +290,7 @@ module.exports = function registerStickers2(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
       sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
     } catch (e) {
       sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });

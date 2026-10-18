@@ -477,7 +477,7 @@ module.exports = function registerTexto2(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
     } catch (e) {
       return tReply(sock, msg, ctx, '✍️ TEXTO', [`❌ ${e.message}`]);
     }

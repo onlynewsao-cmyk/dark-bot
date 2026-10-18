@@ -58,11 +58,15 @@ async function renomear({ sock, ctx, m, args, prefix, reply, react }) {
   try { react('⏳'); } catch {}
   try {
     const buf = await mediaHandler.downloadFromMessage({ message: { stickerMessage: ex.stkMsg } });
+    const meta = await require('./stickerWm').resolvePack(ctx?.remoteJid).catch(() => null);
     const novo = await stickerMaker.renameMeta(buf, {
       packName: pack,
-      authorName: author || ctx?.pushName || 'DARK NET 🕸️',
+      authorName: author || meta?.brand || 'Dark Net Ao',
+      channelUrl: meta?.channelUrl || '',
+      androidStoreUrl: meta?.androidStoreUrl || '',
+      iosStoreUrl: meta?.iosStoreUrl || '',
     });
-    await sock.sendMessage(ctx.remoteJid, { sticker: novo }, { quoted: m?.msg || m?.key });
+    await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, novo, { quoted: m?.msg || m?.key, meta });
     try { react('✅'); } catch {}
     return reply(
       `✅ Sticker renomeado!\n` +

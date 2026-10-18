@@ -53,18 +53,23 @@
 
 
 
-    <div class="card" style="border-color:rgba(255,255,255,.14)">
-      <h2>💧 Marca d'água dos stickers</h2>
-      <p class="muted">Controla metadados pack/author e marca visível em stickers estáticos. Também pode alterar pelo WhatsApp com <code>stickerwm</code>.</p>
+    <div class="card" style="border-color:rgba(163,230,53,.32)">
+      <h2>📦 Identidade e pacote dos stickers</h2>
+      <p class="muted">Padrão sem corte: preserva a imagem inteira. Configure a marca Dark Net Ao, um nome de canal opcional, tema e destinos. Os links de canal/loja são validados antes de guardar.</p>
       <form id="stickerWmForm">
         <div class="form-grid">
-          <div class="form-group"><label>Status</label><select name="enabled"><option value="true" <%= settings.sticker_watermark_enabled !== false ? 'selected' : '' %>>ON</option><option value="false" <%= settings.sticker_watermark_enabled === false ? 'selected' : '' %>>OFF</option></select></div>
-          <div class="form-group"><label>Marca visível</label><select name="visible"><option value="false" <%= settings.sticker_visible_watermark ? '' : 'selected' %>>OFF</option><option value="true" <%= settings.sticker_visible_watermark ? 'selected' : '' %>>ON</option></select></div>
-          <div class="form-group"><label>Pack</label><input name="packName" value="<%= settings.sticker_pack_name || '' %>" placeholder="DARK BOT • Dark Net" /></div>
-          <div class="form-group"><label>Author</label><input name="authorName" value="<%= settings.sticker_author_name || '' %>" placeholder="Dark Net × Arena.ai" /></div>
-          <div class="form-group"><label>Texto visível</label><input name="watermarkText" value="<%= settings.sticker_watermark_text || bot.name %>" maxlength="32" /></div>
+          <div class="form-group"><label>Metadados</label><select name="enabled"><option value="true" <%= settings.sticker_watermark_enabled !== false ? 'selected' : '' %>>ON</option><option value="false" <%= settings.sticker_watermark_enabled === false ? 'selected' : '' %>>OFF</option></select></div>
+          <div class="form-group"><label>Assinatura visível</label><select name="visible"><option value="false" <%= settings.sticker_visible_watermark ? '' : 'selected' %>>OFF</option><option value="true" <%= settings.sticker_visible_watermark ? 'selected' : '' %>>ON</option></select></div>
+          <div class="form-group"><label>Marca</label><input name="brand" value="<%= settings.sticker_pack_brand || 'Dark Net Ao' %>" maxlength="80" /></div>
+          <div class="form-group"><label>Nome do canal/pack (opcional)</label><input name="channelName" value="<%= settings.sticker_pack_channel_name || '' %>" maxlength="80" placeholder="Deixa vazio para usar Dark Net Ao" /></div>
+          <div class="form-group"><label>Canal WhatsApp (acessível)</label><input name="channelUrl" type="url" value="<%= settings.sticker_pack_url || '' %>" placeholder="https://whatsapp.com/channel/..." /></div>
+          <div class="form-group"><label>Loja Android publicada</label><input name="androidStoreUrl" type="url" value="<%= settings.sticker_pack_android_store_url || '' %>" placeholder="Play Store / Amazon / outra loja validada" /></div>
+          <div class="form-group"><label>Loja iOS publicada</label><input name="iosStoreUrl" type="url" value="<%= settings.sticker_pack_ios_store_url || '' %>" placeholder="App Store / TestFlight publicado" /></div>
+          <div class="form-group"><label>Tema</label><select name="theme"><% const stickerTheme = settings.sticker_pack_theme || 'darktoxic'; %><option value="darktoxic" <%= stickerTheme === 'darktoxic' ? 'selected' : '' %>>Dark Toxic</option><option value="clean" <%= stickerTheme === 'clean' ? 'selected' : '' %>>Clean</option></select></div>
+          <div class="form-group"><label>Slogan opcional</label><input name="slogan" value="<%= settings.sticker_wm_slogan || '' %>" maxlength="80" /></div>
+          <div class="form-group"><label>Texto da assinatura visível</label><input name="watermarkText" value="<%= settings.sticker_watermark_text || settings.sticker_pack_brand || 'Dark Net Ao' %>" maxlength="48" /></div>
         </div>
-        <button class="btn btn-primary" type="submit">💾 Salvar marca d'água</button>
+        <button class="btn btn-primary" type="submit">💾 Salvar identidade do pack</button>
       </form>
     </div>
 
@@ -208,7 +213,8 @@ document.getElementById('stickerWmForm').addEventListener('submit', async e => {
   e.preventDefault();
   const data = Object.fromEntries(new FormData(e.target).entries());
   const res = await fetch('/api/settings/sticker-watermark', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-  if(res.ok) toast('Marca d\'água salva','success'); else toast('Erro ao salvar marca','error');
+  if(res.ok) toast('Identidade do pack salva','success');
+  else { const err = await res.json().catch(()=>({error:'Erro ao validar ou salvar'})); toast(err.error || 'Erro ao salvar identidade','error'); }
 });
 
 document.getElementById('menuMediaForm').addEventListener('submit', async e => {

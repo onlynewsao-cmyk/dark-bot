@@ -14,11 +14,78 @@
  */
 'use strict';
 
-const DEFAULT_BRAND = 'DARK NET 🕸️';
-const DEFAULT_PACK = 'DARK NET 🕸️';
-const DEFAULT_SLOGAN = 'O melhor canal do mundo';
-const DEFAULT_CTA = 'Siga o canal';
-const DEFAULT_PACK_URL = 'https://whatsapp.com/channel/0029VbDMnJs6buMDAqf2Fq1z';
+const DEFAULT_BRAND = 'Dark Net Ao';
+const DEFAULT_PACK = 'Dark Net Ao';
+const DEFAULT_SLOGAN = '';
+const DEFAULT_CTA = 'Ver pacote completo';
+// Não inventar destino nem usar um canal como link de loja. O dono configura
+// o canal/grupo e, separadamente, o link da app publicada, se existir.
+const DEFAULT_PACK_URL = '';
+const DEFAULT_THEME = 'darktoxic';
+const STORE_HOSTS = {
+  android: new Set([
+    'play.google.com', 'amazon.com', 'www.amazon.com', 'apps.samsung.com', 'galaxystore.samsung.com',
+    'appgallery.huawei.com', 'consumer.huawei.com', 'f-droid.org', 'www.f-droid.org',
+    'apkpure.com', 'www.apkpure.com', 'uptodown.com', 'www.uptodown.com', 'apps.microsoft.com',
+  ]),
+  ios: new Set(['apps.apple.com', 'itunes.apple.com', 'testflight.apple.com']),
+};
+
+function normalizeHttpsUrl(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' ? url.toString() : '';
+  } catch { return ''; }
+}
+
+function detectStorePlatform(value = '') {
+  const url = normalizeHttpsUrl(value);
+  if (!url) return '';
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    for (const [platform, hosts] of Object.entries(STORE_HOSTS)) {
+      if (hosts.has(host)) return platform;
+    }
+  } catch {}
+  return '';
+}
+
+function validateStoreUrl(value = '', platform = '') {
+  const url = normalizeHttpsUrl(value);
+  if (!url) return '';
+  const detected = detectStorePlatform(url);
+  return detected && (!platform || detected === platform) ? url : '';
+}
+
+async function verifyStoreUrl(value = '', platform = '') {
+  const url = validateStoreUrl(value, platform);
+  if (!url) return null;
+  const axios = require('axios');
+  const validStatus = (status) => status >= 200 && status < 400;
+  for (const method of ['head', 'get']) {
+    try {
+      const response = await axios.request({
+        method,
+        url,
+        timeout: 10000,
+        maxRedirects: 4,
+        maxContentLength: 1024 * 1024,
+        validateStatus: validStatus,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; DarkNetAoStickerLinks/1.0)',
+          ...(method === 'get' ? { Range: 'bytes=0-1024' } : {}),
+        },
+      });
+      const finalUrl = normalizeHttpsUrl(response?.request?.res?.responseUrl || response?.config?.url || url);
+      if (validStatus(response.status) && validateStoreUrl(finalUrl, platform)) {
+        return { url: finalUrl, platform: platform || detectStorePlatform(finalUrl), status: response.status };
+      }
+    } catch {}
+  }
+  return null;
+}
 
 function stablePackId(seed = '') {
   try {
@@ -135,29 +202,42 @@ function composeMeta({
   brand = DEFAULT_BRAND,
   slogan = DEFAULT_SLOGAN,
   link = '',
+  channelUrl = '',
   cta = DEFAULT_CTA,
   channelName = '',
+  androidStoreUrl = '',
+  iosStoreUrl = '',
+  theme = DEFAULT_THEME,
+  visibleWatermark = false,
 } = {}) {
   const brandClean = String(brand || DEFAULT_BRAND).trim().slice(0, 80) || DEFAULT_BRAND;
-  const sloganClean = String(slogan || DEFAULT_SLOGAN).trim().slice(0, 80) || DEFAULT_SLOGAN;
-  const url = String(link || '').trim().slice(0, 200);
+  const sloganClean = String(slogan || '').trim().slice(0, 80);
+  const url = normalizeHttpsUrl(channelUrl || link).slice(0, 200);
   const ctaClean = String(cta || DEFAULT_CTA).trim().slice(0, 80) || DEFAULT_CTA;
   const nameClean = String(channelName || '').trim().slice(0, 80);
-  const site = urlToPublisherSite(url);
+  const androidStore = validateStoreUrl(androidStoreUrl, 'android');
+  const iosStore = validateStoreUrl(iosStoreUrl, 'ios');
+  const themeClean = ['darktoxic', 'clean'].includes(String(theme || '').toLowerCase())
+    ? String(theme).toLowerCase()
+    : DEFAULT_THEME;
   const title = nameClean || brandClean;
-  const authorLines = [sloganClean, url, ctaClean].filter(Boolean);
+  const description = [...new Set([title, brandClean, sloganClean, url].filter(Boolean))].join('\n');
   return {
     packName: title,
-    authorName: site || brandClean,
+    authorName: brandClean,
     brand: brandClean,
     slogan: sloganClean,
     channelUrl: url,
     packUrl: url,
-    packId: stablePackId(url || brandClean),
+    androidStoreUrl: androidStore,
+    iosStoreUrl: iosStore,
+    packId: stablePackId(url || nameClean || brandClean),
     cta: ctaClean,
     channelName: nameClean,
-    publisherSite: site,
-    description: [title, ...authorLines].join('\n'),
+    publisherSite: url,
+    theme: themeClean,
+    visibleWatermark: !!visibleWatermark,
+    description,
   };
 }
 
@@ -169,32 +249,31 @@ function cleanSearchName(name = '') {
  * Pack de pesquisa (.pinpacks, .stickerly, .packbusca, …)
  * Se o grupo tem .definestickwm, o NOME DA PESQUISA vai na descrição.
  */
-function composeSearchPack(searchName, saved) {
+function composeSearchPack(searchName, saved = null) {
   const query = cleanSearchName(searchName) || 'DARK PACK';
-  const url = (saved && (saved.channelUrl || saved.packUrl)) || DEFAULT_PACK_URL;
-  const site = urlToPublisherSite(url);
-  const title = (saved && (saved.channelName || saved.packName)) || DEFAULT_BRAND;
-  if (!saved?.enabled) {
-    return {
-      packName: query,
-      authorName: site || DEFAULT_BRAND,
-      publisher: site || DEFAULT_BRAND,
-      description: query,
-      searchName: query,
-      packUrl: DEFAULT_PACK_URL,
-      packId: stablePackId(query),
-    };
-  }
+  const cfg = saved || {};
+  const brand = String(cfg.brand || DEFAULT_BRAND).trim() || DEFAULT_BRAND;
+  const url = normalizeHttpsUrl(cfg.channelUrl || cfg.packUrl || '');
+  const channelName = String(cfg.channelName || '').trim().slice(0, 80);
+  const title = channelName || query || brand;
+  const androidStoreUrl = validateStoreUrl(cfg.androidStoreUrl, 'android');
+  const iosStoreUrl = validateStoreUrl(cfg.iosStoreUrl, 'ios');
   return {
     packName: title,
-    authorName: site || saved.brand || DEFAULT_BRAND,
-    publisher: site || saved.brand || DEFAULT_BRAND,
-    description: [title, query, url].filter(Boolean).join('\n'),
+    authorName: brand,
+    publisher: brand,
+    description: [...new Set([title, brand, query, url].filter(Boolean))].join('\n'),
     searchName: query,
-    brand: saved.brand || DEFAULT_BRAND,
+    brand,
+    channelUrl: url,
     packUrl: url,
-    packId: saved.packId || stablePackId(url),
-    channelName: saved.channelName || '',
+    androidStoreUrl,
+    iosStoreUrl,
+    packId: cfg.packId || stablePackId(`${url || brand}|${query}`),
+    channelName,
+    theme: cfg.theme || DEFAULT_THEME,
+    visibleWatermark: !!cfg.visibleWatermark,
+    metadataEnabled: cfg.metadataEnabled !== false,
   };
 }
 
@@ -219,10 +298,10 @@ async function fetchChannelFromWeb(url) {
         },
       });
       const name = extractChannelNameFromHtml(String(r.data || ''));
-      if (name) return { name, url: link.url, code: link.code, source: 'web' };
+      return { name, url: link.url, code: link.code, source: 'web', status: r.status };
     } catch {}
   }
-  return { name: '', url: link.url, code: link.code, source: 'web' };
+  return null;
 }
 
 async function fetchChannelFromSock(sock, url) {
@@ -237,7 +316,7 @@ async function fetchChannelFromSock(sock, url) {
     try {
       const meta = await fn();
       const name = meta?.name || meta?.subject || meta?.title || meta?.newsletterName || '';
-      if (name) {
+      if (meta && typeof meta === 'object') {
         return {
           name: String(name).trim().slice(0, 80),
           url: link.url,
@@ -258,13 +337,7 @@ async function resolveChannel(url, sock = null) {
   if (fromSock?.name) return { ...fromSock, type: 'channel' };
   const fromWeb = await fetchChannelFromWeb(url).catch(() => null);
   if (fromWeb) return { ...fromWeb, type: 'channel' };
-  return {
-    type: 'channel',
-    name: '',
-    url: link.url,
-    code: link.code,
-    source: fromSock ? 'baileys' : 'unknown',
-  };
+  return null;
 }
 
 async function resolveGroup(url, sock = null) {
@@ -284,7 +357,7 @@ async function resolveGroup(url, sock = null) {
       };
     } catch {}
   }
-  return { type: 'group', name: '', url: link.url, code: link.code, source: 'link' };
+  return null;
 }
 
 async function resolveAnyLink(text, sock = null) {
@@ -315,19 +388,26 @@ async function getGroupDoc(jid) {
 
 function fromDoc(gs) {
   if (!gs) return null;
-  const url = String(gs.stickerChannelUrl || '').trim();
-  const enabled = gs.stickerWmEnabled === true || !!url;
+  const url = normalizeHttpsUrl(gs.stickerChannelUrl || '');
+  const androidStoreUrl = validateStoreUrl(gs.stickerAndroidStoreUrl || '', 'android');
+  const iosStoreUrl = validateStoreUrl(gs.stickerIosStoreUrl || '', 'ios');
+  const enabled = gs.stickerWmEnabled === true || !!url || !!androidStoreUrl || !!iosStoreUrl;
   if (!enabled) return null;
   const composed = composeMeta({
     brand: gs.stickerWmBrand || DEFAULT_BRAND,
-    slogan: gs.stickerWmSlogan || DEFAULT_SLOGAN,
-    link: url,
+    slogan: gs.stickerWmSlogan || '',
+    channelUrl: url,
+    androidStoreUrl,
+    iosStoreUrl,
     cta: gs.stickerWmCta || DEFAULT_CTA,
     channelName: gs.stickerChannelName || '',
+    theme: gs.stickerTheme || DEFAULT_THEME,
+    visibleWatermark: gs.stickerVisibleWatermark === true,
   });
   return {
     enabled: true,
     ...composed,
+    watermarkText: composed.brand,
     packId: String(gs.stickerPackId || '').trim() || composed.packId,
     channelName: String(gs.stickerChannelName || '').trim(),
     linkType: String(gs.stickerWmLinkType || '').trim(),
@@ -346,81 +426,105 @@ async function getGlobalDefault() {
   try {
     const botConfigCache = require('./botConfigCache');
     const get = (key, fallback) => botConfigCache.get(key, fallback);
-    const [urlRaw, brandRaw, sloganRaw, ctaRaw, channelRaw, legacyNameRaw, legacyAuthorRaw] = await Promise.all([
+    const [urlRaw, brandRaw, sloganRaw, ctaRaw, channelRaw, legacyNameRaw,
+      androidRaw, iosRaw, themeRaw, visibleRaw, watermarkTextRaw, metadataEnabledRaw] = await Promise.all([
       get('sticker_pack_url', DEFAULT_PACK_URL),
       get('sticker_pack_brand', ''),
       get('sticker_wm_slogan', DEFAULT_SLOGAN),
       get('sticker_wm_cta', DEFAULT_CTA),
       get('sticker_pack_channel_name', ''),
       get('sticker_pack_name', ''),
-      get('sticker_author_name', ''),
+      get('sticker_pack_android_store_url', ''),
+      get('sticker_pack_ios_store_url', ''),
+      get('sticker_pack_theme', DEFAULT_THEME),
+      get('sticker_visible_watermark', false),
+      get('sticker_watermark_text', ''),
+      get('sticker_watermark_enabled', true),
     ]);
-    const url = String(urlRaw || DEFAULT_PACK_URL).trim();
+    const url = normalizeHttpsUrl(urlRaw || '');
     const legacyName = String(legacyNameRaw || '').trim();
-    const legacyAuthor = String(legacyAuthorRaw || '').trim();
-    const brand = String(brandRaw || legacyAuthor || DEFAULT_BRAND).trim();
-    const channelName = String(channelRaw || legacyName || '').trim();
+    const brand = String(brandRaw || DEFAULT_BRAND).trim() || DEFAULT_BRAND;
+    const looksLikeAutoName = /\s[•|]\s/.test(legacyName) || legacyName.toLowerCase() === 'dark bot';
+    const channelName = String(channelRaw || (legacyName && legacyName !== brand && legacyName !== DEFAULT_BRAND && !looksLikeAutoName ? legacyName : '')).trim();
+    const textCandidate = String(watermarkTextRaw || '').trim();
+    const watermarkText = !textCandidate || /^(dark\s*bot|darkbot)$/i.test(textCandidate) ? brand : textCandidate;
     const composed = composeMeta({
       brand,
-      slogan: String(sloganRaw || DEFAULT_SLOGAN).trim(),
-      link: url || DEFAULT_PACK_URL,
+      slogan: String(sloganRaw || '').trim(),
+      channelUrl: url,
+      androidStoreUrl: androidRaw,
+      iosStoreUrl: iosRaw,
       cta: String(ctaRaw || DEFAULT_CTA).trim(),
       channelName,
+      theme: themeRaw || DEFAULT_THEME,
+      visibleWatermark: visibleRaw === true || visibleRaw === 'true' || visibleRaw === 'on' || visibleRaw === 1,
     });
-    // O URL continua disponível em publisherSite/packUrl; mas o autor que o
-    // dono escolheu tem de ir para o EXIF sticker-pack-publisher.
     return {
       ...composed,
-      packName: legacyName || composed.packName,
-      authorName: legacyAuthor || composed.authorName,
+      packName: channelName || composed.packName,
+      authorName: composed.brand,
+      watermarkText,
+      metadataEnabled: metadataEnabledRaw !== false && metadataEnabledRaw !== 'false' && metadataEnabledRaw !== 'off' && metadataEnabledRaw !== 0,
     };
   } catch {
-    return composeMeta({ link: DEFAULT_PACK_URL });
+    return { ...composeMeta({ brand: DEFAULT_BRAND }), metadataEnabled: true };
   }
 }
 
-/** Atualiza parcialmente o pack global e espelha as chaves históricas. */
+/** Atualiza parcialmente o pack global e mantém as chaves legadas sincronizadas. */
 async function saveGlobalDefault(data = {}) {
   const current = await getGlobalDefault();
-  const link = data.channelUrl ?? data.link ?? data.packUrl ?? current.channelUrl ?? DEFAULT_PACK_URL;
+  const channelUrl = data.channelUrl ?? data.link ?? data.packUrl ?? current.channelUrl ?? '';
   const brand = data.brand ?? current.brand ?? DEFAULT_BRAND;
-  const slogan = data.slogan ?? current.slogan ?? DEFAULT_SLOGAN;
+  const slogan = data.slogan ?? current.slogan ?? '';
   const cta = data.cta ?? current.cta ?? DEFAULT_CTA;
-  const channelName = data.channelName ?? data.packName ?? current.channelName ?? current.packName ?? '';
-  const composed = composeMeta({ brand, slogan, link, cta, channelName });
-  const authorName = String(data.authorName ?? brand ?? '').trim().slice(0, 80) || composed.brand;
+  const channelName = data.channelName ?? data.packName ?? current.channelName ?? '';
+  const androidStoreUrl = data.androidStoreUrl ?? current.androidStoreUrl ?? '';
+  const iosStoreUrl = data.iosStoreUrl ?? current.iosStoreUrl ?? '';
+  const theme = data.theme ?? current.theme ?? DEFAULT_THEME;
+  const visibleWatermark = data.visibleWatermark ?? current.visibleWatermark ?? false;
+  const watermarkText = data.watermarkText ?? (current.watermarkText === current.brand ? brand : current.watermarkText || brand);
+  const composed = composeMeta({ brand, slogan, channelUrl, androidStoreUrl, iosStoreUrl, cta, channelName, theme, visibleWatermark });
+  const authorName = String(data.authorName ?? composed.brand).trim().slice(0, 80) || composed.brand;
   const packName = String(channelName || composed.packName).trim().slice(0, 80) || composed.packName;
-  const saved = { ...composed, packName, authorName, channelName: packName };
+  const saved = { ...composed, packName, authorName, channelName, watermarkText };
   const BotConfig = require('../database/models/BotConfig');
   await BotConfig.set('sticker_pack_url', composed.channelUrl);
   await BotConfig.set('sticker_pack_brand', composed.brand);
   await BotConfig.set('sticker_wm_slogan', composed.slogan);
   await BotConfig.set('sticker_wm_cta', composed.cta);
   await BotConfig.set('sticker_pack_id', composed.packId);
-  await BotConfig.set('sticker_pack_channel_name', packName);
-  // Compatibilidade: handler e integrações antigas também lêem estas duas.
+  await BotConfig.set('sticker_pack_channel_name', channelName);
+  await BotConfig.set('sticker_pack_android_store_url', composed.androidStoreUrl);
+  await BotConfig.set('sticker_pack_ios_store_url', composed.iosStoreUrl);
+  await BotConfig.set('sticker_pack_theme', composed.theme);
+  await BotConfig.set('sticker_visible_watermark', composed.visibleWatermark);
+  await BotConfig.set('sticker_watermark_text', String(watermarkText || composed.brand).trim().slice(0, 48));
+  // Compatibilidade com comandos e integrações antigas.
   await BotConfig.set('sticker_pack_name', packName);
   await BotConfig.set('sticker_author_name', authorName);
   try { require('./botConfigCache').clear(); } catch {}
   return saved;
 }
 
-/** Pack que o "Ver pacote" usa: grupo > global > canal default. Sempre tem URL. */
+/** Resolve metadados do grupo > configuração global. URLs de canal e loja ficam separados. */
 async function resolvePack(jid) {
   const local = jid ? await getForJid(jid).catch(() => null) : null;
-  if (local?.enabled && (local.channelUrl || local.packUrl)) {
+  if (local?.enabled) {
+    const global = await getGlobalDefault();
     return {
       ...local,
-      packUrl: local.channelUrl || local.packUrl,
-      packId: local.packId || stablePackId(local.channelUrl || local.brand),
+      metadataEnabled: global.metadataEnabled !== false,
+      packUrl: local.channelUrl || local.packUrl || '',
+      packId: local.packId || stablePackId(local.channelUrl || local.channelName || local.brand),
     };
   }
   const glob = await getGlobalDefault();
   return {
     ...glob,
     enabled: false,
-    packUrl: glob.channelUrl || DEFAULT_PACK_URL,
-    packId: glob.packId || stablePackId(glob.channelUrl || DEFAULT_PACK_URL),
+    packUrl: glob.channelUrl || '',
+    packId: glob.packId || stablePackId(glob.channelUrl || glob.channelName || glob.brand),
   };
 }
 
@@ -434,65 +538,63 @@ async function getForJid(jid) {
 }
 
 async function apply(opts = {}) {
-  if (opts.skipGroupWm) {
-    const jid = opts.remoteJid || opts.jid || opts.ctx?.remoteJid || currentCtx()?.remoteJid;
-    const pack = await resolvePack(jid).catch(() => composeMeta({ link: DEFAULT_PACK_URL }));
-    return {
-      ...opts,
-      packName: opts.packName || pack.packName,
-      authorName: opts.authorName || pack.authorName,
-      packId: opts.packId || pack.packId,
-      packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
-    };
-  }
   const jid = opts.remoteJid || opts.jid || opts.ctx?.remoteJid || currentCtx()?.remoteJid;
+  const pack = await resolvePack(jid).catch(() => composeMeta({ brand: DEFAULT_BRAND }));
   const search = opts.searchQuery || opts.packSearch || '';
-  // Mesmo chamadas internas sem ctx devem receber o default global.
-  const saved = jid ? await getForJid(jid) : null;
-  const pack = await resolvePack(jid).catch(() => composeMeta({ link: DEFAULT_PACK_URL }));
-  if (search) {
-    const meta = composeSearchPack(search, saved);
-    return {
-      ...opts,
-      packName: meta.packName,
-      authorName: meta.authorName,
-      packId: opts.packId || meta.packId || pack.packId,
-      packUrl: pack.packUrl || DEFAULT_PACK_URL,
-    };
-  }
-  if (!saved?.enabled) {
-    return {
-      ...opts,
-      packName: opts.packName || pack.packName,
-      authorName: opts.authorName || pack.authorName,
-      packId: opts.packId || pack.packId,
-      packUrl: opts.packUrl || pack.packUrl || DEFAULT_PACK_URL,
-    };
-  }
+  const brand = String(opts.brand || pack.brand || DEFAULT_BRAND).trim() || DEFAULT_BRAND;
+  const channelName = opts.channelName !== undefined ? String(opts.channelName || '').trim() : (pack.channelName || '');
+  const slogan = opts.slogan !== undefined ? String(opts.slogan || '').trim() : (pack.slogan || '');
+  const searchMeta = search ? composeSearchPack(search, { ...pack, brand, channelName }) : null;
+  const packName = opts.packName || searchMeta?.packName || pack.packName || DEFAULT_BRAND;
+  const authorName = brand;
   return {
     ...opts,
-    packName: saved.packName,
-    authorName: saved.authorName,
-    packId: opts.packId || saved.packId || pack.packId,
-    packUrl: saved.channelUrl || pack.packUrl || DEFAULT_PACK_URL,
+    packName,
+    authorName,
+    brand,
+    channelName,
+    channelUrl: pack.channelUrl || '',
+    publisherWebsite: pack.channelUrl || pack.publisherSite || '',
+    androidStoreUrl: pack.androidStoreUrl || '',
+    iosStoreUrl: pack.iosStoreUrl || '',
+    packId: opts.packId || searchMeta?.packId || pack.packId,
+    packUrl: pack.channelUrl || pack.packUrl || '',
+    theme: opts.theme || pack.theme || DEFAULT_THEME,
+    slogan,
+    watermarkText: opts.watermarkText || pack.watermarkText || brand,
+    visibleWatermark: opts.visibleWatermark ?? pack.visibleWatermark ?? false,
+    metadataEnabled: opts.metadataEnabled ?? pack.metadataEnabled ?? true,
+    // skipGroupWm mantém apenas o nome de busca/ID; a marca global e os links
+    // nunca desaparecem dos stickers enviados em packs.
+    skipGroupWm: false,
   };
 }
 
 async function saveForJid(jid, data = {}) {
   if (!jid) throw new Error('sem jid');
   const GroupSettings = require('../database/models/GroupSettings');
+  const current = await getForJid(jid).catch(() => null);
   const composed = composeMeta({
-    brand: data.brand,
-    slogan: data.slogan,
-    link: data.channelUrl || data.link,
-    cta: data.cta,
+    brand: data.brand ?? current?.brand ?? DEFAULT_BRAND,
+    slogan: data.slogan ?? current?.slogan ?? '',
+    channelUrl: data.channelUrl ?? data.link ?? current?.channelUrl ?? '',
+    androidStoreUrl: data.androidStoreUrl ?? current?.androidStoreUrl ?? '',
+    iosStoreUrl: data.iosStoreUrl ?? current?.iosStoreUrl ?? '',
+    cta: data.cta ?? current?.cta ?? DEFAULT_CTA,
+    channelName: data.channelName ?? current?.channelName ?? '',
+    theme: data.theme ?? current?.theme ?? DEFAULT_THEME,
+    visibleWatermark: data.visibleWatermark ?? current?.visibleWatermark ?? false,
   });
   const update = {
     stickerWmEnabled: data.enabled !== false,
     stickerPackName: composed.packName,
     stickerAuthorName: composed.authorName.slice(0, 280),
     stickerChannelUrl: composed.channelUrl,
-    stickerChannelName: String(data.channelName || '').slice(0, 80),
+    stickerChannelName: composed.channelName,
+    stickerAndroidStoreUrl: composed.androidStoreUrl,
+    stickerIosStoreUrl: composed.iosStoreUrl,
+    stickerTheme: composed.theme,
+    stickerVisibleWatermark: composed.visibleWatermark,
     stickerWmBrand: composed.brand,
     stickerWmSlogan: composed.slogan,
     stickerWmCta: composed.cta,
@@ -524,6 +626,10 @@ async function clearForJid(jid) {
         stickerAuthorName: '',
         stickerChannelUrl: '',
         stickerChannelName: '',
+        stickerAndroidStoreUrl: '',
+        stickerIosStoreUrl: '',
+        stickerTheme: DEFAULT_THEME,
+        stickerVisibleWatermark: false,
         stickerWmBrand: DEFAULT_BRAND,
         stickerWmSlogan: DEFAULT_SLOGAN,
         stickerWmCta: DEFAULT_CTA,
@@ -542,25 +648,28 @@ async function clearForJid(jid) {
 }
 
 function statusText(saved, prefix = '.') {
-  if (!saved?.enabled) {
-    return (
-      `📦 *PACOTE DE FIGURINHAS*\n\n` +
-      `Ainda não definiste o link deste chat.\n` +
-      `«Ver pacote» abre o pack se já estiver guardado; se não, abre o link.\n\n` +
-      `*${prefix}defpack* <link do canal ou grupo>\n` +
-      `*${prefix}defpack global* <link> — default de TODOS os chats (dono)\n` +
-      `*${prefix}defpack off*`
-    );
-  }
-  return (
-    `📦 *PACOTE DE FIGURINHAS* — activo\n\n` +
-    `«Ver pacote»: pack guardado OU o link\n` +
-    `Título (nome do canal): *${saved.packName || saved.channelName || '—'}*\n` +
-    `Publisher (liberta Ver pacote): ${saved.authorName || '—'}\n` +
-    `Link: ${saved.channelUrl || saved.packUrl || '—'}\n\n` +
-    `Descrição:\n\`\`\`\n${saved.description}\n\`\`\`\n\n` +
-    `*${prefix}defpack off* — desactivar`
-  );
+  const pack = saved || {};
+  const links = [
+    pack.channelUrl ? `Canal/grupo: ${pack.channelUrl}` : '',
+    pack.androidStoreUrl ? `Play Store: ${pack.androidStoreUrl}` : '',
+    pack.iosStoreUrl ? `App Store: ${pack.iosStoreUrl}` : '',
+  ].filter(Boolean);
+  return [
+    `📦 *PACOTE DARK NET AO*${pack.enabled ? ' — activo' : ''}`,
+    '',
+    `Marca: *${pack.brand || DEFAULT_BRAND}*`,
+    `Nome do canal/pack: *${pack.channelName || pack.packName || DEFAULT_BRAND}*`,
+    `Tema: *${pack.theme || DEFAULT_THEME}* · Assinatura visível: *${pack.visibleWatermark ? 'ON' : 'OFF'}*`,
+    links.length ? `\n${links.join('\n')}` : '\nNenhum destino configurado; não vou inventar link.',
+    '',
+    `*${prefix}pack nome* <nome do canal/pack>`,
+    `*${prefix}pack autor* <marca>`,
+    `*${prefix}pack link* <link de canal/grupo>`,
+    `*${prefix}pack loja android|ios* <link da app publicada>`,
+    `*${prefix}pack tema* darktoxic|clean`,
+    `*${prefix}pack visivel* on|off`,
+    `*${prefix}pack reset* — repor os valores Dark Net Ao neste chat`,
+  ].join('\n');
 }
 
 module.exports = {
@@ -569,6 +678,12 @@ module.exports = {
   DEFAULT_SLOGAN,
   DEFAULT_CTA,
   DEFAULT_PACK_URL,
+  DEFAULT_THEME,
+  STORE_HOSTS,
+  normalizeHttpsUrl,
+  detectStorePlatform,
+  validateStoreUrl,
+  verifyStoreUrl,
   stablePackId,
   getGlobalDefault,
   saveGlobalDefault,

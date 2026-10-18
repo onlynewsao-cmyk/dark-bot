@@ -31,7 +31,7 @@ module.exports = function registerStickerCases(registerCase) {
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: isAnimated,
       });
       if (!stk || stk.length < 50) throw new Error('Sticker inválido');
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: m.msg });
       react('✅');
     } catch (e) { react('❌'); reply('❌ ' + e.message); }
   });
@@ -53,7 +53,7 @@ module.exports = function registerStickerCases(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false, full: true,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: m.msg });
       react('✅');
     } catch (e) { react('❌'); reply('❌ ' + e.message); }
   });
@@ -84,7 +84,7 @@ module.exports = function registerStickerCases(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false, full: true,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: m.msg });
       react('✅');
     } catch (e) { react('❌'); reply('❌ ' + e.message); }
   });
@@ -113,7 +113,7 @@ module.exports = function registerStickerCases(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false, full: true,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: m.msg });
       react('✅');
     } catch {
       try {
@@ -123,7 +123,7 @@ module.exports = function registerStickerCases(registerCase) {
           botName: config.bot.name, ownerName: config.owner.name,
           userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false, full: true,
         });
-        await sock.sendMessage(ctx.remoteJid, { sticker: stk2 }, { quoted: m.msg });
+        await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk2, { quoted: m.msg });
         react('✅');
       } catch (e) {
         react('❌');
@@ -133,7 +133,7 @@ module.exports = function registerStickerCases(registerCase) {
   });
 
   // ── !definestickwm — marca d'água/descrição dos stickers DESTE grupo
-  registerCase(['defpack', 'definestickpack', 'setpack', 'packlink', 'verpack', 'definestickwm', 'setstickwm', 'stickwmgrupo', 'definirmarca'], async ({ sock, ctx, args, prefix, reply, react, isOwner, isAdminFn }) => {
+  registerCase(['defpack', 'definestickpack', 'setpack', 'packlink', 'definestickwm', 'setstickwm', 'stickwmgrupo', 'definirmarca'], async ({ sock, ctx, args, prefix, reply, react, isOwner, isAdminFn }) => {
     const wm = require('../stickerWm');
     const jid = ctx.remoteJid;
     const p = prefix || '.';
@@ -176,11 +176,11 @@ module.exports = function registerStickerCases(registerCase) {
       if (!isOwner) return reply('🚫 Só o *Dono* define o pack default de todos os chats.');
       const rest = args.slice(1).join(' ').trim();
       if (!rest || ['off', 'reset'].includes(rest.toLowerCase())) {
-        await wm.saveGlobalDefault({ link: wm.DEFAULT_PACK_URL });
-        return reply('✅ Default global resetado para o canal DARK NET.');
+        await wm.saveGlobalDefault({ channelUrl: '', channelName: '', brand: wm.DEFAULT_BRAND, watermarkText: wm.DEFAULT_BRAND });
+        return reply('✅ Link global removido. A identidade continua *Dark Net Ao*; nenhum canal foi inventado.');
       }
       const detected = await wm.resolveAnyLink(rest, sock).catch(() => null);
-      if (!detected?.url) return reply(`Cola o link: *${p}defpack global* https://whatsapp.com/channel/...`);
+      if (!detected?.url) return reply(`❌ Não consegui confirmar que esse destino está acessível; não o guardei. Usa: *${p}defpack global* https://whatsapp.com/channel/...`);
       const saved = await wm.saveGlobalDefault({
         brand: wm.DEFAULT_BRAND,
         slogan: wm.DEFAULT_SLOGAN,
@@ -199,7 +199,7 @@ module.exports = function registerStickerCases(registerCase) {
     const current = await wm.getForJid(jid);
     if (['author', 'autor', 'marca'].includes(sub)) {
       const val = args.slice(1).join(' ').trim();
-      if (!val) return reply(`Usa: *${p}definestickwm author* DARK NET 🕸️`);
+      if (!val) return reply(`Usa: *${p}definestickwm author* Dark Net Ao`);
       const saved = await wm.saveForJid(jid, {
         brand: val,
         slogan: current?.slogan,
@@ -264,6 +264,12 @@ module.exports = function registerStickerCases(registerCase) {
       );
     }
 
+    // Um URL que não foi confirmado nunca é guardado como destino do pacote.
+    if (/https?:\/\//i.test(raw) || /whatsapp\.com|chat\.whatsapp\.com/i.test(raw)) {
+      react('❌');
+      return reply('❌ Não consegui confirmar que esse link está acessível; não o guardei. Usa um convite de canal/grupo válido.');
+    }
+
     // Nome (sem link): activa e tenta o convite DESTE grupo
     let groupUrl = current?.channelUrl || '';
     if (ctx.isGroup) {
@@ -299,7 +305,7 @@ module.exports = function registerStickerCases(registerCase) {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: false, full: true,
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: m.msg });
+      await require('../stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: m.msg });
       react('✅');
     } catch (e) { react('❌'); reply('❌ ' + e.message); }
   });

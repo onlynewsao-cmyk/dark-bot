@@ -31,6 +31,9 @@ const AUTOR_KEYS = new Set(['autor', 'author', 'marca', 'brand']);
 const TEXTO_KEYS = new Set(['texto', 'text', 'wm', 'marcavisivel']);
 const SLOGAN_KEYS = new Set(['slogan', 'frase', 'descricao', 'descrição', 'description']);
 const LINK_KEYS = new Set(['link', 'url']);
+const STORE_KEYS = new Set(['loja', 'store', 'playstore']);
+const THEME_KEYS = new Set(['tema', 'theme']);
+const RESET_KEYS = new Set(['reset', 'repor', 'reiniciar']);
 
 /**
  * Separa os argumentos em { global, sub, value }.
@@ -63,37 +66,49 @@ function limpar(val, max = 80) {
 function packStatusText(prefix, glob, chat, isGroup) {
   const p = prefix || '.';
   const onOff = (b) => (b ? '✅ ON' : '🛑 OFF');
-  let out = `📦 *PACK DE FIGURINHAS*\n\n` +
-    `🌐 *Global* (default de todos os stickers):\n` +
-    `   Nome: *${glob.packName || '—'}*\n` +
-    `   Autor: *${glob.author || '—'}*\n` +
-    `   Marca d'água: ${onOff(glob.enabled)}\n` +
-    `   Visível: ${onOff(glob.visible)}\n` +
-    `   Texto visível: *${glob.text || '—'}*\n`;
+  const links = [
+    glob.channelUrl ? `Canal/grupo: ${glob.channelUrl}` : '',
+    glob.androidStoreUrl ? `Loja Android: ${glob.androidStoreUrl}` : '',
+    glob.iosStoreUrl ? `Loja iOS: ${glob.iosStoreUrl}` : '',
+  ].filter(Boolean);
+  let out = `📦 *PACOTE DARK NET AO*\n\n` +
+    `🌐 *Global* (base dos stickers):\n` +
+    `   Marca: *${glob.author || 'Dark Net Ao'}*\n` +
+    `   Canal/pack: *${glob.channelName || glob.packName || 'Dark Net Ao'}*${glob.channelName ? ' (opcional)' : ' (sem nome de canal configurado)'}\n` +
+    `   Marca d'água/metadados: ${onOff(glob.enabled)}\n` +
+    `   Assinatura visível: ${onOff(glob.visible)} · Tema: *${glob.theme || 'darktoxic'}*\n` +
+    (glob.slogan ? `   Slogan: *${glob.slogan}*\n` : '') +
+    `   ${links.length ? links.join('\n   ') : 'Sem links verificados configurados.'}\n`;
 
   if (isGroup) {
-    if (chat && (chat.enabled || chat.channelUrl)) {
-      out += `\n🏠 *Este grupo*:\n` +
-        `   Título: *${chat.packName || chat.channelName || '—'}*\n` +
-        `   Marca: *${chat.brand || '—'}*\n` +
-        `   Link: ${chat.channelUrl || chat.packUrl || '—'}\n`;
+    if (chat && chat.enabled) {
+      const groupLinks = [
+        chat.channelUrl ? `Canal/grupo: ${chat.channelUrl}` : '',
+        chat.androidStoreUrl ? `Loja Android: ${chat.androidStoreUrl}` : '',
+        chat.iosStoreUrl ? `Loja iOS: ${chat.iosStoreUrl}` : '',
+      ].filter(Boolean);
+      out += `\n🏠 *Este grupo* (personalização própria):\n` +
+        `   Título: *${chat.channelName || chat.packName || chat.brand || 'Dark Net Ao'}*\n` +
+        `   Marca: *${chat.brand || 'Dark Net Ao'}* · Tema: *${chat.theme || 'darktoxic'}*\n` +
+        `   Assinatura visível: ${onOff(chat.visibleWatermark)}\n` +
+        (chat.slogan ? `   Slogan: *${chat.slogan}*\n` : '') +
+        `   ${groupLinks.length ? groupLinks.join('\n   ') : 'Sem links locais; usa-se apenas a marca do grupo.'}\n`;
     } else {
-      out += `\n🏠 *Este grupo*: ainda sem pack próprio.\n`;
+      out += `\n🏠 *Este grupo*: usa a configuração global; ainda não tem personalização própria.\n`;
     }
   }
 
-  out += `\n*Comandos:*\n` +
-    `   ${p}pack nome <Nome>\n` +
-    `   ${p}pack autor <Autor>\n` +
-    `   ${p}pack slogan <Frase>\n` +
-    `   ${p}pack link <link canal/grupo>\n` +
-    `   ${p}pack on | off\n` +
-    `   ${p}pack visivel on | off\n` +
-    `   ${p}pack global nome <Nome>  (só dono)\n` +
-    `\n⚡ *Atalho global do dono:*\n` +
-    `   ${p}packbot nome <Nome>\n` +
-    `   ${p}packbot autor <Autor>\n` +
-    `   ${p}packbot descricao <Texto>\n`;
+  out += `\n*Personalização por WhatsApp:*\n` +
+    `   ${p}pack nome <nome do canal/pack>\n` +
+    `   ${p}pack autor <marca>\n` +
+    `   ${p}pack slogan <frase>\n` +
+    `   ${p}pack link <convite WhatsApp verificado>\n` +
+    `   ${p}pack loja android|ios <URL publicada>\n` +
+    `   ${p}pack tema darktoxic|clean\n` +
+    `   ${p}pack visivel on|off\n` +
+    `   ${p}pack on|off · ${p}pack reset\n` +
+    `   ${p}pack global <subcomando> <valor> (só Dono)\n` +
+    `\n📦 Para ver os links do pacote: *${p}pack*`;
   return out;
 }
 
@@ -101,13 +116,23 @@ function packStatusText(prefix, glob, chat, isGroup) {
 
 async function globalSnapshot() {
   const bcc = require('../botConfigCache');
-  const config = require('../../config');
+  const wm = require('../stickerWm');
+  const [enabled, pack] = await Promise.all([
+    bcc.get('sticker_watermark_enabled', true).catch(() => true),
+    wm.getGlobalDefault().catch(() => null),
+  ]);
   return {
-    enabled: await bcc.get('sticker_watermark_enabled', true).catch(() => true),
-    visible: await bcc.get('sticker_visible_watermark', false).catch(() => false),
-    packName: await bcc.get('sticker_pack_name', `${config.bot.name} • ${config.owner.name}`).catch(() => ''),
-    author: await bcc.get('sticker_author_name', 'auto').catch(() => 'auto'),
-    text: await bcc.get('sticker_watermark_text', config.bot.name || 'DARK BOT').catch(() => 'DARK BOT'),
+    enabled,
+    visible: !!pack?.visibleWatermark,
+    packName: pack?.packName || 'Dark Net Ao',
+    channelName: pack?.channelName || '',
+    channelUrl: pack?.channelUrl || '',
+    androidStoreUrl: pack?.androidStoreUrl || '',
+    iosStoreUrl: pack?.iosStoreUrl || '',
+    author: pack?.brand || 'Dark Net Ao',
+    text: pack?.watermarkText || pack?.brand || 'Dark Net Ao',
+    slogan: pack?.slogan || '',
+    theme: pack?.theme || 'darktoxic',
   };
 }
 
@@ -131,6 +156,11 @@ async function setChat(jid, patch) {
     channelUrl: patch.channelUrl !== undefined ? patch.channelUrl : (cur?.channelUrl || ''),
     cta: patch.cta !== undefined ? patch.cta : cur?.cta,
     channelName: patch.channelName !== undefined ? patch.channelName : (cur?.channelName || ''),
+    androidStoreUrl: patch.androidStoreUrl !== undefined ? patch.androidStoreUrl : (cur?.androidStoreUrl || ''),
+    iosStoreUrl: patch.iosStoreUrl !== undefined ? patch.iosStoreUrl : (cur?.iosStoreUrl || ''),
+    theme: patch.theme !== undefined ? patch.theme : (cur?.theme || 'darktoxic'),
+    visibleWatermark: patch.visibleWatermark !== undefined ? patch.visibleWatermark : (cur?.visibleWatermark || false),
+    enabled: true,
     linkType: patch.linkType !== undefined ? patch.linkType : (cur?.linkType || ''),
   });
 }
@@ -182,7 +212,7 @@ module.exports = function registerPack(registerCase) {
     }
 
     const sub = parsed.sub;
-    const value = limpar(parsed.value);
+    const value = limpar(parsed.value, 500);
 
     // ── ON / OFF ──────────────────────────────────────────────
     if (sub === 'on' || sub === 'off') {
@@ -202,13 +232,79 @@ module.exports = function registerPack(registerCase) {
       return reply(`✅ Marca d'água *global*: ${on ? '✅ ON' : '🛑 OFF'}.`);
     }
 
-    // ── VISIVEL on/off (global) ───────────────────────────────
+    // ── ASSINATURA VISÍVEL (por grupo; global só Dono) ─────────
     if (sub === 'visivel' || sub === 'visível') {
-      if (!isOwner) return reply('🚫 Só o *Dono* muda a marca visível global.');
       const st = isOnOff(parsed.value);
       if (!st) return reply(`Usa: *${p}pack visivel* on | off`);
-      await setGlobal('sticker_visible_watermark', st === 'on');
-      return reply(`✅ Texto visível no sticker: ${st === 'on' ? '✅ ON' : '🛑 OFF'}.`);
+      if (isGroup && !parsed.global) {
+        await setChat(jid, { visibleWatermark: st === 'on' });
+        return reply(`✅ Assinatura visível neste grupo: ${st === 'on' ? '✅ ON' : '🛑 OFF'}.`);
+      }
+      if (!isOwner) return reply('🚫 Só o *Dono* muda a assinatura visível global.');
+      await saveGlobalPack({ visibleWatermark: st === 'on' });
+      return reply(`✅ Assinatura visível global: ${st === 'on' ? '✅ ON' : '🛑 OFF'}.`);
+    }
+
+    // ── TEMA VISUAL ────────────────────────────────────────────
+    if (THEME_KEYS.has(sub)) {
+      const theme = value.toLowerCase();
+      if (!['darktoxic', 'clean'].includes(theme)) return reply(`Usa: *${p}pack tema* darktoxic | clean`);
+      if (isGroup && !parsed.global) {
+        await setChat(jid, { theme });
+        return reply(`✅ Tema do pack deste grupo: *${theme}*.`);
+      }
+      if (!isOwner) return reply('🚫 Só o *Dono* muda o tema global.');
+      await saveGlobalPack({ theme });
+      return reply(`✅ Tema global: *${theme}*.`);
+    }
+
+    // ── LOJAS DE APPS VERIFICADAS ─────────────────────────────
+    if (STORE_KEYS.has(sub)) {
+      const match = value.match(/^(android|ios)[ ]+(.+)$/i);
+      if (!match) return reply(`Usa: *${p}pack loja android* <URL publicada> ou *ios* <URL publicada>.\nPara limpar: *${p}pack loja android off*`);
+      const platform = match[1].toLowerCase();
+      const rawUrl = match[2].trim();
+      const field = platform === 'android' ? 'androidStoreUrl' : 'iosStoreUrl';
+      if (isOnOff(rawUrl) === 'off' || /^(limpar|clear|remover)$/i.test(rawUrl)) {
+        if (isGroup && !parsed.global) await setChat(jid, { [field]: '' });
+        else {
+          if (!isOwner) return reply('🚫 Só o *Dono* altera a loja global.');
+          await saveGlobalPack({ [field]: '' });
+        }
+        return reply(`✅ Link da loja ${platform} removido.`);
+      }
+      const wm = require('../stickerWm');
+      if (!wm.validateStoreUrl(rawUrl, platform)) {
+        return reply(`❌ Esse endereço não é uma loja ${platform} reconhecida. O link não foi guardado.`);
+      }
+      react('⏳');
+      const verified = await wm.verifyStoreUrl(rawUrl, platform).catch(() => null);
+      if (!verified?.url) {
+        react('❌');
+        return reply('❌ Não consegui confirmar que esse link da loja está acessível. Não o guardei.');
+      }
+      if (isGroup && !parsed.global) await setChat(jid, { [field]: verified.url });
+      else {
+        if (!isOwner) return reply('🚫 Só o *Dono* altera a loja global.');
+        await saveGlobalPack({ [field]: verified.url });
+      }
+      react('✅');
+      return reply(`✅ Link ${platform === 'android' ? 'Android' : 'iOS'} verificado e guardado:\n${verified.url}`);
+    }
+
+    // ── REPOR ─────────────────────────────────────────────────
+    if (RESET_KEYS.has(sub)) {
+      if (isGroup && !parsed.global) {
+        await require('../stickerWm').clearForJid(jid);
+        return reply('✅ Personalização deste grupo removida. Passa a usar o pack global Dark Net Ao.');
+      }
+      if (!isOwner) return reply('🚫 Só o *Dono* pode repor o pack global.');
+      const saved = await saveGlobalPack({
+        brand: 'Dark Net Ao', authorName: 'Dark Net Ao', watermarkText: 'Dark Net Ao',
+        channelName: '', channelUrl: '', packUrl: '', slogan: '', androidStoreUrl: '', iosStoreUrl: '',
+        theme: 'darktoxic', visibleWatermark: false,
+      });
+      return reply(`✅ Pack global reposto: *${saved.brand}*. Os links foram removidos; nenhum destino foi inventado.`);
     }
 
     // ── NOME ──────────────────────────────────────────────────
@@ -259,7 +355,7 @@ module.exports = function registerPack(registerCase) {
       const wm = require('../stickerWm');
       const detected = await wm.resolveAnyLink(value, sock).catch(() => null);
       if (!detected?.url) {
-        return reply(`❌ Não reconheci esse link. Usa um link de canal ou grupo do WhatsApp:\n*${p}pack link* https://whatsapp.com/channel/...`);
+        return reply(`❌ Não consegui confirmar que o destino está acessível. Só guardo convites de canal/grupo WhatsApp verificados.\nUsa: *${p}pack link* https://whatsapp.com/channel/...`);
       }
       if (isGroup && !parsed.global) {
         const cur = await chatSnapshot(jid);
@@ -284,6 +380,15 @@ module.exports = function registerPack(registerCase) {
   };
 
   registerCase(['pack', 'pacote'], handlePack);
+  registerCase(['packview', 'verpack', 'verpacote', 'stickerspack'], async ({ sock, ctx, reply, msg, prefix }) => {
+    const packs = require('../stickerPack');
+    const result = await packs.sendLastPack(sock, ctx.remoteJid, { quoted: msg?.msg || msg }).catch(() => ({ ok: false }));
+    if (result?.ok) return reply(`✅ Reenviei o pacote completo *${result.pack.name || result.pack.packName || 'Dark Net Ao'}* para esta conversa.`);
+    const meta = await require('../stickerWm').resolvePack(ctx.remoteJid).catch(() => null);
+    const sentLink = meta ? await packs.sendPackOffer(sock, ctx.remoteJid, meta, msg?.msg || msg).catch(() => false) : false;
+    if (sentLink) return true;
+    return reply(`📦 Ainda não há um pack completo recente nesta conversa nem um link verificado.\nCria um com *${prefix || '.'}pinpacks* <tema> e configura acessos com *${prefix || '.'}pack link* ou *${prefix || '.'}pack loja android|ios*.`);
+  });
   // Atalho simples, sempre global e sempre protegido por isOwner.
   registerCase(['packbot', 'packglobal', 'setpackglobal'], (command) => {
     if (!command.isOwner) return command.reply('🚫 Só o *Dono* pode alterar o pack global.');
