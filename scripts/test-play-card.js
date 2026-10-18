@@ -94,11 +94,11 @@ Module.prototype.require = function (id) {
   assert.ok(card.title.includes('Faixa Três'), '!play3 remains the third search result');
   assert.ok(!/toxic|ataque/i.test(card.body), '!play3 uses the normal play skin');
   assert.ok(card.body.includes('Resultado #3'), 'normal card identifies the third result');
-  assert.ok(card.body.includes('320k') && card.body.includes('1080p'), 'play3 keeps high-quality labels');
-  assert.strictEqual(card.buttons.length, 2, '!play3 keeps explicit audio and video choices');
-  assert.ok(card.buttons[0].id.endsWith('| 320k'), 'play3 keeps high-quality audio');
-  assert.ok(card.buttons[1].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
-  assert.ok(!r.sent.some(x => x.payload?.audio), '!play3 still does not auto-send audio');
+  assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses the same card line with high-quality values');
+  assert.strictEqual(card.buttons.length, 1, '!play3 has the same single video button as play');
+  assert.ok(card.buttons[0].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false),
+    '!play3 automatically sends high-quality audio');
 
   buttonsEnabled = false;
   r = await run('play');
@@ -109,10 +109,11 @@ Module.prototype.require = function (id) {
 
   r = await run('play3');
   const play3Fallback = r.sent.find(x => x.payload?.text)?.payload.text || '';
-  assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('| 320k') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
-    'play3 text fallback keeps the shared skin layout, result #3, and high-quality commands');
+  assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('Áudio automático (320k)') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
+    'play3 text fallback keeps the play layout, result #3, and high-quality commands');
   assert.ok(!/toxic|ataque/i.test(play3Fallback), 'play3 fallback is not DARK TOXIC');
-  assert.ok(!r.sent.some(x => x.payload?.audio), 'play3 fallback keeps audio as an explicit choice');
+  assert.ok(!play3Fallback.includes('!ytd '), 'play3 fallback has the same single video button flow as play');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio)), 'play3 fallback still sends the high-quality audio automatically');
 
   buttonsEnabled = true;
   audioFails = true;

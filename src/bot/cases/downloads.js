@@ -1,9 +1,9 @@
 /**
  * DARK BOT — Cases de Downloads 🎵
  *
- * play   → envia áudio 128k + card compacto com botão de vídeo 480p — resultado #1
+ * play   → áudio automático 128k + card compacto com botão de vídeo 480p — resultado #1
  * play2  → card normal de áudio/vídeo — resultado alternativo #2
- * play3  → card com a mesma skin visual de play — resultado #3 (qualidade alta)
+ * play3  → mesmo fluxo/botões de play, áudio 320k + vídeo 1080p — resultado #3
  * ytd    → áudio MP3 por URL
  * gyt    → vídeo MP4 por URL
  *
@@ -207,10 +207,10 @@ module.exports = function registerDownloadCases(registerCase) {
     runPlaySearch(caseCtx, 1, { audio: '192k', video: '720', label: 'Medium' }));
 
   // ════════════════════════════════════════════════
-  // case 'play3' — resultado #3, mesma skin visual de play (qualidade alta)
+  // case 'play3' — mesmo cartão, mesmos botões e fluxo do play; só muda a qualidade
   // ════════════════════════════════════════════════
   registerCase(['play3', 'music3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality' }));
+    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality', autoAudio: true }));
 
   // ════════════════════════════════════════════════
   // case 'playhq' — alta qualidade directa (320kbps)
