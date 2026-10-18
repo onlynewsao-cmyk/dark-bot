@@ -231,7 +231,8 @@ function playFallbackText(video, prefix) {
 }
 
 // ─────────────────────────────────────────────
-// CARD PLAY — estilo DARK TÓXICO (usado por play3)
+// CARD LEGACY — estilo DARK TÓXICO (mantido exportado por compatibilidade;
+// !play, !play2 e !play3 usam o mesmo card visual em downloads.js)
 // ─────────────────────────────────────────────
 // Mantém os IDs compatíveis com ytd/gyt e respeita as qualidades pedidas
 // pelo comando; os padrões preservam compatibilidade com chamadas antigas.

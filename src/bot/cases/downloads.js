@@ -3,7 +3,7 @@
  *
  * play   → envia áudio 128k + card compacto com botão de vídeo 480p — resultado #1
  * play2  → card normal de áudio/vídeo — resultado alternativo #2
- * play3  → card DARK TOXIC — resultado #3 (qualidade alta)
+ * play3  → card com a mesma skin visual de play — resultado #3 (qualidade alta)
  * ytd    → áudio MP3 por URL
  * gyt    → vídeo MP4 por URL
  *
@@ -164,9 +164,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     const bodyExtra = resultIndex > 0 ? `Resultado #${resultIndex + 1}` : '';
     let audioFailed = false;
 
-    if (quality.toxic) {
-      await systemZeroPlay.sendToxicPlayCard(sock, m.chat, video, prefix, msg, Q, bodyExtra);
-    } else if (quality.autoAudio) {
+    if (quality.autoAudio) {
       // O card de vídeo chega sem esperar pelo provider; o áudio acompanha automaticamente.
       await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, {
         videoOnly: true, autoAudio: true,
@@ -209,10 +207,10 @@ module.exports = function registerDownloadCases(registerCase) {
     runPlaySearch(caseCtx, 1, { audio: '192k', video: '720', label: 'Medium' }));
 
   // ════════════════════════════════════════════════
-  // case 'play3' — resultado #3 no estilo DARK TOXIC
+  // case 'play3' — resultado #3, mesma skin visual de play (qualidade alta)
   // ════════════════════════════════════════════════
   registerCase(['play3', 'music3'], (caseCtx) =>
-    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality', toxic: true }));
+    runPlaySearch(caseCtx, 2, { audio: '320k', video: '1080', label: 'High Quality' }));
 
   // ════════════════════════════════════════════════
   // case 'playhq' — alta qualidade directa (320kbps)

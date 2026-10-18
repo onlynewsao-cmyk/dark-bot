@@ -1,11 +1,10 @@
 'use strict';
-/** Regression: !play auto-sends audio, !play3 uses DARK TOXIC, fallbacks remain. */
+/** Regression: !play auto-sends audio, !play3 shares the normal card skin, fallbacks remain. */
 const assert = require('assert');
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 let buttonsEnabled = true;
 let audioFails = false;
-let actualSystemZeroPlay;
 const fakeAudio = Buffer.alloc(4096, 1);
 const fakeMediaHandler = {
   isAudioBytes: () => true,
@@ -39,7 +38,7 @@ const fakeSystemZeroPlay = {
     return { buffer: fakeAudio, title: 'Faixa Um', mimetype: 'audio/mpeg', quality };
   },
   sendPlayCard: async () => { throw new Error('unexpected legacy card fallback'); },
-  sendToxicPlayCard: (...args) => actualSystemZeroPlay.sendToxicPlayCard(...args),
+  sendToxicPlayCard: async () => { throw new Error('!play3 must not use the DARK TOXIC card'); },
 };
 
 Module.prototype.require = function (id) {
@@ -51,7 +50,6 @@ Module.prototype.require = function (id) {
 };
 
 (async () => {
-  actualSystemZeroPlay = require('../src/bot/systemZeroPlay');
   const register = require('../src/bot/cases/downloads');
   const handlers = new Map();
   register((names, fn) => [].concat(names).forEach(name => handlers.set(name, fn)));
@@ -94,11 +92,13 @@ Module.prototype.require = function (id) {
   assert.strictEqual(r.cards.length, 1, '!play3 sends one card');
   card = r.cards[0];
   assert.ok(card.title.includes('Faixa Três'), '!play3 remains the third search result');
-  assert.ok(card.body.toLowerCase().includes('ᴅᴀʀᴋ ᴛᴏxɪᴄ ᴘʟᴀʏ'), '!play3 uses DARK TOXIC');
-  assert.ok(card.body.includes('Resultado #3'), 'toxic card identifies the third result');
+  assert.ok(!/toxic|ataque/i.test(card.body), '!play3 uses the normal play skin');
+  assert.ok(card.body.includes('Resultado #3'), 'normal card identifies the third result');
+  assert.ok(card.body.includes('320k') && card.body.includes('1080p'), 'play3 keeps high-quality labels');
+  assert.strictEqual(card.buttons.length, 2, '!play3 keeps explicit audio and video choices');
   assert.ok(card.buttons[0].id.endsWith('| 320k'), 'play3 keeps high-quality audio');
   assert.ok(card.buttons[1].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
-  assert.ok(!r.sent.some(x => x.payload?.audio), '!play3 leaves audio as an explicit toxic-card choice');
+  assert.ok(!r.sent.some(x => x.payload?.audio), '!play3 still does not auto-send audio');
 
   buttonsEnabled = false;
   r = await run('play');
@@ -106,6 +106,13 @@ Module.prototype.require = function (id) {
   assert.ok(fallback.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'), 'text fallback retains the video command');
   assert.ok(!fallback.includes('!ytd '), 'video-only card fallback does not offer redundant audio');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio)), 'audio still sends when ButtonV2 is unavailable');
+
+  r = await run('play3');
+  const play3Fallback = r.sent.find(x => x.payload?.text)?.payload.text || '';
+  assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('| 320k') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
+    'play3 text fallback keeps the shared skin layout, result #3, and high-quality commands');
+  assert.ok(!/toxic|ataque/i.test(play3Fallback), 'play3 fallback is not DARK TOXIC');
+  assert.ok(!r.sent.some(x => x.payload?.audio), 'play3 fallback keeps audio as an explicit choice');
 
   buttonsEnabled = true;
   audioFails = true;
@@ -115,7 +122,7 @@ Module.prototype.require = function (id) {
   assert.ok(r.sent.some(x => /não consegui entregar o áudio/i.test(x.reply || '')), 'audio failure is reported honestly');
   assert.ok(r.sent.some(x => x.payload?.react?.text === '⚠️'), 'failure uses a warning reaction, not success');
 
-  console.log('PLAY FLOW: auto-audio + video button, play2 normal, play3 DARK TOXIC, and fallbacks passed.');
+  console.log('PLAY FLOW: auto-audio + video button, play2 normal, play3 shared skin/high quality, and fallbacks passed.');
 })().catch(error => {
   console.error('PLAY FLOW: FAIL:', error.stack || error.message);
   process.exitCode = 1;
