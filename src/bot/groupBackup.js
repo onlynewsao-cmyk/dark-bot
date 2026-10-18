@@ -33,8 +33,9 @@ const BACKUP_FIELDS = [
   'welcomeWithPhoto', 'welcomeWithMedia',
   // marca de stickers
   'stickerPackName', 'stickerAuthorName', 'stickerWmEnabled', 'stickerChannelUrl',
-  'stickerChannelName', 'stickerWmBrand', 'stickerWmSlogan', 'stickerWmCta',
-  'stickerWmLinkType', 'stickerPackId',
+  'stickerChannelName', 'stickerAndroidStoreUrl', 'stickerIosStoreUrl',
+  'stickerTheme', 'stickerVisibleWatermark', 'stickerWmBrand', 'stickerWmSlogan',
+  'stickerWmCta', 'stickerWmLinkType', 'stickerPackId',
   // limites
   'freePvDailyLimit',
   // anti-tipos

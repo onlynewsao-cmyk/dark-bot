@@ -32,7 +32,8 @@ function videoHeight(value = '720') {
   const m = raw.match(/^(\d{3,4})\s*p?$/);
   if (m) {
     const n = Number(m[1]);
-    if (n <= 480) return '360';
+    if (n <= 360) return '360';
+    if (n <= 480) return '480';
     if (n <= 720) return '720';
     return '1080';
   }

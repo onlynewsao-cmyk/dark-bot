@@ -551,29 +551,26 @@ async function getMenuImage(target = 'menu') {
 
 async function getStickerWatermarkConfig(config, ctx) {
   try {
-    const local = await require('./stickerWm').getForJid(ctx?.remoteJid);
-    if (local?.enabled) {
-      return {
-        packName: local.packName,
-        authorName: local.authorName,
-        watermarkText: local.packName,
-        visibleWatermark: false,
-        packId: local.packId,
-        packUrl: local.channelUrl || local.packUrl,
-      };
-    }
-  } catch {}
-  const enabled = await botConfigCache.get('sticker_watermark_enabled', true).catch(() => true);
-  const packName = await botConfigCache.get('sticker_pack_name', '').catch(() => '');
-  const authorName = await botConfigCache.get('sticker_author_name', '').catch(() => '');
-  const watermarkText = await botConfigCache.get('sticker_watermark_text', config.bot.name || 'DARK BOT').catch(() => config.bot.name || 'DARK BOT');
-  const visible = await botConfigCache.get('sticker_visible_watermark', false).catch(() => false);
-  return {
-    packName: enabled ? (packName || `${config.bot.name} • ${config.owner.name}`) : ' ',
-    authorName: enabled ? (authorName || `${ctx.pushName} | ${ctx.groupName || 'PV'}`) : ' ',
-    watermarkText: enabled ? watermarkText : '',
-    visibleWatermark: enabled && (visible === true || visible === 'true' || visible === 'on' || visible === 1 || visible === '1'),
-  };
+    const pack = await require('./stickerWm').resolvePack(ctx?.remoteJid);
+    return {
+      packName: pack.channelName || pack.packName || pack.brand || 'Dark Net Ao',
+      authorName: pack.brand || 'Dark Net Ao',
+      brand: pack.brand || 'Dark Net Ao',
+      channelName: pack.channelName || '',
+      channelUrl: pack.channelUrl || '',
+      publisherWebsite: pack.channelUrl || '',
+      androidStoreUrl: pack.androidStoreUrl || '',
+      iosStoreUrl: pack.iosStoreUrl || '',
+      slogan: pack.slogan || '',
+      watermarkText: pack.watermarkText || pack.brand || 'Dark Net Ao',
+      visibleWatermark: !!pack.visibleWatermark,
+      theme: pack.theme || 'darktoxic',
+      packId: pack.packId,
+      packUrl: pack.channelUrl || '',
+    };
+  } catch {
+    return { packName: 'Dark Net Ao', authorName: 'Dark Net Ao', brand: 'Dark Net Ao' };
+  }
 }
 
 
@@ -880,6 +877,16 @@ async function dynamicSubmenu(sock, msg, ctx, config, category) {
 const stickerPack = require('./stickerPack');
 const sendNativeStickerPack = stickerPack.sendNativeStickerPack;
 
+async function ownerPvSticker(sock, sticker, ctx) {
+  const sent = await portal18.ownerPv(sock, { sticker }, ctx);
+  if (sent) {
+    const meta = await require('./stickerWm').resolvePack(ctx?.remoteJid).catch(() => null);
+    const offer = stickerPack.buildPackOffer(meta || {});
+    if (offer) await portal18.ownerPv(sock, { text: offer }, ctx).catch(() => false);
+  }
+  return sent;
+}
+
 // v7.77 / v11.2.5: baixa + envia as mídias de UM álbum erome (TODAS até teto)
 async function eromeBaixarAlbum(sock, msg, ctx, albumUrl, limit, opts = {}) {
   const replyFn = (t) => sock.sendMessage(ctx.remoteJid, { text: t }, { quoted: msg });
@@ -1074,7 +1081,10 @@ module.exports = {
     
     // Menu públicos (todos veem)
     if (canSee('downloads')) secMenusDiversos.push({ header: `${t.icon} ᴅᴏᴡɴʟᴏᴅs`, title: '_música, vídeo, redes sociais._', id: p + 'down' });
-    if (canSee('stickers')) secMenusDiversos.push({ header: `${t.icon} ғɪɢᴜʀɴʜᴀs`, title: '_stickers, packs, arte visual._', id: p + 'menufigurinhas' });
+    if (canSee('stickers')) {
+      secMenusDiversos.push({ header: `${t.icon} ғɪɢᴜʀɴʜᴀs`, title: '_stickers, packs, arte visual._', id: p + 'menufigurinhas' });
+      secMenusDiversos.push({ header: '📦 VER PACOTE COMPLETO', title: '_abre ou reenvia o último pack desta conversa._', id: p + 'packview' });
+    }
     if (canSee('ia')) secMenusDiversos.push({ header: `${t.icon} ɪᴀ & ᴄʜᴀᴛᴏᴛs`, title: '_IA com memória, GPT, Claude._', id: p + 'menuia' });
     if (canSee('jogos')) secMenusDiversos.push({ header: `${t.icon} ᴊᴏᴏs & sᴏᴄɪᴀ`, title: '_quiz, forca, casino, mini-games._', id: p + 'menujogos' });
     if (canSee('economia')) secMenusDiversos.push({ header: `${t.icon} ᴇᴄᴏɴᴏᴍᴀ & ʀɢ`, title: '_coins, bank, RPG, crafting._', id: p + 'menueconomia' });
@@ -1330,7 +1340,7 @@ module.exports = {
       });
 
       // Envia como sticker mas com flag de visualização única as vezes ou alta prioridade
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
+      await stickerPack.sendStickerWithPackLink(sock, ctx.remoteJid, stk);
       react(sock, msg, '✨');
     } catch (e) {
       react(sock, msg, '❌');
@@ -1351,7 +1361,7 @@ module.exports = {
         isVideo: false,
         ...(await getStickerWatermarkConfig(config, ctx)),
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
+      await stickerPack.sendStickerWithPackLink(sock, ctx.remoteJid, stk);
       react(sock, msg, '✅');
     } catch (e) {
       react(sock, msg, '❌');
@@ -2202,38 +2212,40 @@ module.exports = {
 
   async stickerwm({ sock, msg, ctx, args, isOwner, config }) {
     if (!isOwner) return reply(sock, msg, ctx, '🚫 Só Dono.');
+    const wm = require('./stickerWm');
     const action = (args[0] || 'status').toLowerCase();
+    const value = args.slice(1).join(' ').trim();
     if (['status','ver'].includes(action)) {
-      const enabled = await BotConfig.get('sticker_watermark_enabled', true);
-      const visible = await BotConfig.get('sticker_visible_watermark', false);
-      const pack = await BotConfig.get('sticker_pack_name', `${config.bot.name} • ${config.owner.name}`);
-      const author = await BotConfig.get('sticker_author_name', 'auto');
-      const text = await BotConfig.get('sticker_watermark_text', config.bot.name);
-      return reply(sock, msg, ctx, `🎨 *STICKER WATERMARK*\n\nStatus: ${enabled ? '✅ ON' : '🛑 OFF'}\nVisível: ${visible ? '✅ ON' : '🛑 OFF'}\nPack: *${pack}*\nAuthor: *${author}*\nTexto visível: *${text}*\n\nComandos:\nstickerwm on/off\nstickerwm visible on/off\nstickerwm pack Nome\nstickerwm author Nome\nstickerwm text Marca`);
+      const pack = await wm.getGlobalDefault().catch(() => null);
+      const enabled = await BotConfig.get('sticker_watermark_enabled', true).catch(() => true);
+      return reply(sock, msg, ctx,
+        `🎨 *IDENTIDADE DOS STICKERS*\n\n${wm.statusText(pack, config?.bot?.prefix || '.')}` +
+        `\n\nMetadados: ${enabled ? '✅ ON' : '🛑 OFF'}\n` +
+        `Alias: stickerwm author <marca> · stickerwm pack <canal/pack> · stickerwm visible on|off`);
     }
     if (['on','off'].includes(action)) {
       await BotConfig.set('sticker_watermark_enabled', action === 'on'); botConfigCache.clear();
-      return reply(sock, msg, ctx, `✅ Marca d'água metadata: *${action.toUpperCase()}*.`);
+      return reply(sock, msg, ctx, `✅ Estado da marca nos stickers: *${action.toUpperCase()}*.`);
     }
-    if (action === 'visible') {
+    if (action === 'visible' || action === 'visivel') {
       const on = ['on','sim','true','1'].includes((args[1] || '').toLowerCase());
-      await BotConfig.set('sticker_visible_watermark', on); botConfigCache.clear();
-      return reply(sock, msg, ctx, `✅ Marca d'água visível: *${on ? 'ON' : 'OFF'}*.`);
+      const saved = await wm.saveGlobalDefault({ visibleWatermark: on });
+      return reply(sock, msg, ctx, `✅ Assinatura visível: *${saved.visibleWatermark ? 'ON' : 'OFF'}*.`);
     }
     if (action === 'pack') {
-      const val = args.slice(1).join(' ').trim(); if (!val) return reply(sock, msg, ctx, 'Use: stickerwm pack DARK BOT');
-      await BotConfig.set('sticker_pack_name', val.slice(0, 80)); botConfigCache.clear();
-      return reply(sock, msg, ctx, `✅ Pack dos stickers: *${val.slice(0,80)}*`);
+      if (!value) return reply(sock, msg, ctx, 'Use: stickerwm pack <nome opcional do canal/pack>');
+      const saved = await wm.saveGlobalDefault({ channelName: value.slice(0, 80) });
+      return reply(sock, msg, ctx, `✅ Nome do canal/pack: *${saved.channelName || saved.brand}*`);
     }
-    if (action === 'author') {
-      const val = args.slice(1).join(' ').trim(); if (!val) return reply(sock, msg, ctx, 'Use: stickerwm author Dark Net');
-      await BotConfig.set('sticker_author_name', val.slice(0, 80)); botConfigCache.clear();
-      return reply(sock, msg, ctx, `✅ Author dos stickers: *${val.slice(0,80)}*`);
+    if (action === 'author' || action === 'marca') {
+      if (!value) return reply(sock, msg, ctx, 'Use: stickerwm author <marca>');
+      const saved = await wm.saveGlobalDefault({ brand: value.slice(0, 80), authorName: value.slice(0, 80) });
+      return reply(sock, msg, ctx, `✅ Marca dos stickers: *${saved.brand}*`);
     }
     if (action === 'text') {
-      const val = args.slice(1).join(' ').trim(); if (!val) return reply(sock, msg, ctx, 'Use: stickerwm text DARK BOT');
-      await BotConfig.set('sticker_watermark_text', val.slice(0, 32)); botConfigCache.clear();
-      return reply(sock, msg, ctx, `✅ Texto da marca visível: *${val.slice(0,32)}*`);
+      if (!value) return reply(sock, msg, ctx, 'Use: stickerwm text <texto visível>');
+      const saved = await wm.saveGlobalDefault({ watermarkText: value.slice(0, 48), visibleWatermark: true });
+      return reply(sock, msg, ctx, `✅ Texto visível: *${saved.watermarkText}*`);
     }
     return module.exports.stickerwm({ sock, msg, ctx, args: ['status'], isOwner, config });
   },
@@ -2554,7 +2566,7 @@ module.exports = {
         packName: `🔞 ${nome}`, authorName: localConfig.owner.name,
       });
       if (!fig) throw new Error('não consegui converter');
-      await portal18.ownerPv(sock, { sticker: fig }, ctx);
+      await ownerPvSticker(sock, fig, ctx);
     } catch (e) {
       await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
@@ -2584,7 +2596,7 @@ module.exports = {
         packName: `🔞 ${localConfig.bot.name} GIF`, authorName: localConfig.owner.name,
         isVideo: true,
       });
-      if (fig) { await portal18.ownerPv(sock, { sticker: fig }, ctx); return true; }
+      if (fig) { await ownerPvSticker(sock, fig, ctx); return true; }
 
       // Sem ffmpeg não dá para animar → manda o GIF como vídeo
       await portal18.ownerPv(sock, {
@@ -2677,7 +2689,7 @@ module.exports = {
         packName: `🔞 ${localConfig.bot.name} 18+`, authorName: localConfig.owner.name,
       });
       if (!fig) throw new Error('não consegui converter em figurinha');
-      await portal18.ownerPv(sock, { sticker: fig }, ctx);
+      await ownerPvSticker(sock, fig, ctx);
     } catch (e) {
       await portal18.ownerPv(sock, { text: `❌ ${String(e.message).slice(0, 110)}` }, ctx);
     }
@@ -3859,7 +3871,7 @@ module.exports = {
         isVideo:   false,
         full:      true,   // sfull — preenche formato completo sem cortar
       });
-      await sock.sendMessage(ctx.remoteJid, { sticker: stk });
+      await stickerPack.sendStickerWithPackLink(sock, ctx.remoteJid, stk);
       react(sock, msg, '✅');
     } catch (e) {
       react(sock, msg, '❌');
@@ -3974,24 +3986,37 @@ module.exports = {
       const finished = await stickerPack.finishSearchPack(stickers, {
         query: packName, jid: ctx.remoteJid, packId,
       });
+      stickerPack.rememberPack(ctx.remoteJid, finished);
       stickers.splice(0, stickers.length, ...finished.stickers);
       packAuthor = finished.authorName;
       packDescription = finished.description;
       groupWm = finished.wm;
 
       // Cache para takepack
-      _packCache.set(finished.packId, { stickers, info: { name: finished.name, author: packAuthor, query, count: stickers.length }, ts: Date.now() });
+      _packCache.set(finished.packId, { stickers, info: {
+        name: finished.name, packName: finished.name, author: packAuthor, brand: finished.brand,
+        channelName: finished.channelName, channelUrl: finished.channelUrl,
+        androidStoreUrl: finished.androidStoreUrl, iosStoreUrl: finished.iosStoreUrl,
+        publisher: finished.publisher, description: finished.description, packId: finished.packId,
+        packUrl: finished.packUrl, query, count: stickers.length,
+      }, ts: Date.now() });
 
       const sentAsPack = await sendNativeStickerPack(sock, ctx.remoteJid, stickers, {
         name: finished.name,
         publisher: finished.publisher,
         description: finished.description,
         packId: finished.packId,
+        packUrl: finished.packUrl,
+        channelUrl: finished.channelUrl,
+        androidStoreUrl: finished.androidStoreUrl,
+        iosStoreUrl: finished.iosStoreUrl,
+        publisherWebsite: finished.channelUrl,
         quoted: msg,
       });
       if (!sentAsPack) {
         await Promise.all(stickers.map((stk) => sock.sendMessage(ctx.remoteJid, { sticker: stk })));
       }
+      await stickerPack.sendPackOffer(sock, ctx.remoteJid, finished, msg).catch(() => false);
 
       const doneLines = [
         '✅ Pacote *' + finished.name + '* enviado de uma vez',
@@ -4022,11 +4047,13 @@ module.exports = {
     const packId = args[0]?.trim();
     if (!packId || !_packCache.has(packId)) return reply(sock, msg, ctx, '❌ Pack expirado. Usa !pinpacks <nome> para criar um novo.');
     const { stickers, info } = _packCache.get(packId);
+    stickerPack.rememberPack(ctx.remoteJid, { ...info, name: info.name, stickers });
     react(sock, msg, '📦');
     for (let i = 0; i < stickers.length; i++) {
       await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i], packId: packId, isPremium: false });
       // Sem delay — WhatsApp agrupa como pack instantaneamente
     }
+    await stickerPack.sendPackOffer(sock, ctx.remoteJid, info, msg).catch(() => false);
     const RE = require('./renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);
     await reply(sock, msg, ctx, RE.renderBlock(t, 'PACK ENVIADO', [`📦 *${info.name}*`, `🎨 ${info.count} stickers`, `👤 ${info.author}`, '', '💡 Guarda qualquer sticker para ver o pack completo!'], { botName: localConfig.bot.name }));

@@ -58,13 +58,14 @@ const CATALOG = [
   { name: 'pinmp4', category: 'downloads', emoji: '🎬', description: 'Baixa vídeo MP4 do Pinterest por link', native: true },
 
   // ===== STICKERS =====
-  { name: 'sticker', category: 'stickers', emoji: '🎨', description: 'Converte foto/vídeo em sticker cortado/cover', native: true },
+  { name: 'sticker', category: 'stickers', emoji: '🎨', description: 'Cria sticker preservando a imagem inteira, sem corte', native: true },
   { name: 'sfull', category: 'stickers', emoji: '🖼️', description: 'Sticker mostrando a imagem inteira sem cortar', native: true },
   { name: 'stickerwm', category: 'stickers', emoji: '💧', description: 'Configura marca d\'água/metadados dos stickers', native: true, ownerOnly: true },
   { name: 'definestickwm', category: 'stickers', emoji: '💧', description: 'Activa a marca dos stickers deste grupo (nome ou link de canal/grupo)', ownerOrAdmin: true },
-  { name: 'defpack', category: 'stickers', emoji: '📦', description: 'Define o link do «Ver pacote de figurinhas» (canal/grupo). Se já tiver o pack, abre o pack; senão, o link', ownerOrAdmin: true },
+  { name: 'defpack', category: 'stickers', emoji: '📦', description: 'Define o link verificado de canal/grupo para o pack (global ou por grupo)', ownerOrAdmin: true },
   { name: 'definestickpack', category: 'stickers', emoji: '📦', description: 'Alias de defpack — link do Ver pacote', ownerOrAdmin: true },
-  { name: 'pack', category: 'stickers', emoji: '📦', description: 'Muda nome/autor/slogan/link do pack de figurinhas (global ou do grupo)', ownerOrAdmin: true },
+  { name: 'pack', category: 'stickers', emoji: '📦', description: 'Personaliza marca, canal, tema e links do pack (global ou por grupo)', ownerOrAdmin: true },
+  { name: 'packview', category: 'stickers', emoji: '📦', description: 'Abre/reenviar o pacote completo desta conversa', native: true, aliases: ['verpack', 'verpacote', 'stickerspack'] },
   { name: 'packbot', category: 'stickers', emoji: '📦', description: 'Atalho do dono para definir nome, autor e descrição globais das figurinhas novas', ownerOnly: true, aliases: ['packglobal', 'setpackglobal'] },
   { name: 'stickerrename', category: 'stickers', emoji: '💧', description: 'Renomeia o pack/autor de QUALQUER sticker (responde a um sticker), preservando animação', aliases: ['renomear', 'rename', 'trocarnome', 'renamesticker'] },
   { name: 'figubug2', category: 'stickers', emoji: '🖼️', description: 'Gera imagem em sticker', native: true },

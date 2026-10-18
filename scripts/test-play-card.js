@@ -1,11 +1,10 @@
 'use strict';
-/** Regression: !play auto-sends audio, !play3 uses DARK TOXIC, fallbacks remain. */
+/** Regression: !play auto-sends audio, !play3 shares the normal card skin, fallbacks remain. */
 const assert = require('assert');
 const Module = require('module');
 const originalRequire = Module.prototype.require;
 let buttonsEnabled = true;
 let audioFails = false;
-let actualSystemZeroPlay;
 const fakeAudio = Buffer.alloc(4096, 1);
 const fakeMediaHandler = {
   isAudioBytes: () => true,
@@ -21,6 +20,7 @@ class FakeButtonV2 {
   setThumbnail(v) { this.thumbnail = v; }
   addButton(label, id) { this.buttons.push({ label, id }); }
   async send(jid, opts) {
+    this.sendOptions = opts || {};
     await this.sock.sendMessage(jid, {
       fakeButtonCard: true, title: this.title, body: this.body, buttons: this.buttons,
     }, opts);
@@ -39,7 +39,7 @@ const fakeSystemZeroPlay = {
     return { buffer: fakeAudio, title: 'Faixa Um', mimetype: 'audio/mpeg', quality };
   },
   sendPlayCard: async () => { throw new Error('unexpected legacy card fallback'); },
-  sendToxicPlayCard: (...args) => actualSystemZeroPlay.sendToxicPlayCard(...args),
+  sendToxicPlayCard: async () => { throw new Error('!play3 must not use the DARK TOXIC card'); },
 };
 
 Module.prototype.require = function (id) {
@@ -51,7 +51,6 @@ Module.prototype.require = function (id) {
 };
 
 (async () => {
-  actualSystemZeroPlay = require('../src/bot/systemZeroPlay');
   const register = require('../src/bot/cases/downloads');
   const handlers = new Map();
   register((names, fn) => [].concat(names).forEach(name => handlers.set(name, fn)));
@@ -77,14 +76,16 @@ Module.prototype.require = function (id) {
   assert.ok(!/toxic|ataque/i.test(card.body), '!play stays simple, not DARK TOXIC');
   assert.strictEqual(card.buttons.length, 1, '!play card only needs the video button');
   assert.ok(card.buttons[0].id.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'));
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false),
-    '!play sends the MP3 automatically');
+  assert.ok(!card.sendOptions?.quoted, '!play card is not a reply to the command');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
+    '!play audio is the only successful output replying to the command');
 
   r = await run('play2');
   assert.strictEqual(r.cards.length, 1, '!play2 sends one regular card');
   assert.strictEqual(r.cards[0].title, 'Faixa Dois', '!play2 remains the second search result');
   assert.ok(r.cards[0].body.includes('Resultado #2'), 'play2 is identified compactly');
   assert.strictEqual(r.cards[0].buttons.length, 2, '!play2 keeps audio and video buttons');
+  assert.strictEqual(r.cards[0].sendOptions?.quoted, msg, '!play2 keeps its usual quoted card');
   assert.ok(r.cards[0].buttons[0].id.endsWith('| 192k'), 'play2 keeps medium-quality audio');
   assert.ok(r.cards[0].buttons[1].id.includes('| mp4 | 720 | 4:02'), 'play2 keeps medium-quality video');
   assert.ok(!r.sent.some(x => x.payload?.audio), '!play2 does not auto-send audio');
@@ -94,18 +95,33 @@ Module.prototype.require = function (id) {
   assert.strictEqual(r.cards.length, 1, '!play3 sends one card');
   card = r.cards[0];
   assert.ok(card.title.includes('Faixa Três'), '!play3 remains the third search result');
-  assert.ok(card.body.toLowerCase().includes('ᴅᴀʀᴋ ᴛᴏxɪᴄ ᴘʟᴀʏ'), '!play3 uses DARK TOXIC');
-  assert.ok(card.body.includes('Resultado #3'), 'toxic card identifies the third result');
-  assert.ok(card.buttons[0].id.endsWith('| 320k'), 'play3 keeps high-quality audio');
-  assert.ok(card.buttons[1].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
-  assert.ok(!r.sent.some(x => x.payload?.audio), '!play3 leaves audio as an explicit toxic-card choice');
+  assert.ok(!/toxic|ataque/i.test(card.body), '!play3 uses the normal play skin');
+  assert.ok(card.body.includes('Resultado #3'), 'normal card identifies the third result');
+  assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses the same card line with high-quality values');
+  assert.strictEqual(card.buttons.length, 1, '!play3 has the same single video button as play');
+  assert.ok(card.buttons[0].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
+  assert.ok(!card.sendOptions?.quoted, '!play3 card is not a reply to the command');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
+    '!play3 high-quality audio is the only successful output replying to the command');
 
   buttonsEnabled = false;
   r = await run('play');
-  const fallback = r.sent.find(x => x.payload?.text)?.payload.text || '';
+  const fallbackMessage = r.sent.find(x => x.payload?.text);
+  const fallback = fallbackMessage?.payload.text || '';
   assert.ok(fallback.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'), 'text fallback retains the video command');
   assert.ok(!fallback.includes('!ytd '), 'video-only card fallback does not offer redundant audio');
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio)), 'audio still sends when ButtonV2 is unavailable');
+  assert.ok(!fallbackMessage?.opts?.quoted, 'text card fallback is not a reply to the command');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'audio still sends as the quoted reply without ButtonV2');
+
+  r = await run('play3');
+  const play3FallbackMessage = r.sent.find(x => x.payload?.text);
+  const play3Fallback = play3FallbackMessage?.payload.text || '';
+  assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('Áudio automático (320k)') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
+    'play3 text fallback keeps the play layout, result #3, and high-quality commands');
+  assert.ok(!/toxic|ataque/i.test(play3Fallback), 'play3 fallback is not DARK TOXIC');
+  assert.ok(!play3Fallback.includes('!ytd '), 'play3 fallback has the same single video button flow as play');
+  assert.ok(!play3FallbackMessage?.opts?.quoted, 'play3 text card is not a reply to the command');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 high-quality audio remains the quoted reply');
 
   buttonsEnabled = true;
   audioFails = true;
@@ -115,7 +131,7 @@ Module.prototype.require = function (id) {
   assert.ok(r.sent.some(x => /não consegui entregar o áudio/i.test(x.reply || '')), 'audio failure is reported honestly');
   assert.ok(r.sent.some(x => x.payload?.react?.text === '⚠️'), 'failure uses a warning reaction, not success');
 
-  console.log('PLAY FLOW: auto-audio + video button, play2 normal, play3 DARK TOXIC, and fallbacks passed.');
+  console.log('PLAY FLOW: auto-audio + video button, play2 normal, play3 shared skin/high quality, and fallbacks passed.');
 })().catch(error => {
   console.error('PLAY FLOW: FAIL:', error.stack || error.message);
   process.exitCode = 1;

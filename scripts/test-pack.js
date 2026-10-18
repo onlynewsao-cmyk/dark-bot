@@ -36,47 +36,87 @@ const fakeBotConfig = {
   get: async (k, d) => (k in STORE ? STORE[k] : d),
 };
 
+const fakeStickerPack = {
+  async sendLastPack() { return { ok: true, pack: { name: 'Pack de Teste' } }; },
+  async sendPackOffer() { return false; },
+};
+
 const fakeWm = {
   _groups: new Map(),
-  _global: null,
+  _global: {
+    packName: 'Dark Net Ao', channelName: '', authorName: 'Dark Net Ao', brand: 'Dark Net Ao',
+    channelUrl: '', androidStoreUrl: '', iosStoreUrl: '', slogan: '', theme: 'darktoxic',
+    visibleWatermark: false, watermarkText: 'Dark Net Ao',
+  },
+  async getGlobalDefault() { return { ...this._global }; },
+  async resolvePack(jid) { return this._groups.get(jid) || { ...this._global, enabled: false }; },
+  validateStoreUrl(url, platform) {
+    try {
+      const u = new URL(url);
+      const ok = platform === 'android' ? ['play.google.com', 'www.amazon.com'].includes(u.hostname) : ['apps.apple.com', 'itunes.apple.com'].includes(u.hostname);
+      return u.protocol === 'https:' && ok ? u.toString() : '';
+    } catch { return ''; }
+  },
+  async verifyStoreUrl(url, platform) { return this.validateStoreUrl(url, platform) ? { url, platform, status: 200 } : null; },
   async getForJid(jid) { return this._groups.get(jid) || null; },
   async saveForJid(jid, data) {
     const prev = this._groups.get(jid) || {};
     const next = {
       enabled: data.enabled !== false,
-      brand: data.brand !== undefined ? data.brand : prev.brand,
-      slogan: data.slogan !== undefined ? data.slogan : prev.slogan,
+      brand: data.brand !== undefined ? data.brand : (prev.brand || 'Dark Net Ao'),
+      slogan: data.slogan !== undefined ? data.slogan : (prev.slogan || ''),
       channelUrl: data.channelUrl !== undefined ? data.channelUrl : (prev.channelUrl || ''),
       channelName: data.channelName !== undefined ? data.channelName : (prev.channelName || ''),
+      androidStoreUrl: data.androidStoreUrl !== undefined ? data.androidStoreUrl : (prev.androidStoreUrl || ''),
+      iosStoreUrl: data.iosStoreUrl !== undefined ? data.iosStoreUrl : (prev.iosStoreUrl || ''),
+      theme: data.theme !== undefined ? data.theme : (prev.theme || 'darktoxic'),
+      visibleWatermark: data.visibleWatermark !== undefined ? data.visibleWatermark : (prev.visibleWatermark || false),
       linkType: data.linkType !== undefined ? data.linkType : (prev.linkType || ''),
-      packName: (data.channelName !== undefined ? data.channelName : prev.channelName) || (data.brand !== undefined ? data.brand : prev.brand) || '',
     };
+    next.packName = next.channelName || next.brand;
+    next.authorName = next.brand;
     this._groups.set(jid, next);
     return next;
   },
   async clearForJid(jid) { this._groups.set(jid, { enabled: false, channelUrl: '' }); return null; },
-  async saveGlobalDefault(data) {
-    const prev = this._global || { packName: 'GLOBAL', authorName: 'DARK NET', brand: 'DARK NET', channelUrl: '' };
-    const packName = data.channelName ?? data.packName ?? prev.packName;
-    const authorName = data.authorName ?? data.brand ?? prev.authorName;
-    const brand = data.brand ?? prev.brand;
-    const channelUrl = data.link ?? data.channelUrl ?? data.packUrl ?? prev.channelUrl;
-    const slogan = data.slogan ?? prev.slogan ?? '';
-    this._global = { packName, channelName: packName, authorName, brand, channelUrl, slogan };
+  async saveGlobalDefault(data = {}) {
+    const prev = this._global;
+    const brand = data.brand ?? prev.brand ?? 'Dark Net Ao';
+    const channelName = data.channelName ?? data.packName ?? prev.channelName ?? '';
+    const authorName = data.authorName ?? brand;
+    this._global = {
+      ...prev,
+      brand,
+      channelName,
+      packName: channelName || brand,
+      authorName,
+      channelUrl: data.link ?? data.channelUrl ?? data.packUrl ?? prev.channelUrl ?? '',
+      slogan: data.slogan ?? prev.slogan ?? '',
+      androidStoreUrl: data.androidStoreUrl ?? prev.androidStoreUrl ?? '',
+      iosStoreUrl: data.iosStoreUrl ?? prev.iosStoreUrl ?? '',
+      theme: data.theme ?? prev.theme ?? 'darktoxic',
+      visibleWatermark: data.visibleWatermark ?? prev.visibleWatermark ?? false,
+      watermarkText: data.watermarkText ?? (prev.watermarkText === prev.brand ? brand : prev.watermarkText),
+    };
     Object.assign(STORE, {
-      sticker_pack_name: packName,
-      sticker_pack_channel_name: packName,
+      sticker_pack_name: this._global.packName,
+      sticker_pack_channel_name: channelName,
       sticker_author_name: authorName,
       sticker_pack_brand: brand,
-      sticker_pack_url: channelUrl,
-      sticker_wm_slogan: slogan,
+      sticker_pack_url: this._global.channelUrl,
+      sticker_wm_slogan: this._global.slogan,
+      sticker_visible_watermark: this._global.visibleWatermark,
+      sticker_watermark_text: this._global.watermarkText,
+      sticker_pack_theme: this._global.theme,
+      sticker_pack_android_store_url: this._global.androidStoreUrl,
+      sticker_pack_ios_store_url: this._global.iosStoreUrl,
     });
-    return this._global;
+    return { ...this._global };
   },
   async resolveAnyLink(text) {
     const t = String(text || '');
-    if (/channel\//.test(t)) return { type: 'channel', url: t, name: '' };
-    if (/chat\.whatsapp\.com/.test(t)) return { type: 'group', url: t, name: '' };
+    if (t.includes('channel/')) return { type: 'channel', url: t, name: '' };
+    if (t.includes('chat.whatsapp.com')) return { type: 'group', url: t, name: '' };
     return null;
   },
   statusText(saved, p) {
@@ -88,6 +128,7 @@ Module.prototype.require = function (id) {
   if (typeof id === 'string' && id.endsWith('botConfigCache')) return fakeBcc;
   if (typeof id === 'string' && /models[/\\]BotConfig$/.test(id)) return fakeBotConfig;
   if (typeof id === 'string' && id.endsWith('stickerWm')) return fakeWm;
+  if (typeof id === 'string' && id.endsWith('stickerPack')) return fakeStickerPack;
   return orig.apply(this, arguments);
 };
 
@@ -95,10 +136,12 @@ const packModule = require(path.join(__dirname, '..', 'src', 'bot', 'cases', 'pa
 
 let handler = null;
 let packBotHandler = null;
+let packViewHandler = null;
 packModule((cmds, fn) => {
   const names = [].concat(cmds);
   if (names.some(c => c === 'pack' || c === 'pacote')) handler = fn;
   if (names.includes('packbot')) packBotHandler = fn;
+  if (names.includes('packview')) packViewHandler = fn;
 });
 
 let ok = 0, fail = 0;
@@ -150,7 +193,7 @@ function ctxFactory({ isOwner = true, isGroup = false, admin = false } = {}) {
   {
     const { args, out } = ctxFactory({ isOwner: true });
     await handler(args([]));
-    t('Status sem argumentos responde', out.length === 1 && out[0].includes('PACK DE FIGURINHAS'), (out[0] || '').slice(0, 30));
+    t('Status sem argumentos responde', out.length === 1 && out[0].includes('PACOTE DARK NET AO'), (out[0] || '').slice(0, 30));
 
     const g = ctxFactory({ isOwner: true, isGroup: true });
     await handler(g.args(['status']));
@@ -259,7 +302,16 @@ function ctxFactory({ isOwner = true, isGroup = false, admin = false } = {}) {
   }
 
   // ══════════════════════════════════════════════════════════
-  console.log('\n╔═══ 8. Link + subcomando desconhecido ═══╗');
+  console.log('\n╔═══ 8. Pacote completo no fluxo principal ═══╗');
+  // ══════════════════════════════════════════════════════════
+  {
+    const pv = ctxFactory({ isOwner: false });
+    await packViewHandler({ ...pv.args([]), msg: { key: { id: 'm1' } } });
+    t('packview reenvia o pack da conversa', (pv.out[0] || '').includes('Pack de Teste'), (pv.out[0] || '').slice(0, 60));
+  }
+
+  // ══════════════════════════════════════════════════════════
+  console.log('\n╔═══ 9. Link + subcomando desconhecido ═══╗');
   // ══════════════════════════════════════════════════════════
   {
     const grp = ctxFactory({ isOwner: true, isGroup: true });
@@ -268,7 +320,7 @@ function ctxFactory({ isOwner = true, isGroup = false, admin = false } = {}) {
 
     const inv = ctxFactory({ isOwner: true });
     await handler(inv.args(['link', 'isto nao e um link']));
-    t('link inválido recusado', (inv.out[0] || '').includes('reconheci'), (inv.out[0] || '').slice(0, 40));
+    t('link inválido recusado', (inv.out[0] || '').includes('confirmar'), (inv.out[0] || '').slice(0, 50));
 
     const desc = ctxFactory({ isOwner: true });
     await handler(desc.args(['batata']));

@@ -627,13 +627,53 @@ module.exports = function (io) {
 
   router.post('/settings/sticker-watermark', requireApiOwner, async (req, res) => {
     try {
-      await BotConfig.set('sticker_watermark_enabled', req.body.enabled === true || req.body.enabled === 'true' || req.body.enabled === 'on');
-      await BotConfig.set('sticker_visible_watermark', req.body.visible === true || req.body.visible === 'true' || req.body.visible === 'on');
-      await BotConfig.set('sticker_pack_name', String(req.body.packName || '').slice(0, 80));
-      await BotConfig.set('sticker_author_name', String(req.body.authorName || '').slice(0, 80));
-      await BotConfig.set('sticker_watermark_text', String(req.body.watermarkText || '').slice(0, 32));
+      const wm = require('../bot/stickerWm');
+      const current = await wm.getGlobalDefault().catch(() => null);
+      const currentEnabled = await BotConfig.get('sticker_watermark_enabled', true).catch(() => true);
+      const has = (key) => Object.prototype.hasOwnProperty.call(req.body || {}, key);
+      const bool = (value, fallback = false) => value === undefined ? fallback
+        : value === true || value === 'true' || value === 'on' || value === 1;
+      const brand = String(req.body.brand ?? req.body.authorName ?? current?.brand ?? wm.DEFAULT_BRAND)
+        .trim().slice(0, 80) || wm.DEFAULT_BRAND;
+      const channelName = String(req.body.channelName ?? req.body.packName ?? current?.channelName ?? '')
+        .trim().slice(0, 80);
+      const theme = String(req.body.theme ?? current?.theme ?? 'darktoxic').toLowerCase();
+      if (!['darktoxic', 'clean'].includes(theme)) return res.status(400).json({ error: 'Tema inválido.' });
+
+      const patch = {
+        brand,
+        authorName: brand,
+        channelName,
+        slogan: String(req.body.slogan ?? current?.slogan ?? '').trim().slice(0, 80),
+        watermarkText: String(req.body.watermarkText ?? current?.watermarkText ?? brand).trim().slice(0, 48) || brand,
+        theme,
+        visibleWatermark: bool(req.body.visible, current?.visibleWatermark || false),
+      };
+
+      if (has('channelUrl')) {
+        const rawChannel = String(req.body.channelUrl || '').trim();
+        if (rawChannel) {
+          const detected = await wm.resolveAnyLink(rawChannel).catch(() => null);
+          if (!detected?.url || detected.type !== 'channel') {
+            return res.status(400).json({ error: 'Canal WhatsApp não confirmado/acessível; o link não foi guardado.' });
+          }
+          patch.channelUrl = detected.url;
+        } else patch.channelUrl = '';
+      }
+
+      for (const [field, platform] of [['androidStoreUrl', 'android'], ['iosStoreUrl', 'ios']]) {
+        if (!has(field)) continue;
+        const rawUrl = String(req.body[field] || '').trim();
+        if (!rawUrl) { patch[field] = ''; continue; }
+        const verified = await wm.verifyStoreUrl(rawUrl, platform).catch(() => null);
+        if (!verified?.url) return res.status(400).json({ error: `Link da loja ${platform} não acessível/confirmado; não foi guardado.` });
+        patch[field] = verified.url;
+      }
+
+      const saved = await wm.saveGlobalDefault(patch);
+      await BotConfig.set('sticker_watermark_enabled', bool(req.body.enabled, currentEnabled));
       require('../bot/botConfigCache').clear();
-      res.json({ ok: true });
+      res.json({ ok: true, brand: saved.brand, channelName: saved.channelName, channelUrl: saved.channelUrl });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 

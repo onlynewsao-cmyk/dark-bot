@@ -1049,7 +1049,7 @@ async function _handleInner(sock, msg) {
               isVideo: !!_mmP.videoMessage || _mimeP === 'image/gif',
             });
             if (_stkP && _stkP.length > 50) {
-              await sock.sendMessage(ctx.remoteJid, { sticker: _stkP }, { quoted: msg });
+              await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, _stkP, { quoted: msg });
               sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
               return true;
             }
@@ -2487,7 +2487,7 @@ async function _handleInner(sock, msg) {
                     isVideo: !!(_mS.message?.videoMessage) || _mimeS === 'image/gif',
                   });
                   if (_stkS && _stkS.length > 50) {
-                    await sock.sendMessage(ctx.remoteJid, { sticker: _stkS }, { quoted: msg });
+                    await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, _stkS, { quoted: msg });
                     sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } }).catch(() => {});
                     return true;
                   }
@@ -3300,7 +3300,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
                   isVideo: false, remoteJid: ctx.remoteJid,
                 });
                 if (stk && stk.length > 50) {
-                  await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+                  await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
                   return true;
                 }
               }
@@ -3638,7 +3638,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
               userName: 'Aura', groupName: ctx.groupName || 'PV', isVideo: false,
             });
             if (stk && stk.length > 50) {
-              await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+              await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
             }
           }
         } catch (e) { /* silêncio — não quebra o fluxo */ }
@@ -4281,30 +4281,26 @@ async function incrementUserCommand(number, ctx = null, commandName = '') {
 
 async function getStickerWatermarkConfigForHandler(ctx) {
   try {
-    const wm = require('./stickerWm');
-    const local = await wm.getForJid(ctx?.remoteJid);
-    if (local?.enabled) {
-      return {
-        packName: local.packName,
-        authorName: local.authorName,
-        watermarkText: local.packName,
-        visibleWatermark: false,
-        packId: local.packId,
-        packUrl: local.channelUrl || local.packUrl,
-      };
-    }
-  } catch {}
-  const enabled = await botConfigCache.get('sticker_watermark_enabled', true).catch(() => true);
-  const packName = await botConfigCache.get('sticker_pack_name', '').catch(() => '');
-  const authorName = await botConfigCache.get('sticker_author_name', '').catch(() => '');
-  const watermarkText = await botConfigCache.get('sticker_watermark_text', config.bot.name || 'DARK BOT').catch(() => config.bot.name || 'DARK BOT');
-  const visible = await botConfigCache.get('sticker_visible_watermark', false).catch(() => false);
-  return {
-    packName: enabled ? (packName || `${config.bot.name} • ${config.owner.name}`) : ' ',
-    authorName: enabled ? (authorName || `${ctx.pushName} | ${ctx.groupName || 'PV'}`) : ' ',
-    watermarkText: enabled ? watermarkText : '',
-    visibleWatermark: enabled && (visible === true || visible === 'true' || visible === 'on' || visible === 1 || visible === '1'),
-  };
+    const pack = await require('./stickerWm').resolvePack(ctx?.remoteJid);
+    return {
+      packName: pack.channelName || pack.packName || pack.brand || 'Dark Net Ao',
+      authorName: pack.brand || 'Dark Net Ao',
+      brand: pack.brand || 'Dark Net Ao',
+      channelName: pack.channelName || '',
+      channelUrl: pack.channelUrl || '',
+      publisherWebsite: pack.channelUrl || '',
+      androidStoreUrl: pack.androidStoreUrl || '',
+      iosStoreUrl: pack.iosStoreUrl || '',
+      slogan: pack.slogan || '',
+      watermarkText: pack.watermarkText || pack.brand || 'Dark Net Ao',
+      visibleWatermark: !!pack.visibleWatermark,
+      theme: pack.theme || 'darktoxic',
+      packId: pack.packId,
+      packUrl: pack.channelUrl || '',
+    };
+  } catch {
+    return { packName: 'Dark Net Ao', authorName: 'Dark Net Ao', brand: 'Dark Net Ao' };
+  }
 }
 
 async function handleStickerRequest(sock, msg, ctx) {
@@ -4323,7 +4319,7 @@ async function handleStickerRequest(sock, msg, ctx) {
       ...(await getStickerWatermarkConfigForHandler(ctx)),
     });
     if (!stk || stk.length < 50) throw new Error('Sticker inválido');
-    await sock.sendMessage(ctx.remoteJid, { sticker: stk }, { quoted: msg });
+    await require('./stickerPack').sendStickerWithPackLink(sock, ctx.remoteJid, stk, { quoted: msg });
     await sock.sendMessage(ctx.remoteJid, { react: { text: '✅', key: msg.key } });
   } catch (err) {
     await sock.sendMessage(ctx.remoteJid, { react: { text: '❌', key: msg.key } });

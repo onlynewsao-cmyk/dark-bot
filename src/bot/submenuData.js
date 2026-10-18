@@ -27,7 +27,7 @@ const SEL_PATTERNS = [
   /^autosticker$/, /^autorespostas$/,
   /^open$/, /^close$/, /^abrir$/, /^fechar$/, /^opengp$/, /^closegp$/,
   /^whitelist$/, /^resetlink$/, /^novo-link$/, /^revoke$/,
-  /^adultmode$/, /^buttonmode$/, /^antidelete$/, /^espiao$/,
+  /^adultmode$/, /^buttonmode$/, /^antidelete$/, /^espiao$/, /^packview$/,
 
   // ── ACÇÕES QUE INICIAM (jogos / recompensas / trabalho) ──
   /^forca$/, /^quiz$/, /^adivinha$/, /^dado$/, /^dice$/, /^d6$/,
@@ -51,6 +51,7 @@ function categorize(cmd) {
   // v6.15: overrides explícitos (prioridade máxima)
   const OVERRIDES = {
     pinpacks:'stickers', pinpack:'stickers', pinsticker:'stickers',
+    pack:'stickers', pacote:'stickers', packview:'stickers', verpack:'stickers', verpacote:'stickers', stickerspack:'stickers',
     casar:'interacoes', divorciar:'interacoes', namorar:'interacoes',
     '8d':'audio', '8d2':'audio', '8d3':'audio',
     abraco:'interacoes', beijo:'interacoes',
@@ -571,7 +572,7 @@ const SUBCATEGORIES = {
   ],
   stickers: [
     { id: '🎨 Criar', re: /^(sticker|s|fig|figurinha|sfull|figubug|attp|ttp|toimg|aisticker|brat|legenda|totext|ptvmsg)$/ },
-    { id: '📦 Packs', re: /^(pinpack|pinpacks|pinsticker|pack|pacote|packlink|verpack|setpack|defpack|definestickpack|sly|slypack|takepack|packname|renamestick|renomesticker|trocarnome|stickerrename)$/ },
+    { id: '📦 Packs', re: /^(pinpack|pinpacks|pinsticker|pack|pacote|packview|verpack|verpacote|stickerspack|packlink|setpack|defpack|definestickpack|sly|slypack|takepack|packname|renamestick|renomesticker|trocarnome|stickerrename)$/ },
     { id: '🔎 Busca', re: /^(figbusca|figgif|figmeme|figraiva|figcoreana|figanime|figroblox|figemoji|figdesenho|figengracada|gimage|imagem)$/ },
     { id: '🏷️ Marca / Watermark', re: /^(stickerwm|definestickwm|setstickwm|stickwmgrupo|definirmarca|textosticker|textsticker|txtsticker)$/ },
   ],
@@ -686,14 +687,20 @@ function getMainMenuSections(allSubmenus) {
       if (item.sel) directCmds.push(item);
     }
   }
-  if (directCmds.length > 0) {
-    sec2.rows = directCmds.slice(0, 30).map(item => ({
+  const packView = directCmds.find(item => item.cmd === 'packview');
+  sec2.rows = [
+    {
+      header: '📦 packview',
+      title: 'Abrir ou reenviar o pacote completo desta conversa',
+      id: 'packview',
+    },
+    ...directCmds.filter(item => item.cmd !== 'packview').slice(0, 29).map(item => ({
       header: `${item.emoji} ${item.cmd}`,
       title: item.desc || 'Executar directamente',
       id: item.cmd,
-    }));
-    sections.push(sec2);
-  }
+    })),
+  ];
+  if (packView || sec2.rows.length) sections.push(sec2);
 
   return sections;
 }

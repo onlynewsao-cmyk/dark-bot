@@ -32,7 +32,10 @@ const LONG_TTL_KEYS = new Set([
   'bot_name', 'bot_prefix', 'owner_name', 'owner_number',
   'site_meta_title', 'site_meta_description', 'site_meta_keywords',
   'site_meta_image', 'channel_name', 'channel_url',
-  'sticker_pack_name', 'sticker_pack_author',
+  'sticker_pack_name', 'sticker_pack_author', 'sticker_pack_url', 'sticker_pack_brand',
+  'sticker_pack_channel_name', 'sticker_pack_android_store_url', 'sticker_pack_ios_store_url',
+  'sticker_pack_theme', 'sticker_wm_slogan', 'sticker_wm_cta', 'sticker_visible_watermark',
+  'sticker_watermark_text', 'sticker_watermark_enabled',
 ]);
 
 const LONG_TTL = 30 * 60 * 1000;
