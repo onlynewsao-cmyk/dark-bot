@@ -72,6 +72,11 @@ check('WhatsApp preparation permits 1080p while retaining its safety cap', () =>
   assert.strictEqual(video.maxOutputHeight(1080), 1080);
   assert.strictEqual(video.maxOutputHeight(2160), 1080);
 });
+check('FFmpeg scale expression escapes its filter separator', () => {
+  assert.strictEqual(video.scaleFilterForHeight(480), 'scale=-2:min(480\\,ih):flags=lanczos');
+  assert.strictEqual(video.scaleFilterForHeight(720), 'scale=-2:min(720\\,ih):flags=lanczos');
+  assert.strictEqual(video.scaleFilterForHeight(1080), 'scale=-2:min(1080\\,ih):flags=lanczos');
+});
 check('measured quality uses file dimensions, not the requested label', () => {
   assert.strictEqual(ytdl.actualVideoQuality(syntheticMp4(1920, 1080)), '1080p');
   assert.strictEqual(ytdl.actualVideoQuality(Buffer.from('not an mp4')), 'resolução não verificada');
@@ -79,6 +84,8 @@ check('measured quality uses file dimensions, not the requested label', () => {
 
 async function testSentCaptionUsesMeasuredResolution() {
   const originalLoad = Module._load;
+  const previousReencode = process.env.VIDEO_REENCODE;
+  process.env.VIDEO_REENCODE = '0';
   const fakeBuffer = syntheticMp4(1920, 1080);
   Module._load = function (request, parent, isMain) {
     if (request === '../../config') return { footer: 'DARK BOT', bot: { name: 'DARK BOT' } };
@@ -112,6 +119,8 @@ async function testSentCaptionUsesMeasuredResolution() {
     assert.deepStrictEqual(video.dimensionsFromMp4(sent.video), { width: 1920, height: 1080 });
   } finally {
     Module._load = originalLoad;
+    if (previousReencode === undefined) delete process.env.VIDEO_REENCODE;
+    else process.env.VIDEO_REENCODE = previousReencode;
   }
 }
 

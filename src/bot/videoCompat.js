@@ -49,6 +49,13 @@ function maxOutputHeight(value = 480) {
   return Math.max(144, Math.min(1080, Math.round(n)));
 }
 
+function scaleFilterForHeight(value = 480) {
+  const height = maxOutputHeight(value);
+  // The comma is escaped for FFmpeg's filtergraph parser; without it,
+  // min(height,ih) is parsed as two filters and the transcode fails.
+  return `scale=-2:min(${height}\\,ih):flags=lanczos`;
+}
+
 function formatDuration(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
   if (!s) return '';
@@ -124,7 +131,7 @@ async function prepareForWhatsApp(buffer, opts = {}) {
     await execFileAsync(ffmpeg, [
       '-y', '-i', input,
       '-map', '0:v:0', '-map', '0:a?',
-      '-vf', `scale=-2:min(${maxHeight},ih):flags=lanczos`,
+      '-vf', scaleFilterForHeight(maxHeight),
       '-c:v', 'libx264', '-profile:v', 'baseline', '-level', h264Level,
       '-pix_fmt', 'yuv420p', '-crf', String(opts.crf || 27), '-preset', 'veryfast',
       '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart',
@@ -144,6 +151,6 @@ async function prepareForWhatsApp(buffer, opts = {}) {
 }
 
 module.exports = {
-  isMp4, dimensionsFromMp4, maxOutputHeight, formatDuration,
-  durationFromMp4, ffmpegAvailable, prepareForWhatsApp,
+  isMp4, dimensionsFromMp4, maxOutputHeight, scaleFilterForHeight,
+  formatDuration, durationFromMp4, ffmpegAvailable, prepareForWhatsApp,
 };
