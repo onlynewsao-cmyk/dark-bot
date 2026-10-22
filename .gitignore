@@ -34,3 +34,7 @@ dist/
 build/
 coverage/
 .env
+
+# Sender/chat-scoped runtime AURA pauses (not source code)
+data/aura-conversation-pauses.json
+data/aura-conversation-pauses.json.*.tmp

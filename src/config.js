@@ -31,7 +31,9 @@ module.exports = {
   isProd: nodeEnv === 'production',
   isProduction: nodeEnv === 'production',
 
-  sessionSecret: env('SESSION_SECRET', 'dark-secret-change-me-2025'),
+  sessionSecret: require('./middleware/controlAccess').sessionSecret(env('SESSION_SECRET'), nodeEnv === 'production'),
+  debugEndpoints: env('ENABLE_DEBUG_ENDPOINTS', 'false') === 'true',
+  allowLegacyRpgReset: env('ALLOW_LEGACY_RPG_RESET', 'false') === 'true',
   appUrl:        env('APP_URL', `http://localhost:${port}`),
 
   // Canal WhatsApp (aparece no menu)

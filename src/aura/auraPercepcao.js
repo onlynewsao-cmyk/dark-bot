@@ -52,8 +52,12 @@ const RE_STICKER_TEMA =
 const RE_MEU_ARROBA =
   /\b(?:qual\s+[ée]\s+(?:o\s+)?meu\s+@|diz[\wÀ-ÿ]*\s+(?:o\s+)?meu\s+@|meu\s+@|meu\s+n[úu]mero)(?!\w)/i;
 
-function pedeTexto(t)  { return RE_PEDE_TEXTO.test(t) || RE_MOTIVO_TEXTO.test(t); }
-function pedeVoz(t)    { return RE_PEDE_VOZ.test(t) && !RE_PEDE_TEXTO.test(t) && !/sem\s+[aá]udio/i.test(t); }
+function pedeTexto(t) {
+  const preference = require('./auraDialogue').deliveryPreference(t);
+  return preference ? preference === 'text' : RE_PEDE_TEXTO.test(t) || RE_MOTIVO_TEXTO.test(t);
+}
+function pedeVoz(t) { return require('./auraDialogue').deliveryPreference(t) === 'audio'; }
+
 function pedidoStickerProprio(t) { return RE_STICKER_DE_MIM.test(t); }
 function pedidoStickerTema(t)    { return RE_STICKER_TEMA.test(t); }
 function perguntaMeuArroba(t)    { return RE_MEU_ARROBA.test(t); }

@@ -71,7 +71,7 @@ function normalizeIncomingMsg(msg) {
   const isPrivateLid = /@lid$/i.test(String(key.remoteJid || ''));
   const alternateJid = key.remoteJidAlt || key.remoteJidPn || '';
   const normalizedKey = isPrivateLid && /@(s\.whatsapp\.net|c\.us)$/i.test(String(alternateJid))
-    ? { ...key, remoteJid: alternateJid }
+    ? { ...key, remoteJid: alternateJid, remoteJidLid: key.remoteJid }
     : key;
 
   if (inner === msg.message && normalizedKey === key) return msg;
@@ -341,12 +341,13 @@ function _resetMsgs(jid) {
   _msgCount.set(jid, 0);
 }
 
-function getSenderInfo(msg) {
+function getSenderInfo(msg, sock) {
   const remoteJid = msg.key.remoteJid || '';
   const isGroup = remoteJid.endsWith('@g.us');
   const isChannel = remoteJid.endsWith('@newsletter');
   const isStatus = remoteJid === 'status@broadcast' || remoteJid.endsWith('@broadcast');
-  const rawSenderJid = isGroup ? (msg.key.participant || remoteJid) : remoteJid;
+  const fromBot = msg.key.fromMe === true && !!sock?.user?.id;
+  const rawSenderJid = fromBot ? String(sock.user.id).replace(/:\d+(?=@)/, '') : isGroup ? (msg.key.participant || remoteJid) : remoteJid;
 
   // v6.53: o WhatsApp moderno identifica contas por LID (`…@lid`) em vez
   // do número. No PV, senderNumber saía como '189234567890123' em vez de
@@ -354,7 +355,7 @@ function getSenderInfo(msg) {
   // com "Não respondo a desconhecidos".
   // O Baileys dá o número real em participantAlt/remoteJidAlt; usamos
   // esse quando o JID principal é um LID.
-  const alt = isGroup
+  const alt = fromBot ? '' : isGroup
     ? (msg.key.participantAlt || msg.key.participantPn || '')
     : (msg.key.remoteJidAlt || msg.key.remoteJidPn || '');
 
@@ -367,7 +368,7 @@ function getSenderInfo(msg) {
   const base = (ehLid && alt) ? alt : rawSenderJid;
 
   const senderNumber = (base || '').split(':')[0].split('@')[0] || '';
-  const senderLid = ehLid ? String(rawSenderJid).split('@')[0] : '';
+  const senderLid = ehLid ? String(rawSenderJid).split(':')[0].split('@')[0] : !isGroup && !fromBot ? String(msg.key.remoteJidLid || '').split(':')[0].split('@')[0] : '';
   const pushName = msg.pushName || 'Usuário';
 
   return { remoteJid, isGroup, isChannel, isStatus, senderJid, senderNumber, senderLid, pushName };
@@ -501,7 +502,7 @@ async function deveSilenciarFreeNoPv(ctx, msg, sock) {
   const senderJid = String(msg?.key?.participant || msg?.key?.remoteJid || '');
   const botNumber = normalize(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
   if (ownerNumbers.includes(sender) ||
-      (ownerLid && (senderJid.includes(ownerLid) || String(ctx?.senderLid || '').includes(ownerLid))) ||
+      require('./ownerIdentity').matchesOwnerLid(ctx, msg || {}, ownerLid) ||
       (botNumber && sender === botNumber)) return false;
 
   const user = await require('./hotCache').getUser(msg, sender).catch(() => null);
@@ -534,7 +535,7 @@ async function _avisoSemAluguel(sock, msg, ctx) {
   } catch (_) {}
 }
 
-async function _handleInner(sock, msg) {
+async function _handleInner(sock, msg, turn) {
   let text = extractText(msg).trim();
   const hasIncomingMedia = hasMediaPayload(msg.message);
   if (!text && !hasIncomingMedia) return false;
@@ -543,12 +544,24 @@ async function _handleInner(sock, msg) {
     if (eSoPontuacao(text) && !hasIncomingMedia) return false;
   } catch {}
 
-  const ctx = getSenderInfo(msg);
+  const ctx = getSenderInfo(msg, sock);
   // v12.9.50: Canais (@newsletter) e feeds de status nunca são processados como mensagens de chat/PV/comandos
   if (ctx.isChannel || ctx.isStatus) return false;
   // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
   // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
+  const conversation = require('../aura/auraConversation');
+  try {
+    const control = conversation.process(text, ctx);
+    if (control.handled) {
+      if (control.reply) await sock.sendMessage(ctx.remoteJid, { text: control.reply }, { quoted: msg });
+      return true;
+    }
+  } catch (e) {
+    console.warn('[Aura pausa] Estado indisponível; mensagem não executada.');
+    return false;
+  }
+  sock = conversation.guardSock(sock, ctx, turn);
   try { require('./stickerWm').bind(ctx); } catch {}
 
   // ── v7.77: listas com escolha por número (play/sly/spotify/...) ──
@@ -872,39 +885,46 @@ async function _handleInner(sock, msg) {
     botConfigCache.get('ai_auto_enabled', true),
   ]);
 
-  const senderJidFull = msg.key.participant || msg.key.remoteJid || '';
   const ownerNumbers = Array.isArray(extraOwners)
     ? extraOwners.map(userManager.normalizeNumber).filter(Boolean)
     : String(extraOwners || '').split(/[\s,]+/).map(userManager.normalizeNumber).filter(Boolean);
-  // v6.14: verifica número do env + número do dashboard (BotConfig) + LID + extra owners
-  const envOwnerNum = userManager.normalizeNumber(config.owner.number);
   const dbOwnerNum = userManager.normalizeNumber(String(ownerNumDB || ''));
-  // v7.27: o NÚMERO DO BOT é SUBDONO. Quem escreve a partir do telemóvel
-  // ligado (fromMe) ou do número configurado em BOT_NUMBER executa tudo o
-  // que um subdono executa — mas não é o Dono primário (sem tratamento
-  // "Criador Supremo" nem comandos isPrimaryOwnerOnly).
-  const botSelfNum = userManager.normalizeNumber(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
-  const botSelfLid = String(sock?.user?.lid || '').split(':')[0].split('@')[0];
-  const envBotNum  = userManager.normalizeNumber(config.bot.number);
-  const isBotSelf  = !!msg.key?.fromMe ||
-                     (!!botSelfNum && ctx.senderNumber === botSelfNum) ||
-                     (!!envBotNum && ctx.senderNumber === envBotNum) ||
-                     (!!botSelfLid && (ctx.senderLid === botSelfLid || senderJidFull.startsWith(botSelfLid + '@')));
-  if (isBotSelf && botSelfNum && (!ctx.senderNumber || msg.key?.fromMe)) {
-    // fromMe pode vir sem participant no PV → garante identidade do bot
-    ctx.senderNumber = ctx.senderNumber || botSelfNum;
-    ctx.senderJid = ctx.senderJid || (botSelfNum + '@s.whatsapp.net');
+  const ownerFlags = require('./ownerIdentity').resolveOwnerFlags({
+    ctx, msg, sock, config, dbOwnerNum, ownerLid, ownerNumbers,
+  });
+  const isOwner = ownerFlags.isOwner;
+  Object.assign(ctx, ownerFlags);
+
+  if (text && !startsWithAnyPrefix(text, prefixes)) {
+    if ((blacklist.includes(ctx.senderNumber) || (Array.isArray(disabledUsers) && disabledUsers.map(String).includes(ctx.senderNumber))) && !isOwner) return false;
+    if (ctx.isGroup && Array.isArray(disabledGroups) && disabledGroups.includes(ctx.remoteJid) && !isOwner) return false;
+    const language = require('../aura/auraDialogue');
+    const literal = language.literalGreeting(text);
+    const preference = language.deliveryPreference(text);
+    let voiceMode = false;
+    try { voiceMode = !!require('../aura/auraBrain').modos(ctx.remoteJid).soAudio; } catch (_) {}
+    if (!ctx.isGroup && literal && preference !== 'audio' && (!voiceMode || preference === 'text')) {
+      if (turn) turn.conversational = true;
+      const result = await sock.sendMessage(ctx.remoteJid, { text: literal }, { quoted: msg });
+      if (!result?.suppressed && typeof AiMemory.appendMessage === 'function') {
+        await AiMemory.appendMessage(ctx.senderNumber, null, 'user', text).catch(() => {});
+        await AiMemory.appendMessage(ctx.senderNumber, null, 'assistant', literal).catch(() => {});
+      }
+      return true;
+    }
+    const identity = conversation.identityReply(text, ctx);
+    if (identity) {
+      if (turn) turn.conversational = true;
+      await sock.sendMessage(ctx.remoteJid, { text: identity }, { quoted: msg });
+      return true;
+    }
+    const interpretation = require('../aura/auraInterpret');
+    if (interpretation.isExplicitRequest(text)) {
+      if (turn) turn.conversational = true;
+      await sock.sendMessage(ctx.remoteJid, { text: interpretation.EXPLICIT_REPLY }, { quoted: msg });
+      return true;
+    }
   }
-  const isOwner = ctx.senderNumber === envOwnerNum ||
-                  (dbOwnerNum && ctx.senderNumber === dbOwnerNum) ||
-                  ownerNumbers.includes(ctx.senderNumber) ||
-                  (ownerLid && senderJidFull.includes(ownerLid)) ||
-                  (ownerLid && ctx.senderNumber === ownerLid.split('@')[0]) ||
-                  isBotSelf;
-  ctx.isOwner = isOwner;
-  ctx.isBotSelf = isBotSelf;
-  ctx.isSubOwner = isOwner && !(ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum));
-  ctx.isPrimaryOwner = ctx.senderNumber === envOwnerNum || (dbOwnerNum && ctx.senderNumber === dbOwnerNum);
 
   // Confirmações da AURA são consumidas antes de regras/IA ou comandos,
   // sempre no mesmo chat e pelo mesmo Dono que pediu a acção.
@@ -1613,16 +1633,25 @@ async function _handleInner(sock, msg) {
 
         if (textoFala) {
           // Pedido explícito com conteúdo: lê ESSE conteúdo.
-          const buf = await require('./ai').speakWithFallback(textoFala);
-          if (buf && buf.length > 500) {
-            await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: msg });
-            return true;
+          if (turn) turn.conversational = true;
+          const buf = await require('./ai').speakWithFallback(textoFala, null, { signal: turn?.signal });
+          const result = await sock.sendMessage(ctx.remoteJid,
+            buf && buf.length > 500
+              ? { audio: buf, mimetype: 'audio/mpeg', ptt: true }
+              : { text: 'Não consegui gerar o áudio agora; envio em texto.\n\n' + textoFala },
+            { quoted: msg });
+          if (!result?.suppressed && typeof AiMemory.appendMessage === 'function') {
+            const contextId = ctx.isGroup ? ctx.remoteJid : null;
+            await AiMemory.appendMessage(ctx.senderNumber, contextId, 'user', text).catch(() => {});
+            await AiMemory.appendMessage(ctx.senderNumber, contextId, 'assistant', textoFala).catch(() => {});
           }
+          return true;
         }
         // Sem conteúdo ("manda um áudio") → deixa a IA pensar numa
         // resposta dela; o bloco de voz lá em baixo converte-a.
         // NÃO devolve aqui: era isso que causava o eco.
       } catch (e) {
+        if (turn?.signal?.aborted || require('./aiCancellation').isAbort(e)) return true;
         console.warn('[Aura voz-directa]', e.message?.slice(0, 60));
       }
     }
@@ -2299,7 +2328,14 @@ async function _handleInner(sock, msg) {
       for (const [k, ts] of _auraReplySeen) if (_nowAura - ts > AURA_SEEN_TTL_MS) _auraReplySeen.delete(k);
     }
     const _sockAntesAura = sock;
-    const _auraEntrega = require('../aura/auraDelivery').acompanhar(sock);
+    let _historyActive = false;
+    const _rememberSent = async text => {
+      if (_historyActive && typeof AiMemory.appendMessage === 'function')
+        await AiMemory.appendMessage(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null, 'assistant', text);
+    };
+    const _auraEntrega = require('../aura/auraDelivery').acompanhar(sock, {
+      onResponse: async content => { if (content.text) await _rememberSent(content.text); },
+    });
     sock = _auraEntrega.sock;
     try {
       let cleanText = text.replace(/@[0-9]+/g, '').replace(new RegExp('@' + botNum, 'g'), '').trim();
@@ -2505,6 +2541,7 @@ async function _handleInner(sock, msg) {
         } catch (e) { console.warn('[Percepção social]', e.message?.slice(0, 60)); }
       }
 
+      const _literalGreeting = require('../aura/auraDialogue').literalGreeting(cleanText);
       let prompt = cleanText;
       if (!prompt || prompt.length < 1) {
         if (isReplyToBot) prompt = '[Alguém respondeu à tua mensagem sem texto — reage de forma natural e breve, no teu estilo de assistente virtual]';
@@ -2562,11 +2599,12 @@ async function _handleInner(sock, msg) {
         const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
         historyArray = mem.getContextWindow(16);
         // v7.28: linha do histórico com número+nome ("[+244…|Nome]: …")
-        mem.addMessage('user', ctx.identidade
+        await AiMemory.appendMessage(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null, 'user', ctx.identidade
           ? require('../aura/auraIdentidade').linhaHistorico(ctx.identidade, prompt)
           : `[${ctx.pushName}]: ${prompt}`);
-        await mem.save().catch(() => {});
-      } catch {}
+        _historyActive = true;
+      } catch (e) { console.warn('[Aura memória] Histórico indisponível:', e?.name || 'Error'); }
+
 
       // Contexto de mídia — a Aura vê/ouve tudo v12.2: view-once + reconhecimento + reações
       let mediaContext = '';
@@ -2947,8 +2985,10 @@ async function _handleInner(sock, msg) {
         }
       }
 
-      let answer;
-      if (isSticker && stickerVision?.ok && stickerVision.frames?.length) {
+      if (turn) turn.conversational = true;
+      if (!conversation.canDeliver(ctx, turn)) return true;
+      let answer = _literalGreeting;
+      if (!answer && isSticker && stickerVision?.ok && stickerVision.frames?.length) {
         try {
           const aiMod = require('./ai');
           const vis = require('./stickerVision');
@@ -2962,7 +3002,7 @@ async function _handleInner(sock, msg) {
         } catch (e) {
           console.warn('[Aura Vision] sticker:', e.message?.slice(0, 80));
         }
-      } else if (isImage) {
+      } else if (!answer && isImage) {
         try {
           let imgBuf = null;
           // Tentativa 1: downloadMediaMessage
@@ -3103,8 +3143,9 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
 
           const _pararResp = require('./humanizer').pensando(sock, ctx.remoteJid); // v7.53: "a escrever…" durante a IA
           try {
+          if (turn) turn.conversational = true;
           answer = await aura.auraRespondSmart(prompt, {
-            isOwner,
+            isOwner: ctx.isPrimaryOwner,
             isSubOwner: !!ctx.isSubOwner,   // v7.28: número do bot / owner_numbers
             isVip,
             isAdmin: ctx.isAdmin,   // v6.85: ela sabe o cargo de quem fala
@@ -3114,6 +3155,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
             groupName: ctx.groupName,
             groupContext,
             historyArray,
+            quotedMessage: require('../aura/auraContext').extractQuoted(msg), signal: turn?.signal,
             isReplyToAura: isReplyToBot,
             darkAttacked,
             darkMentioned,
@@ -3134,37 +3176,31 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
           try {
             if (ctx.identidade) _identBloco = require('../aura/auraIdentidade').blocoParaPrompt(ctx.remoteJid, ctx.identidade, { citado: ctx.citado, ownerNumber: config.owner.number });
           } catch {}
+          if (turn) turn.conversational = true;
           answer = await auraModes.assistantRespond(prompt, {
             botName: config.bot.name, userName: ctx.pushName, identidade: _identBloco,
             isGroup: ctx.isGroup, groupName: ctx.groupName,
             groupContext, historyArray, prefix,
-            isOwner, isVip, isAdmin: ctx.isAdmin,
-            senderNumber: ctx.senderNumber,
+            quotedMessage: require('../aura/auraContext').extractQuoted(msg), signal: turn?.signal,
+            isOwner: ctx.isPrimaryOwner, isVip, isAdmin: ctx.isAdmin,
+            remoteJid: ctx.remoteJid, senderNumber: ctx.senderNumber,
             pessoasNoGrupo: ctx.groupMeta?.participants?.length || 0,
             mediaContext, isAudio, isImage, isVideo, isSticker,
           });
         }
       }
 
-      // Salva resposta na memória. Não regista como facto um "já fiz" gerado
-      // pela IA quando a acção destrutiva ainda aguarda confirmação.
-      let respostaMemoria = answer;
-      if (/\[\s*FAZ\s*:/i.test(String(answer || ''))) {
-        try {
-          const cerMemoria = require('../aura/auraCerebro');
-          const brainMemoria = require('../aura/auraBrain');
-          const acaoDestrutivaAutorizada = cerMemoria.interpretar(answer).acoes.some(a => {
-            const cap = brainMemoria.POR_ID.get(a.id);
-            return cap?.risco === 'destrutivo' && brainMemoria.podeFazer(cap, { isOwner, isAdmin: ctx.isAdmin }).pode;
-          });
-          if (acaoDestrutivaAutorizada) respostaMemoria = 'Pedi confirmação antes de executar uma acção destrutiva.';
-        } catch {}
-      }
-      try {
-        const mem = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
-        mem.addMessage('assistant', respostaMemoria);
-        await mem.save().catch(() => {});
-      } catch {}
+      if (!conversation.canDeliver(ctx, turn)) return true;
+      // Validate before remembering a model answer or interpreting action tags.
+      const responseSanitizer = require('../aura/auraSanitizer');
+      answer = responseSanitizer.eVazamento(answer)
+        ? 'Não consegui obter uma resposta coerente para esta mensagem.'
+        : require('../aura/auraInterpret').consertarSeRecusou(responseSanitizer.limparResposta(answer), cleanText);
+
+      answer = require('../aura/auraDialogue').constrainModelActions(answer, cleanText);
+
+      // Assistant history is appended only after the actual delivery observer
+      // sees the final, sanitized text (not raw action tags or stale output).
 
       // ⚡ Reacção automática de emoji (interacção contextual)
       // v6.43: só a AURA acordada reage. O assistente fica sóbrio.
@@ -3180,6 +3216,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       
       // Mantém uma resposta concisa; a transparência de identidade é definida no prompt.
       // ⚡ Parser de acções da Aura: [STICKER:xxx], [IMAGE:xxx], [CMD:xxx]
+      // Do not execute model actions or send stale output after a pause/new turn.
+      if (!conversation.canDeliver(ctx, turn)) return true;
       let finalAnswer = answer;
       // v7.37: a IA pode escolher calar-se / só reagir, pedir acções reais
       // e anotar o que aprendeu. Tudo com as permissões de sempre.
@@ -3244,16 +3282,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
         finalAnswer = san.limparResposta(finalAnswer);
         finalAnswer = interpret.consertarSeRecusou(finalAnswer, cleanText, msg);
         if (san.eVazamento(answer) || san.eVazamento(finalAnswer) || san.eLinkInventado(finalAnswer)) {
-          if (ctx.isGroup && isOwner) {
-            try {
-              const code = await sock.groupInviteCode(ctx.remoteJid);
-              finalAnswer = 'Aqui está o convite deste grupo:\nhttps://chat.whatsapp.com/' + code;
-            } catch {
-              finalAnswer = 'Não consegui tirar o convite — preciso de ser admin.';
-            }
-          } else {
-            finalAnswer = isOwner ? 'Não consegui responder de forma fiável agora, Dark.' : 'Não consegui responder de forma fiável agora.';
-          }
+          finalAnswer = 'Não consegui obter uma resposta coerente para esta mensagem.';
         }
         finalAnswer = String(finalAnswer || '').replace(/\(ÁUDIO\)|\(AUDIO\)/gi, '').trim();
         try {
@@ -3281,11 +3310,12 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
             const fala = vozMod.textoParaFalar(falsa.termo || finalAnswer, {
               texto: cleanText, citado: cita, groupContext,
             });
-            const voz = await require('./ai').speakWithFallback(fala);
+            const voz = await require('./ai').speakWithFallback(fala, null, { signal: turn?.signal });
             if (voz && voz.length > 500) {
-              await sock.sendMessage(ctx.remoteJid, {
+              const voiceResult = await sock.sendMessage(ctx.remoteJid, {
                 audio: voz, mimetype: 'audio/mpeg', ptt: true,
               }, { quoted: msg });
+              if (!voiceResult?.suppressed) await _rememberSent(fala);
               return true;
             }
           }
@@ -3307,6 +3337,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
             }
           }
         } catch (e) {
+          if (turn?.signal?.aborted || require('./aiCancellation').isAbort(e)) return true;
           console.warn('[Aura acção falsa]', e.message?.slice(0, 60));
         }
       } catch {}
@@ -3319,7 +3350,6 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       // cedo no handler) — aqui já não é preciso.
       const actionSticker = finalAnswer.match(/\[STICKER:([^\]]+)\]/);
       const actionImage = finalAnswer.match(/\[IMAGE:([^\]]+)\]/);
-      const actionCmd = finalAnswer.match(/\[CMD:([^\]]+)\]/);
       
       // Remove os marcadores do texto visível
       finalAnswer = finalAnswer.replace(/\[STICKER:[^\]]+\]/g, '').replace(/\[IMAGE:[^\]]+\]/g, '').replace(/\[CMD:[^\]]+\]/g, '').trim();
@@ -3521,11 +3551,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       // v6.53: detecção simples e robusta — há um verbo de pedido E a
       // palavra áudio/voz na mesma frase. Tentei uma regex com
       // distância entre os termos, mas falhava com acentos.
-      const _txtAudio = String(cleanText || '').toLowerCase()
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const _pedidoExplicito =
-        /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(_txtAudio) &&
-        /\b(mand[ae]|envi[ae]|manda-?me|envia-?me|quero|faz|faca|grav[ae]|poe|poem|diz|fala|responde)\b/.test(_txtAudio);
+      const _deliveryPref = require('../aura/auraDialogue').deliveryPreference(cleanText);
+      const _pedidoExplicito = _deliveryPref === 'audio';
 
       // v6.56: ELA ESCOLHE O FORMATO.
       // Uma pessoa não responde sempre por texto — às vezes manda
@@ -3550,7 +3577,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       // mensagem fura o silêncio.
       const _mtVoz = !!(_perc && _perc.modoTexto(_pkAura || _perc.chave(ctx.remoteJid, ctx.senderNumber)));
       const pediuAudio = (_modoSoAudio || _pedidoExplicito || _formato === 'audio' || (isAudio && (isOwner || isPv)))
-        && !(_mtVoz && !_pedidoExplicito);
+        && _deliveryPref !== 'text' && !(_mtVoz && !_pedidoExplicito);
 
       // v6.81 (bug #2 da auditoria): o formato 'reacao' era calculado e deitado
       // fora — ela acabava por escrever texto na mesma. Agora reage mesmo:
@@ -3581,17 +3608,20 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
             texto: cleanText, citado: cita, groupContext,
           });
 
-          const voz = await aiVoz.speakWithFallback(paraFalar);
+          const voz = await aiVoz.speakWithFallback(paraFalar, null, { signal: turn?.signal });
           if (voz && voz.length > 500) {
-            await sock.sendMessage(ctx.remoteJid, {
+            const voiceResult = await sock.sendMessage(ctx.remoteJid, {
               audio: voz, mimetype: 'audio/mpeg', ptt: true,
             }, { quoted: msg });
+            if (!voiceResult?.suppressed) await _rememberSent(paraFalar);
             return true;   // já respondeu em voz, não repete em texto
           }
         } catch (e) {
+          if (turn?.signal?.aborted || require('./aiCancellation').isAbort(e)) return true;
           console.warn('[Aura voz]', e.message?.slice(0, 60));
           // se a voz falhar, continua e manda o texto
         }
+        finalAnswer = 'Não consegui gerar o áudio agora; envio em texto.\n\n' + finalAnswer;
       }
 
       // v7.40: quando lhe mandam um sticker, às vezes ela responde com
@@ -3655,23 +3685,15 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
         } catch (e) { /* silêncio */ }
       }
       
-      if (actionCmd && isOwner) {
-        // Só o Dark pode fazer a Aura executar comandos via [CMD:]
-        try {
-          const cmdText = actionCmd[1].trim();
-          const [cmdName, ...cmdArgs] = cmdText.split(/\s+/);
-          const fakeCtx = { ...ctx, args: cmdArgs, prefix: config.bot.prefix || '.' };
-          const caseCtx = { sock, msg, ctx: fakeCtx, args: cmdArgs, text: cmdArgs.join(' '), prefix: fakeCtx.prefix, command: cmdName.toLowerCase(), isOwner: true, config: commandConfig };
-          await caseHandler.runCase(cmdName.toLowerCase(), caseCtx);
-        } catch (e) { /* silêncio */ }
-      }
-      
+      // Raw [CMD:] model output is rejected before response/action parsing.
+
       if (!_auraEntrega.respondeu() && _forcarContextual()) {
         await sock.sendMessage(ctx.remoteJid, { text: require('../aura/auraDelivery').TEXTO_FALHA }, { quoted: msg });
       }
       return true;
 
     } catch (e) {
+      if (turn?.signal?.aborted || require('./aiCancellation').isAbort(e)) return true;
       // Diagnóstico sem expor o texto da conversa ou segredos do erro.
       console.warn('[Aura v6.39]', JSON.stringify({ etapa: 'resposta', chat: ctx.isGroup ? 'grupo' : 'pv', id: String(msg.key?.id || '').slice(0, 64), erro: e?.name || 'Error' }));
       if (_auraEntrega.respondeu()) return true;
@@ -4337,13 +4359,45 @@ async function handleStickerRequest(sock, msg, ctx) {
 // garante que o cache de request é sempre aberto e fechado, mesmo
 // quando ela sai a meio ou lança. Sem isto, o cache de uma mensagem
 // podia vazar para a seguinte e servir dados velhos.
-async function handle(sock, msg) {
-  requestCache.begin();
+/** Priority self-controls: the transport invokes this BEFORE its work semaphore. */
+async function handleConversationControl(sock, raw) {
+  if (!raw?.key || !raw.message || raw.key.fromMe || typeof sock?.sendMessage !== 'function') return false;
+  const msg = normalizeIncomingMsg(raw);
+  const ctx = getSenderInfo(msg, sock);
+  if (ctx.isGroup === false && (ctx.isStatus || ctx.isChannel)) return false;
+  const conversation = require('../aura/auraConversation');
+  const text = extractText(msg).trim();
+  if (!conversation.controlIntent(text)) return false;
+  if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return true;
+  const turn = conversation.begin(ctx);
   try {
-    return await _handleInner(sock, normalizeIncomingMsg(msg));
-  } finally {
-    requestCache.end();
-  }
+    const result = conversation.process(text, ctx);
+    if (result.reply) await sock.sendMessage(ctx.remoteJid, { text: result.reply }, { quoted: msg });
+    return !!result.handled;
+  } catch (_) {
+    console.warn('[Aura pausa] Não consegui processar o controlo prioritário.');
+    return true; // Do not reinterpret a failed self-control as a third-party action.
+  } finally { conversation.finish(turn); }
 }
 
-module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv };
+/** Arrival metadata only: invalidate old conversational work before waiting in the router queue. */
+function noteIncomingConversation(sock, raw) {
+  if (!raw?.key || !raw.message || raw.key.fromMe) return false;
+  const msg = normalizeIncomingMsg(raw);
+  const ctx = getSenderInfo(msg, sock);
+  if (ctx.isStatus || ctx.isChannel || (!extractText(msg).trim() && !hasMediaPayload(msg.message))) return false;
+  return require('../aura/auraConversation').noteIncoming(ctx, { messageId: msg.key.id, timestamp: msg.messageTimestamp });
+}
+
+async function handle(sock, msg) {
+  if (!msg?.key || !msg.message || typeof sock?.sendMessage !== 'function') return false;
+  return requestCache.run(async () => {
+    const normalized = normalizeIncomingMsg(msg);
+    const conversation = require('../aura/auraConversation');
+    const turn = conversation.begin(getSenderInfo(normalized, sock), { timestamp: normalized.messageTimestamp, messageId: normalized.key.id });
+    try { return await _handleInner(sock, normalized, turn); }
+    finally { conversation.finish(turn); }
+  });
+}
+
+module.exports = { handle, noteIncomingConversation, handleConversationControl, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv };

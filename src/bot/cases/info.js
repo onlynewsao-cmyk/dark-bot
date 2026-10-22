@@ -363,7 +363,7 @@ module.exports = function registerInfoCases(registerCase) {
     } catch {}
 
     let versao = '?';
-    try { versao = require('../../../package.json').version || '?'; } catch { try { versao = require('../../package.json').version || '?'; } catch {} }
+    try { versao = require('../../../package.json').version || '?'; } catch {}
 
     const mem = process.memoryUsage();
     const ram = Math.round(mem.heapUsed / 1024 / 1024);

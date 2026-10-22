@@ -104,8 +104,7 @@ async function resolveRole({ ctx = {}, msg = null, sock = null, user = undefined
       if (dbOwnerNum && senderNum === dbOwnerNum) isOwner = true;
 
       if (!isOwner && ownerLid) {
-        const lidNum = norm(ownerLid);
-        if ((lidNum && senderNum === lidNum) || (senderJid && senderJid.includes(String(ownerLid)))) {
+        if (require('./ownerIdentity').matchesOwnerLid(ctx, msg || {}, ownerLid)) {
           isOwner = true;
         }
       }

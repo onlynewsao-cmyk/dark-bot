@@ -552,13 +552,8 @@ async function auraRespond(text, ctx = {}) {
     consciencia = '',     // v6.86: contexto social + regras + anti-repetição
   } = ctx;
 
-  // v6.85 — GUARDA DETERMINISTA: pedido sexual/abusivo de quem NÃO é o
-  // Dark nunca passa pela IA (no print de produção ela respondeu
-  // "Claro, Dark. Vou fazer isso pra você." a um estranho). Ela reage
-  // como pessoa: corta e põe no lugar. Sempre.
-  if (!isOwner && _ePedidoSexual(text)) {
-    return _recusaHumana(text, { isAdmin, pushName });
-  }
+  const interpretation = require('./auraInterpret');
+  if (interpretation.isExplicitRequest(text)) return interpretation.EXPLICIT_REPLY;
 
   // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
   // continua a lembrar-se das pessoas depois de o Render reiniciar.
@@ -626,12 +621,16 @@ async function auraRespond(text, ctx = {}) {
   // Último bloco: contexto real + rigor, depois dos prompts de personalidade.
   systemPrompt += '\n\n' + require('./auraContextual').contexto(remoteJid);
 
+  systemPrompt += '\n' + require('./auraDialogue').clarificationHint(text);
+
   // Tentar IA sempre (gera respostas únicas)
   try {
     const reply = await ai.chat(text, systemPrompt, {
       userRole,
       history: historyArray,
+      quotedMessage: ctx.quotedMessage, signal: ctx.signal,
       groupContext,
+      cacheScope: remoteJid && senderNumber ? JSON.stringify([remoteJid, senderNumber]) : '',
     }, isOwner);
     
     // v6.44: apanha QUALQUER erro do motor. Antes só filtrava
@@ -643,7 +642,7 @@ async function auraRespond(text, ctx = {}) {
         const interpret = require('./auraInterpret');
         let clean = san.limparResposta(reply);
         if (san.eVazamento(reply) || san.eVazamento(clean)) {
-          return isOwner ? 'Estou por aqui, Dark.' : 'Diz.';
+          return 'Não consegui obter uma resposta coerente agora. Podes reformular?';
         }
         return interpret.consertarSeRecusou(clean, text);
       } catch {
@@ -653,10 +652,10 @@ async function auraRespond(text, ctx = {}) {
     _registarErroIA(String(reply || '').trim() || 'resposta vazia');
     throw new Error('IA indisponível');
   } catch (eIA) {
+    if (require('../bot/aiCancellation').isAbort(eIA)) throw eIA;
     if (!/IA indisponível/.test(eIA.message)) _registarErroIA(eIA.message);
     // Fallback DINÂMICO (nunca repete a mesma resposta)
-    const offline = generateDynamicResponse(text, userRole, mood, pushName, isOwner);
-    return offline;
+    return require('./auraFala').dizer('semCabeca', { jid: remoteJid, isOwner });
   }
 }
 
@@ -701,15 +700,8 @@ async function auraRespondSmart(text, ctx = {}) {
     }
   }
 
-  // CACHE SEMÂNTICO: resposta similar já dada? (apenas para não-donos)
-  if (!isOwner) {
-    const cached = auraSmart.cacheGet(text);
-    if (cached && !auraSmart.isRepetitive(remoteJid, cached)) {
-      auraSmart.recordCacheHit();
-      auraSmart.trackResponse(remoteJid, cached);
-      return cached;
-    }
-  }
+  // Context-free semantic reuse is unsafe for personal conversations.
+  // The provider cache below already keys the full conversation and system.
 
   // Adicionar hint de anti-repetição ao contexto
   const variationHint = auraSmart.getVariationHint(remoteJid);
@@ -728,11 +720,7 @@ async function auraRespondSmart(text, ctx = {}) {
   // Anti-repetição: se a resposta é repetida, tentar variar
   if (response && auraSmart.isRepetitive(remoteJid, response)) {
     auraSmart.recordAntiRepBlock();
-    // Tentar resposta do cache como alternativa
-    const alt = auraSmart.cacheGet(text + '_alt');
-    if (alt && !auraSmart.isRepetitive(remoteJid, alt)) {
-      response = alt;
-    }
+
   }
 
   // v1.0 EVOLUÇÃO & SÍNTESE COGNITIVA:
@@ -756,7 +744,6 @@ async function auraRespondSmart(text, ctx = {}) {
 
   // Guardar no cache e rastrear
   if (response) {
-    auraSmart.cacheSet(text, response);
     auraSmart.trackResponse(remoteJid, response);
   }
 

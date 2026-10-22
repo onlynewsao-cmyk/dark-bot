@@ -6,7 +6,8 @@
  * tem de se registrar de novo com !rpgstart.
  */
 const FLAG = 'rpg_reset_v788_done';
-async function run() {
+async function run({ confirmed = false } = {}) {
+  if (confirmed !== true) return false;
   try {
     const cache = require('../botConfigCache');
     if (await cache.get(FLAG, false)) return false;

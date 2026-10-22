@@ -276,10 +276,10 @@ module.exports = function registerIA2(registerCase) {
   }, true);
 
   registerCase(['airesetar', 'clearmemory'], async ({ sock, msg, ctx, reply, isOwner }) => {
-    if (!isOwner && !ctx.isGroup) return reply('🚫 Só o dono ou em grupo.');
+    if (!isOwner && !(ctx.isGroup && ctx.isAdmin)) return reply('🚫 Só o Dono ou um administrador deste grupo pode limpar este histórico.');
     try {
       const AiMemory = require('../../database/models/AiMemory');
-      await AiMemory.deleteMany({ userId: ctx.senderNumber, groupId: ctx.isGroup ? ctx.remoteJid : null });
+      await AiMemory.deleteMany({ contextId: AiMemory.contextIdFor(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null) });
       return reply('🧠 Memória da IA resetada!');
     } catch (e) { return reply('❌ ' + e.message); }
   }, true);

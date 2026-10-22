@@ -172,21 +172,10 @@ function comoResponder(o = {}) {
   // elogios curtos, concordâncias, coisas fofas.
   const soReagir = /^(kk+|haha+|rs+|😂|❤|🖤|top|boa|isso|exato|exacto|verdade|concordo|amei|lindo|linda)\b/i.test(texto.trim())
     || texto.trim().length <= 3;
-  if (isGroup && soReagir && Math.random() < 0.6) return 'reacao';
+  if (isGroup && soReagir && !/[?？]/.test(texto) && Math.random() < 0.6) return 'reacao';
 
-  // Áudio quando ELA quer. Não é só afectivo no PV — uma pessoa
-  // às vezes manda voz para explicar, responder, ou porque lhe
-  // apetece. Raro o suficiente para não virar rádio.
-  const ordem = /\b(promove|ban|fecha|abre|sticker|play|menu|kick|adiciona com adm)\b/i.test(t);
-  if (isOwner && !ordem) {
-    const afectivo = /\b(saudades|amo|amor|beijo|carinho|te quero|falta|ouve|escuta)\b/i.test(t);
-    const explicar = t.length > 36 || /\b(porque|explica|conta|como foi|o que)\b/i.test(t);
-    let p = isGroup ? 0.06 : 0.14;
-    if (afectivo) p += isGroup ? 0.10 : 0.22;
-    if (explicar && !isGroup) p += 0.08;
-    if (Math.random() < Math.min(0.42, p)) return 'audio';
-  }
-
+  // Voice is opt-in (explicit request or separately configured chat preference).
+  // No random TTS calls, extra provider latency or surprise audio.
   return 'texto';
 }
 

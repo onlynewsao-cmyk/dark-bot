@@ -28,7 +28,8 @@
 
 // Cache activo da mensagem em processamento.
 // Chave → { value } ou { promise } para chamadas em voo.
-let _current = null;
+const { AsyncLocalStorage } = require('async_hooks');
+const scopes = new AsyncLocalStorage();
 
 // Estatísticas (para o comando de diagnóstico)
 const _stats = { hits: 0, misses: 0, saved: 0 };
@@ -38,13 +39,14 @@ const _stats = { hits: 0, misses: 0, saved: 0 };
  * uma vez por mensagem recebida.
  */
 function begin() {
-  _current = new Map();
-  return _current;
+  const current = new Map();
+  scopes.enterWith(current);
+  return current;
 }
 
 /** Termina o âmbito e liberta a memória. */
 function end() {
-  _current = null;
+  scopes.enterWith(undefined);
 }
 
 /**
@@ -55,6 +57,7 @@ function end() {
  * @returns {Promise<*>}
  */
 async function remember(key, loader) {
+  const _current = scopes.getStore();
   // Sem âmbito activo → executa directamente (não quebra nada)
   if (!_current) return loader();
 
@@ -67,34 +70,39 @@ async function remember(key, loader) {
   }
 
   _stats.misses++;
+  const pending = {};
   const promise = Promise.resolve()
     .then(loader)
     .then((value) => {
-      if (_current) _current.set(key, { value });
+      if (_current.get(key) === pending) _current.set(key, { value });
       return value;
     })
     .catch((err) => {
       // Não guarda erros — a próxima tentativa pode correr bem
-      if (_current) _current.delete(key);
+      if (_current.get(key) === pending) _current.delete(key);
       throw err;
     });
 
-  _current.set(key, { promise });
+  pending.promise = promise;
+  _current.set(key, pending);
   return promise;
 }
 
 /** Invalida uma chave (após escrita que mude o valor). */
 function forget(key) {
+  const _current = scopes.getStore();
   if (_current) _current.delete(key);
 }
 
 /** Guarda um valor já conhecido, evitando uma leitura futura. */
 function put(key, value) {
+  const _current = scopes.getStore();
   if (_current) _current.set(key, { value });
 }
 
 /** Lê um valor já guardado neste âmbito (sem loader). */
 function get(key) {
+  const _current = scopes.getStore();
   if (!_current) return undefined;
   const hit = _current.get(key);
   if (hit && 'value' in hit) return hit.value;
@@ -102,6 +110,7 @@ function get(key) {
 }
 
 function stats() {
+  const _current = scopes.getStore();
   return { ..._stats, active: _current ? _current.size : 0 };
 }
 
@@ -118,4 +127,6 @@ const K = {
   aura:  (jid) => `aura:${jid}`,
 };
 
-module.exports = { begin, end, remember, forget, put, get, stats, resetStats, K };
+function run(fn) { return scopes.run(new Map(), fn); }
+
+module.exports = { run, begin, end, remember, forget, put, get, stats, resetStats, K };

@@ -112,7 +112,7 @@ async function globalSnapshot() {
 }
 
 async function setGlobal(key, val) {
-  const BotConfig = require('../database/models/BotConfig');
+  const BotConfig = require('../../database/models/BotConfig');
   await BotConfig.set(key, val);
   try { require('../botConfigCache').clear(); } catch {}
 }

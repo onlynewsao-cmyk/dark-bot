@@ -29,18 +29,18 @@ const humanizer = require('./humanizer');
 // ── Semáforo global (1 vCPU: 8 em voo, resto em fila) ──────────
 // NOTA: a função principal também se chama `process` e faz sombra ao
 // global `process` neste módulo — por isso usa-se globalThis aqui.
-const MAX_VOO = Number(globalThis.process.env.ROUTER_MAX_VOO || 8);
+const requestedSlots = Number(globalThis.process.env.ROUTER_MAX_VOO);
+const MAX_VOO = Number.isFinite(requestedSlots) && requestedSlots >= 1 ? Math.min(32, Math.floor(requestedSlots)) : 8;
 let _voando = 0;
 const _fila = [];
 async function _adquirir() {
   if (_voando < MAX_VOO) { _voando++; return; }
-  await new Promise(res => _fila.push(res));
-  _voando++;
+  await new Promise(res => _fila.push(res)); // the released slot transfers to this waiter
 }
 function _libertar() {
-  _voando--;
   const next = _fila.shift();
   if (next) next();
+  else _voando--;
 }
 
 // ── v7.82: dedup de mensagens ─────────────────────────────
@@ -95,12 +95,6 @@ function maskJid(jid = '') {
 
 async function _tratarUma(bot, batch, raw) {
   if (!raw?.message) return;
-  if (raw?.key?.id) { // v7.82: re-emissão → ignora (barato, antes do semáforo)
-    const _k = _chaveMsg(raw);
-    if (_vistos.has(_k)) return;
-    _vistos.add(_k);
-    if (_vistos.size > 2000) _vistos.clear();
-  }
   let msg = raw;
   await _adquirir();
   try {
@@ -122,8 +116,13 @@ async function _tratarUma(bot, batch, raw) {
     bot.recentInbox.push(entry);
     if (bot.recentInbox.length > 20) bot.recentInbox.shift();
 
+    let paused = false;
+    try { paused = require('../aura/auraConversation').isPaused(commandHandler.getSenderInfo(msg, bot.sock)); }
+    catch (_) { paused = true; } // corrupt pause storage must not re-enable conversation
+
     // v12.2: REAÇÕES — Aura vê quem reagiu com emoji!
     if (msg.message?.reactionMessage) {
+      if (paused) { entry.tratada = true; return; }
       try {
         const auraReaction = require('../aura/auraReaction');
         const ctx = { remoteJid: msg.key?.remoteJid, senderNumber: (msg.key?.participant || msg.key?.remoteJid || '').split('@')[0] };
@@ -135,8 +134,8 @@ async function _tratarUma(bot, batch, raw) {
     }
 
     // v12.2: VIEW-ONCE — Aura vê e salva antes de desaparecer!
-    if (msg.message?.viewOnceMessage || msg.message?.viewOnceMessageV2 || msg.message?.viewOnceMessageV2Extension ||
-        msg.message?.imageMessage?.viewOnce || msg.message?.videoMessage?.viewOnce) {
+    if (!paused && (msg.message?.viewOnceMessage || msg.message?.viewOnceMessageV2 || msg.message?.viewOnceMessageV2Extension ||
+        msg.message?.imageMessage?.viewOnce || msg.message?.videoMessage?.viewOnce)) {
       try {
         const viewOnceMod = require('../aura/auraViewOnce');
         await viewOnceMod.handleViewOnce(bot.sock, msg, { isOwner: false });
@@ -178,7 +177,7 @@ async function _tratarUma(bot, batch, raw) {
         return false;
       }),
       // v7.84 — ESCUDO VIVO: links permitidos ativam o download automático
-      require('./autoDl').check(bot.sock, msg).catch((err) => {
+      (paused ? Promise.resolve(false) : require('./autoDl').check(bot.sock, msg)).catch((err) => {
         if (!/Closed/i.test(String(err?.message || err))) console.error('[AUTODL]', err?.message || err);
         return false;
       }),
@@ -214,7 +213,32 @@ async function process(bot, batch) {
   // v7.82: só 'notify' é mensagem nova; 'append'/histórico não se responde
   // (type ausente = testes/chamadas directas → processa na mesma).
   if (batch && batch.type && batch.type !== 'notify') return;
-  const messages = Array.isArray(batch?.messages) ? batch.messages : [];
+  const messages = [];
+  const arrivals = [];
+  // Deduplicate at arrival, before priority controls or waiting for a slot.
+  for (const raw of Array.isArray(batch?.messages) ? batch.messages : []) {
+    if (!raw?.message) continue;
+    if (raw.key?.id) {
+      const key = _chaveMsg(raw);
+      if (_vistos.has(key)) continue;
+      _vistos.add(key);
+      if (_vistos.size > 2000) _vistos.delete(_vistos.values().next().value);
+    }
+    if (typeof commandHandler.noteIncomingConversation === 'function') commandHandler.noteIncomingConversation(bot.sock, raw);
+    arrivals.push(raw);
+  }
+  // Register the entire batch before yielding: later upserts cannot be overwritten
+  // by a remainder of this older batch with the same one-second timestamp.
+  for (const raw of arrivals) {
+    // A pause/resume must not sit behind minutes of media/provider work,
+    // including an earlier message in this same batch.
+    if (typeof commandHandler.handleConversationControl === 'function' &&
+        await commandHandler.handleConversationControl(bot.sock, raw)) {
+      bot.msgCount = (bot.msgCount || 0) + 1;
+      continue;
+    }
+    messages.push(raw);
+  }
   if (messages.length <= 1) {
     for (const raw of messages) await _tratarUma(bot, batch, raw);
     return;

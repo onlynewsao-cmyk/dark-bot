@@ -100,7 +100,9 @@ const VERBO_ORDEM = new RegExp(
   ')\\b', 'i');
 
 function pareceOrdem(texto) {
-  const t = norm(texto);
+  const language = require('./auraDialogue');
+  if (language.nonAction(texto)) return false;
+  const t = language.normalizeRequest(texto);
   if (!t || t.length < 3 || t.length > 300) return false;
   return VERBO_ORDEM.test(t);
 }
@@ -653,7 +655,9 @@ const POR_ID = new Map(CAPACIDADES.map(c => [c.id, c]));
  * CAMADA 2 — casa a frase contra o catálogo. 0 ms.
  */
 function detectarCapacidade(texto) {
-  const t = norm(texto);
+  const language = require('./auraDialogue');
+  if (language.nonAction(texto)) return null;
+  const t = language.normalizeRequest(texto);
   if (!t) return null;
   for (const cap of CAPACIDADES) {
     if (!cap.gatilhos) continue;
@@ -679,7 +683,7 @@ Nunca escolhas por palavra parecida: "grupos" não é canal_seguir/entrar_link (
 CAPACIDADES:
 ${lista}`;
   try {
-    const r = await ai.chat(texto, sys, { userRole: 'owner' }, true);
+    const r = await ai.chat(texto, sys, { userRole: 'owner', allowWeb: false, timeoutMs: 2500 }, true);
     const m = String(r || '').match(/\{[\s\S]*?\}/);
     if (!m) return null;
     const j = JSON.parse(m[0]);

@@ -116,12 +116,14 @@ async function bootstrap() {
   // v12.9.36: Central de Contactos em ESCALA (1M+) — a base vive no MongoDB
   try { require('./bot/centralBase').carregarMongo().catch(() => {}); } catch (_) {}
 
-  // v7.88: o mundo RPG recomeça do zero (uma vez) — toda a gente se regista de novo
-  require('./bot/rpg/reset788').run().catch(() => {});
+  // Never delete existing players as an implicit startup migration.
+  if (config.allowLegacyRpgReset) require('./bot/rpg/reset788').run({ confirmed: true }).catch(() => {});
 
   const app = express();
   const server = http.createServer(app);
-  const io = new Server(server, { cors: { origin: '*' } });
+  const io = new Server(server, { cors: { origin: new URL(config.appUrl).origin, credentials: true } });
+  const access = require('./middleware/controlAccess');
+  const { requireApiOwner } = require('./middleware/auth');
 
   // v6.82: liga o live broadcaster ao Socket.IO — o feed live do
   // dashboard (Grupos) recebe user:command / group:event / antilink:action.
@@ -168,7 +170,9 @@ async function bootstrap() {
       touchAfter: 24 * 3600,
     });
   }
-  app.use(session(sessionConfig));
+  const sessionMiddleware = session(sessionConfig);
+  app.use(sessionMiddleware);
+  access.protectSocket(io, sessionMiddleware, config.appUrl);
 
   app.use(async (req, res, next) => {
     res.locals.user = req.session.user || null;
@@ -234,34 +238,13 @@ async function bootstrap() {
   });
 
   // ── /status — Página pública de status do bot (sem login) ────────────
-  app.get('/status', (req, res) => {
-    const botStatus = getBot(io).getStatus();
-    const isOnline = botStatus.status === 'connected';
-    res.status(200).send(
-      `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8">` +
-      `<meta http-equiv="refresh" content="30">` +
-      `<title>${config.bot.name} — Status</title>` +
-      `<style>body{font-family:monospace;background:#0a0a0a;color:#8B5CF6;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}` +
-      `.box{text-align:center;padding:2rem;border:1px solid #8B5CF6;border-radius:12px;max-width:400px}` +
-      `h1{margin:0 0 1rem;font-size:1.5rem}.dot{display:inline-block;width:14px;height:14px;border-radius:50%;` +
-      `background:${isOnline ? '#22c55e' : '#ef4444'};margin-right:8px;vertical-align:middle}` +
-      `.muted{color:#666;font-size:.85rem;margin-top:1rem}</style></head>` +
-      `<body><div class="box">` +
-      `<h1>🕸️ ${config.bot.name}</h1>` +
-      `<p><span class="dot"></span><strong>${isOnline ? 'ONLINE' : 'OFFLINE'}</strong></p>` +
-      `<p>Bot: ${botStatus.status} | DB: ${conn ? 'ok' : 'off'}</p>` +
-      `<p>Mensagens: ${botStatus.messageCount || 0} | Comandos: ${botStatus.commandCount || 0}</p>` +
-      `<p class="muted">Uptime: ${botStatus.uptime || 0}s · Atualiza a cada 30s</p>` +
-      `</div></body></html>`
-    );
-  });
 
   // ── /diag — Diagnóstico REAL do processo em produção (v6.70) ─────────
   // O Dono reportou 2x que a AURA não responde, mas os testes locais
   // passam todos. Isto mostra o que o processo do Render TEM MESMO
   // em memória: commit, chaves, guardas do fluxo e config da base.
   // Sem isto, estou a adivinhar em vez de diagnosticar.
-  app.get('/diag', async (req, res) => {
+  app.get('/diag', requireApiOwner, async (req, res) => {
     const out = { ok: true, hora: new Date().toISOString() };
     try {
       const { execSync } = require('child_process');
@@ -356,7 +339,7 @@ async function bootstrap() {
   // v6.92: o commandHandler é carregado aqui (sob demanda) em vez de
   // no topo do bootstrap — evita logs de debug e inicialização pesada
   // durante o arranque do servidor.
-  app.get('/test-pv', async (req, res) => {
+  app.get('/test-pv', access.debugEnabled(config), requireApiOwner, async (req, res) => {
     const out = { ok: false };
     try {
       // Faz require directo (funciona no Render)
@@ -416,8 +399,8 @@ async function bootstrap() {
     res.render('status', {
       nome: config.bot?.name || 'DARK BOT',
       dono: config.owner?.name || 'Dark',
-      numero: String(st.user?.id || '').split('@')[0].replace(/D/g, ''),
-      online: /connected/i.test(st.status || ''),
+      numero: '', // Public status never exposes account identifiers.
+      online: st.status === 'connected',
       uptime: fmtU(st.uptime || 0),
       mensagens: st.messageCount || 0,
       sessoes: slots.filter(x => x.emUso || x.estado === 'ativa').length,
