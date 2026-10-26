@@ -136,6 +136,43 @@ async function bootstrap() {
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
 
+  // Liveness must not wait for sessions, metadata queries or WhatsApp.
+  // ── /health — Render liveness + UptimeRobot monitor ──────────────────
+  // UptimeRobot deve monitorar esta URL com status 200.
+  // Endpoint SEM autenticação, público, resposta rápida.
+  // v9.20: métricas detalhadas (providers IA, memória, sessões)
+  app.get('/health', (req, res) => {
+    const botStatus = getBot(io).getStatus();
+    const mem = process.memoryUsage();
+    const aiStatus = (() => { try { return require('./bot/ai').providerStatus(); } catch { return {}; } })();
+    res.status(200).json({
+      status: 'ok',
+      bot: botStatus.status,
+      voip_calls: (()=>{ try { return require('./bot/callVoip').todas().length; } catch { return 0; } })(),
+      db: conn ? 'connected' : 'unavailable',
+      uptime: botStatus.uptime || 0,
+      messages: botStatus.messageCount || 0,
+      commands: botStatus.commandCount || 0,
+      ai_providers_down: Object.keys(aiStatus).length,
+      ai_providers_detail: aiStatus,
+      memory: {
+        heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
+        heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
+        rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
+      },
+      node: process.version,
+      ts: Date.now(),
+      version: (() => { try { return require('../package.json').version || 'unknown'; } catch { return 'unknown'; } })(),
+    });
+  });
+
+  // ── /ping — Keep-alive para UptimeRobot / cron-job.org ───────────────
+  // Configure o UptimeRobot para fazer GET em: https://SEU-NOME.onrender.com/ping
+  // Intervalo: 5 minutos (evita hibernação do Render Free)
+  app.get('/ping', (req, res) => {
+    res.status(200).send('OK');
+  });
+
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
   app.use(express.json({ limit: '50mb' }));
   app.use(express.static(path.join(__dirname, 'public')));
@@ -199,42 +236,6 @@ async function bootstrap() {
       },
     };
     next();
-  });
-
-  // ── /health — Render liveness + UptimeRobot monitor ──────────────────
-  // UptimeRobot deve monitorar esta URL com status 200.
-  // Endpoint SEM autenticação, público, resposta rápida.
-  // v9.20: métricas detalhadas (providers IA, memória, sessões)
-  app.get('/health', (req, res) => {
-    const botStatus = getBot(io).getStatus();
-    const mem = process.memoryUsage();
-    const aiStatus = (() => { try { return require('./bot/ai').providerStatus(); } catch { return {}; } })();
-    res.status(200).json({
-      status: 'ok',
-      bot: botStatus.status,
-      voip_calls: (()=>{ try { return require('./bot/callVoip').todas().length; } catch { return 0; } })(),
-      db: conn ? 'connected' : 'unavailable',
-      uptime: botStatus.uptime || 0,
-      messages: botStatus.messageCount || 0,
-      commands: botStatus.commandCount || 0,
-      ai_providers_down: Object.keys(aiStatus).length,
-      ai_providers_detail: aiStatus,
-      memory: {
-        heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
-        heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
-        rss: Math.round(mem.rss / 1024 / 1024) + 'MB',
-      },
-      node: process.version,
-      ts: Date.now(),
-      version: (() => { try { return require('../package.json').version || 'unknown'; } catch { return 'unknown'; } })(),
-    });
-  });
-
-  // ── /ping — Keep-alive para UptimeRobot / cron-job.org ───────────────
-  // Configure o UptimeRobot para fazer GET em: https://SEU-NOME.onrender.com/ping
-  // Intervalo: 5 minutos (evita hibernação do Render Free)
-  app.get('/ping', (req, res) => {
-    res.status(200).send('OK');
   });
 
   // ── /status — Página pública de status do bot (sem login) ────────────
@@ -447,6 +448,29 @@ async function bootstrap() {
     socket.emit('bot:status', bot.getStatus());
   });
 
+  // Bind HTTP before any potentially slow WhatsApp reconnection.
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(config.port, '0.0.0.0', () => {
+      server.removeListener('error', reject);
+      console.log(`\n${'='.repeat(55)}`);
+      console.log(`🕸️  ${config.bot.name} v6 — DARK BOT`);
+      console.log(`${'='.repeat(55)}`);
+      console.log(`🚀 Servidor:   ${config.appUrl}`);
+      console.log(`📊 Dashboard:  ${config.appUrl}/dashboard`);
+      console.log(`🔌 Connect:    ${config.appUrl}/dashboard/connect`);
+      console.log(`❤️  Status:     ${config.appUrl}/status`);
+      console.log(`🏓 UptimePing: ${config.appUrl}/ping  ← Configura no UptimeRobot`);
+      console.log(`👑 Dono:       ${config.owner.name} (${config.owner.username})`);
+      console.log(`🌍 NODE_ENV:   ${config.nodeEnv}`);
+      console.log(`🗄️  MongoDB:    ${conn ? 'conectado ✅' : 'desconectado ⚠️'}`);
+      const hasAI = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY);
+      console.log(`🧠 IA:         ${hasAI ? 'configurada ✅' : 'sem chaves ⚠️ — defina GROQ_API_KEY no Render'}`);
+      console.log(`${'='.repeat(55)}\n`);
+      resolve();
+    });
+  });
+
   // Bot - tenta auto-conectar se já tem sessão (MongoDB ou local)
   const bot = getBot(io);
 
@@ -461,6 +485,8 @@ async function bootstrap() {
   async function tentarAutoStart() {
     try {
       if (!conn) return false;
+      const busy = () => bot.starting || ['connected', 'connecting', 'qr', 'pairing'].includes(bot.status);
+      if (busy()) return true; // do not restart a connection initiated through the dashboard
       const Session = require('./database/models/Session');
       // "creds" é o ficheiro que o useMongoAuthState escreve quando a sessão
       // principal está autenticada. As chaves de sinal têm nomes com hífen
@@ -473,6 +499,7 @@ async function bootstrap() {
         console.log('ℹ️  Nenhuma sessão WhatsApp autenticada no Mongo (sem doc "creds"). Use /dashboard/connect.');
         return false;
       }
+      if (busy()) return true; // dashboard may have connected while the query was pending
       console.log('🔄 Sessão WhatsApp encontrada no MongoDB — reconectando...');
       await bot.start({ mode: 'qr' });
       return true;
@@ -483,33 +510,37 @@ async function bootstrap() {
     }
   }
 
-  if (conn) {
-    // Primeira tentativa imediata. Se a MongoDB ainda não estiver pronta
-    // (Render Free / cold start), reagendamos com backoff.
-    let tentou = await tentarAutoStart();
-    let atraso = 3000;
-    for (let i = 0; i < 3 && !tentou; i++) {
-      await new Promise(r => setTimeout(r, atraso));
-      console.log(`[AutoStart] nova tentativa em ${atraso / 1000}s...`);
-      tentou = await tentarAutoStart();
-      atraso *= 2;
-    }
-
-    // v7.44 — Baileys secundário de chamadas REMOVIDO (2.º aparelho a reconectar = sinal de automação).
-    // As chamadas usam o socket principal (callVoip).
-  } else {
-    // Fallback: arquivos locais (desenvolvimento / sem Mongo)
-    try {
-      const fs = require('fs');
-      const authFolder = path.join(__dirname, '..', 'data', 'auth');
-      if (fs.existsSync(path.join(authFolder, 'creds.json'))) {
-        console.log('🔄 Sessão local encontrada - reconectando...');
-        bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+  async function autoConnectSavedSession() {
+    if (conn) {
+      // Primeira tentativa imediata. Se a MongoDB ainda não estiver pronta
+      // (Render Free / cold start), reagendamos com backoff.
+      let tentou = await tentarAutoStart();
+      let atraso = 3000;
+      for (let i = 0; i < 3 && !tentou; i++) {
+        await new Promise(r => setTimeout(r, atraso));
+        console.log(`[AutoStart] nova tentativa em ${atraso / 1000}s...`);
+        tentou = await tentarAutoStart();
+        atraso *= 2;
       }
-    } catch (e) {
-      console.error('[AutoStart/local]', e.message);
+
+      // v7.44 — Baileys secundário de chamadas REMOVIDO (2.º aparelho a reconectar = sinal de automação).
+      // As chamadas usam o socket principal (callVoip).
+    } else {
+      // Fallback: arquivos locais (desenvolvimento / sem Mongo)
+      try {
+        const fs = require('fs');
+        const authFolder = path.join(__dirname, '..', 'data', 'auth');
+        if (fs.existsSync(path.join(authFolder, 'creds.json'))) {
+          console.log('🔄 Sessão local encontrada - reconectando...');
+          bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+        }
+      } catch (e) {
+        console.error('[AutoStart/local]', e.message);
+      }
     }
   }
+  // HTTP is ready; background reconnection must not block other startup tasks.
+  autoConnectSavedSession().catch(e => console.error('[AutoStart]', e?.name || 'Error'));
 
   // Scheduler + Cache refresh
   if (conn) {
@@ -557,23 +588,6 @@ async function bootstrap() {
       try { const capE = require('./cap/capEngine'); capE.arrancar().then(() => capE.start(() => bot.getSock?.() || bot.sock || null)).catch(e => console.warn('[CAP]', e.message)); } catch (_) {}
     } catch (e) { console.warn('[Proativa]', e.message); }
   }
-
-  server.listen(config.port, () => {
-    console.log(`\n${'='.repeat(55)}`);
-    console.log(`🕸️  ${config.bot.name} v6 — DARK BOT`);
-    console.log(`${'='.repeat(55)}`);
-    console.log(`🚀 Servidor:   ${config.appUrl}`);
-    console.log(`📊 Dashboard:  ${config.appUrl}/dashboard`);
-    console.log(`🔌 Connect:    ${config.appUrl}/dashboard/connect`);
-    console.log(`❤️  Status:     ${config.appUrl}/status`);
-    console.log(`🏓 UptimePing: ${config.appUrl}/ping  ← Configura no UptimeRobot`);
-    console.log(`👑 Dono:       ${config.owner.name} (${config.owner.username})`);
-    console.log(`🌍 NODE_ENV:   ${config.nodeEnv}`);
-    console.log(`🗄️  MongoDB:    ${conn ? 'conectado ✅' : 'desconectado ⚠️'}`);
-    const hasAI = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY);
-    console.log(`🧠 IA:         ${hasAI ? 'configurada ✅' : 'sem chaves ⚠️ — defina GROQ_API_KEY no Render'}`);
-    console.log(`${'='.repeat(55)}\n`);
-  });
 }
 
 bootstrap().catch(err => {

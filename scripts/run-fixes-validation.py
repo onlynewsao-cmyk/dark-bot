@@ -25,19 +25,21 @@ EXISTING = [
  'test-aura-modes.js', 'test-channel-and-status-fixes.js', 'test-group-events-participants.js',
  'test-pv-command-aura-fix.js', 'test-prefixo-auto.js', 'test-menu-routing.js',
  'test-sticker-global.js', 'test-video-whatsapp.js',
+ 'test-asessions.js', 'test-paircode-conexao.js',
 ]
 NEW = [
  'test-aura-bugfixes.js', 'test-request-cache-isolation.js', 'test-ai-context-cache.js',
  'test-control-security.js', 'test-handler-conversation-controls.js', 'test-aura-language.js',
  'test-conversation-memory.js', 'test-message-router-controls.js',
  'test-aura-context.js', 'test-ai-cancellation.js', 'test-conversation-cancellation.js',
+ 'test-render-singleton.js', 'test-render-bootstrap.js',
 ]
 ENV = { 'PATH': os.environ.get('PATH', '/usr/bin:/bin'), 'HOME': '/home/user',
  'LANG': 'C.UTF-8', 'TZ': 'Africa/Luanda', 'NODE_ENV': 'test' }
 
 def run_script(name):
     env = dict(ENV)
-    if name == 'test-control-security.js': env['DARK_TEST_ALLOW_LOCAL'] = '1'
+    if name in {'test-control-security.js', 'test-render-bootstrap.js'}: env['DARK_TEST_ALLOW_LOCAL'] = '1'
     start = time.monotonic()
     script = 'scripts/' + name
     try:
@@ -91,11 +93,11 @@ report = {
  'base_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
  'branch': subprocess.check_output(['git', 'branch', '--show-current'], cwd=ROOT, text=True).strip(),
  'node': subprocess.check_output(['node', '--version'], cwd=ROOT, text=True).strip(),
- 'guard': 'Credential-stripped subprocesses; dotenv disabled; DB/child/external network blocked. Only security test permits literal loopback. Test mocks may replace guard methods; not a security sandbox.',
+ 'guard': 'Credential-stripped subprocesses; dotenv disabled; DB/child/external network blocked. Only security and Render bootstrap tests permit literal loopback. Test mocks may replace guard methods; not a security sandbox.',
  'syntax': syntax, 'tests': results,
  'linguistic_corpus': { 'scenarios': len(json.loads((ROOT / 'scripts/fixtures/aura-language-corpus.json').read_text())['scenarios']), 'type': 'template-derived linguistic assertions, not 1423 new commands or live model evaluations' },
  'diff_check': {'exit_code': status.returncode, 'details': status.stdout + status.stderr},
- 'not_executed': ['production bootstrap', 'real MongoDB', 'real WhatsApp accounts', 'provider calls', 'Northflank deployment', 'adult-resource requests', 'blanket npm test', 'native media integration'],
+ 'not_executed': ['production bootstrap with real services', 'Render deployment', 'real MongoDB', 'real WhatsApp accounts', 'provider calls', 'Northflank deployment', 'adult-resource requests', 'blanket npm test', 'native media integration'],
  'source_sha256': {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in js_files if p.startswith('src/')},
 }
 (DEST / 'validation-results.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
