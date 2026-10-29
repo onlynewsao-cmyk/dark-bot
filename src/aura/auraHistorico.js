@@ -311,7 +311,7 @@ async function quemEscreveu(sock, ctx, texto, msg) {
   if (!achadas.length) {
     return {
       ok: true,
-      msg: `Não encontrei mensagens sobre "${q}" nas últimas ${msgs.length} mensagens disponíveis deste chat.`,
+      msg: `Ninguém escreveu sobre "${q}" nas últimas ${msgs.length} mensagens disponíveis deste chat.`,
     };
   }
   // v7.40: cada achado diz QUANDO foi ("hoje às 14:03", "há 3 dias").

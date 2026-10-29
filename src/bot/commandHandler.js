@@ -1411,7 +1411,7 @@ async function _handleInner(sock, msg) {
           }
           const _vf = formatForWhatsApp(_vr, config);
           if (_vf.length > 4000) {
-            for (const _vc of chunkString(_vf, 3800)) await sock.sendMessage(ctx.remoteJid, { text: _vc }, { quoted: replyMsg });
+            for (const _vc of chunkString(_vf, 3800)) await sock.sendMessage(ctx.remoteJid, { text: _vc }, { quoted: msg });
           } else {
             await sock.sendMessage(ctx.remoteJid, { text: _vf }, { quoted: msg });
           }
@@ -1781,7 +1781,7 @@ async function _handleInner(sock, msg) {
   } catch {}
   const _recentTexts = _recentMessages.map(m => m.texto).filter(Boolean);
   ctx.recentMessages = _recentMessages;
-  ctx.recentContext = auraCompreensao.formatRecentMessages(_recentMessages, { botJids });
+  ctx.recentContext = auraCompreensao.formatRecentMessages(_recentMessages, { botJids: botIds });
   ctx.messageInfo = { ..._msgFacts, transcription: _voiceTranscript || '' };
   const _quotedImageContext = _msgFacts.citado?.texto || _msgFacts.citado?.caption || '';
   const _imageIntentFromCache = auraCompreensao.interpretarPedidoImagem({

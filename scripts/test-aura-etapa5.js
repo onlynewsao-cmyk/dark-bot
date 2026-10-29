@@ -144,7 +144,10 @@ const ctxGrupo = () => ({ remoteJid: G, isGroup: true, groupMeta: { participants
   {
     encherCache();
     const sock = { user: { id: '99999@s.whatsapp.net' } };
-    const base = { sock, msg: { message: {} }, ctx: { remoteJid: G, isGroup: true, groupMeta: { participants: [] } }, isOwner: true, isAdmin: false };
+    const base = { sock, msg: { message: {} }, ctx: { remoteJid: G, isGroup: true, isBotMentioned: true, dest: { directToAura: true, paraMim: true }, groupMeta: { participants: [] } }, isOwner: true, isAdmin: false };
+    const naoDirigida = { ...base, ctx: { remoteJid: G, isGroup: true, dest: { directToAura: false }, groupMeta: { participants: [] } } };
+    const rNao = await exec.executar('falar_com', null, { ...naoDirigida, texto: 'fala só com o João que tá tudo?' });
+    t('auraExec em grupo sem chamar a AURA → não executa', rNao.ok === false && !rNao.msg, JSON.stringify(rNao));
 
     let r = await exec.executar('quem_escreveu', null, { ...base, texto: 'quem escreveu eu levo as bebidas?' });
     t('auraExec quem_escreveu', r.ok && r.msg.includes('Maria Costa'));

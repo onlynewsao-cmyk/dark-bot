@@ -418,12 +418,21 @@ function timestampValue(value) {
 
 function mensagensDaConversa(cache, remoteJid, { limit = 12, excludeId = '' } = {}) {
   if (!cache || !remoteJid) return [];
-  const list = [];
-  let order = 0;
+  const max = Math.max(1, Number(limit) || 12);
+  // 1.ª passagem barata: só compara o chat. A análise completa (texto, mídia,
+  // citação) corre apenas nas mais recentes, não nas até 2000 em cache.
+  const raw = [];
   const values = cache instanceof Map ? cache.values() : (Array.isArray(cache) ? cache : []);
   for (const msg of values) {
     const key = msg?.key || {};
     if (key.remoteJid !== remoteJid || key.id === excludeId) continue;
+    raw.push(msg);
+  }
+  const candidatos = raw.length > max * 4 ? raw.slice(-max * 4) : raw;
+  const list = [];
+  let order = raw.length - candidatos.length;
+  for (const msg of candidatos) {
+    const key = msg?.key || {};
     const inspected = inspecionarMensagem(msg);
     const text = inspected.texto || (inspected.media ? `[${inspected.tipo}${inspected.caption ? `: ${inspected.caption}` : ' sem legenda'}]` : '');
     if (!text || inspected.tipo === 'reacção') continue;

@@ -90,11 +90,16 @@ function _msg(id, texto, nome, num, minAtras = 2) {
   mem.guardar = async (num, texto, o) => { guardados.push(texto); return origGuardar(num, texto, o).catch(() => {}); };
   const exec = require('../src/aura/auraExec');
   const rl = await exec.executar('lembrar', 'que o meu aniversário é em março', {
+    sock: null, ctx: { senderNumber: '244945280380', remoteJid: G }, texto: 'lembra que o meu aniversário é em março', isOwner: true,
+  });
+  // Gate de intenção: sem a frase original (só o argumento), não executa.
+  const rlSemTexto = await exec.executar('lembrar', 'que o meu aniversário é em março', {
     sock: null, ctx: { senderNumber: '244945280380', remoteJid: G }, texto: '', isOwner: true,
   });
   mem.guardar = origGuardar;
   t('confirma com o QUANDO', /vou lembrar-te/.test(rl.msg), rl.msg);
   t('facto temporal marcado na memória', guardados.some(g => /\[aniversário/.test(g)), JSON.stringify(guardados));
+  t('sem a frase original não executa (gate de intenção)', rlSemTexto.ok === false && !rlSemTexto.msg, JSON.stringify(rlSemTexto));
 
   console.log('\n══════════════════════════════════════════');
   console.log(fail === 0 ? `🎉 AURA AVANÇADA: ${ok} OK / 0 FALHOU` : `FALHOU: ${fail}`);

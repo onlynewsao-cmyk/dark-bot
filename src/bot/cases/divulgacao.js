@@ -41,6 +41,14 @@ function _pv(ctx) { return `${_num(ctx.senderNumber || ctx.senderJid)}@s.whatsap
 function _alvo(ctx) { return ctx.isGroup ? _pv(ctx) : ctx.remoteJid; }
 
 function _num(n) { return String(n || '').replace(/\D/g, ''); }
+// Formata o resultado do motor de canais (mesmo formato de cases/canal.js).
+function fmtResult(r) {
+  if (!r) return '❌ Sem resposta do motor.';
+  if (r.ok === false) return '❌ ' + (r.msg || 'Falhou.');
+  if (r.msg) return '✅ ' + r.msg;
+  if (typeof r === 'string') return r;
+  return '✅ Feito.';
+}
 async function _get(bcc, k) { return bcc.get(`divulg_${k}`, null); }
 async function _set(bcc, k, v) { return bcc.set(`divulg_${k}`, v); }
 

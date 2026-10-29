@@ -581,8 +581,20 @@ async function auraRespond(text, ctx = {}) {
     const uni = require('./auraUniversal');
     systemPrompt += '\n\n' + uni.blocoTemporal() + '\n' + uni.blocoTamanho(text);
   } catch {}
-  if (consciencia) {
-    systemPrompt += '\n\n' + String(consciencia).slice(0, 6500); // v7.37: cabe o cérebro (ferramentas + saber)
+  // Anti-repetição garantida em todas as vias (não só no commandHandler):
+  // se quem chamou não injectou as falas recentes, injecta-as aqui.
+  let _consciencia = String(consciencia || '');
+  if (!/ÚLTIMAS FALAS/.test(_consciencia)) {
+    try {
+      const minhas = require('./auraAvancada').ultimasFalas(remoteJid);
+      if (minhas.length) {
+        _consciencia += '\nAS TUAS ÚLTIMAS FALAS AQUI (não repitas — diz de outra forma):\n' +
+          minhas.slice(-4).map(f => '• ' + String(f).slice(0, 90)).join('\n');
+      }
+    } catch {}
+  }
+  if (_consciencia.trim()) {
+    systemPrompt += '\n\n' + _consciencia.slice(0, 6500); // v7.37: cabe o cérebro (ferramentas + saber)
   }
 
   // Último bloco: contexto real + rigor, depois dos prompts de personalidade.

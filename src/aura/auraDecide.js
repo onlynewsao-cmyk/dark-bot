@@ -86,6 +86,11 @@ function deveResponder(o = {}) {
     // resposta/reacção automática sem menção, citação directa ou convite.
     if (dest.sobreMim) return { responde: false, motivo: 'falam dela, não com ela', chance: 0, leve: true };
     if (o.interacaoConvidada) return { responde: true, motivo: 'participação contextual autorizada', chance: 1 };
+    // Saudação ao grupo ("bom dia malta") é para todos, não para ela —
+    // nem a janela de conversa activa a transforma numa fala com a AURA.
+    if (SAUDACAO_DIRECTA.test(t) && SAUDACAO_AO_GRUPO.test(t) && !mencionada && !respostaAoBot) {
+      return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0 };
+    }
     try {
       const talk = require('./auraTalk');
       if (o.senderNumber && talk.estaAFalar(o.remoteJid, o.senderNumber)) {

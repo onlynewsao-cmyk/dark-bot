@@ -656,6 +656,15 @@ const READ_ONLY_STARTS = {
   ver_status: /^(?:qual|quais|o que|oq|como|meu|teu|minha|tua|status|recado|bio)\b/i,
 };
 const READ_ONLY_META_PREFIX = /^(?:o que significa|que significa|o que quer dizer|qual o significado(?: de)?|como se usa|como funciona)\b/i;
+// Capacidades só de leitura (não alteram nada). Para estas, um verbo de
+// consulta no início ("mostra as estatísticas do canal", "diz quem falou…")
+// é um pedido legítimo, mesmo que o gatilho apareça mais à frente.
+const READ_ONLY_IDS = new Set([
+  'quem_escreveu', 'o_que_escreveu', 'ver_conversa', 'canal_info',
+  'canal_stats', 'canal_engajamento', 'canal_respostas', 'resumo_grupos',
+  'ver_status', 'listar_membros', 'listar_admins', 'info_grupo', 'recordar',
+]);
+const READ_REQUEST_PREFIX = /^(?:mostra|mostrar|mostre|ve|ver|veja|verifica|diz|diga|dizes|conta|conta-me|quero ver|quero saber|lista|listar|le|ler|da-me|manda|envia|puxa|abre)\b/i;
 
 function hasCapabilityTriggerAtStart(cap, texto) {
   if (!cap?.gatilhos?.length) return false;
@@ -667,7 +676,8 @@ function hasCapabilityTriggerAtStart(cap, texto) {
   return cap.gatilhos.some(re => {
     re.lastIndex = 0;
     const match = re.exec(texto);
-    return match?.index === 0 || (!!readStart && match?.index <= 24);
+    if (match?.index === 0 || (!!readStart && match?.index <= 24)) return true;
+    return !!match && READ_ONLY_IDS.has(cap.id) && READ_REQUEST_PREFIX.test(texto) && match.index <= 30;
   });
 }
 
@@ -681,18 +691,23 @@ function detectarCapacidade(texto) {
   const policy = require('./auraGrupo');
   const t = policy.normalizarTextoComando(texto);
   if (!t) return null;
-  const somenteLeitura = new Set([
-    'quem_escreveu', 'o_que_escreveu', 'ver_conversa', 'canal_info',
-    'canal_stats', 'canal_engajamento', 'canal_respostas', 'resumo_grupos',
-    'ver_status', 'listar_membros', 'listar_admins', 'info_grupo', 'recordar',
-  ]);
+  const somenteLeitura = READ_ONLY_IDS;
   const negacoesQueSaoOrdens = {
     modo_nao_reagir: /^nao\s+rea(?:ge|ges|gir|ja|jas)\b/i,
     modo_so_dono: /^nao\s+responde\b/i,
     modo_mudo: /^nao\s+fales?\b/i,
     lembrar: /^nao\s+te\s+esquecas\b/i,
+    ignorar_pessoa: /^nao\s+(?:responde|respondas|fala\s+com|fales\s+com)\b.{0,20}\b(?:ele|ela|esse|essa|este|esta)\b/i,
   };
-  const variantes = [t, t.replace(/^(?:agora|entao)\s+/i, '')];
+  // Variantes: normalizada (sem "podes", "por favor"…), sem "agora/então",
+  // a frase original normalizada (ex.: "podes falar" = modo_falar) e o link
+  // sem protocolo (um convite colado começa por https://).
+  const variantes = [...new Set([
+    t,
+    t.replace(/^(?:agora|entao)\s+/i, ''),
+    norm(texto),
+    t.replace(/^https?:\/\/(?:www\.)?/i, ''),
+  ])].filter(Boolean);
 
   for (const cap of CAPACIDADES) {
     if (!cap.gatilhos) continue;
