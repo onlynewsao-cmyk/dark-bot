@@ -23,6 +23,10 @@ const { profile } = require('../../mediaQuality');
 
 const SYSTEMZONE_API_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
 const SYSTEMZONE_API_KEY = process.env.SYSTEMZONE_API_KEY || 'freekey';
+// Sem chave própria, a instância pública pode estar saturada/morta. Não deixa
+// o !play esperar 65s antes de cair no yt-dlp/cookies/proxy.
+const SYSTEMZONE_DOWNLOAD_TIMEOUT = Number(process.env.SYSTEMZONE_DOWNLOAD_TIMEOUT_MS)
+  || (SYSTEMZONE_API_KEY === 'freekey' ? 10000 : 30000);
 
 // O clique do botão leva apenas a URL. Guardamos os metadados da busca por
 // alguns minutos para o vídeo manter título, autor e duração no envio final.
@@ -126,7 +130,7 @@ async function ytAudio(urlOrQuery, quality = '128k') {
   // já sai no tamanho pedido; se ignorar, o fallback local respeita q.audio.
   try {
     const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp3?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}&quality=${encodeURIComponent(q.apiAudio)}&bitrate=${encodeURIComponent(q.audio)}`;
-    const data = await mediaHandler.fetchJson(endpoint, 65000);
+    const data = await mediaHandler.fetchJson(endpoint, SYSTEMZONE_DOWNLOAD_TIMEOUT);
     const r = data?.result || data?.data || data;
     const u = r?.download || r?.download_url || r?.url || data?.download_url;
     if ((data?.status === 'sucesso' || data?.status === true) && u) {
@@ -174,7 +178,7 @@ async function ytVideo(urlOrQuery, quality = '720') {
   // o tamanho do ficheiro. O fallback local também recebe q.video.
   try {
     const endpoint = `${SYSTEMZONE_API_URL}/api/ytmp4?text=${encodeURIComponent(urlOrQuery)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}&quality=${encodeURIComponent(q.apiVideo)}&resolution=${encodeURIComponent(q.video)}`;
-    const data = await mediaHandler.fetchJson(endpoint, 65000);
+    const data = await mediaHandler.fetchJson(endpoint, SYSTEMZONE_DOWNLOAD_TIMEOUT);
     const r = data?.result || data?.data || data;
     const u = r?.download || r?.download_url || r?.url;
     if (data?.status && u) {

@@ -65,6 +65,23 @@ function ytdlpJsArgs(bin) {
   return _ytdlpJsArgs;
 }
 
+// YouTube bloqueia cada vez mais IPs de datacenter. Aceita um export Netscape
+// de cookies em base64 sem escrever segredos no repositório. YT_COOKIES_BASE64
+// é o nome preferido; YTDLP_COOKIES_BASE64 mantém compatibilidade antiga.
+function writeYtCookies(tmpDir) {
+  const raw = process.env.YT_COOKIES_BASE64 || process.env.YTDLP_COOKIES_BASE64 || '';
+  if (!raw) return '';
+  try {
+    const text = Buffer.from(raw, 'base64').toString('utf8');
+    if (!/youtube\.com|\.youtube\.com/i.test(text)) return '';
+    const file = path.join(tmpDir, 'cookies.txt');
+    fs.writeFileSync(file, text, { mode: 0o600 });
+    return file;
+  } catch { return ''; }
+}
+function hasYtCookies() { return !!(process.env.YT_COOKIES_BASE64 || process.env.YTDLP_COOKIES_BASE64); }
+function youtubeBlocked(err) { return /sign in to confirm|not a bot|login required|no video formats|http error 403/i.test(String(err?.message || err || '')); }
+
 // Auto-actualização em segundo plano (no máximo 1×/12 h) quando o YouTube
 // muda e o yt-dlp do build fica desactualizado. Desliga com YTDLP_AUTO_UPDATE=off.
 let _ytdlpUpdateAt = 0;
@@ -201,8 +218,21 @@ async function ytdlpDownload(videoUrl, audioOnly = true, quality = '128k', maxHe
   const ffmpegPath = ffmpegBin();
   const ffmpegDir = path.dirname(ffmpegPath);
 
-  const args = ['--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet',
-    '--ffmpeg-location', ffmpegDir, ...ytdlpJsArgs(bin)];
+  const args = [
+    '--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet',
+    '--ffmpeg-location', ffmpegDir,
+    // Menos falhas em IP de datacenter e downloads DASH mais rápidos.
+    '--force-ipv4', '--geo-bypass', '--no-check-certificate',
+    '--user-agent', process.env.YTDLP_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125.0 Safari/537.36',
+    '--add-header', 'Accept-Language:en-US,en;q=0.9,pt;q=0.8',
+    '--concurrent-fragments', '4', ...ytdlpJsArgs(bin),
+  ];
+  if (process.env.YTDLP_PROXY) args.push('--proxy', process.env.YTDLP_PROXY);
+  const cookies = writeYtCookies(tmp);
+  if (cookies) args.push('--cookies', cookies);
+  // Componentes EJS resolvem challenges modernos; pode ser desligado caso
+  // uma infraestrutura sem acesso npm precise de comportamento legado.
+  if (process.env.YTDLP_REMOTE_COMPONENTS !== 'off') args.push('--remote-components', 'ejs:npm');
 
   if (audioOnly) {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', String(quality || '128k').toUpperCase());
@@ -295,11 +325,15 @@ async function youtubeijsStream(videoId, audioOnly = true) {
     format: 'mp4',
   });
   const chunks = [];
+  let total = 0;
   for await (const chunk of stream) {
     chunks.push(chunk);
-    if (chunks.reduce((a, c) => a + c.length, 0) > 50 * 1024 * 1024) break;
+    total += chunk.length;
+    // Antes somava todos os chunks em cada iteração (O(n²)), o que deixava
+    // downloads longos progressivamente mais lentos e pesados.
+    if (total > 50 * 1024 * 1024) break;
   }
-  const buf = Buffer.concat(chunks);
+  const buf = Buffer.concat(chunks, total);
   if (!buf || buf.length < 1024) throw new Error('stream youtubei.js vazio');
   return buf;
 }
@@ -428,25 +462,35 @@ async function getAudio(query, quality = '128k') {
   const errors = [];
 
   // 1. yt-dlp
+  let bloqueadoNoYoutube = false;
   try {
     const buf = await ytdlpDownload(meta.url, true, quality, '720');
     return { ...meta, buffer: buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'yt-dlp' };
-  } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
+  } catch (e) {
+    bloqueadoNoYoutube = youtubeBlocked(e);
+    errors.push('yt-dlp: ' + e.message?.slice(0, 60));
+  }
 
-  // 2. @distube/ytdl-core
-  try {
-    const { buf } = await distubeDlAudio(meta.url);
-    const mp3buf = await extractAudioFromBuffer(buf, quality);
-    return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'ytdl-core' };
-  } catch (e) { errors.push('ytdl-core: ' + e.message?.slice(0, 60)); }
-
-  // 3. youtubei.js
-  if (meta.videoId) {
+  // Quando o YouTube bloqueou o IP, ytdl-core e youtubei recebem a mesma
+  // barreira. Não gastar dezenas de segundos em duas tentativas redundantes.
+  if (!bloqueadoNoYoutube) {
+    // 2. @distube/ytdl-core
     try {
-      const m4abuf = await youtubeijsStream(meta.videoId, true);
-      const mp3buf = await extractAudioFromBuffer(m4abuf, quality);
-      return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'youtubei.js' };
-    } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
+      const { buf } = await distubeDlAudio(meta.url);
+      const mp3buf = await extractAudioFromBuffer(buf, quality);
+      return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'ytdl-core' };
+    } catch (e) { errors.push('ytdl-core: ' + e.message?.slice(0, 60)); }
+
+    // 3. youtubei.js
+    if (meta.videoId) {
+      try {
+        const m4abuf = await youtubeijsStream(meta.videoId, true);
+        const mp3buf = await extractAudioFromBuffer(m4abuf, quality);
+        return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'youtubei.js' };
+      } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
+    }
+  } else {
+    errors.push('YouTube bloqueou IP; saltados ytdl-core/youtubei redundantes');
   }
 
   // 4. Loader.to
@@ -469,7 +513,10 @@ async function getAudio(query, quality = '128k') {
   } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
 
   console.error('[ytdl.getAudio] ' + errors.length + ' métodos falharam:', errors.join(' | '));
-  throw new Error('❌ Download indisponível. Tenta de novo.\n\n🎵 Link: ' + meta.url);
+  const dica = bloqueadoNoYoutube && !hasYtCookies()
+    ? '\n\n⚙️ Dono: o YouTube bloqueou o IP do servidor. Configure YT_COOKIES_BASE64 (cookies Netscape em base64) ou YTDLP_PROXY.'
+    : '';
+  throw new Error('❌ Download indisponível. Tenta de novo.' + dica + '\n\n🎵 Link: ' + meta.url);
 }
 
 /** Busca + baixa vídeo MP4 — 5 fallbacks */
