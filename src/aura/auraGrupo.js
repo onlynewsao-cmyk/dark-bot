@@ -92,77 +92,144 @@ function mencoes(msg) {
     || [];
 }
 
-// Pedido claro de virar / dar admin
-const RE_PROMOTE = new RegExp(
-  '\\b(' +
-    'me\\s+(adiciona|adiciona-?me|poe|poem|mete|faz|da|promove)\\b.{0,28}\\b(adm|admin)|' +
-    '(adiciona|poe|poem|mete|faz|promove)[- ]?me\\b.{0,20}\\b(adm|admin)|' +
-    'adiciona.{0,24}\\bcom\\s+(adm|admin)|' +
-    '(quero|queria)\\s+ser\\s+(adm|admin)|' +
-    'me\\s+(faz|torna|poe|poem)\\s+(de\\s+)?(adm|admin)|' +
-    '(da|da-?me|me\\s+da)\\s+(o\\s+)?(adm|admin)|' +
-    'torna[- ]?me\\s+(adm|admin)|' +
-    'promove[- ]?me|' +
-    'promove(r)?\\b|' +
-    'da\\s+admin|' +
-    'torna\\s+admin|' +
-    'poe\\s+como\\s+admin|' +
-    'agora\\s+(me\\s+)?(adiciona|promove)' +
-  ')\\b',
-  'i'
-);
-
-const RE_DEMOTE = /\b(despromove|rebaixa|tira (o |de )?admin|remove (o )?admin|tira (o )?adm)\b/i;
-
-// Depois de ela não ser admin: o Dark insiste / confirma que ela já é
-const RE_INSISTE = /\b(podes sim|podes fazer|o que passa|agora tens|ja tens|agora estas|agora adiciona|agora promove|entao (faz|adiciona|promove)|faz isso|vai la|vai entao)\b/i;
-
-const _pendentes = new Map(); // jid -> { acao, alvoHint, ts }
-const PENDENTE_TTL = 15 * 60 * 1000;
-
-function marcarPendente(jid, acao, alvoHint) {
-  if (!jid) return;
-  _pendentes.set(jid, { acao, alvoHint, ts: Date.now() });
+// Ações de grupo só podem ser avaliadas quando o remetente chamou a AURA.
+// O cargo de admin, sozinho, não transforma conversa em comando.
+function isDirectedToAura({ isGroup = false, isBotMentioned = false, isReplyToAura = false, dest = null } = {}) {
+  return !isGroup || !!(isBotMentioned || isReplyToAura || dest?.directToAura === true || dest?.vocativo === true);
 }
 
-function verPendente(jid) {
-  const p = _pendentes.get(jid);
+// Filtro conservador para os routers lexicais: negações, perguntas de
+// significado e exemplos citados não são ordens de execução.
+const RE_NEGATED_ACTION = /\b(?:nao|nunca|jamais)\b/i;
+const RE_META_ACTION = /^(?:o que|que significa|significa|como|por que|porque|qual|quem|quando|onde|sera que|queria saber|quero saber|preciso saber|gostava de saber|explica|exemplo|imagina|fala sobre|falar sobre|fala de|falar de|pergunta sobre|perguntei se|perguntou se|diz que|disse que|falou que|conta como|conta que|ele disse|ela disse|alguem disse|eu disse|disse|perguntei|perguntaram|escrevi|a frase|o comando|a palavra|pensei que)\b/i;
+const RE_QUOTED_ACTION = /^["'“”‘’`]/;
+const RE_HYPOTHETICAL_ACTION = /\b(?:por exemplo|foi so exemplo|como exemplo|imagina(?:ndo)?|supondo|suponhamos|hipotetic(?:o|a|amente)?|se eu disser|e se|caso eu|caso|se|brincadeira|estou a brincar|era brincadeira|what if|suppose|hypothetically)\b/i;
+function normalizarTextoComando(texto) {
+  return norm(texto)
+    .replace(/^(?:aura|a aura|da aura|pra aura|com a aura)[\s,:;]*\s*/i, '')
+    .replace(/^(?:sim|ok|certo)[,\s]+(?=(?:fecha|fechar|abre|abrir|promove|promover|rebaixa|rebaixar|adiciona|adicionar|bana|banir|marca|marcar|manda|mandar|envia|enviar|faz|fazer|cria|criar|muda|mudar|troca|trocar|altera|alterar|segue|seguir|sai|sair|entra|entrar|mostra|mostrar|lista|listar|liga|ligar|chama|chamar|reage|reagir|me\s+(?:adiciona|poe|mete|faz|da|promove|rebaixa|chama|manda|fala))\b)/i, '')
+    .replace(/^(?:por favor|please)[,\s]+/i, '')
+    .replace(/^(?:sera que\s+)?(?:podes|pode|consegues|consegue)\s+(?!sim\b|fazer\b)/i, '')
+    .trim();
+}
+function isClearActionText(texto) {
+  const t = normalizarTextoComando(texto);
+  return !!t && t.length <= 280 && !RE_NEGATED_ACTION.test(t) && !RE_META_ACTION.test(t) && !RE_QUOTED_ACTION.test(t) && !RE_HYPOTHETICAL_ACTION.test(t);
+}
+const RE_CONTEXTUAL_REPLY = /^(?:faz isso|faz assim|faz aquilo|faz o mesmo|repete(?: isso| aquilo)?|manda de novo|envia de novo|faz novamente|continua(?: assim)?|segue(?: isso| assim)?|vai la|vai entao|como antes|do mesmo jeito|igual|isso|aquilo|assim|agora|sim|ok|certo|podes sim(?:\s+o que passa)?|podes fazer)[.!?]*$/i;
+const RE_CONTEXTUAL_PREFIX = /^(?:faz isso|faz assim|faz aquilo|faz o mesmo|repete(?: isso| aquilo)?|manda de novo|envia de novo|faz novamente|continua(?: assim)?|segue(?: isso| assim)|vai la|vai entao|como antes|do mesmo jeito|igual|isso|aquilo|assim|podes sim(?:\s+o que passa)?)(?:[,\s]|$)/i;
+function isSelfContainedCommandText(texto) {
+  const t = normalizarTextoComando(texto);
+  return isClearActionText(t) && !RE_CONTEXTUAL_REPLY.test(t) && !RE_CONTEXTUAL_PREFIX.test(t);
+}
+function detectarAcaoDireta(texto) {
+  const t = normalizarTextoComando(texto).replace(/[.!?]+\s*$/, '').trim();
+  if (!isClearActionText(t)) return null;
+
+  if (/^(?:fecha|fechar|tranca|trancar|bloqueia|bloquear)\s*(?:o\s*)?(?:grupo|gp|chat)?(?:[,\s]+(?:por favor|pfv|please))?$/i.test(t)) return 'fechar_grupo';
+  if (/^(?:abre|abrir|destranca|destrancar|desbloqueia|desbloquear)\s*(?:o\s*)?(?:grupo|gp|chat)?(?:[,\s]+(?:por favor|pfv|please))?$/i.test(t)) return 'abrir_grupo';
+
+  if (
+    /^(?:puxa|chama(?:-me)?|manda|fala|vem)\b.{0,40}\b(?:off|pv|privado)\b/i.test(t) ||
+    /^me\s+(?:chama|puxa|manda|fala)\b.{0,40}\b(?:off|pv|privado)\b/i.test(t) ||
+    /^quero\s+(?:que\s+)?(?:me\s+)?(?:chame|chama|chamem|puxe|puxa|puxes|mande|manda|mandes|fale|fala|fales)\b.{0,32}\b(?:off|pv|privado)\b/i.test(t) ||
+    /^(?:podes|pode)\s+(?:me\s+)?(?:chamar|puxar|mandar|falar)\b.{0,32}\b(?:off|pv|privado)\b/i.test(t)
+  ) return 'chamar_pv';
+
+  return null;
+}
+// Só frases explícitas de auto-promoção/destituição são aceites sem @.
+// Para outra pessoa, a mensagem tem de conter uma menção real.
+const RE_PROMOTE_SELF = /^(?:(?:sim|por favor)[,\s]+)?(?:me\s+(?:adiciona|poe|mete|faz|da|promove|promover)\b.{0,28}\b(?:adm|admin)\b|(?:adiciona|poe|mete|faz|promove|promover)[-\s]?me\b.{0,20}\b(?:adm|admin)\b|(?:quero|queria)\s+ser\s+(?:adm|admin)\b|(?:da-?me|me\s+da)\s+(?:o\s+)?(?:adm|admin)\b|torna[-\s]?me\s+(?:adm|admin)\b)(?:[,\s]+(?:por favor|pfv|please|agora))?[.!?]*$/i;
+const RE_PROMOTE_TARGET_START = /^(?:promove|promover|adiciona|adicionar|poe|mete|da)\b/i;
+const RE_DEMOTE_SELF = /^(?:(?:sim|por favor)[,\s]+)?(?:me\s+(?:rebaixa|rebaixar|despromove|despromover)\b|(?:rebaixa|rebaixar|despromove|despromover)[-\s]?me\b|(?:tira|remove)\s+(?:o\s+)?admin\s+(?:de\s+)?mim\b|(?:tira|remove)-?me\s+(?:do|de)\s+admin\b)(?:[,\s]+(?:por favor|pfv|please|agora))?[.!?]*$/i;
+const RE_DEMOTE_TARGET_START = /^(?:despromove|despromover|rebaixa|rebaixar|tira|remove)\b/i;
+const RE_PROMOTE = RE_PROMOTE_SELF;
+const RE_DEMOTE = RE_DEMOTE_SELF;
+
+// Só uma confirmação afirmativa pode retomar um pedido ainda pendente.
+const RE_INSISTE_NEUTRA = /^(?:podes sim(?:\s+o que passa)?|podes fazer|faz isso|vai la|vai entao)[.!?]*$/i;
+const RE_INSISTE_PROMOTE = /^(?:agora (?:me )?(?:adiciona|promove)|entao (?:adiciona|promove))[.!?]*$/i;
+const RE_INSISTE_DEMOTE = /^(?:agora (?:me )?(?:rebaixa|rebaixar|despromove|despromover|tira admin)|entao (?:rebaixa|rebaixar|despromove|despromover|tira admin))[.!?]*$/i;
+const RE_INSISTE = /^(?:podes sim(?:\s+o que passa)?|podes fazer|agora (?:me )?(?:adiciona|promove|rebaixa|rebaixar|despromove|despromover|tira admin)|entao (?:faz|adiciona|promove|rebaixa|rebaixar|despromove|despromover|tira admin)|faz isso|vai la|vai entao)[.!?]*$/i;
+
+const _pendentes = new Map(); // chat + remetente -> { acao, alvoHint, ts }
+const PENDENTE_TTL = 15 * 60 * 1000;
+
+function _actorKey(actor) {
+  if (actor && typeof actor === 'object') return String(actor.senderNumber || actor.senderJid || actor.senderLid || '').trim();
+  return String(actor || '').trim();
+}
+function _pendingKey(jid, actor) {
+  const chat = String(jid || '').trim();
+  return chat ? `${chat}|${_actorKey(actor) || '__legacy__'}` : '';
+}
+
+function marcarPendente(jid, acao, alvoHint, actor = '') {
+  const key = _pendingKey(jid, actor);
+  if (!key) return;
+  _pendentes.set(key, { jid: String(jid), actor: _actorKey(actor), acao, alvoHint, ts: Date.now() });
+}
+
+function verPendente(jid, actor = '') {
+  const key = _pendingKey(jid, actor);
+  const p = key && _pendentes.get(key);
   if (!p) return null;
   if (Date.now() - p.ts > PENDENTE_TTL) {
-    _pendentes.delete(jid);
+    _pendentes.delete(key);
     return null;
   }
   return p;
 }
 
-function limparPendente(jid) {
-  _pendentes.delete(jid);
+function limparPendente(jid, actor = '') {
+  _pendentes.delete(_pendingKey(jid, actor));
 }
 
-function detectarPedidoGrupo(texto, { temPendente = false } = {}) {
-  const t = norm(texto);
-  if (!t || t.length > 280) return null;
-  if (RE_DEMOTE.test(t)) return { acao: 'demote', deSi: /\b(me |mim)\b/.test(t) };
-  if (RE_PROMOTE.test(t)) return { acao: 'promote', deSi: /\b(me |mim|quero ser|adiciona-?me|promove-?me)\b/.test(t) || !/@/.test(texto) };
-  if (temPendente && RE_INSISTE.test(t)) return { acao: 'promote', deSi: true, viaPendente: true };
+function detectarPedidoGrupo(texto, { temPendente = false, pendente = null, hasMention = false } = {}) {
+  const original = String(texto || '');
+  const t = normalizarTextoComando(original);
+  if (!isClearActionText(t) || /[\"'“”‘’`]/.test(t)) return null;
+  const mentioned = !!hasMention || /@[^\s]+/.test(original);
+
+  if (RE_DEMOTE_SELF.test(t)) return { acao: 'demote', deSi: true };
+  if (mentioned && RE_DEMOTE_TARGET_START.test(t)) return { acao: 'demote', deSi: false };
+  if (RE_PROMOTE_SELF.test(t)) return { acao: 'promote', deSi: true };
+  if (mentioned && RE_PROMOTE_TARGET_START.test(t)) return { acao: 'promote', deSi: false };
+
+  const pending = pendente && typeof pendente === 'object' ? pendente : null;
+  const confirmaGenerica = RE_INSISTE_NEUTRA.test(t);
+  const confirmaAcao = (pending?.acao === 'demote' ? RE_INSISTE_DEMOTE : RE_INSISTE_PROMOTE).test(t);
+  if ((pending || temPendente) && (confirmaGenerica || confirmaAcao)) {
+    return {
+      acao: pending?.acao === 'demote' ? 'demote' : 'promote',
+      deSi: false,
+      viaPendente: true,
+      alvoHint: pending?.alvoHint || '',
+    };
+  }
   return null;
 }
-
 function resolverAlvos(sock, meta, ctx, msg, pedido) {
-  const mentioned = mencoes(msg);
-  if (mentioned.length) {
-    return mentioned.map(j => {
-      const p = acharNoGrupo(meta, [j]);
-      return p?.id || j;
-    });
+  if (pedido?.viaPendente && pedido.alvoHint) {
+    const p = acharNoGrupo(meta, [pedido.alvoHint]);
+    return [p?.id || pedido.alvoHint];
   }
-  // Sem @ : é o próprio remetente (me adiciona / quero ser ADM)
-  const p = acharNoGrupo(meta, hintsDoSender(ctx));
-  if (p?.id) return [p.id];
-  const j = jidDoSender(ctx);
-  return j ? [j] : [];
-}
+  if (pedido?.deSi === true) {
+    const p = acharNoGrupo(meta, hintsDoSender(ctx));
+    if (p?.id) return [p.id];
+    const j = jidDoSender(ctx);
+    return j ? [j] : [];
+  }
 
+  // Sem alvo explícito não se adivinha que o remetente seja o destinatário.
+  const mentioned = mencoes(msg);
+  if (!mentioned.length) return [];
+  return mentioned.map(j => {
+    const p = acharNoGrupo(meta, [j]);
+    return p?.id || j;
+  });
+}
 function msgErroWhatsApp(err) {
   const e = String(err?.message || err || '');
   if (/not.?admin|forbidden|403|401|unauthorized/i.test(e)) {
@@ -183,6 +250,16 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
     return { ok: false, msg: 'Isto só dá para fazer num grupo.' };
   }
 
+  const actor = ctx.senderNumber || ctx.senderJid || ctx.senderLid || '';
+  const pedidoValidado = detectarPedidoGrupo(texto, {
+    pendente: verPendente(ctx.remoteJid, actor),
+    hasMention: mencoes(msg).length > 0,
+  });
+  if (!pedidoValidado || pedidoValidado.acao !== pedido?.acao) {
+    return { ok: false, msg: null };
+  }
+  pedido = pedidoValidado;
+
   let meta = ctx.groupMeta;
   try { meta = await sock.groupMetadata(ctx.remoteJid); } catch {}
   if (!meta?.participants?.length) {
@@ -196,7 +273,7 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
   }
 
   if (!botEhAdmin(sock, meta)) {
-    marcarPendente(ctx.remoteJid, acao, alvos[0]);
+    marcarPendente(ctx.remoteJid, acao, alvos[0], actor);
     return {
       ok: false,
       pendente: true,
@@ -229,7 +306,7 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
   }
 
   if (feitos.length) {
-    limparPendente(ctx.remoteJid);
+    limparPendente(ctx.remoteJid, actor);
     const tags = feitos.map(j => '@' + baseId(j)).join(' ');
     return {
       ok: true,
@@ -241,7 +318,7 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
   }
 
   if (jaEram.length && !falhas.length) {
-    limparPendente(ctx.remoteJid);
+    limparPendente(ctx.remoteJid, actor);
     return {
       ok: true,
       mencionar: jaEram,
@@ -249,7 +326,7 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
     };
   }
 
-  marcarPendente(ctx.remoteJid, acao, alvos[0]);
+  marcarPendente(ctx.remoteJid, acao, alvos[0], actor);
   return {
     ok: false,
     pendente: true,
@@ -258,14 +335,15 @@ async function executarPedido(sock, { ctx, msg, texto, pedido }) {
 }
 
 async function tentarPendente(sock, { ctx, msg, texto }) {
-  const pend = verPendente(ctx.remoteJid);
+  const actor = ctx.senderNumber || ctx.senderJid || ctx.senderLid || '';
+  const pend = verPendente(ctx.remoteJid, actor);
   if (!pend) return null;
-  const t = norm(texto);
-  if (!RE_INSISTE.test(t) && !RE_PROMOTE.test(t)) return null;
-  return executarPedido(sock, {
-    ctx, msg, texto,
-    pedido: { acao: pend.acao, deSi: true, viaPendente: true },
+  const pedido = detectarPedidoGrupo(texto, {
+    pendente: pend,
+    hasMention: mencoes(msg).length > 0,
   });
+  if (!pedido?.viaPendente) return null;
+  return executarPedido(sock, { ctx, msg, texto, pedido });
 }
 
 module.exports = {
@@ -274,6 +352,11 @@ module.exports = {
   botEhAdmin,
   acharNoGrupo,
   detectarPedidoGrupo,
+  isDirectedToAura,
+  isClearActionText,
+  isSelfContainedCommandText,
+  normalizarTextoComando,
+  detectarAcaoDireta,
   executarPedido,
   tentarPendente,
   marcarPendente,

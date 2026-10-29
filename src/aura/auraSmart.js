@@ -23,6 +23,7 @@ const GREETING_RE = /^(oi|olá|ola|hello|hi|hey|e aí|eai|salve|fala|flw|bom dia
 const FAREWELL_RE = /^(tchau|até logo|adeus|falou|flw|até mais|até amanhã|até logo|bye|xau|ate lgo|boa noite\s*$)/i;
 
 const LOVE_RE = /\b(amo|amo-?te|te amo|love|gosto de ti|gosto muito|meu amor|meu dark|meu tudo|neném|vida\s*minha|coração)\b/i;
+const PRAISE_RE = /^(?:(?:aura\s*(?:(?:e|eh|esta|ta)\s+)?|tu\s+es\s+|voce\s+e\s+|vc\s+e\s+|es\s+|que\s+)?)(?:linda|lindo|bonita|bonito|perfeita|perfeito|maravilhosa|maravilhoso|incrivel|especial|unica|inteligente|esperta)(?:[.!\s🖤💜💕✨]*)$/i;
 
 const GRATITUDE_RE = /\b(obrigad[oa]|thanks|valeu|agradeço|agradecid[oa]|thx|vlw|brigad)\b/i;
 
@@ -43,6 +44,7 @@ const ACTION_RE = /\b(faz|fazer|cria|criar|manda|envia|poe|coloca|mete|muda|troc
 function classifyMessage(text) {
   const t = String(text || '').trim();
   const tl = t.toLowerCase();
+  const plain = tl.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const wordCount = t.split(/\s+/).filter(w => w.length > 0).length;
 
   // Saudação — verificar ANTES de trivial (evita que "oi" seja trivial)
@@ -58,6 +60,12 @@ function classifyMessage(text) {
   // Gratidão — verificar ANTES de trivial
   if (GRATITUDE_RE.test(tl) && wordCount <= 4) {
     return { type: 'simple', confidence: 0.8, emotion: 'neutral', isQuestion: false, wordCount };
+  }
+
+  // Elogio directo (inclui a mensagem isolada "Linda"): não o confundir
+  // com uma palavra sem contexto nem deixar que a IA diga que se perdeu.
+  if (PRAISE_RE.test(plain) && wordCount <= 8) {
+    return { type: 'emotional', confidence: 0.9, emotion: 'praise', isQuestion: false, wordCount };
   }
 
   // Trivial — resposta instantânea, sem IA
@@ -140,32 +148,40 @@ function similarity(a, b) {
   return intersection / (kwA.size + kwB.size - intersection);
 }
 
-const _responseCache = new Map(); // key: normalized → { response, ts, hits }
+const _responseCache = new Map(); // [scope, normalized] → { response, ts, hits, scope, norm }
 const CACHE_MAX = 300;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutos
 const SIMILARITY_THRESHOLD = 0.65; // 65% similar = cache hit
 
+function _responseCacheKey(scope, norm) {
+  return JSON.stringify([String(scope || ''), norm]);
+}
+
 /**
- * Procura no cache semântico. Devolve resposta se encontrou match.
+ * Procura uma resposta apenas no mesmo chat e para o mesmo participante.
+ * A chave opcional mantém compatibilidade com os testes e callers genéricos.
  */
-function cacheGet(text) {
+function cacheGet(text, scope = '') {
   const norm = _normalize(text);
+  const scoped = String(scope || '');
   const now = Date.now();
 
-  // Match exato
-  const exact = _responseCache.get(norm);
+  // Match exacto dentro do mesmo âmbito.
+  const exactKey = _responseCacheKey(scoped, norm);
+  const exact = _responseCache.get(exactKey);
   if (exact && now - exact.ts < CACHE_TTL) {
     exact.hits++;
     return exact.response;
   }
 
-  // Match semântico — procura por similaridade
+  // Match semântico: nunca compara respostas de outro chat/pessoa.
   for (const [key, entry] of _responseCache) {
     if (now - entry.ts > CACHE_TTL) {
       _responseCache.delete(key);
       continue;
     }
-    const sim = similarity(norm, key);
+    if (entry.scope !== scoped) continue;
+    const sim = similarity(norm, entry.norm);
     if (sim >= SIMILARITY_THRESHOLD) {
       entry.hits++;
       return entry.response;
@@ -174,17 +190,14 @@ function cacheGet(text) {
   return null;
 }
 
-/**
- * Guarda resposta no cache semântico.
- */
-function cacheSet(text, response) {
+/** Guarda resposta apenas no âmbito fornecido. */
+function cacheSet(text, response, scope = '') {
   if (!text || !response) return;
   const norm = _normalize(text);
   if (norm.length < 3) return; // não cachear trivialidades
+  const scoped = String(scope || '');
 
-  // Limpar cache se cheio
   if (_responseCache.size >= CACHE_MAX) {
-    // Remove as menos usadas e mais antigas
     const entries = [..._responseCache.entries()]
       .sort((a, b) => (a[1].hits - b[1].hits) || (a[1].ts - b[1].ts));
     for (let i = 0; i < Math.floor(CACHE_MAX * 0.3); i++) {
@@ -192,7 +205,9 @@ function cacheSet(text, response) {
     }
   }
 
-  _responseCache.set(norm, { response, ts: Date.now(), hits: 0 });
+  _responseCache.set(_responseCacheKey(scoped, norm), {
+    response, ts: Date.now(), hits: 0, scope: scoped, norm,
+  });
 }
 
 function cacheStats() {
@@ -377,6 +392,10 @@ const FAST_RESPONSES = {
     owner: ['Obrigada pelo carinho, Dark 🖤', 'Que mensagem querida, Dark.', 'Posso manter este tom próximo, mas sou uma assistente virtual.'],
     other: ['Obrigada pelo carinho.', 'Agradeço a gentileza.', 'Que simpático da tua parte.'],
   },
+  praise: {
+    owner: ['Obrigada, Dark. A estética goth da AURA está a resultar então 🖤', 'Obrigada pelo elogio, Dark.', 'Valeu, Dark — vou guardar o elogio à personagem virtual.'],
+    other: ['Obrigada pelo elogio.', 'Obrigada — é a estética da personagem virtual AURA.', 'Agradeço; a AURA é uma persona virtual goth.'],
+  },
   sad: {
     owner: ['Lamento, Dark. Queres contar-me o que aconteceu?', 'Isso parece pesado. Queres falar sobre isso?', 'Estou aqui para te ouvir.'],
     other: ['Lamento que estejas a passar por isso.', 'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.'],
@@ -455,6 +474,7 @@ function getAdaptivePromptSuffix(classification, topics, jid) {
       angry: 'A pessoa está irritada. Mantém a calma, não escales. Se for contigo, responde com firmeza.',
       happy: 'A pessoa está feliz! Celebra com ela, contágia a energia boa.',
       love: 'A pessoa está a demonstrar carinho. Agradece com simpatia, sem afirmar amor ou uma relação humana. Se perguntarem, sê transparente sobre seres uma assistente automatizada.',
+      praise: 'A pessoa fez um elogio. Agradece de forma breve e natural; não digas que não percebeste nem inventes uma emoção humana.'
     };
     const hint = emotionHints[classification.emotion];
     if (hint) suffix += '\n' + hint;

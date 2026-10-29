@@ -24,6 +24,8 @@
 
 'use strict';
 
+const auraEmoji = require('./auraEmoji');
+
 function norm(s) {
   return String(s || '')
     .toLowerCase()
@@ -32,7 +34,6 @@ function norm(s) {
 }
 
 // ── Sinais de que falam DIRECTAMENTE com ela ────────────────
-const CHAMA_NOME = /\baura\b/i;
 const PERGUNTA_DIRECTA = /\b(tu |voce |você |vc )?(achas|acha|pensas|pensa|sabes|sabe|podes|pode|queres|quer|consegues|consegue|viste|viu|lembras|lembra|gostas|gosta)\b/i;
 const ORDEM = /\b(faz|fazer|manda|mande|envia|envie|toca|põe|poe|cria|criar|procura|busca|traz|mostra|diz|conta|explica|traduz|baixa|calcula)\b/i;
 const SAUDACAO_DIRECTA = /^(oi|ola|olá|hey|bom dia|boa tarde|boa noite|e ai|eae)\b/i;
@@ -72,19 +73,38 @@ function deveResponder(o = {}) {
   // ── SEMPRE responde ───────────────────────────────────────
   // ── v7.83: DESTINATÁRIO real (jids + vocativo + gíria) manda sobre heurísticas ──
   if (dest) {
-    if (dest.paraMim) return { responde: true, motivo: 'falam com ela (' + dest.motivos.join(' + ') + ')', chance: 1 };
+    if (dest.paraMim) return { responde: true, motivo: 'falam com ela (' + (dest.motivos || []).join(' + ') + ')', chance: 1 };
+    // Um PV é uma mensagem enviada directamente ao bot, mesmo que cite uma
+    // mensagem de grupo. O autor citado continua a ser contexto, não remetente.
     if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
-    // Indirecto: falam DELA (3ª pessoa) → reage leve, não puxa conversa.
-    if (dest.sobreMim) return { responde: true, motivo: 'falam dela (indirecto)', chance: 0.85, leve: true };
-    // Dirigida a outro: marcou alguém ou respondeu a alguém (jids reais).
-    if ((dest.mencoes && dest.mencoes.length) || o.respostaAOutro) {
+    // Citação/menção/vocativo de outra pessoa tem precedência sobre qualquer
+    // sessão activa; não interrompe uma conversa dirigida a alguém do grupo.
+    if ((dest.mencoes && dest.mencoes.length) || dest.replyToOther || dest.addressedToOther || o.respostaAOutro) {
       return { responde: false, motivo: 'dirigida a outro participante', chance: 0 };
     }
-    // Cai nas regras abaixo (saudação ao grupo, janela talk, dono...).
+    // Falar DELA não é falar COM ela. Regista-se no contexto, mas não gera
+    // resposta/reacção automática sem menção, citação directa ou convite.
+    if (dest.sobreMim) return { responde: false, motivo: 'falam dela, não com ela', chance: 0, leve: true };
+    if (o.interacaoConvidada) return { responde: true, motivo: 'participação contextual autorizada', chance: 1 };
+    try {
+      const talk = require('./auraTalk');
+      if (o.senderNumber && talk.estaAFalar(o.remoteJid, o.senderNumber)) {
+        return { responde: true, motivo: 'ainda está a falar com ela', chance: 1 };
+      }
+    } catch {}
+    // Destinatário conhecido mas não é a AURA; em grupo, silêncio por padrão.
+    return { responde: false, motivo: 'mensagem sem chamada directa à AURA', chance: 0 };
   } else {
     if (mencionada) return { responde: true, motivo: 'mencionada', chance: 1 };
     if (respostaAoBot) return { responde: true, motivo: 'responderam-lhe', chance: 1 };
-    if (CHAMA_NOME.test(t)) return { responde: true, motivo: 'chamaram-na', chance: 1 };
+    // Fallback seguro para chamadas externas que ainda não passam `dest`:
+    // "Aura é fixe" (3.ª pessoa) não é um vocativo.
+    let legacyDest = null;
+    try { legacyDest = require('./auraDestinatario').analisar({ texto, mentionedJid: o.mentionedJids || [], quotedParticipant: o.quotedParticipant || '' }); } catch {}
+    if (legacyDest?.paraMim) return { responde: true, motivo: 'vocativo/menção directa', chance: 1 };
+    if (isGroup && (legacyDest?.sobreMim || legacyDest?.giria)) {
+      return { responde: false, motivo: legacyDest.sobreMim ? 'falam dela, não com ela' : 'aura usada como gíria', chance: 0, leve: !!legacyDest.sobreMim };
+    }
     // PV é conversa a dois — responde sempre
     if (!isGroup) return { responde: true, motivo: 'conversa privada', chance: 1 };
   }
@@ -93,7 +113,7 @@ function deveResponder(o = {}) {
   // de uma conversa com ela (a janela auraTalk não conta como menção).
   // Não é com ela que estão a falar.
   if (SAUDACAO_DIRECTA.test(t) && SAUDACAO_AO_GRUPO.test(t) &&
-      !CHAMA_NOME.test(t) && !mencionada && !respostaAoBot) {
+      !mencionada && !respostaAoBot) {
     return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0.2 };
   }
 
@@ -123,7 +143,7 @@ function deveResponder(o = {}) {
     }
     if (SAUDACAO_DIRECTA.test(t) || AGRADECE.test(t) || DESPEDIDA.test(t)) {
       // "bom dia malta" é para o grupo, não para ela — não se mete.
-      if (SAUDACAO_AO_GRUPO.test(t) && !CHAMA_NOME.test(t)) {
+      if (SAUDACAO_AO_GRUPO.test(t)) {
         return { responde: false, motivo: 'saudação ao grupo, não a ela', chance: 0.2 };
       }
       return { responde: true, motivo: 'saudação do Dark', chance: 1 };
@@ -170,7 +190,9 @@ function comoResponder(o = {}) {
 
   // Só reage (emoji) quando a mensagem não pede resposta:
   // elogios curtos, concordâncias, coisas fofas.
-  const soReagir = /^(kk+|haha+|rs+|😂|❤|🖤|top|boa|isso|exato|exacto|verdade|concordo|amei|lindo|linda)\b/i.test(texto.trim())
+  // Elogios directos não são mensagens descartáveis: agradece-se com texto,
+  // em vez de responder ao "Linda" apenas com uma reacção aleatória.
+  const soReagir = /^(kk+|haha+|rs+|😂|❤|🖤|top|boa|isso|exato|exacto|verdade|concordo)\b/i.test(texto.trim())
     || texto.trim().length <= 3;
   if (isGroup && soReagir && Math.random() < 0.6) return 'reacao';
 
@@ -190,15 +212,9 @@ function comoResponder(o = {}) {
   return 'texto';
 }
 
-/** Emoji de reacção adequado ao que foi dito. */
-function escolherReacao(texto) {
-  const t = norm(texto);
-  if (/\b(kk+|haha+|rs+|engracad|piada)\b/.test(t)) return '😂';
-  if (/\b(amo|amor|saudades|beijo|carinho)\b/.test(t)) return '🖤';
-  if (/\b(top|boa|otimo|ótimo|excelente|perfeito|amei)\b/.test(t)) return '🔥';
-  if (/\b(triste|chateado|mal|dor)\b/.test(t)) return '🥺';
-  if (/\b(verdade|exato|exacto|concordo|isso)\b/.test(t)) return '💯';
-  return ['🖤', '🌹', '👀', '😌'][Math.floor(Math.random() * 4)];
+/** Emoji contextual; o humor opcional só altera o tom da selecção. */
+function escolherReacao(texto, opcoes = {}) {
+  return auraEmoji.escolherReacao(texto, opcoes);
 }
 
 module.exports = { deveResponder, comoResponder, escolherReacao, norm };

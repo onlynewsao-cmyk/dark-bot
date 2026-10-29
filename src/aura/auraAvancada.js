@@ -155,17 +155,18 @@ function factoTemporal(texto) {
  */
 function detectarMulti(texto, brain) {
   const b = brain || require('./auraBrain');
-  const primeiro = b.detectarCapacidade(texto);
+  const original = String(texto || '').trim();
+  const primeiro = b.detectarCapacidade(original);
   if (!primeiro) return [];
-  const partes = String(texto || '')
+  const partes = original
     .split(/\s+(?:e depois|e ent[ãa]o|e tamb[ée]m|e a seguir|e)\s+/i)
     .map(p => p.trim())
     .filter(p => p.length > 3);
-  const achados = [primeiro];
+  const achados = [{ ...primeiro, texto: original }];
   for (const p of partes) {
-    if (p === String(texto).trim()) continue;
+    if (p === original) continue;
     const seg = b.detectarCapacidade(p);
-    if (seg && seg.id !== achados[0].id) { achados.push(seg); break; }
+    if (seg && seg.id !== achados[0].id) { achados.push({ ...seg, texto: p }); break; }
   }
   return achados;
 }

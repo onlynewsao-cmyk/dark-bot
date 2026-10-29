@@ -25,6 +25,7 @@
  *     AiMemory: "[+244123…|Nome]" em vez de só "[Nome]".
  */
 'use strict';
+const compreensao = require('./auraCompreensao');
 
 const _lidParaPn = new Map();     // 'lid' -> 'numero'
 const _pnParaLid = new Map();     // 'numero' -> 'lid'
@@ -198,16 +199,31 @@ function pessoasDoChat(chatJid, limite = 8) {
   return out.sort((a, b) => b.ultimaTs - a.ultimaTs).slice(0, limite);
 }
 
-/** Quem é o autor da mensagem citada (número, se conseguirmos). */
+/** Autor e conteúdo da mensagem citada; remoteJid identifica a origem, não o autor. */
 function autorCitado(msg) {
-  const m = msg?.message || {};
-  const ci = m.extendedTextMessage?.contextInfo || m.imageMessage?.contextInfo ||
-             m.videoMessage?.contextInfo || m.stickerMessage?.contextInfo ||
-             m.audioMessage?.contextInfo || null;
-  if (!ci?.participant && !ci?.remoteJid) return null;
-  const j = ci.participant || ci.remoteJid;
-  const num = ehLid(j) ? (pnDoLid(j) || '') : soDigitos(userDe(j));
-  return { numero: num, lid: ehLid(j) ? userDe(j) : (lidDoPn(num) || ''), texto: (ci.quotedMessage?.conversation || ci.quotedMessage?.extendedTextMessage?.text || '').slice(0, 120) };
+  const info = compreensao.inspecionarMensagem(msg);
+  const q = info.citado;
+  if (!q?.authorJid && !q?.authorAltJid) return null;
+  const j = q.authorJid || q.authorAltJid;
+  const alt = q.authorAltJid || '';
+  const num = ehLid(j)
+    ? (pnDoLid(j) || (!ehLid(alt) ? soDigitos(userDe(alt)) : ''))
+    : soDigitos(userDe(j));
+  return {
+    numero: num,
+    lid: ehLid(j) ? userDe(j) : (lidDoPn(num) || (ehLid(alt) ? userDe(alt) : '')),
+    jid: j,
+    authorAltJid: alt,
+    texto: String(q.texto || '').slice(0, 160),
+    tipo: q.tipo,
+    media: !!q.media,
+    caption: String(q.caption || '').slice(0, 180),
+    links: Array.isArray(q.links) ? q.links.slice(0, 3) : [],
+    encaminhamento: q.encaminhamento || null,
+    remoteJid: q.sourceRemoteJid || '',
+    stanzaId: q.stanzaId || '',
+    authorName: q.authorName || '',
+  };
 }
 
 // ── 4. Texto para o prompt da IA ──────────────────────────────
@@ -243,8 +259,12 @@ function blocoParaPrompt(chatJid, ident, { citado = null, ownerNumber = '' } = {
 
   if (citado?.numero || citado?.lid) {
     const pc = _perfis.get(_chave(chatJid, citado.numero || `lid:${citado.lid}`));
-    const nomeC = pc?.apelido || pc?.nomes?.slice(-1)[0] || '';
-    linhas.push(`ESTÁ A RESPONDER A: ${_fmtNum(citado.numero || 'lid:' + citado.lid)}${nomeC ? ` ("${nomeC}")` : ''}${citado.texto ? ` que disse: "${citado.texto}"` : ''}`);
+    const nomeC = pc?.apelido || pc?.nomes?.slice(-1)[0] || citado.authorName || '';
+    const origem = citado.remoteJid ? ` · origem ${String(citado.remoteJid).endsWith('@g.us') ? 'grupo' : 'chat'} ${citado.remoteJid}` : '';
+    const corpo = citado.texto || (citado.media ? `[${citado.tipo || 'mídia citada'}${citado.caption ? `; legenda: ${citado.caption}` : ''}]` : '');
+    linhas.push(`ESTÁ A RESPONDER A: ${_fmtNum(citado.numero || 'lid:' + citado.lid)}${nomeC ? ` ("${nomeC}")` : ''}${origem}${corpo ? `; conteúdo citado: "${corpo.slice(0, 180)}"` : ''}`);
+    if (citado.links?.length) linhas.push(`- Links na mensagem citada: ${citado.links.slice(0, 3).join(', ')}`);
+    if (citado.encaminhamento?.encaminhada) linhas.push('- A mensagem citada parece reencaminhada; a origem não está verificada.');
   }
 
   if (String(chatJid || '').endsWith('@g.us')) {

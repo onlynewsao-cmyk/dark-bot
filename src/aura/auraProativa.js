@@ -194,7 +194,12 @@ async function _reagirEspontaneo(sock, gruposJid, agora = Date.now()) {
     if (!best) return null;
     const texto = best.message?.conversation || best.message?.extendedTextMessage?.text || '';
     let emoji = '👀';
-    try { emoji = require('./auraDecide').escolherReacao(texto || 'fixe'); } catch {}
+    try {
+      emoji = require('./auraDecide').escolherReacao(texto || 'fixe', {
+        mood: _humorDe(best.key.remoteJid),
+        chatId: best.key.remoteJid,
+      });
+    } catch {}
     if (_reagidas.size >= _MAX_REAGIDAS) _reagidas.delete(_reagidas.values().next().value);
     _reagidas.add(best.key.id);
     await sock.sendMessage(best.key.remoteJid, { react: { text: emoji, key: best.key } }).catch(() => {});

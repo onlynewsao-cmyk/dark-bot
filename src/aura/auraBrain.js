@@ -23,6 +23,7 @@
 
 const mega = require('./actions/megaActions');
 const adv = require('./actions/advancedActions');
+const { VERBOS_RELATO } = require('./auraHistorico');
 
 // ── Estado por chat ─────────────────────────────────────────
 // Tudo o que é "modo" vive aqui: um Map por chat, com limpeza.
@@ -100,9 +101,13 @@ const VERBO_ORDEM = new RegExp(
   ')\\b', 'i');
 
 function pareceOrdem(texto) {
-  const t = norm(texto);
-  if (!t || t.length < 3 || t.length > 300) return false;
-  return VERBO_ORDEM.test(t);
+  const policy = require('./auraGrupo');
+  const t = policy.normalizarTextoComando(texto);
+  if (!t || t.length < 3 || t.length > 300 || !policy.isSelfContainedCommandText(t) || /["'“”‘’`]/.test(t)) return false;
+  const variantes = [t, t.replace(/^(?:agora|entao)\s+/i, '')];
+  // O verbo tem de abrir o pedido (ou vir depois de "agora/então"), não
+  // aparecer escondido numa frase, citação ou hipótese sobre outra acção.
+  return variantes.some(v => { const m = VERBO_ORDEM.exec(v); return !!m && m.index === 0; });
 }
 
 /**
@@ -140,15 +145,15 @@ const CAPACIDADES = [
   // ══ v7.11 ETAPA 5 — VER O GRUPO (histórico) ══════════════
   {
     id: 'quem_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',
-    desc: 'Dizer quem escreveu uma mensagem (citada ou por texto exacto)',
-    gatilhos: [/\bquem\b.{0,10}\b(escreveu|mandou|enviou|digitou|disse)\b/],
+    desc: 'Identificar quem escreveu, disse ou falou sobre um assunto (inclui fala citada)',
+    gatilhos: [new RegExp(`\\bquem\\b.{0,30}\\b${VERBOS_RELATO}\\b`, 'i')],
   },
   {
     id: 'o_que_escreveu', nivel: 'todos', arg: 'depois', risco: 'seguro',
     desc: 'Consultar mensagens recentes disponíveis de uma pessoa no grupo ou no histórico',
     gatilhos: [
-      /\b(o que|mostra o que|que)\b.{0,10}\b(?:e que\s+)?(?:o|a|ao)\s+@?[a-z0-9_\-]{2,30}\s+(?:escreveu|disse|mandou|falou|enviou)\b/,
-      /\b(o que|mostra o que)\b.{0,10}\b(?:escreveu|disse|mandou|falou)\s+(?:o|a)\s+@?[a-z0-9_\-]{2,30}\b/,
+      new RegExp(`\\b(o que|mostra o que|que)\\b.{0,10}\\b(?:e que\\s+)?(?:o|a|ao)\\s+@?[a-z0-9_\\-]{2,30}\\s+${VERBOS_RELATO}\\b`, 'i'),
+      new RegExp(`\\b(o que|mostra o que)\\b.{0,10}\\b${VERBOS_RELATO}\\b\\s+(?:o|a)\\s+@?[a-z0-9_\\-]{2,30}\\b`, 'i'),
       /\b(ver|mostra|mostrar|puxa|recupera)\b.{0,12}\bconversa\b.{0,14}\b(com|do|da|de)\b/,
       /\b(o que|oq)\b.{0,12}\b(conversei|conversamos|falei)\b.{0,12}\b(com|do|da|de)\b/,
       /\b(mensagens?\s+antigas?|historico|histórico)\b.{0,16}\b(com|do|da|de|d[oa])\b/,
@@ -522,14 +527,6 @@ const CAPACIDADES = [
     ],
   },
   {
-    id: 'aura_evolucao', nivel: 'todos', arg: 'nenhum', risco: 'seguro',
-    desc: 'Ver o nível de evolução cognitiva, consciência e aprendizados da Aura',
-    gatilhos: [
-      /\b(como est[aá] (a )?tua (mente|consciencia|evolu[cç][aã]o)|tua mente|teu nivel|tua evolu[cç][aã]o|como tu evoluis|o que tu aprendeste|mostra tua mente)\b/i,
-      /\b(nivel cognitivo|pontos de xp|grau de consciencia|painel da mente)\b/i,
-    ],
-  },
-  {
     id: 'foto_perfil', nivel: 'dono', arg: 'nenhum', risco: 'seguro',
     desc: 'Mudar a foto de perfil do bot para uma imagem enviada ou uma ilustração virtual da AURA',
     gatilhos: [/\b(muda|troca|poe|coloca|altera|atualiza)\b.{0,20}\b(tua foto|foto de perfil|teu perfil|minha foto|perfil do bot)\b/, /\b(coloca|poe).{0,12}\b(tua|essa|minha)\b.{0,12}\b(perfil|foto)\b/],
@@ -646,6 +643,34 @@ const CAPACIDADES = [
   },
 ];
 
+// Alguns gatilhos históricos usam lookaheads ou até 24 caracteres de prefixo.
+// Exigem uma forma imperativa própria no início para que um verbo posterior
+// não transforme a frase inteira numa acção.
+const CAPABILITY_STARTS = {
+  reagir_msg: /^(?:reage|reaja|reagir)\b|^poe(?:\s+(?:um|uma))?\s+(?:emoji|reacao)\b/i,
+  criar_enquete: /^(?:(?:faz|fazer|manda|lanca|lancar|cria|criar|abre|abrir|poe|ponha)\b.{0,24}\b(enquete|votacao)\b|(?:enquete|votacao)\b.{0,20}\b(abre|aberta|lanca|cria)\b)/i,
+  votar_casa: /^(?:eu\s+)?vot(?:o|ar|a)\b/i,
+  fechar_votacao: /^(?:fecha|fechar|acaba|acabar|termina|terminar|anuncia|anunciar|revela|revelar)\b.{0,20}\b(votacao|enquete|resultados?|veredicto)\b/i,
+};
+const READ_ONLY_STARTS = {
+  ver_status: /^(?:qual|quais|o que|oq|como|meu|teu|minha|tua|status|recado|bio)\b/i,
+};
+const READ_ONLY_META_PREFIX = /^(?:o que significa|que significa|o que quer dizer|qual o significado(?: de)?|como se usa|como funciona)\b/i;
+
+function hasCapabilityTriggerAtStart(cap, texto) {
+  if (!cap?.gatilhos?.length) return false;
+  if (READ_ONLY_META_PREFIX.test(texto)) return false;
+  const allowedStart = CAPABILITY_STARTS[cap.id];
+  if (allowedStart && !allowedStart.test(texto)) return false;
+  const readStart = READ_ONLY_STARTS[cap.id];
+  if (readStart && !readStart.test(texto)) return false;
+  return cap.gatilhos.some(re => {
+    re.lastIndex = 0;
+    const match = re.exec(texto);
+    return match?.index === 0 || (!!readStart && match?.index <= 24);
+  });
+}
+
 // Índice por id, para o router da IA validar o que ela devolve.
 const POR_ID = new Map(CAPACIDADES.map(c => [c.id, c]));
 
@@ -653,12 +678,41 @@ const POR_ID = new Map(CAPACIDADES.map(c => [c.id, c]));
  * CAMADA 2 — casa a frase contra o catálogo. 0 ms.
  */
 function detectarCapacidade(texto) {
-  const t = norm(texto);
+  const policy = require('./auraGrupo');
+  const t = policy.normalizarTextoComando(texto);
   if (!t) return null;
+  const somenteLeitura = new Set([
+    'quem_escreveu', 'o_que_escreveu', 'ver_conversa', 'canal_info',
+    'canal_stats', 'canal_engajamento', 'canal_respostas', 'resumo_grupos',
+    'ver_status', 'listar_membros', 'listar_admins', 'info_grupo', 'recordar',
+  ]);
+  const negacoesQueSaoOrdens = {
+    modo_nao_reagir: /^nao\s+rea(?:ge|ges|gir|ja|jas)\b/i,
+    modo_so_dono: /^nao\s+responde\b/i,
+    modo_mudo: /^nao\s+fales?\b/i,
+    lembrar: /^nao\s+te\s+esquecas\b/i,
+  };
+  const variantes = [t, t.replace(/^(?:agora|entao)\s+/i, '')];
+
   for (const cap of CAPACIDADES) {
     if (!cap.gatilhos) continue;
-    for (const re of cap.gatilhos) {
-      if (re.test(t)) return { id: cap.id, cap, via: 'catalogo' };
+    for (const candidato of variantes) {
+      if (!hasCapabilityTriggerAtStart(cap, candidato)) continue;
+
+      if (cap.id === 'promover_admin' || cap.id === 'rebaixar_admin') {
+        // Estes gatilhos históricos são deliberadamente amplos. Valida a
+        // frase inteira e o alvo; a palavra coincidente não autoriza a acção.
+        const pedido = policy.detectarPedidoGrupo(texto);
+        const acaoEsperada = cap.id === 'promover_admin' ? 'promote' : 'demote';
+        if (!pedido || pedido.acao !== acaoEsperada) continue;
+      } else if (!somenteLeitura.has(cap.id)) {
+        const negacaoExplicita = negacoesQueSaoOrdens[cap.id];
+        const clara = policy.isSelfContainedCommandText(candidato) || (
+          negacaoExplicita?.test(candidato) && policy.isSelfContainedCommandText(candidato.replace(/^nao\s+/i, ''))
+        );
+        if (!clara) continue;
+      }
+      return { id: cap.id, cap, via: 'catalogo' };
     }
   }
   return null;
@@ -705,7 +759,7 @@ module.exports = {
   // estado
   modos, setModo, ignorar, designorar, estaIgnorado, limparModos,
   // router
-  pareceOrdem, detectarCapacidade, rotearComIA, podeFazer,
+  pareceOrdem, detectarCapacidade, hasCapabilityTriggerAtStart, rotearComIA, podeFazer,
   // dados
   CAPACIDADES, POR_ID, norm,
   // acções já existentes, reexpostas para quem executa

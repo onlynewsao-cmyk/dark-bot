@@ -14,6 +14,89 @@
 const brain = require('./auraBrain');
 const mega = require('./actions/megaActions');
 
+const READ_ONLY_CAPABILITIES = new Set([
+  'quem_escreveu', 'o_que_escreveu', 'ver_conversa', 'canal_info', 'canal_stats',
+  'canal_engajamento', 'canal_respostas', 'resumo_grupos', 'ver_status',
+  'listar_membros', 'listar_admins', 'info_grupo', 'recordar',
+]);
+const READ_QUERY_NEGATION_OR_HYPOTHESIS = /\b(?:nao|nunca|jamais|por exemplo|foi so exemplo|como exemplo|imagina(?:ndo)?|supondo|suponhamos|hipotetic(?:o|a|amente)?|se eu disser|e se|caso eu|caso|se|brincadeira|estou a brincar|era brincadeira|what if|suppose|hypothetically)\b/i;
+
+function isExplicitReadQuery(texto, cap) {
+  return !!cap?.gatilhos?.length && !READ_QUERY_NEGATION_OR_HYPOTHESIS.test(texto) &&
+    brain.hasCapabilityTriggerAtStart(cap, texto);
+}
+const NEGATED_COMMANDS = {
+  modo_nao_reagir: /^nao\s+rea(?:ge|ges|gir|ja|jas)\b/i,
+  modo_so_dono: /^nao\s+responde\b/i,
+  modo_mudo: /^nao\s+fales?\b/i,
+  lembrar: /^nao\s+te\s+esquecas\b/i,
+};
+const QUOTED_ARGUMENT_PREFIX = {
+  falar_com: /^(?:fala|falar|diz|diga|manda|mandar|envia|enviar|escreve|responde)\b/i,
+  falar_com_todos: /^(?:diz|diga|avisa|anuncia|manda|chama|menciona|marca|fala)\b/i,
+  marcar_pessoa: /^(?:marca|mark|aponta|menciona)\b/i,
+  criar_enquete: /^(?:cria|criar|faz|fazer|manda|mandar)\b/i,
+  postar_status: /^(?:posta|postar|publica|publicar)\b/i,
+  canal_postar: /^(?:posta|postar|publica|publicar|manda|mandar|envia|enviar)\b/i,
+  canal_renomear: /^(?:muda|mudar|altera|alterar|renomeia|renomear)\b/i,
+  canal_descrever: /^(?:muda|mudar|altera|alterar|descreve|descrever)\b/i,
+  canal_perguntar: /^(?:pergunta|perguntar|faz|fazer|posta|manda)\b/i,
+  canal_quiz: /^(?:cria|criar|faz|fazer|manda|publica)\b/i,
+  canal_enquete_multipla: /^(?:cria|criar|faz|fazer|manda)\b/i,
+  canal_sorteio: /^(?:faz|fazer|cria|criar|sorteia|sortear)\b/i,
+  canal_stickers: /^(?:manda|mandar|envia|enviar|faz|cria|publica|posta)\b/i,
+  canal_pack: /^(?:manda|mandar|envia|enviar|faz|cria|publica|posta)\b/i,
+  canal_agendar: /^(?:agenda|agendar|programa|posta|publica|manda|envia)\b/i,
+  agendar_conteudo: /^(?:agenda|agendar|programa|posta|publica|manda|envia)\b/i,
+  lembrar: /^(?:lembra|memoriza|guarda|anota)\b/i,
+  esquecer: /^(?:esquece|apaga)\b/i,
+  canal_seguir: /^(?:segue|seguir)\b/i,
+  canal_deixar: /^(?:deixa|deixar|para|parar)\b/i,
+  entrar_link: /^(?:entra|entrar|junta|juntar)\b/i,
+  aceitar_convite_canal: /^(?:aceita|aceitar|entra|entrar)\b/i,
+  adotar_canal: /^(?:adota|adotar)\b/i,
+  reagir_msg: /^(?:reage|reaja|reagir)\b/i,
+  canal_reagir: /^(?:reage|reaja|reagir)\b/i,
+  foto_aura: /^(?:manda|mostra|quero|envia)\b/i,
+};
+const EXPLICIT_COMMAND_START = /^(?:faz|fazer|cria|criar|manda|mandar|envia|enviar|poe|poem|por|coloca|mete|muda|mudar|troca|trocar|altera|alterar|define|definir|configura|configurar|liga|ligar|desliga|desligar|ativa|activa|ativar|activar|abre|abrir|fecha|fechar|tranca|trancar|destranca|destrancar|apaga|apagar|remove|remover|elimina|eliminar|tira|tirar|limpa|limpar|bane|banir|expulsa|expulsar|kicka|kickar|promove|promover|rebaixa|rebaixar|adiciona|adicionar|marca|marcar|menciona|mencionar|reage|reagir|reaja|responde|responder|ignora|ignorar|bloqueia|bloquear|silencia|silenciar|cala|calar|sai|sair|entra|entrar|junta|juntar|posta|postar|publica|publicar|partilha|partilhar|segue|seguir|xinga|xingar|zoa|zoar|humilha|insulta|provoca|agenda|agendar|programa|lembra|lembrar|esquece|esquecer|guarda|memoriza|procura|procurar|pesquisa|pesquisar|busca|baixa|baixar|descarrega|traduz|traduzir|resume|resumir|gera|gerar|desenha|desenhar|fixa|fixar|arquiva|arquivar|verifica|mostra|mostrar|fala|falar|diz|diga|avisa|anuncia|chama|pega|pegar|revoga|revogar|lista|listar|consulta|consultar|aceita|aceitar|adota|adotar|sorteia|sortear)\b/i;
+
+function isClearExecutionIntent(id, texto, cap, contextoTexto = texto) {
+  const policy = require('./auraGrupo');
+  const t = policy.normalizarTextoComando(texto);
+  const full = policy.normalizarTextoComando(contextoTexto);
+  if (!t || t.length > 280 || !full || full.length > 300) return false;
+  // Acções compostas são validadas no contexto integral e, depois, cada
+  // segmento é validado pelo seu próprio verbo/capacidade.
+  if (full !== t && !policy.isClearActionText(full)) return false;
+  if (READ_ONLY_CAPABILITIES.has(id)) return isExplicitReadQuery(t, cap);
+
+  // Admin actions have a stricter, target-aware parser later in this executor.
+  if (id === 'promover_admin' || id === 'rebaixar_admin') {
+    return policy.isClearActionText(t) && !/["'“”‘’`]/.test(t);
+  }
+
+  let clear = policy.isSelfContainedCommandText(t);
+  if (!clear) {
+    const negatedCommand = NEGATED_COMMANDS[id];
+    clear = !!(negatedCommand?.test(t) && policy.isSelfContainedCommandText(t.replace(/^nao\s+/i, '')));
+  }
+  if (!clear) return false;
+
+  if (/["'“”‘’`]/.test(t) && !QUOTED_ARGUMENT_PREFIX[id]?.test(t)) return false;
+
+  const variants = [t, t.replace(/^(?:agora|entao)\s+/i, '')];
+  if (cap?.gatilhos?.length) {
+    for (const candidate of variants) {
+      if (brain.hasCapabilityTriggerAtStart(cap, candidate)) return true;
+    }
+    // If the selected capability's own triggers do not begin the request,
+    // the action word is context, not permission to execute.
+    return false;
+  }
+  return EXPLICIT_COMMAND_START.test(variants[1] || t);
+}
+
 // ── Ajudas ──────────────────────────────────────────────────
 
 /** O número de quem foi mencionado, ou de quem se respondeu. */
@@ -55,16 +138,28 @@ async function imagemDaMensagem(msg, sock) {
   }
 }
 
-/** Emoji pedido na frase, senão 🖤. */
-function emojiDaFrase(texto) {
+/** Emoji explícito na frase; sem um, escolhe por contexto e humor. */
+function emojiDaFrase(texto, opcoes = {}) {
   const m = String(texto || '').match(/\p{Extended_Pictographic}[\uFE0F\u200D]*/gu);
-  return m && m.length ? m[m.length - 1] : '🖤';
+  if (m && m.length) return m[m.length - 1];
+  try { return require('./auraDecide').escolherReacao(texto, opcoes); }
+  catch { return '👀'; }
 }
 
 // ── Executor ────────────────────────────────────────────────
 
-async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, confirmado = false }) {
+async function executar(id, arg, { sock, msg, ctx, texto, contextoTexto, isOwner, isAdmin, confirmado = false }) {
   const cap = brain.POR_ID.get(id);
+  if (!confirmado) {
+    const grupo = require('./auraGrupo');
+    if (ctx?.isGroup && !grupo.isDirectedToAura({
+      isGroup: true,
+      isBotMentioned: ctx.isBotMentioned,
+      isReplyToAura: ctx.isReplyToAura,
+      dest: ctx.dest,
+    })) return { ok: false, msg: null };
+    if (!isClearExecutionIntent(id, texto, cap, contextoTexto ?? texto)) return { ok: false, msg: null };
+  }
   if (cap?.risco === 'destrutivo' && !confirmado) {
     return {
       ok: false,
@@ -228,7 +323,12 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
     }
 
     case 'reagir_msg': {
-      const emoji = arg && /\p{Extended_Pictographic}/u.test(arg) ? arg : emojiDaFrase(texto);
+      let emoji = arg && /\p{Extended_Pictographic}/u.test(arg) ? arg : '';
+      if (!emoji) {
+        let mood = 'normal';
+        try { mood = require('./auraHuman').getMood(jid).mood || 'normal'; } catch {}
+        emoji = emojiDaFrase(texto, { mood, chatId: jid });
+      }
       const ctxInfo = msg?.message?.extendedTextMessage?.contextInfo;
       const chave = ctxInfo?.stanzaId
         ? { remoteJid: jid, id: ctxInfo.stanzaId, participant: ctxInfo.participant, fromMe: false }
@@ -598,21 +698,27 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
     }
 
     // ══ GRUPO ═════════════════════════════════════════════
-    case 'promover_admin': {
-      const grupo = require('./auraGrupo');
-      return grupo.executarPedido(sock, {
-        ctx, msg, texto,
-        pedido: grupo.detectarPedidoGrupo(texto, { temPendente: !!grupo.verPendente(jid) })
-          || { acao: 'promote', deSi: true },
-      });
-    }
-
+    case 'promover_admin':
     case 'rebaixar_admin': {
       const grupo = require('./auraGrupo');
-      return grupo.executarPedido(sock, {
-        ctx, msg, texto,
-        pedido: { acao: 'demote', deSi: false },
+      const actor = ctx.senderNumber || ctx.senderJid || ctx.senderLid || '';
+      if (ctx.isGroup && !confirmado && !grupo.isDirectedToAura({
+        isGroup: true,
+        isBotMentioned: ctx.isBotMentioned,
+        isReplyToAura: ctx.isReplyToAura,
+        dest: ctx.dest,
+      })) {
+        return { ok: false, msg: null };
+      }
+      const pedido = grupo.detectarPedidoGrupo(texto, {
+        pendente: grupo.verPendente(jid, actor),
+        hasMention: grupo.mencoes(msg).length > 0,
       });
+      const acaoEsperada = id === 'promover_admin' ? 'promote' : 'demote';
+      // Falhar fechado: uma classificação lexical do LLM nunca é autorização
+      // suficiente nem deve transformar texto ambíguo num pedido sobre o remetente.
+      if (!pedido || pedido.acao !== acaoEsperada) return { ok: false, msg: null };
+      return grupo.executarPedido(sock, { ctx, msg, texto, pedido });
     }
 
     case 'sair_grupo': {
@@ -689,17 +795,6 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
       } catch (e) {
         console.warn('[foto_aura]', e.message?.slice(0,80));
         return { ok: false, msg: 'Não consegui enviar uma imagem da personagem AURA agora. Tenta novamente mais tarde ou usa .fotinha.' };
-      }
-    }
-
-    // ══ EVOLUÇÃO & CONSCIÊNCIA COGNITIVA ═════════════════════
-    case 'aura_evolucao': {
-      try {
-        const evol = require('./auraEvolucao');
-        const rel = await evol.obterRelatorioEvolucao();
-        return { ok: true, msg: rel };
-      } catch (e) {
-        return { ok: false, msg: 'Erro ao aceder à minha consciência: ' + (e.message || e) };
       }
     }
 
@@ -859,4 +954,4 @@ async function executar(id, arg, { sock, msg, ctx, texto, isOwner, isAdmin, conf
   }
 }
 
-module.exports = { executar, alvoDaMensagem, imagemDaMensagem, emojiDaFrase };
+module.exports = { executar, alvoDaMensagem, imagemDaMensagem, emojiDaFrase, isClearExecutionIntent };

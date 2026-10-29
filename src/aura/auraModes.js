@@ -308,6 +308,10 @@ function buildAssistantPrompt(opts = {}) {
  * Usa o mesmo motor de IA, mas com persona neutra.
  */
 async function assistantRespond(text, opts = {}) {
+  const sexualBoundary = require('./auraSexualBoundary');
+  if (sexualBoundary.isExplicitSexualRequest(text)) {
+    return sexualBoundary.respostaLimiteSexual({ isOwner: !!opts.isOwner, isGroup: !!opts.isGroup });
+  }
   const ai = require('../bot/ai');
 
   // v7.12 — o assistente também se lembra: factos guardados sobre esta
@@ -329,6 +333,9 @@ async function assistantRespond(text, opts = {}) {
     const reply = await ai.chat(text, systemPrompt, {
       history: opts.historyArray || [],
       groupContext: opts.groupContext || '',
+      cacheScope: require('crypto').createHash('sha256')
+        .update([opts.remoteJid || '', String(opts.senderNumber || '').replace(/\D/g, ''), opts.isOwner ? 'owner' : 'user'].join('\0'))
+        .digest('hex'),
       userRole: opts.isOwner ? 'owner' : opts.isVip ? 'premium' : 'free',
     }, !!opts.isOwner);
 

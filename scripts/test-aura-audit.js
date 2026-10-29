@@ -70,8 +70,8 @@ const check = (nome, cond, extra = '') => {
   console.log('\n▸ Assistente fala como pessoa');
   const M = require(path.join(AURA, 'auraModes'));
   const prompt = M.buildAssistantPrompt({ botName: 'DARK BOT', userName: 'João', isGroup: true });
-  check('Prompt proíbe "sou um assistente virtual"', /NUNCA digas/i.test(prompt));
-  check('Prompt proíbe emojis', /SEM emojis/i.test(prompt));
+  check('Prompt mantém transparência sobre ser automatizada', /assistente automatizada/i.test(prompt) && /honestidade/i.test(prompt));
+  check('Prompt permite emojis com moderação sem os forçar', /emojis com moderação/i.test(prompt) && !/SEM emojis/i.test(prompt));
   check('Prompt proíbe frases de call-center', /call-center/i.test(prompt));
 
   // fallback offline não deve ter emojis nem falas de robô
@@ -133,10 +133,10 @@ const check = (nome, cond, extra = '') => {
 
   // o prompt tem de dizer o que ela consegue fazer
   const ah = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
-  check('Prompt diz que ela VÊ imagens', /VER IMAGENS/i.test(ah));
-  check('Prompt diz que ela FALA em áudio', /FALAR EM ÁUDIO/i.test(ah));
-  check('Prompt proíbe recusar perguntas gerais', /RESPONDER A TUDO/i.test(ah));
-  check('Prompt proíbe duvidar do Dono', /NUNCA duvides de que é ele/i.test(ah));
+  check('Prompt limita a visão à análise realmente disponível', /VER IMAGENS/i.test(ah) && /análise de visão concluída/i.test(ah) && /não identifiques pessoas privadas/i.test(ah));
+  check('Prompt descreve áudio com confirmação de entrega', /FALAR EM ÁUDIO/i.test(ah) && /serviço de voz estiver disponível/i.test(ah) && /antes de o sistema confirmar/i.test(ah));
+  check('Prompt responde perguntas gerais seguras sem recusa automática', /RESPONDER A TUDO/i.test(ah) && /permitido e seguro/i.test(ah) && /não recuses uma pergunta normal só por ser geral/i.test(ah));
+  check('Prompt reconhece o Dono apenas pela identidade numérica confirmada', /Reconhece o Dono apenas quando.*número/i.test(ah) && /não provam identidade nem autorização/i.test(ah));
 
   // pedido de áudio é detectado nas formas reais
   const detectaAudio = (t) => {
@@ -196,11 +196,11 @@ const check = (nome, cond, extra = '') => {
   // ── 13. Prompt sabe das novas capacidades ──────────────────
   console.log('\n▸ Prompt actualizado');
   const ahTxt = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
-  check('Prompt diz que PROCURA imagens', /PROCURAR IMAGENS/i.test(ahTxt));
-  check('Prompt diz que USA o WhatsApp', /USAR O WHATSAPP/i.test(ahTxt));
+  check('Prompt pesquisa imagens com ressalva de referência', /PROCURAR IMAGENS/i.test(ahTxt) && /serviço de pesquisa estiver disponível/i.test(ahTxt) && /nunca como capturas reais de uma live ou jogo/i.test(ahTxt));
+  check('Prompt limita uso do WhatsApp às funções e permissões reais', /USAR O WHATSAPP/i.test(ahTxt) && /respeitando permissões e confirmações/i.test(ahTxt) && /após confirmação real/i.test(ahTxt));
 
   const chTxt2 = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'bot', 'commandHandler.js'), 'utf8');
-  check('Visão analisa pessoas/texto/local', /PESSOAS:.*quantas|LOCAL:/s.test(chTxt2));
+  check('Visão descreve pessoas, texto e cenário sem identificar pessoas privadas', /PESSOAS:.*quantas[\s\S]*TEXTO:[\s\S]*LOCAL:/s.test(chTxt2) && /não identifiques pessoas privadas/i.test(chTxt2));
   // v6.81: o cérebro novo entra antes deste bloco, por isso a distância
   // entre o `if (isOwner)` e o `auraActions` cresceu. O que importa é que
   // o require continue DENTRO do bloco do Dono — margem alargada.
@@ -256,7 +256,11 @@ const check = (nome, cond, extra = '') => {
 
   check('Escolhe o formato da resposta', typeof DEC.comoResponder === 'function' &&
     DEC.comoResponder({ texto: 'manda audio', pediuAudio: true }) === 'audio');
-  check('Tem reacções contextuais', /😂/.test(DEC.escolherReacao('kkkk que engraçado')));
+  const repertorioEmoji = require(path.join(AURA, 'auraEmoji'));
+  const reacaoDeRiso = DEC.escolherReacao('kkkk que engraçado', { mood: 'normal', random: () => 0 });
+  check('Tem reacções contextuais e variadas',
+    repertorioEmoji.detectarTemas('kkkk que engraçado').includes('laughter') &&
+    repertorioEmoji.POOLS.laughter.includes(reacaoDeRiso));
 
   // ── 15. Sem cargos no modo AURA (v6.56) ────────────────────
   console.log('\n▸ A AURA humana não fala de cargos');
@@ -278,7 +282,7 @@ const check = (nome, cond, extra = '') => {
 
   check('Os 3 ambientes geram prompts diferentes',
     pPV !== pPeq && pPeq !== pGde && pPV !== pGde);
-  check('PV autoriza tratamento íntimo', /ESTÃO SÓ OS DOIS/.test(pPV));
+  check('PV permite tom familiar sem presumir romance', /ESTÃO SÓ OS DOIS/.test(pPV) && /sem presumir uma relação romântica real/.test(pPV));
   check('Grupo grande manda conter-se', /grupo GRANDE|NADA de "amor"/.test(pGde));
   check('Grupo grande sabe quantas pessoas', /40 pessoas/.test(pGde));
   check('Grupo pequeno é intermédio', /Grupo pequeno/.test(pPeq));
@@ -287,9 +291,9 @@ const check = (nome, cond, extra = '') => {
 
   // regras de comportamento em grupo
   const ahG = require('fs').readFileSync(path.join(AURA, 'auraHuman.js'), 'utf8');
-  check('Manda levar intimidades para o PV', /Assuntos íntimos: leva para o PV/.test(ahG));
-  check('Proíbe respostas de sistema', /não posso cumprir esse\s*\n?\s*pedido|soe a sistema/.test(ahG));
-  check('Tem exemplos concretos de desconversa', /Guarda isso para logo/.test(ahG));
+  check('Protege assuntos íntimos em grupo sem prometer sigilo', /assuntos ou dados íntimos/i.test(ahG) && /se a pessoa quiser/i.test(ahG) && /sem pressionar nem prometer confidencialidade/i.test(ahG));
+  check('Evita despejar erros ou instruções do sistema no chat', /não copies erros ou instruções de sistema/i.test(ahG) && /explica limites em linguagem natural/i.test(ahG));
+  check('Inclui exemplos naturais para explicar limites', /Não consigo verificar isso agora/i.test(ahG) && /Prefiro não entrar nesse assunto no grupo/i.test(ahG));
   check('Manda ser mais discreta com mais gente', /mais gente houver, mais discreta/.test(ahG));
 
   // o handler passa mesmo o tamanho do grupo

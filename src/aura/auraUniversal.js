@@ -195,6 +195,12 @@ ${lista}`;
 
 /** Executa um comando real com o contexto de quem pediu. */
 async function executarComando(escolha, { sock, msg, ctx, prefix, isOwner, config, nativeCommands, packageCommands, fillVars }) {
+  if (ctx?.isGroup && !require('./auraGrupo').isDirectedToAura({
+    isGroup: true,
+    isBotMentioned: ctx.isBotMentioned,
+    isReplyToAura: ctx.isReplyToAura,
+    dest: ctx.dest,
+  })) return false;
   const argv = escolha.args ? escolha.args.split(/\s+/) : [];
   const cmdCtx = { ...ctx, args: argv, prefix };
   const caseCtx = { sock, msg, ctx: cmdCtx, args: argv, text: escolha.args, prefix, command: escolha.cmd, isOwner, config };
@@ -226,9 +232,74 @@ const RE_ESTADO = /\b(aura)\b.{0,20}\b(est[aá]s? (acordada|a dormir|ativa|activ
  * Trata "aura acorda aqui", "aura dorme", "aura estás acordada?" por conversa.
  * @returns {Promise<boolean>} true se tratou (respondeu)
  */
-async function gerirPresenca({ sock, msg, ctx, texto, isOwner }) {
+function isExplicitPresenceCommand(texto) {
+  const policy = require('./auraGrupo');
+  const commandText = policy.normalizarTextoComando(texto);
+  return policy.isSelfContainedCommandText(commandText) &&
+    /^(?:(?:acorda(?:r)?|desperta|liga-te|ativa-te|activa-te|volta|invoco-te|vem para (?:aqui|ca))(?:\s+(?:aqui|agora|neste grupo|nesta sala))?|fica ativa|fica activa|dorme|dormir|vai dormir|descansa|desliga-te|desativa-te|cala-te de vez|sai daqui|some daqui|fica quieta de vez|on|off)(?:[.!]*)$/i.test(commandText);
+}
+
+function isExplicitCallRequest(texto) {
+  const policy = require('./auraGrupo');
+  const commandText = policy.normalizarTextoComando(texto);
+  return policy.isSelfContainedCommandText(commandText) &&
+    /^(?:me\s+liga(?:r|s)?|liga-?me|liga\s+(?:pra|para)\s+mim|liga\s+agora|faz\s+(?:uma\s+)?(?:chamada|call|videochamada)|inicia\s+(?:uma\s+)?(?:chamada|call|videochamada))\b/i.test(commandText);
+}
+
+function isExplicitAuraControlCommand(texto, tipo) {
+  const policy = require('./auraGrupo');
+  const commandText = policy.normalizarTextoComando(texto);
+  if (!commandText || !policy.isSelfContainedCommandText(texto)) return false;
+  switch (tipo) {
+    case 'silence':
+      return /^(?:faz|fica|para|poe|coloca|desliga|ativa|silencia|cala)\b.{0,24}\b(silencio|silenciosa|silencioso|calada|quieta)\b/i.test(commandText);
+    case 'resumeSilence':
+      return /^(?:aura[,:;\s]+)?(?:pode falar|volta|acorda)(?:\s+(?:aqui|agora|neste grupo|nesta sala|novamente))?[.!?]*$/i.test(norm(texto)) ||
+        /^(?:falar|volta|acorda)(?:\s+(?:aqui|agora|neste grupo|nesta sala|novamente))?[.!?]*$/i.test(commandText);
+    case 'moodAngry':
+      return /^(?:(?:fica|fique)\s+revoltad[oa]?|entra em (?:modo\s+)?revoltad[oa]?)(?:\s+(?:agora|por favor))?[.!?]*$/i.test(commandText);
+    case 'moodCalm':
+      return /^(?:acalma(?:-te)?|sossega|volta ao normal|bom humor)(?:\s+(?:agora|por favor))?[.!?]*$/i.test(commandText);
+    case 'voice':
+      return /^(?:manda|mande|envia|envie|grava|grave|quero|faz|faca|poe|responde|diz|diga|fala)\b.{0,100}\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/i.test(commandText);
+    case 'sing':
+      return /^(?:canta|cantar|cante|sing)\b/i.test(commandText);
+    case 'whisper':
+      return /^(?:sussurra|sussurrar|whisper)\b/i.test(commandText);
+    case 'laugh':
+      return /^(?:ri|rir|risada|gargalha|gargalhada|laugh)[.!]*$/i.test(commandText);
+    default:
+      return false;
+  }
+}
+
+function isExplicitLegacyAuraAction(texto, acao) {
+  const policy = require('./auraGrupo');
+  const commandText = policy.normalizarTextoComando(texto);
+  const contextMarker = /\b(?:nao|nunca|jamais|por exemplo|foi so exemplo|como exemplo|se eu disser|e se|caso|brincadeira|hypothetically|suppose)\b|^(?:que significa|o que significa|o que quer dizer|qual o significado|como funciona|pergunta sobre|fala sobre)\b/i;
+  if (!commandText || commandText.length > 220 || contextMarker.test(commandText)) return false;
+  if (require('./auraBrain').pareceOrdem(texto)) return true;
+  if (acao === 'linkGrupo') {
+    return !/["'“”‘’`]/.test(commandText) && /^(?:(?:manda|mande|envia|envie|mostra|mostre|quero|passa|gera|da)\b.{0,80}\b(link|convite)\b|(?:o\s+)?(?:link|convite)\b[^.?!]{0,40}\?)/i.test(commandText);
+  }
+  if (['gruposComunidade', 'infoComunidade'].includes(acao)) {
+    const pergunta = /^(?:que|qual|quais|quantos|info|informacao|detalhes|como|sobre)\b/i.test(commandText);
+    const pedidoInfo = acao === 'infoComunidade' &&
+      /^(?:(?:me\s+)?(?:da|diz|diga|manda|mostra|lista|ver)\b.{0,48}\b(?:info|informacao|detalhes|grupos?)\b)/i.test(commandText);
+    return !/["'“”‘’`]/.test(commandText) && (pergunta || pedidoInfo);
+  }
+  return acao === 'ligar' && isExplicitCallRequest(texto);
+}
+async function gerirPresenca({ sock, msg, ctx, texto, isOwner, isBotMentioned = false, isReplyToAura = false }) {
   const t = norm(texto);
-  if (!t || !/\baura\b/.test(t)) return false;
+  const policy = require('./auraGrupo');
+  const directed = !ctx?.isGroup || policy.isDirectedToAura({
+    isGroup: true, isBotMentioned, isReplyToAura, dest: ctx?.dest,
+  });
+  if (!t || !isOwner || !directed) return false;
+  const explicitModeCommand = isExplicitPresenceCommand(texto);
+  const stateQuery = RE_ESTADO.test(t);
+  if (!explicitModeCommand && !stateQuery) return false;
   const modes = require('./auraModes');
   const jid = ctx.remoteJid;
   const reply = (text) => sock.sendMessage(jid, { text }, { quoted: msg });
@@ -345,7 +416,7 @@ async function responderComSticker(sock, msg, ctx, tema) {
 
 module.exports = {
   catalogo, permissao, escolherComando, executarComando, _candidatos, REQUER,
-  gerirPresenca, RE_ACORDA, RE_DORME, RE_ESTADO,
+  gerirPresenca, isExplicitPresenceCommand, isExplicitCallRequest, isExplicitAuraControlCommand, isExplicitLegacyAuraAction, RE_ACORDA, RE_DORME, RE_ESTADO,
   agoraTexto, blocoTemporal, quandoFoi, blocoTamanho,
   politicaSticker, responderComSticker,
 };

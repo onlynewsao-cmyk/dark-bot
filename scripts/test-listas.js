@@ -17,6 +17,7 @@ Module.prototype.require = function (id) {
   const s = String(id);
   if (s.endsWith('systemZeroPlay')) return {
     ytsearch: async () => ({ resultados: [V('Musica A', 'Cantor A', '3:10'), V('Musica B', 'Cantor B', '4:00'), V('Musica C', 'Cantor C', '2:50')] }),
+    ytAudio: async () => ({ buffer: Buffer.alloc(5000, 1), title: 'Musica A', mimetype: 'audio/mpeg' }),
     sendToxicPlayCard: async (...a) => { got.toxic = a; },
     sendPlayCard: async (...a) => { got.card = a; },
   };
@@ -29,7 +30,7 @@ Module.prototype.require = function (id) {
     getPack: async (id) => { got.pack = id; return { title: 'Pack ' + id, stickers: [{ url: 'https://x/y.webp', isAnimated: false }] }; },
   };
   if (s.endsWith('stickerMaker')) return { create: async (b) => { got.stk = (got.stk || 0) + 1; return Buffer.alloc(100, 2); }, makePackId: () => 'test-pack' };
-  if (s.endsWith('mediaHandler')) return { fetchBuffer: async () => Buffer.alloc(5000, 3), fetchJson: async () => ({}), downloadFromMessage: async () => Buffer.alloc(600, 3) };
+  if (s.endsWith('mediaHandler')) return { fetchBuffer: async () => Buffer.alloc(5000, 3), fetchJson: async () => ({}), downloadFromMessage: async () => Buffer.alloc(600, 3), isAudioBytes: () => true };
   if (s.endsWith('stickerPack')) return { sendFinishedPack: async () => { got.finished = true; return { stickers: [Buffer.alloc(100)], description: 'desc' }; } };
   if (s.endsWith('dl/others')) return {
     soundcloud: async (u) => { got.sc = u; return { title: 'C', url: 'https://audio/y.mp3', author: 'B' }; },
@@ -145,7 +146,8 @@ const MSG = { key: { id: 'm1', remoteJid: 'G@g.us' } };
   const cP = CTX('P');
   await cmds['play']({ sock, m: { chat: cP.remoteJid, key: MSG.key }, msg: MSG, ctx: cP, text: 'drake', prefix: '!', command: 'play' });
   const tPlay = store.find(c => c.text)?.text || '';
-  check('play envia o cartão da 1.ª música', got.toxic?.[2]?.title === 'Musica A', JSON.stringify(got.toxic?.[2]?.title));
+  check('play envia card compacto da 1.ª música', tPlay.includes('Musica A') && tPlay.includes('Áudio automático (128k)'), tPlay.slice(0, 80));
+  check('play envia áudio automaticamente', store.some(c => Buffer.isBuffer(c.audio)), String(store.length));
   check('play não abre lista numerada', !/\*3\.\*/.test(tPlay) && !lista._pendentes.has(lista._key(cP)), tPlay.slice(0, 60));
   // video
   store = []; sock = sockMock(store);

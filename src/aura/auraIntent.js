@@ -139,6 +139,14 @@ function analyzeIntent(text, ctx = {}) {
     pushName = '',
     recentTexts = [],
     mentionedAuraInGroup = false,
+    mentionedJids = [],
+    quotedParticipant = '',
+    quotedText = '',
+    botNum = '',
+    botJid = '',
+    botLid = '',
+    botNames = [],
+    destination = null,
     isOwner = false,
     groupContext = '',
   } = ctx;
@@ -163,18 +171,34 @@ function analyzeIntent(text, ctx = {}) {
     directScore += 90;
     directReasons.push('respondeu Aura diretamente');
   }
-  if (containsName(original)) {
+  let destinationInfo = destination;
+  if (!destinationInfo) {
+    try {
+      destinationInfo = require('./auraDestinatario').analisar({
+        texto: original,
+        mentionedJid: mentionedJids,
+        quotedParticipant,
+        quotedTexto: quotedText,
+        botNum: botNum || String(botJid || '').split('@')[0],
+        botLid,
+        tambemEu: botNames,
+      });
+    } catch { destinationInfo = null; }
+  }
+  const explicitlyAddressedByNameOrMention = !!(
+    destinationInfo?.directToAura || destinationInfo?.paraMim ||
+    destinationInfo?.mencionouBot || destinationInfo?.vocativo
+  );
+  if (explicitlyAddressedByNameOrMention) {
     directScore += 85;
-    directReasons.push(`mencionou nome: ${NOME_AURA.find(n => t.includes(n))}`);
+    directReasons.push('vocativo/menção/resposta dirigida à AURA');
+  } else if (containsName(original)) {
+    directReasons.push('o nome aparece sem vocativo; pode ser referência indirecta ou gíria');
   }
-  if (/^aura[,\s!?:]/i.test(original.trim())) {
-    directScore += 95;
-    directReasons.push('começa com nome dela');
-  }
-  // Segunda pessoa + contexto recente onde Aura falou
+  // Contexto recente ajuda a resolver o assunto, não prova o destinatário:
+  // sem vocativo, @ ou reply, não transforma a frase numa chamada directa.
   if (/\b(voce|vc|tu|ce|cê)\b/.test(t) && (mentionedAuraInGroup || recentTexts.slice(-2).some(m => containsName(m)))) {
-    directScore += 40;
-    directReasons.push('segunda pessoa + contexto Aura');
+    directReasons.push('há contexto recente da AURA, mas falta sinal directo de destinatário');
   }
   // Pergunta/comando sem alvo específico em PV ou após Aura falar
   if ((isQuestion(original) || isCommand(original)) && !isGroup) {
@@ -182,8 +206,7 @@ function analyzeIntent(text, ctx = {}) {
     directReasons.push('pergunta/comando em PV');
   }
   if ((isQuestion(original) || isCommand(original)) && isGroup && mentionedAuraInGroup) {
-    directScore += 35;
-    directReasons.push('pergunta/comando após menção Aura no grupo');
+    directReasons.push('pergunta/comando após menção anterior, mas sem vocativo/reply não é chamada segura');
   }
 
   // Penalidades — conversa entre outros
@@ -217,18 +240,30 @@ function analyzeIntent(text, ctx = {}) {
   let intentConfidence = 0;
   let intentDetails = {};
 
-  // Foto dela
-  if (/\b(foto|selfie|pic|imagem|foto sua|foto tua|manda foto|mostra.*foto|quero.*foto|tem foto|manda.*selfie|mostra.*rosto|cara|look|cosplay.*foto)\b/.test(t) &&
-      (containsName(t) || /\b(tua|sua|vc|voce|tu|dela|aura)\b/.test(t) || isPrivateChat || isReplyToAura)) {
-    // Verifica se é imagem pedida da persona AURA, não imagem aleatória
-    if (/\b(tua|sua|dela|aura|seu rosto|seu cosplay|voce|vc)\b/.test(t) || containsName(t) || isReplyToAura) {
+  // Pedido de imagem: separa explicitamente a persona AURA de conteúdo
+  // externo. PV/menção não transforma "foto do jogo" em selfie da AURA.
+  let photoIntent = null;
+  try {
+    photoIntent = require('./auraCompreensao').interpretarPedidoImagem({
+      texto: original,
+      quotedText: ctx.quotedText || '',
+      recentMessages: recentTexts,
+      isDirectToAura,
+    });
+  } catch {}
+  if (photoIntent?.requested && isDirectToAura) {
+    if (photoIntent.target === 'persona') {
       intent = 'PHOTO_REQUEST';
-      intentConfidence = 85;
-      // Tipo de foto
-      if (/cosplay/.test(t)) intentDetails.photoType = 'cosplay';
-      else if (/goth|dark|preta/.test(t)) intentDetails.photoType = 'goth';
-      else if (/selfie|rosto|cara|face/.test(t)) intentDetails.photoType = 'selfie';
-      else intentDetails.photoType = 'random';
+      intentConfidence = 90;
+      intentDetails = { photoType: /cosplay/.test(t) ? 'cosplay' : /goth|dark|preta/.test(t) ? 'goth' : /fofa|cute|linda/.test(t) ? 'cute' : 'selfie', photoTarget: 'persona' };
+    } else if (photoIntent.target === 'content') {
+      intent = 'IMAGE_SEARCH_REQUEST';
+      intentConfidence = 90;
+      intentDetails = { photoTarget: 'content', query: photoIntent.query || '', searchQuery: photoIntent.searchQuery || '', gameRef: !!photoIntent.gameRef };
+    } else {
+      intent = 'CLARIFY_IMAGE_REQUEST';
+      intentConfidence = 75;
+      intentDetails = { photoTarget: 'ambiguous' };
     }
   }
 

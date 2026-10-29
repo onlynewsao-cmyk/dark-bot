@@ -135,21 +135,22 @@ function providerStatus() {
 // ─────────────────────────────────────────────
 // CACHE DE RESPOSTAS DA IA (v9.20)
 // ─────────────────────────────────────────────
-// Perguntas repetidas (ex: "quem és tu?", "que dia é hoje?") não
-// precisam de gastar tokens nem esperar pela rede. Cache LRU com
-// TTL de 10 min e máx 200 entradas.
+// Cache LRU com TTL de 10 min e máx. 200 entradas. A chave inclui o
+// contexto completo relevante (histórico, sistema e âmbito) para nunca
+// reutilizar num PV uma resposta contextual de outro chat/grupo.
 const _aiCache = new Map(); // hash → { response, ts }
 const AI_CACHE_TTL = 10 * 60 * 1000;
 const AI_CACHE_MAX = 200;
 
-function _hashPrompt(prompt, system) {
+function _hashPrompt(prompt, system, cacheContext = '') {
   const crypto = require('crypto');
-  const h = crypto.createHash('md5').update(String(prompt).slice(0, 500) + '|' + String(system).slice(0, 200)).digest('hex');
-  return h;
+  const h = crypto.createHash('sha256');
+  h.update(JSON.stringify([String(prompt || ''), String(system || ''), cacheContext]));
+  return h.digest('hex');
 }
 
-function aiCacheGet(prompt, system) {
-  const h = _hashPrompt(prompt, system);
+function aiCacheGet(prompt, system, cacheContext = '') {
+  const h = _hashPrompt(prompt, system, cacheContext);
   const entry = _aiCache.get(h);
   if (!entry) return null;
   if (Date.now() - entry.ts > AI_CACHE_TTL) { _aiCache.delete(h); return null; }
@@ -159,9 +160,9 @@ function aiCacheGet(prompt, system) {
   return entry.response;
 }
 
-function aiCacheSet(prompt, system, response) {
+function aiCacheSet(prompt, system, response, cacheContext = '') {
   if (!response || response.startsWith('❌')) return; // não cachear erros
-  const h = _hashPrompt(prompt, system);
+  const h = _hashPrompt(prompt, system, cacheContext);
   _aiCache.set(h, { response, ts: Date.now() });
   // Evict LRU se ultrapassar o máximo
   while (_aiCache.size > AI_CACHE_MAX) {
@@ -615,7 +616,21 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
   // (melhora hit rate: "Oi" = "oi" = "OI" → mesma resposta)
   const simpleMode = prompt.length < 80 && !needsWeb(prompt);
   const cacheKey = simpleMode ? prompt.toLowerCase().trim() : prompt;
-  const cached = aiCacheGet(cacheKey, system);
+  const cacheContext = {
+    scope: String(memoryOpts.cacheScope || ''),
+    userRole,
+    userTone,
+    userProfile: userProfile ? {
+      name: String(userProfile.name || ''),
+      gender: String(userProfile.gender || ''),
+      interests: Array.isArray(userProfile.interests) ? userProfile.interests.map(String) : [],
+      notes: String(userProfile.notes || ''),
+    } : null,
+    groupContext: String(groupContext || ''),
+    allowWeb: !!allowWeb,
+    history: Array.isArray(history) ? history.slice(-16).map(h => [h?.role || '', String(h?.content || '').slice(0, 600)]) : [],
+  };
+  const cached = aiCacheGet(cacheKey, system, cacheContext);
   if (cached) return cached;
 
   // Orçamento total: limita a cadeia inteira, não apenas cada provider.
@@ -659,7 +674,7 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     try {
       const answer = await withTimeout(chamar({ signal: controller.signal }), timeoutMs, controller);
       providerReset(name);
-      aiCacheSet(cacheKey, system, answer);
+      aiCacheSet(cacheKey, system, answer, cacheContext);
       return answer;
     } catch (e) {
       providerFail(name, e);

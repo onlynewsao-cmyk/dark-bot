@@ -16,6 +16,11 @@
 
 const _hist = new Map();   // `${jid}:${num}` → { ts: number[], ultimas: string[] }
 const JANELA_MS = 2 * 60 * 1000;
+
+function _emojiReacao(texto, mood, jid) {
+  try { return require('./auraDecide').escolherReacao(texto, { mood, chatId: jid }); }
+  catch { return '👀'; }
+}
 const MAX_ENTRADAS = 2000;
 
 function _norm(s) {
@@ -71,7 +76,13 @@ function querResponder({ jid, num, texto = '', isOwner = false, isGroup = false,
   // Dark em PV com pergunta → responde sempre; noutros casos só saturação extrema
   if (isOwner) {
     if (!isGroup && perguntaDirecta) return { responde: true, motivo: 'Dark perguntou' };
-    if (sat >= 0.9 && Math.random() < 0.5) return { responde: false, motivo: 'até com o Dark, respira', reagir: '😮‍💨' };
+    if (sat >= 0.9 && Math.random() < 0.5) {
+      return {
+        responde: false,
+        motivo: 'até com o Dark, respira',
+        reagir: _emojiReacao('não aguento mais, preciso respirar', mood, jid),
+      };
+    }
     return { responde: true, motivo: 'Dark' };
   }
 
@@ -88,7 +99,11 @@ function querResponder({ jid, num, texto = '', isOwner = false, isGroup = false,
   pIgnorar = Math.max(0, Math.min(0.9, pIgnorar));
 
   if (Math.random() < pIgnorar) {
-    const reagir = sat >= 0.5 ? '🙄' : mood === 'com_raiva' ? '😒' : mood === 'sonolenta' ? '😴' : '👀';
+    const sinal = sat >= 0.5 ? 'não aguento mais, que seca' :
+      mood === 'com_raiva' ? 'irritada, com raiva' :
+      mood === 'sonolenta' ? 'estou com sono' :
+      (texto || 'olha isto');
+    const reagir = _emojiReacao(sinal, mood, jid);
     return { responde: false, motivo: sat >= 0.5 ? 'farta desta pessoa' : `humor ${mood}`, reagir: Math.random() < 0.5 ? reagir : '' };
   }
   return { responde: true, motivo: 'quis' };

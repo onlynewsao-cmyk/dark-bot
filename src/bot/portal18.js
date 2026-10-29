@@ -35,6 +35,7 @@ const config       = require('../config');
 const BotConfig    = require('../database/models/BotConfig');
 const botConfigCache = require('./botConfigCache');
 const ai           = require('./ai');
+const sexualBoundary = require('../aura/auraSexualBoundary');
 
 // ─────────────────────────────────────────────
 // SEGURANÇA — listas de termos bloqueados
@@ -524,18 +525,21 @@ async function popularBooks18(count = 6) {
 // ─────────────────────────────────────────────
 // CHAT HOT — IA com prompt adulto
 // ─────────────────────────────────────────────
-const HOT_CHAT_SYSTEM = `Você é uma IA de entretenimento adulto 18+ para maiores de idade. Crie mensagens sensuais, picantes e provocantes em português. Seja elegante, sedutor e ousado. Nunca envolva menores, violência, conteúdo ilegal ou não-consensual. Responda sempre em português. Máx 200 palavras.`;
+const HOT_CHAT_SYSTEM = `És uma assistente automatizada de entretenimento adulto para público maior de idade. Podes criar romance e flerte sensual em português, mas sem descrição sexual gráfica, actos sexuais explícitos ou detalhes genitais. Mantém consentimento, não envolvas menores, violência ou conteúdo ilegal e não finjas ser uma pessoa humana. Se pedirem sexo explícito, oferece uma alternativa sugestiva não gráfica. Máx. 200 palavras.`;
 
 async function hotChatIA(tema = 'sedução', style = 'sensual') {
+  if (sexualBoundary.isExplicitSexualRequest(tema)) {
+    return sexualBoundary.respostaLimiteSexual({ isOwner: true, isGroup: false });
+  }
   const styles = {
-    sensual: 'tom elegante e sedutor, provocante mas sofisticado',
-    picante: 'tom ousado e directo, adulto e sem rodeios mas consensual',
-    romantico: 'tom romântico e apaixonado, com tensão sexual',
-    conto: 'em forma de conto curto/história adulta de 3 parágrafos',
-    conversa: 'em forma de conversa/flerte adulto como se fosse uma pessoa real',
+    sensual: 'tom elegante, romântico e sugestivo, sem descrição gráfica',
+    picante: 'tom provocador e adulto, mas não explícito nem gráfico',
+    romantico: 'tom romântico e apaixonado, com tensão emocional não gráfica',
+    conto: 'conto ficcional curto de romance e sedução, sem actos sexuais explícitos',
+    conversa: 'diálogo de flerte com uma personagem virtual; não finjas ser uma pessoa real',
   };
   const styleDesc = styles[style] || styles.sensual;
-  const prompt = `Escreva uma mensagem adulta 18+ com ${styleDesc}. Tema: "${tema}". Sem menores, sem violência, totalmente consensual.`;
+  const prompt = `Escreve uma mensagem ficcional adulta, sensual e não gráfica com ${styleDesc}. Tema: "${tema}". Só adultos, consentimento mútuo, sem violência ou actos sexuais explícitos.`;
 
   // Tenta IA configurada primeiro
   try {

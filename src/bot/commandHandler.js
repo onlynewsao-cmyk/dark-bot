@@ -27,9 +27,20 @@ const CommandOverride = require('../database/models/CommandOverride');
 const userManager = require('./userManager');
 const path = require('path');
 const caseHandler = require('./caseHandler');
+const auraCompreensao = require('../aura/auraCompreensao');
 
 // Inicializa os cases ao arrancar
 caseHandler.init();
+
+// Todas as reacções conversacionais passam pelo selector semântico da AURA;
+// o humor é específico deste chat e continua a ser apenas estilo de persona.
+function chooseAuraReaction(text, ctx = {}) {
+  const chatId = String(ctx?.remoteJid || '');
+  let mood = 'normal';
+  try { mood = require('../aura/auraHuman').getMood(chatId).mood || 'normal'; } catch {}
+  try { return require('../aura/auraDecide').escolherReacao(text, { mood, chatId }); }
+  catch { return '👀'; }
+}
 
 /**
  * WhatsApp real envolve o conteúdo em ephemeral / viewOnce / edited.
@@ -375,37 +386,55 @@ function getSenderInfo(msg) {
 
 
 function getMessageContextInfo(msg) {
-  const m = unwrapWhatsAppMessage(msg?.message || {});
-  return m.extendedTextMessage?.contextInfo ||
-    m.imageMessage?.contextInfo ||
-    m.videoMessage?.contextInfo ||
-    m.stickerMessage?.contextInfo ||
-    m.audioMessage?.contextInfo ||
-    m.buttonsResponseMessage?.contextInfo ||
-    m.interactiveResponseMessage?.contextInfo ||
-    {};
+  return auraCompreensao.contextInfo(msg);
+}
+
+function getCachedQuotedMessage(msg, ctxInfo = getMessageContextInfo(msg)) {
+  if (!ctxInfo?.stanzaId) return null;
+  try {
+    const cached = require('./messageListener').messageCache.get(String(ctxInfo.stanzaId));
+    if (!cached) return null;
+    if (ctxInfo.remoteJid && cached.key?.remoteJid && ctxInfo.remoteJid !== cached.key.remoteJid) return null;
+    const quoteAuthors = [ctxInfo.participant, ctxInfo.quotedParticipant, ctxInfo.participantAlt, ctxInfo.participantPn].filter(Boolean);
+    const cachedAuthor = cached.key?.participant || cached.key?.participantAlt || cached.key?.participantPn || '';
+    if (quoteAuthors.length && cachedAuthor) {
+      let resolver = {};
+      try { const id = require('../aura/auraIdentidade'); resolver = { pnDoLid: id.pnDoLid, lidDoPn: id.lidDoPn }; } catch {}
+      if (!quoteAuthors.some(author => auraCompreensao.sameWhatsAppIdentity(author, cachedAuthor, resolver))) return null;
+    }
+    if (ctxInfo.fromMe === true && !cached.key?.fromMe) return null;
+    return cached;
+  } catch { return null; }
 }
 
 function getQuotedMessage(msg) {
-  return getMessageContextInfo(msg).quotedMessage || null;
+  const ctxInfo = getMessageContextInfo(msg);
+  if (ctxInfo.quotedMessage) return ctxInfo.quotedMessage;
+  const cached = getCachedQuotedMessage(msg, ctxInfo);
+  return cached?.message ? auraCompreensao.unwrapMessage(cached.message) : null;
 }
 
 function getDocumentFromMessageObject(messageObj) {
-  return messageObj?.documentMessage || messageObj?.documentWithCaptionMessage?.message?.documentMessage || null;
+  const m = auraCompreensao.unwrapMessage(messageObj || {});
+  return m?.documentMessage || m?.documentWithCaptionMessage?.message?.documentMessage || null;
 }
 
 function buildQuotedDownloadMessage(msg) {
   const ctxInfo = getMessageContextInfo(msg);
-  const quotedMessage = ctxInfo.quotedMessage;
+  const cached = getCachedQuotedMessage(msg, ctxInfo);
+  const quotedMessage = ctxInfo.quotedMessage || cached?.message;
   if (!quotedMessage) return null;
   return {
     key: {
-      remoteJid: msg.key.remoteJid,
-      id: ctxInfo.stanzaId || msg.key.id,
-      participant: ctxInfo.participant || msg.key.participant,
-      fromMe: false,
+      // Numa resposta privada a uma mensagem de grupo, usa a conversa de
+      // origem/quote do cache, nunca o PV actual por defeito.
+      remoteJid: ctxInfo.remoteJid || cached?.key?.remoteJid || msg?.key?.remoteJid,
+      id: ctxInfo.stanzaId || cached?.key?.id || msg?.key?.id,
+      ...(ctxInfo.participant || ctxInfo.quotedParticipant || cached?.key?.participant ? { participant: ctxInfo.participant || ctxInfo.quotedParticipant || cached?.key?.participant } : {}),
+      ...(ctxInfo.participantAlt || ctxInfo.participantPn || cached?.key?.participantAlt || cached?.key?.participantPn ? { participantAlt: ctxInfo.participantAlt || ctxInfo.participantPn || cached?.key?.participantAlt || cached?.key?.participantPn } : {}),
+      fromMe: ctxInfo.fromMe === true || !!cached?.key?.fromMe,
     },
-    message: quotedMessage,
+    message: auraCompreensao.unwrapMessage(quotedMessage),
   };
 }
 
@@ -977,52 +1006,74 @@ async function _handleInner(sock, msg) {
   // converte sem ninguém escrever comando; «manda em texto» desliga a
   // voz neste chat até alguém pedir voz de novo).
   const _perc = (() => { try { return require('../aura/auraPercepcao'); } catch { return null; } })();
-  const _auraSuperIntent = (() => { try { return require('../aura/auraSuperIntent'); } catch { 
-    // fallback simple detector for persona imagery and conversation history
-    return {
-      analyzeIntent: (t, ctx) => {
-        const lower = String(t||'').toLowerCase();
-        const mentionsAura = /\baura\b/i.test(lower);
-        const hasFotoWord = /\b(foto|selfie|fotinha|imagem)\b/i.test(lower);
-        const hasFotoContext = /\b(tua|sua|dela|aura|vc|voce|tu|minha|manda|mostra|quero|foto|selfie)\b/i.test(lower);
-        const isPhoto = hasFotoWord && (hasFotoContext || mentionsAura);
-        const isDirect = mentionsAura || /\b(tua|teu|sua|voce|vc|tu|foto.*tua|tua.*foto)\b/i.test(lower) || ctx.isPrivate || ctx.isOwner || ctx.isReplyToAura || ctx.isBotMentioned;
-        const typeMatch = lower.match(/\b(cosplay|goth|fofa|cute|linda|stream|live)\b/);
-        let pType = 'selfie';
-        if (typeMatch) {
-          const m = typeMatch[1];
-          if (/cosplay/.test(m)) pType = 'cosplay';
-          else if (/goth/.test(m)) pType = 'goth';
-          else if (/cute|fofa|linda/.test(m)) pType = 'cute';
-          else if (/stream|live/.test(m)) pType = 'stream';
-        }
-        // v12.3: ver conversa / mensagens antigas
-        const isConversa = /\b(ver|mostra|mostrar|puxa|recupera|ve)\b.{0,16}\b(conversa|chat|historico|mensagens)\b|\b(o que|oq)\b.{0,12}\b(conversei|conversamos)\b|\b(mensagens?\s+antigas?)\b/i.test(lower);
-        let intent = 'GENERAL_CHAT';
-        let conf = 30;
-        let summary = 'chat';
-        if (isPhoto) {
-          intent = 'PHOTO_REQUEST';
-          conf = isDirect ? 85 : 60;
-          summary = `AURA virtual illustration request: ${pType}`;
-        } else if (isConversa) {
-          intent = 'VER_CONVERSA';
-          conf = isDirect ? 90 : 70;
-          summary = 'ver conversa historico real';
-        }
-        return {
-          intent,
-          intentConfidence: conf,
-          isDirectToAura: isDirect,
-          directScore: isDirect ? (isPhoto || isConversa ? 90 : 60) : 10,
-          isConversationBetweenOthers: !isDirect && ctx.isGroup,
-          summary,
-          type: pType,
-          isConversa,
-        };
-      }
-    };
-  } })();
+  // Router de intenção usa contexto/destinatário já analisados. Não permite
+  // que uma mera ocorrência de "Aura" ou "foto" transforme conversa alheia
+  // num pedido de selfie.
+  const _auraSuperIntent = (() => {
+    try {
+      const intent = require('../aura/auraIntent');
+      return {
+        analyzeIntent: (t, input = {}) => {
+          const isGroup = !!input.isGroup;
+          const isPrivate = !!input.isPrivate;
+          const destination = ctx.dest || {};
+          const explicitlyAddressed = !!(input.isBotMentioned || input.isReplyToAura || destination.vocativo || (isGroup && destination.directToAura));
+          const direct = isGroup ? explicitlyAddressed : (isPrivate || !!destination.directToAura);
+          const recentTexts = (ctx.recentMessages || []).map(m => m.texto || '').filter(Boolean);
+          const quotedText = ctx.messageInfo?.citado?.texto || ctx.messageInfo?.citado?.caption || '';
+          const result = intent.analyzeIntent(t, {
+            isGroup,
+            isPrivateChat: isPrivate,
+            isReplyToAura: !!input.isReplyToAura,
+            isOwner: !!input.isOwner,
+            pushName: input.pushName || '',
+            recentTexts,
+            mentionedAuraInGroup: !!(input.isBotMentioned || input.isAuraTrigger),
+            mentionedJids: input.mentionedJids || [],
+            quotedParticipant: input.quotedParticipant || '',
+            quotedText,
+            botNum: input.botNum || '',
+            botLid: input.botLid || '',
+            botNames: [config.bot?.name || 'DARK BOT'],
+            destination,
+          });
+          let intentName = result.intent;
+          let confidence = result.intentConfidence;
+          let details = result.intentDetails || {};
+          const image = ctx.imageIntent;
+          if (image?.requested && direct) {
+            if (image.target === 'persona') {
+              intentName = 'PHOTO_REQUEST'; confidence = 95;
+              details = { ...details, photoTarget: 'persona', photoType: details.photoType || 'selfie' };
+            } else if (image.target === 'content') {
+              intentName = 'IMAGE_SEARCH_REQUEST'; confidence = 95;
+              details = { photoTarget: 'content', query: image.query || '', searchQuery: image.searchQuery || '', gameRef: !!image.gameRef };
+            } else {
+              intentName = 'CLARIFY_IMAGE_REQUEST'; confidence = 80;
+              details = { photoTarget: 'ambiguous' };
+            }
+          }
+          const lower = String(t || '').toLowerCase();
+          const isConversa = /\b(ver|mostra|mostrar|puxa|recupera|ve)\b.{0,16}\b(conversa|chat|historico|mensagens)\b|\b(o que|oq)\b.{0,12}\b(conversei|conversamos)\b|\b(mensagens?\s+antigas?)\b/i.test(lower);
+          if (isConversa && intentName === 'GENERAL_CHAT') { intentName = 'VER_CONVERSA'; confidence = direct ? 90 : 70; }
+          const directScore = direct ? Math.max(75, result.directScore || 0) : (destination.sobreMim ? 20 : Math.min(result.directScore || 0, 29));
+          return {
+            ...result,
+            intent: intentName,
+            intentConfidence: confidence,
+            intentDetails: details,
+            isDirectToAura: direct,
+            directScore,
+            isConversationBetweenOthers: isGroup && !direct,
+            shouldRespond: !isGroup || direct,
+            summary: `${direct ? 'DIRETO' : 'NÃO-DIRETO'} (${directScore}%) | ${intentName} (${confidence}%)`,
+            type: details.photoType || 'selfie',
+            isConversa,
+          };
+        },
+      };
+    } catch { return null; }
+  })();
   let _pkAura = '';
   try {
     if (_perc) {
@@ -1541,9 +1592,88 @@ async function _handleInner(sock, msg) {
     console.warn('[Call conversa]', e.message?.slice(0, 60));
   }
 
-  // Silêncio ativo → só o Dark pode cancelar
+  // Ordens de controlo da AURA serão tratadas após resolver destinatário e citação.
+  const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
+  const botLid = sock.user?.lid || '';
+  const botNum = botJid.split('@')[0];
+  const _identMod = require('../aura/auraIdentidade');
+  const _identityResolver = { pnDoLid: _identMod.pnDoLid, lidDoPn: _identMod.lidDoPn };
+
+  let _msgFacts = auraCompreensao.inspecionarMensagem(msg);
+  // Se o quote está no cache, recupera nome/caption/tipo e confirma a origem
+  // sem substituir o autor citado pelo remetente da resposta.
+  try {
+    if (_msgFacts.citado?.stanzaId) {
+      const { messageCache } = require('./messageListener');
+      _msgFacts = auraCompreensao.enrichQuotedMessage(_msgFacts, messageCache.get(_msgFacts.citado.stanzaId));
+    }
+  } catch {}
+  ctx.messageInfo = _msgFacts;
+
+  const allMentioned = _msgFacts.mentionedJids || [];
+  const botIds = [botJid, botNum, botLid].filter(Boolean);
+  const isBotMentioned = allMentioned.some(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver));
+  const _quotedParticipants = [_msgFacts.citado?.authorJid, _msgFacts.citado?.authorAltJid, _msgFacts.quotedParticipant].filter(Boolean);
+  const ctxParticipant = _quotedParticipants.find(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver)) || _quotedParticipants[0] || '';
+  const isReplyToBot = !!_msgFacts.citado?.fromMe || _quotedParticipants.some(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver)) ||
+    (!!_msgFacts.contextInfo?.remoteJid && auraCompreensao.sameWhatsAppIdentity(_msgFacts.contextInfo.remoteJid, botIds, _identityResolver));
+  ctx.isReplyToAura = isReplyToBot;
+  ctx.isBotMentioned = isBotMentioned;
+
+  // Destinatário determinístico: citação/menções são comparadas por PN/LID;
+  // o Dono, outro participante e a AURA não são o mesmo alvo.
+  const _knownNames = [config.owner?.name || ''];
+  if (ctx.isGroup) {
+    const _currentSenderIds = [ctx.senderJid, ctx.senderNumber, ctx.senderLid ? `${ctx.senderLid}@lid` : ''].filter(Boolean);
+    try {
+      const { messageCache } = require('./messageListener');
+      for (const cached of messageCache.values()) {
+        if (cached?.key?.remoteJid !== ctx.remoteJid || !cached.pushName || cached.key?.fromMe) continue;
+        const author = cached.key?.participant || '';
+        if (_currentSenderIds.length && author && auraCompreensao.sameWhatsAppIdentity(author, _currentSenderIds, _identityResolver)) continue;
+        _knownNames.push(cached.pushName);
+      }
+    } catch {}
+    try {
+      const ownKey = ctx.senderNumber || (ctx.senderLid ? `lid:${ctx.senderLid}` : '');
+      for (const p of _identMod.pessoasDoChat(ctx.remoteJid, 30)) {
+        if (ownKey && [p.numero, p.lid ? `lid:${p.lid}` : ''].includes(ownKey)) continue;
+        _knownNames.push(...(p.nomes || []));
+      }
+    } catch {}
+  }
+  const _destOptions = {
+    isGroup: ctx.isGroup,
+    isPrivate: !ctx.isGroup,
+    messageInfo: _msgFacts,
+    botNum, botJid, botLid,
+    botName: config.bot?.name || 'DARK BOT',
+    ownerName: config.owner?.name || 'Dark',
+    ownerNumber: config.owner?.number || ownerNumDB || '',
+    ownerNumbers,
+    ownerLid,
+    knownOtherNames: [...new Set(_knownNames)],
+    identidadeResolver: _identityResolver,
+  };
+  ctx.dest = auraCompreensao.analisarDestinatario(text, _destOptions);
+  ctx.citado = _identMod.autorCitado(msg) || ctx.citado || null;
+  if (ctx.citado && _msgFacts.citado) {
+    ctx.citado = { ...ctx.citado, authorName: _msgFacts.citado.authorName || ctx.citado.authorName, remoteJid: _msgFacts.citado.sourceRemoteJid || ctx.citado.remoteJid, tipo: _msgFacts.citado.tipo, media: _msgFacts.citado.media, caption: _msgFacts.citado.caption, links: _msgFacts.citado.links, encaminhamento: _msgFacts.citado.encaminhamento };
+  }
+
+  // Ordens de controlo da AURA: destinatário, menções e citação já estão
+  // resolvidos. Não basta encontrar "silêncio", "voz" ou "revoltada" no texto.
+  const _auraIntentPolicy = require('../aura/auraGrupo');
+  const _auraIntentUniversal = require('../aura/auraUniversal');
+  const _auraDirectedNow = !ctx.isGroup || _auraIntentPolicy.isDirectedToAura({
+    isGroup: true, isBotMentioned, isReplyToAura: isReplyToBot, dest: ctx.dest,
+  });
+
+  // Silêncio activo: só uma ordem clara e dirigida do Dono o cancela.
   if (aura.isSilenced(ctx.senderNumber)) {
-    if (isOwner && /aura/i.test(text)) {
+    const clearSilence = isOwner && _auraDirectedNow &&
+      _auraIntentUniversal.isExplicitAuraControlCommand(text, 'resumeSilence');
+    if (clearSilence) {
       aura.clearSilence(ctx.senderNumber);
       await sock.sendMessage(ctx.remoteJid, { text: 'Silêncio cancelado. A AURA volta a responder neste chat.' }, { quoted: msg });
       return true;
@@ -1551,139 +1681,127 @@ async function _handleInner(sock, msg) {
     return false;
   }
 
-  // v6.72: NÃO bloquear "!" de não-dono. O prefixo por omissão É "!"
-  // e esta linha calava TODOS os comandos do bot no PV (e nos grupos)
-  // para qualquer pessoa que não fosse o Dono.
-
-  // === ORDENS DIRETAS DO DARK PARA A AURA (silêncio, áudio, etc) ===
-  if (isOwner) {
-    const t = text.toLowerCase();
-    if (/aura.*(faz|fica|para).*silenc(io|io)/.test(t) || /fica.*calada/.test(t)) {
+  if (isOwner && _auraDirectedNow) {
+    const t = String(text || '').toLowerCase();
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'silence')) {
       const sec = (t.match(/(\d+)\s*(min|seg)/) || [0, 60])[1] * (t.includes('seg') ? 1 : 60);
       aura.setSilence(ctx.senderNumber, sec || 60);
       await sock.sendMessage(ctx.remoteJid, { text: 'Entendido. A AURA ficará em silêncio durante o período configurado.' }, { quoted: msg });
       return true;
     }
-    // v6.46: este bloco tratava "aura acorda" como "sai do silêncio",
-    // e como corre ANTES do auraIntent (~linha 1000) roubava-lhe a
-    // invocação — o grupo nunca mudava para modo AURA.
-    // Agora só limpa o silêncio se ela estiver MESMO silenciada;
-    // caso contrário deixa passar para o sistema de intenção.
-    if (/aura.*(pode falar|volta|acorda)/.test(t) && aura.isSilenced(ctx.senderNumber)) {
-      aura.clearSilence();
-      await sock.sendMessage(ctx.remoteJid, { text: 'Silêncio cancelado. A AURA volta a responder neste chat.' }, { quoted: msg });
-      return true;
-    }
-    // v7.63: humor revoltada — "aura fica revoltada" / "aura acalma-te"
-    if (/aura.*(fica|fique|entra em).{0,12}revoltad/.test(t)) {
-      aura.setMood('revoltada', 'ordem do Dark', ctx.remoteJid);
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'moodAngry')) {
+      aura.setMood('revoltada', 'ordem do Dono', ctx.remoteJid);
       await sock.sendMessage(ctx.remoteJid, { text: 'Tom de personagem alterado para mais irónico e firme.' }, { quoted: msg });
       return true;
     }
-    if (/aura.*(acalma|sossega|volta ao normal|bom humor)/.test(t) && /revoltad|raiva|mau humor/.test(t + ' ' + (aura.getMood(ctx.remoteJid).mood || ''))) {
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'moodCalm') &&
+        /revoltad|raiva|mau humor/.test(t + ' ' + (aura.getMood(ctx.remoteJid).mood || ''))) {
       aura.clearMood(ctx.remoteJid);
       await sock.sendMessage(ctx.remoteJid, { text: 'Tom de personagem restaurado para o modo normal.' }, { quoted: msg });
       return true;
     }
-    // ── v6.67: BUG DO ECO ────────────────────────────────────
-    // A regex era:  /aura.*(manda|envia).*áudio|voz|fala/
-    // O `|` tem precedência mínima, por isso isto lia-se como
-    //   (aura.*(manda|envia).*áudio) OU (voz) OU (fala)
-    // Bastava a palavra "fala" ou "voz" EM QUALQUER SÍTIO para cair
-    // aqui. "fala oi" entrava, e o replace a seguir não removia nada
-    // (exigia "aura" antes), por isso o textoFala ficava "fala oi" —
-    // ela LIA EM VOZ ALTA O QUE O DONO ESCREVEU. Era isto o eco.
-    //
-    // Agora: só é ordem de voz se houver um verbo de pedido E a
-    // palavra audio/voz. "fala oi" passa para a IA responder como
-    // pessoa, que é o que se espera.
-    const _tv = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    const _ordemVoz =
-      /\b(audio|voz|ptt|nota de voz|mensagem de voz)\b/.test(_tv) &&
-      /\b(manda|mande|envia|envie|grava|grave|quero|faz|faca|poe|responde|diz|fala)\b/.test(_tv);
 
+    // Só converte um pedido de voz explícito, dirigido e iniciado por verbo.
+    const _ordemVoz = _auraIntentUniversal.isExplicitAuraControlCommand(text, 'voice');
     if (_ordemVoz) {
       try {
-        // v6.67: o que ela deve DIZER é só o que vem depois de
-        // "dizendo/que/:" — não a frase toda do pedido.
         const mConteudo = text.match(/\b(?:dizendo|a dizer|que diga|diga|dizer|falando|assim|isto|isso)\b[:,]?\s+([\s\S]{2,300})$/i)
           || text.match(/[:"“]\s*([^"”\n]{2,300})["”]?\s*$/);
-
         const textoFala = (mConteudo?.[1] || '').trim();
-
         if (textoFala) {
-          // Pedido explícito com conteúdo: lê ESSE conteúdo.
           const buf = await require('./ai').speakWithFallback(textoFala);
           if (buf && buf.length > 500) {
             await sock.sendMessage(ctx.remoteJid, { audio: buf, mimetype: 'audio/ogg; codecs=opus', ptt: true }, { quoted: msg });
             return true;
           }
         }
-        // Sem conteúdo ("manda um áudio") → deixa a IA pensar numa
-        // resposta dela; o bloco de voz lá em baixo converte-a.
-        // NÃO devolve aqui: era isso que causava o eco.
       } catch (e) {
         console.warn('[Aura voz-directa]', e.message?.slice(0, 60));
       }
     }
-    // AURA canta
-    if (/\baura\b.*\b(canta|cantar|cante|sing)\b/i.test(t) && isOwner) {
-        const temaMusica = text.replace(/aura.*canta/i, '').trim();
-        const respostaCanto = temaMusica
-          ? 'Posso escrever uma rima curta sobre esse tema, mas não produzo canto melódico em áudio.'
-          : 'Não produzo canto melódico em áudio, mas posso escrever uma rima ou ajudar a encontrar uma música.';
-        await sock.sendMessage(ctx.remoteJid, { text: respostaCanto }, { quoted: msg });
+
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'sing')) {
+      const temaMusica = text.replace(/^\s*(?:aura[,\s]*)?(?:canta|cantar|cante|sing)\b/i, '').trim();
+      const respostaCanto = temaMusica
+        ? 'Posso escrever uma rima curta sobre esse tema, mas não produzo canto melódico em áudio.'
+        : 'Não produzo canto melódico em áudio, mas posso escrever uma rima ou ajudar a encontrar uma música.';
+      await sock.sendMessage(ctx.remoteJid, { text: respostaCanto }, { quoted: msg });
       return true;
     }
-    // AURA sussurra
-    if (/\baura\b.*\b(sussurra|sussurrar|whisper)\b/i.test(t) && isOwner) {
-      const sussurro = text.replace(/aura.*(sussurra|whisper)/i, '').trim();
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'whisper')) {
+      const sussurro = text.replace(/^\s*(?:aura[,\s]*)?(?:sussurra|sussurrar|whisper)\b/i, '').trim();
       await sock.sendMessage(ctx.remoteJid, {
         text: sussurro ? `🤫 AURA, por texto: ${sussurro}` : 'Não consigo sussurrar em áudio neste momento, mas posso responder por texto.',
       }, { quoted: msg });
       return true;
     }
-    // AURA ri
-    // ── v6.69: BUG QUE MATAVA AS ORDENS ──────────────────────
-    // A regex era /aura.*(ri|laugh|😂)/ — sem \b. O "ri" apanhava
-    // qualquer palavra que o contivesse:
-    //   "aura CRIa um grupo..."  → RI     ← foi isto que o Dono viu
-    //   "aura escREVe"           → passava por sorte
-    // Por isso "aura cria um grupo na comunidade DARK RPG chamado
-    // Arena" respondia "_ri muito_ 🤣🤣🤣" e a acção nunca corria.
-    // Agora exige a palavra inteira E que seja o pedido principal.
-    if (/\baura\b[\s,]*(por favor\s*)?\b(ri|rir|risada|gargalha|gargalhada|laugh)\b\s*$/i.test(t) && isOwner) {
+    if (_auraIntentUniversal.isExplicitAuraControlCommand(text, 'laugh')) {
       const ri = ['_ri_ 😂', '_ri muito_ 🤣🤣🤣', '_gargalha_ 😂😂😂'];
       await sock.sendMessage(ctx.remoteJid, { text: ri[Math.floor(Math.random() * ri.length)] }, { quoted: msg });
       return true;
     }
   }
-  const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : '';
-  const botLid = sock.user?.lid || '';
-  const botNum = botJid.split('@')[0];
 
-  const allMentioned = (
-    msg.message?.extendedTextMessage?.contextInfo?.mentionedJid ||
-    msg.message?.interactiveResponseMessage?.contextInfo?.mentionedJid || []
-  );
+  // Um PTT enviado no PV é dirigido ao bot; em grupo, só o transcrevemos
+  // quando a mensagem @menciona ou responde à AURA. Assim a voz participa
+  // na detecção de intenção sem transformar áudios entre membros em ordens.
+  let _voiceTranscript = '';
+  const _audioEarly = msg.message?.audioMessage || (msg.message?.documentMessage && /^audio\//i.test(msg.message.documentMessage.mimetype || '') ? msg.message.documentMessage : null);
+  let _audioConversationActive = false;
+  if (ctx.isGroup && !isBotMentioned && !isReplyToBot) {
+    try { _audioConversationActive = require('../aura/auraTalk').estaAFalar(ctx.remoteJid, ctx.senderNumber); } catch {}
+  }
+  if (!msg.key?.fromMe && _audioEarly && (!ctx.isGroup || isBotMentioned || isReplyToBot || _audioConversationActive)) {
+    try {
+      const { downloadMediaMessage } = require('@systemzero/baileys');
+      const _audioBuf = await downloadMediaMessage(msg, 'buffer', {});
+      if (_audioBuf && _audioBuf.length > 500) {
+        _voiceTranscript = String(await ai.transcribeAudio(_audioBuf, 'pt') || '').trim();
+        if (_voiceTranscript) {
+          const _textBeforeTranscript = text;
+          ctx.audioTranscription = _voiceTranscript;
+          ctx.transcribedOnly = !_textBeforeTranscript;
+          text = _textBeforeTranscript ? `${_textBeforeTranscript} ${_voiceTranscript}` : _voiceTranscript;
+          ctx.messageInfo = { ..._msgFacts, transcription: _voiceTranscript };
+          if (!_textBeforeTranscript && ctx.identidade) {
+            try { _identMod.registar(ctx.remoteJid, ctx.identidade, _voiceTranscript, { respondeuANumero: ctx.citado?.numero || null, ts: Date.now() }); } catch {}
+          }
+          ctx.dest = auraCompreensao.analisarDestinatario(text, { ..._destOptions, messageInfo: ctx.messageInfo });
+        }
+      }
+    } catch (e) { console.warn('[Aura audio early]', String(e.message || e).slice(0, 60)); }
+  }
 
-  const isBotMentioned = !!(botJid && (
-    allMentioned.some(j => j.split(':')[0].split('@')[0] === botNum) ||
-    (botLid && allMentioned.some(j => j.split(':')[0].split('@')[0] === botLid.split(':')[0].split('@')[0]))
-  ));
-
-  // ── Resposta directa ao bot — activa SEMPRE
-  const ctxParticipant =
-    msg.message?.extendedTextMessage?.contextInfo?.participant ||
-    msg.message?.imageMessage?.contextInfo?.participant ||
-    msg.message?.videoMessage?.contextInfo?.participant ||
-    msg.message?.stickerMessage?.contextInfo?.participant ||
-    msg.message?.audioMessage?.contextInfo?.participant ||
-    msg.message?.buttonsResponseMessage?.contextInfo?.participant ||
-    msg.message?.interactiveResponseMessage?.contextInfo?.participant || '';
-
-  const isReplyToBot = ctxParticipant.split(':')[0].split('@')[0] === botNum ||
-    (msg.message?.extendedTextMessage?.contextInfo?.remoteJid === botJid);
+  let _recentMessages = [];
+  try {
+    const { messageCache } = require('./messageListener');
+    _recentMessages = auraCompreensao.mensagensDaConversa(messageCache, ctx.remoteJid, {
+      limit: 16, excludeId: msg?.key?.id || '',
+    });
+  } catch {}
+  const _recentTexts = _recentMessages.map(m => m.texto).filter(Boolean);
+  ctx.recentMessages = _recentMessages;
+  ctx.recentContext = auraCompreensao.formatRecentMessages(_recentMessages, { botJids });
+  ctx.messageInfo = { ..._msgFacts, transcription: _voiceTranscript || '' };
+  const _quotedImageContext = _msgFacts.citado?.texto || _msgFacts.citado?.caption || '';
+  const _imageIntentFromCache = auraCompreensao.interpretarPedidoImagem({
+    texto: text, quotedText: _quotedImageContext, recentMessages: _recentMessages,
+    isDirectToAura: !!ctx.dest?.directToAura,
+  });
+  let _imageHistory = [];
+  if (_imageIntentFromCache?.requested && (!ctx.isGroup || ctx.dest?.directToAura) &&
+      /\b(jogo|game|jogando|jogar|partida)\b/i.test(text) &&
+      (!_imageIntentFromCache.query || _imageIntentFromCache.target === 'ambiguous')) {
+    try {
+      const memImage = await AiMemory.getOrCreate(ctx.senderNumber, ctx.isGroup ? ctx.remoteJid : null);
+      _imageHistory = memImage?.getContextWindow?.(16) || [];
+    } catch {}
+  }
+  ctx.imageIntent = auraCompreensao.interpretarPedidoImagem({
+    texto: text, quotedText: _quotedImageContext, recentMessages: _recentMessages,
+    historyArray: _imageHistory,
+    isDirectToAura: !!ctx.dest?.directToAura,
+  });
 
   const textLower = text.toLowerCase().trim();
 
@@ -1710,16 +1828,33 @@ async function _handleInner(sock, msg) {
   // ════════════════════════════════════════════════════════════════════════
   if (ctx.isGroup && (isOwner || await isGroupAdminForHandler(sock, ctx))) {
     ctx.isAdmin = true;
+    const grupoPolicy = require('../aura/auraGrupo');
     const auraCmdText = text.toLowerCase().trim();
-    const auraClean = auraCmdText.replace(/^(aura|a aura|da aura|pra aura|com a aura)\s*/i, '').trim();
+    const actionDirectedToAura = grupoPolicy.isDirectedToAura({
+      isGroup: true,
+      isBotMentioned,
+      isReplyToAura: isReplyToBot,
+      dest: ctx.dest,
+    });
+    const auraCandidate = actionDirectedToAura
+      ? auraCmdText
+          .replace(/^(?:aura|a aura|da aura|pra aura|com a aura)[\s,:;]*\s*/i, '')
+          .replace(/^(?:por favor|please)[\s,:;]+/i, '')
+          .replace(/[.!?]+\s*$/, '')
+          .trim()
+      : '';
+    const auraClean = grupoPolicy.isClearActionText(auraCandidate) ? auraCandidate : '';
+    const directGroupAction = grupoPolicy.detectarAcaoDireta(auraClean);
 
     // Promote/demote REAL — antes das regex estreitas. "me adiciona
     // com ADM" / "quero ser ADM" / "agora adiciona" não pode virar conversa.
     if (auraClean.length > 2) {
       try {
-        const grupo = require('../aura/auraGrupo');
+        const grupo = grupoPolicy;
+        const actor = ctx.senderNumber || ctx.senderJid || ctx.senderLid || '';
         const pedidoG = grupo.detectarPedidoGrupo(auraClean, {
-          temPendente: !!grupo.verPendente(ctx.remoteJid),
+          pendente: grupo.verPendente(ctx.remoteJid, actor),
+          hasMention: allMentioned.length > 0,
         });
         if (pedidoG) {
           const rG = await grupo.executarPedido(sock, {
@@ -1741,15 +1876,13 @@ async function _handleInner(sock, msg) {
     if (auraClean.length > 2) {
       let auraAction = null;
       
-      if (/^(fecha|fechar|tranca|trancar|bloqueia|bloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
-          /aura.*fecha|aura.*fechar|aura.*tranca/i.test(auraCmdText)) {
+      if (directGroupAction === 'fechar_grupo') {
         auraAction = async () => {
           await sock.groupSettingUpdate(ctx.remoteJid, 'announcement');
           await sock.sendMessage(ctx.remoteJid, { text: '🔒 *Grupo fechado.* Só admins podem enviar agora.' }, { quoted: msg });
         };
       }
-      else if (/^(abre|abrir|destranca|destrancar|desbloqueia|desbloquear)\s*(o\s*)?(grupo|gp|chat)?$/i.test(auraClean) ||
-               /aura.*abre|aura.*abrir/i.test(auraCmdText)) {
+      else if (directGroupAction === 'abrir_grupo') {
         auraAction = async () => {
           await sock.groupSettingUpdate(ctx.remoteJid, 'not_announcement');
           await sock.sendMessage(ctx.remoteJid, { text: '🔓 *Grupo aberto.* Todos podem enviar mensagens.' }, { quoted: msg });
@@ -1846,9 +1979,7 @@ async function _handleInner(sock, msg) {
         }
       }
       // ── PUXAR NO OFF / PV ──
-      else if (/(puxa|chama|chama-me|manda|fala|vem|quero).*(off|pv|privado|chama.*pv|manda.*pv|fala.*pv|no pv|me pv)/i.test(auraClean) ||
-               /\bme\s+(chama|puxa|manda|fala)\b.*\b(pv|privado|off)\b/i.test(auraClean) ||
-               /(puxa|chama|chama-me|manda|fala).*(no|me).*(off|pv|privado)/i.test(auraCmdText)) {
+      else if (directGroupAction === 'chamar_pv') {
         auraAction = async () => {
           // No pedido do Dono, usa sempre OWNER_NUMBER (PN) e não o
           // participant @lid do grupo. Era possível a ação ser tratada
@@ -1996,21 +2127,8 @@ async function _handleInner(sock, msg) {
     }
   }
 
-  // ── AURA TRIGGERS — activado por: ─────────────────────────────────
-  //  1. "aura" no início da frase (nome dela)
-  //  2. Menção ao bot
-  //  3. Resposta directa ao bot
-  //  4. Referência em 3ª pessoa
-  const botNameLower = (commandConfig.bot?.name || 'dark bot').toLowerCase();
-  const AURA_TRIGGERS = [
-    'aura', '+aura', '-aura', 'aura?',
-    'oi aura', 'ola aura', 'olá aura', 'bom dia aura', 'boa tarde aura', 'boa noite aura',
-    'aura me diz', 'aura fala', 'aura responde', 'aura ajuda',
-    'aura o que', 'aura quanto', 'aura quando', 'aura como', 'aura por que',
-    'aura sabe', 'aura conhece', 'aura pode', 'aura vai',
-    'qual minha aura', 'mede minha aura', 'quanta aura',
-    'tô com aura', 'to com aura', 'tenho aura', 'aura ativada',
-  ];
+  // A chamada pelo nome é validada pelo analisador de destinatário abaixo;
+  // referências em 3.ª pessoa e "aura" como gíria não são invocações.
   // v12.9.1: mensagem é claramente um COMANDO (símbolo + palavra conhecida)?
   // ex.: "@cap login 123", "!ping", "/menu" — a Aura NÃO entra nisto.
   // ── v12.9.3: QUALQUER prefixo + palavra = COMANDO de algum bot → Aura cala ──
@@ -2036,13 +2154,11 @@ async function _handleInner(sock, msg) {
     // (só escapa se for @ e passar no teste de menção acima)
     return true;
   })();
+  // Usa o analisador de destinatário em vez de tratar qualquer ocorrência
+  // da palavra "aura" como vocativo ("aura é fixe" é 3.ª pessoa/gíria).
   const isAuraTrigger = !startsWithAnyPrefix(text, prefixes) && !_cmdLike && (
-    AURA_TRIGGERS.includes(textLower) ||
-    AURA_TRIGGERS.some(k => textLower.startsWith(k + ' ') || textLower === k) ||
-    textLower.startsWith('aura ') ||
-    /^(?:(?:oi|ol[aá]|bom dia|boa tarde|boa noite)[, ]+)?aura\b[,:!?]?/i.test(textLower) ||
-    /\ba aura\b|\bda aura\b|\bpra aura\b|\bcom a aura\b|\bna aura\b/i.test(textLower) ||
-    (botNameLower.length > 3 && textLower.includes(botNameLower))
+    isBotMentioned || isReplyToBot || !!ctx.dest?.vocativo ||
+    (ctx.isGroup && !!ctx.dest?.directToAura)
   );
 
   // ── v12.9.9: "prefixo" em TEXTO PURO → card na hora, SEM depender da
@@ -2106,7 +2222,10 @@ async function _handleInner(sock, msg) {
   // .auramodo/.auragrupos, removidos. Só o dono; os outros seguem normal.
   if (isOwner && text && !startsWithAnyPrefix(text, prefixes)) {
     try {
-      if (await require('../aura/auraUniversal').gerirPresenca({ sock, msg, ctx, texto: text, isOwner })) return true;
+      if (await require('../aura/auraUniversal').gerirPresenca({
+        sock, msg, ctx, texto: text, isOwner,
+        isBotMentioned, isReplyToAura: isReplyToBot,
+      })) return true;
     } catch (e) { console.warn('[Aura presença]', e.message?.slice(0, 60)); }
   }
 
@@ -2207,7 +2326,7 @@ async function _handleInner(sock, msg) {
     if (isAuraTrigger || isReplyToBot || isBotMentioned) talk.marcarFala(ctx.remoteJid, ctx.senderNumber);
   } catch {}
   const _citContextual = require('../aura/auraHistorico').citado(msg);
-  const _respostaAOutro = !!(ctx.isGroup && _citContextual?.jid && !isReplyToBot);
+  const _respostaAOutro = !!(ctx.isGroup && (ctx.dest?.replyToOther || (_citContextual?.jid && !isReplyToBot)));
   let _interacaoConvidada = false;
   if (aiActive && ctx.isGroup && _auraAwakeHere && !prefixInfo && !_pareceCmd) {
     const bm = require('../aura/auraBrain');
@@ -2334,11 +2453,11 @@ async function _handleInner(sock, msg) {
           // reagir a tudo
           // v7.45 anti-restrição: "reagir a tudo" não é reagir a TUDO —
           // uma pessoa reage a ~1 em 3 mensagens e demora uns segundos.
-          if (M.reagirTudo && !M.semReagir && Math.random() < 0.35) {
-            const dec = require('../aura/auraDecide');
+          const _destinadaAura = !ctx.isGroup || !!ctx.dest?.directToAura;
+          if (M.reagirTudo && _destinadaAura && !M.semReagir && Math.random() < 0.35) {
             setTimeout(() => {
               sock.sendMessage(ctx.remoteJid, {
-                react: { text: dec.escolherReacao(text), key: msg.key },
+                react: { text: chooseAuraReaction(text, ctx), key: msg.key },
               }).catch(() => {});
             }, 1500 + Math.floor(Math.random() * 6000));
           }
@@ -2389,7 +2508,7 @@ async function _handleInner(sock, msg) {
           if (d.responde && ctx.isGroup && msg.message?.stickerMessage && !isBotMentioned && !isReplyToBot) {
             const pol = require('../aura/auraUniversal').politicaSticker({ isGroup: true, isReplyToBot, mencionada: isBotMentioned, isOwner });
             if (!pol.responde) {
-              if (pol.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: decide.escolherReacao('sticker'), key: msg.key } }).catch(() => {});
+              if (pol.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: chooseAuraReaction('sticker', ctx), key: msg.key } }).catch(() => {});
               _contaMsg(ctx.remoteJid);
               return false;
             }
@@ -2417,16 +2536,8 @@ async function _handleInner(sock, msg) {
           }
 
           if (!d.responde) {
-            // Às vezes reage com emoji em vez de ficar totalmente muda —
-            // mostra que leu, sem interromper a conversa.
-            // v6.81: respeita a ordem "não reajas com emojis".
-            let _semReagir = false;
-            try { _semReagir = !!require('../aura/auraBrain').modos(ctx.remoteJid).semReagir; } catch {}
-            if (isOwner && !_semReagir && Math.random() < 0.2) {
-              sock.sendMessage(ctx.remoteJid, {
-                react: { text: decide.escolherReacao(text), key: msg.key },
-              }).catch(() => {});
-            }
+            // Silêncio real: não envia texto nem reacção quando a análise
+            // conclui que a mensagem não lhe foi dirigida.
             _contaMsg(ctx.remoteJid);
             return false;
           }
@@ -2439,16 +2550,6 @@ async function _handleInner(sock, msg) {
       // v6.43: o modo do chat decide TUDO — persona, emojis, tom.
       const _modes = _auraModes;
       const _awake = _auraAwakeHere;
-
-      // ⚡ REACÇÃO DE EMOJI AUTOMÁTICA
-      // Só a AURA acordada reage com emojis afectuosos. Em modo
-      // assistente não há reacções — um assistente profissional
-      // não anda a pôr coraçõezinhos nas mensagens.
-      if (isOwner && _awake) {
-        const reactEmojis = ['🖤', '🌹', '💕', '😏', '🥰', '💀', '✨', '🔥', '💗', '🥺', '💫'];
-        const randomEmoji = reactEmojis[Math.floor(Math.random() * reactEmojis.length)];
-        sock.sendMessage(ctx.remoteJid, { react: { text: randomEmoji, key: msg.key } }).catch(() => {});
-      }
 
       const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage || getQuotedMessage(msg)?.stickerMessage);
       if (!isReplyToBot && !auraTriggerActive && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
@@ -2521,39 +2622,23 @@ async function _handleInner(sock, msg) {
       const isVip = !!(userForPriority?.isPremium && userForPriority.isPremium());
       const isPriority = isOwner || isVip;
 
-      // Contexto do grupo
+      // Contexto recente, por chat e com rótulos de autor/tipo. Inclui
+      // mensagens anteriores da AURA (para resolver "o jogo que estás a jogar")
+      // e citações com autor/origem/mídia, também quando chegam num PV.
       let groupContext = '';
       try {
-        const { messageCache } = require('./messageListener');
         if (ctx.isGroup) {
-          const recentGroupMsgs = [];
-          for (const [, cachedMsg] of messageCache) {
-            if (cachedMsg.key?.remoteJid === ctx.remoteJid && !cachedMsg.key?.fromMe) {
-              const txt = cachedMsg.message?.conversation || cachedMsg.message?.extendedTextMessage?.text || '';
-              const sender = cachedMsg.pushName || cachedMsg.key?.participant?.split('@')[0] || '';
-              if (txt && txt.length > 1) {
-                recentGroupMsgs.push({ sender, txt: txt.slice(0, 100) });
-              }
-            }
-          }
-          // v7.28: cada linha leva o NÚMERO do autor ([+244…|Nome]) — pessoas
-          // com o mesmo nome deixam de se misturar. Cai no formato antigo só
-          // se o módulo de identidade ainda não tiver nada deste grupo.
-          let linhasId = [];
-          try { linhasId = require('../aura/auraIdentidade').contextoGrupoComNumeros(ctx.remoteJid, 10); } catch {}
-          const last5 = recentGroupMsgs.slice(-10);
-          if (linhasId.length) {
-            groupContext = `Grupo "${ctx.groupName || 'grupo'}" (formato [número|nome exibido]: texto):\n` + linhasId.join('\n') + '\n';
-          } else if (last5.length) {
-            groupContext = `Grupo "${ctx.groupName || 'grupo'}":\n` +
-              last5.map(m => `${m.sender}: ${m.txt}`).join('\n') + '\n';
-          }
-          const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-          const qtxt = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
-          if (qtxt) groupContext += `Respondendo a: "${qtxt.slice(0, 150)}"\n`;
+          let identityLines = [];
+          try { identityLines = require('../aura/auraIdentidade').contextoGrupoComNumeros(ctx.remoteJid, 10); } catch {}
+          groupContext = `Grupo "${ctx.groupName || 'grupo'}" — mensagens recentes verificadas (AURA/BOT = mensagem enviada pelo assistente):\n`;
+          if (identityLines.length) groupContext += `Identidades conhecidas no grupo ([número|nome]):\n${identityLines.join('\n')}\n`;
+          groupContext += `${ctx.recentContext || '(sem histórico recente disponível)'}\n`;
         } else {
           groupContext = `PV com ${ctx.identidade?.rotulo || ctx.pushName || 'utilizador'}`;
+          if (ctx.recentContext) groupContext += `\nMensagens recentes deste PV:\n${ctx.recentContext}`;
         }
+        const quoteBlock = auraCompreensao.blocoCitacao(ctx.messageInfo);
+        if (quoteBlock) groupContext += `\n${quoteBlock}\n`;
       } catch {}
 
       // Histórico de conversa
@@ -2613,55 +2698,26 @@ async function _handleInner(sock, msg) {
           : `${viewOncePrefix}🎬 Alguém enviou um VÍDEO.${caption ? ` Legenda: "${caption}"` : ''} ${_isViewOnce ? 'Era view-once mas tu salvou!' : ''} Comenta naturalmente com base na legenda e nos dados disponíveis.`;
       } else if (msgObj?.audioMessage || msgObj?.documentMessage?.mimetype?.startsWith('audio')) {
         isAudio = true;
-        const isPtt = msgObj.audioMessage?.ptt;
-        // ⚡ Transcrever áudio com Whisper — a Aura OUVE!
-        try {
-          const { downloadMediaMessage } = require('@systemzero/baileys');
-          const audioBuf = await downloadMediaMessage(msg, 'buffer', {});
-          if (audioBuf && audioBuf.length > 500) {
-            const aiMod = require('./ai');
-            const lang = (ctx.senderNumber || '').startsWith('244') ? 'pt' : 
-                         (ctx.senderNumber || '').startsWith('55') ? 'pt' :
-                         (ctx.senderNumber || '').startsWith('351') ? 'pt' : 'pt';
-            const transcribed = await aiMod.transcribeAudio(audioBuf, lang);
-            if (transcribed && transcribed.length > 0) {
-              mediaContext = isPtt
-                ? `🎧 ÁUDIO DE VOZ transcrito: "${transcribed}" — Responde naturalmente ao texto transcrito, sem afirmar que ouviste além da transcrição.`
-                : `🎵 ÁUDIO/MÚSICA transcrito: "${transcribed}" — Comenta naturalmente.`;
-              // Adiciona a transcrição ao prompt para a Aura saber o que foi dito
-              prompt = (prompt || '') + ` [O áudio que recebi diz: "${transcribed}"]`;
-
-              // v7.8 ETAPA 2 — COMANDOS POR VOZ
-              // Se o áudio de voz é uma ORDEM ("cria um grupo", "toca
-              // Shakira", "manda um áudio"), o texto transcrito passa a
-              // ser tratado como comando — o MESMO caminho dos comandos
-              // escritos (cérebro da AURA, acções, comandos, imagem).
-              // Conversa normal continua a ser conversa: o gate
-              // `pareceOrdem` é uma regex barata (0 ms, sem IA).
-              if (isPtt && !cleanText) {
-                try {
-                  // gate barato (regex, 0 ms): ordem OU comando conhecido
-                  // OU capacidade do cérebro (v7.26: perguntas por voz —
-                  // "quem escreveu isso?", "qual é o meu recado?" — são
-                  // capacidades, não ordens, e também têm de passar).
-                  const brainVoz = require('../aura/auraBrain');
-                  const cmdsVoz = require('../aura/auraCommands');
-                  if (brainVoz.pareceOrdem(transcribed) || cmdsVoz.detectarComando(transcribed) || brainVoz.detectarCapacidade(transcribed)) {
-                    cleanText = transcribed;
-                  }
-                } catch {}
-              }
-            } else {
-              mediaContext = isPtt
-                ? `🎧 Alguém enviou um ÁUDIO DE VOZ mas não consegui transcrever. Reage naturalmente.`
-                : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
-            }
-          }
-        } catch (e) {
-          console.warn('[Aura Audio]', e.message?.slice(0, 60));
+        const isPtt = !!msgObj.audioMessage?.ptt;
+        const transcribed = String(_voiceTranscript || '').trim();
+        if (transcribed) {
           mediaContext = isPtt
-            ? `🎧 Alguém enviou um ÁUDIO DE VOZ. Não consegui transcrever mas reage como se tivesses ouvido.`
-            : `🎵 Alguém enviou um ÁUDIO/MÚSICA. Comenta naturalmente.`;
+            ? `🎧 ÁUDIO DE VOZ transcrito: "${transcribed}" — responde ao conteúdo transcrito, sem alegar que ouviste outros detalhes.`
+            : `🎵 ÁUDIO transcrito: "${transcribed}" — comenta apenas o conteúdo disponível.`;
+          prompt = (prompt || '') + ` [Transcrição do áudio recebido: "${transcribed}"]`;
+          if (isPtt && !cleanText) {
+            try {
+              const brainVoz = require('../aura/auraBrain');
+              const cmdsVoz = require('../aura/auraCommands');
+              if (brainVoz.pareceOrdem(transcribed) || cmdsVoz.detectarComando(transcribed) || brainVoz.detectarCapacidade(transcribed)) {
+                cleanText = transcribed;
+              }
+            } catch {}
+          }
+        } else {
+          mediaContext = isPtt
+            ? '🎧 Foi recebido um áudio de voz, mas não há transcrição disponível. Não finjas que conseguiste ouvir ou identificar o conteúdo.'
+            : '🎵 Foi recebido um ficheiro de áudio sem transcrição disponível.';
         }
       } else if (msgObj?.stickerMessage || quotedObj?.stickerMessage) {
         isSticker = true;
@@ -2811,17 +2867,29 @@ async function _handleInner(sock, msg) {
         // v6.86 — MULTI-INTENÇÃO: "entra no canal e reage tudo"
         // executa as duas coisas em sequência (máx. 2). Antes só a
         // primeira capacidade corria e o resto ficava por fazer.
-        const achados = require('../aura/auraAvancada').detectarMulti(cleanText, brain);
+        const encontrados = require('../aura/auraAvancada').detectarMulti(cleanText, brain);
+        const exec = require('../aura/auraExec');
+        const grupoPolicy = require('../aura/auraGrupo');
+        const actionDirectedToAura = !ctx.isGroup || grupoPolicy.isDirectedToAura({
+          isGroup: true,
+          isBotMentioned,
+          isReplyToAura: isReplyToBot,
+          dest: ctx.dest,
+        });
+        let achados = actionDirectedToAura
+          ? encontrados.filter(a => exec.isClearExecutionIntent(a.id, a.texto || cleanText, a.cap, cleanText))
+          : [];
 
-        // A IA só entra se o catálogo falhou E a frase tem
-        // mesmo cara de ordem — é isto que protege a
-        // velocidade: conversa normal nunca chega aqui.
-        if (!achados.length && brain.pareceOrdem(cleanText)) {
+        // A IA só entra se a mensagem completa, incluindo direcção e contexto,
+        // passar o portão. Uma ocorrência lexical posterior não é uma ordem.
+        if (!achados.length && actionDirectedToAura && brain.pareceOrdem(cleanText)) {
           const _pararIA = require('./humanizer').pensando(sock, ctx.remoteJid); // v7.53: "a escrever…" enquanto pensa
           let viaIA = null;
           try { viaIA = await brain.rotearComIA(cleanText, require('./ai')).catch(() => null); }
           finally { _pararIA(); }
-          if (viaIA) achados.push(viaIA);
+          if (viaIA && exec.isClearExecutionIntent(viaIA.id, cleanText, viaIA.cap, cleanText)) {
+            achados.push({ ...viaIA, texto: cleanText });
+          }
         }
 
         if (achados.length) {
@@ -2838,13 +2906,13 @@ async function _handleInner(sock, msg) {
             }
           }
 
-          const exec = require('../aura/auraExec');
           let executou = false;
           for (const achado of achados.slice(0, 2)) {
             const perm = brain.podeFazer(achado.cap, { isOwner, isAdmin: ctx.isAdmin });
             if (!perm.pode) continue;
             const r = await exec.executar(achado.id, achado.arg, {
-              sock, msg, ctx, texto: cleanText, isOwner, isAdmin: ctx.isAdmin,
+              sock, msg, ctx, texto: achado.texto || cleanText, contextoTexto: cleanText,
+              isOwner, isAdmin: ctx.isAdmin,
             }).catch(e => { console.warn('[Aura brain exec]', e.message?.slice(0, 80)); return { ok: false, msg: require('../aura/auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }; });
 
             // Acções de atitude (xingar/zoar/elogiar) e posts
@@ -2895,10 +2963,19 @@ async function _handleInner(sock, msg) {
       // depois. Assim nunca mais responde com uma gargalhada a um
       // pedido concreto.
       if (isOwner) {
+        const intentPolicy = require('../aura/auraGrupo');
+        const intentUniversal = require('../aura/auraUniversal');
+        const actionDirectedToAura = !ctx.isGroup || intentPolicy.isDirectedToAura({
+          isGroup: true,
+          isBotMentioned,
+          isReplyToAura: isReplyToBot,
+          dest: ctx.dest,
+        });
+        const explicitCallRequest = intentUniversal.isExplicitCallRequest(cleanText);
         try {
           const bridge = require('./callBridge');
           const pedidoCall = bridge.detectarPedidoChamada(cleanText);
-          if (pedidoCall) {
+          if (actionDirectedToAura && explicitCallRequest && pedidoCall) {
             const alvo = pedidoCall.grupo && ctx.isGroup
               ? ctx.remoteJid
               : (ctx.isGroup ? (ctx.senderJid || ctx.senderNumber + '@s.whatsapp.net') : ctx.remoteJid);
@@ -2932,7 +3009,9 @@ async function _handleInner(sock, msg) {
         try {
           const acts = require('../aura/auraActions');
           const ordem = acts.detectarAcao(cleanText);
-          if (ordem) {
+          const actionIntentClear = actionDirectedToAura &&
+            intentUniversal.isExplicitLegacyAuraAction(cleanText, ordem?.acao);
+          if (ordem && actionIntentClear) {
             const r = await acts.executar(ordem.acao, ordem.valor, {
               sock, ctx: { ...ctx, botName: config.bot.name, isOwner },
             }).catch(e => { console.warn('[Aura acção exec]', e.message?.slice(0, 80)); return { ok: false, msg: require('../aura/auraFala').dizer('naoConsegui', { jid: ctx.remoteJid, isOwner }) }; });
@@ -3000,8 +3079,11 @@ async function _handleInner(sock, msg) {
 
 [ANÁLISE AUTOMÁTICA DA IMAGEM — usa apenas os dados fornecidos pela visão.
 • Descreve os elementos visíveis, objectos e texto legível; se algo não estiver claro, diz que não tens certeza.
-• Podes descrever roupas, expressão e ambiente sem inferir identidade, carácter ou factos pessoais.
-• Não identifiques pessoas privadas nem afirmes conhecer alguém pela aparência. Usa memória apenas se houver uma correspondência explícita e fiável no contexto.
+• PESSOAS: se aparecerem, indica quantas apenas quando a contagem for clara; não identifiques pessoas privadas nem infiras carácter ou factos pessoais.
+• TEXTO: transcreve apenas o que estiver legível.
+• LOCAL: descreve o cenário visível, sem adivinhar cidade, morada ou localização exacta.
+• Podes descrever roupas e expressões sem inferir identidade ou carácter.
+• Não afirmes conhecer alguém pela aparência. Usa memória apenas se houver uma correspondência explícita e fiável no contexto.
 • Reacções/contexto disponível: ${_reactionCtx || 'nenhum'}
 • Informação adicional de mídia: ${_viewOnceCtx || 'nenhuma'}
 Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser uma pessoa a olhar para a imagem.]`;
@@ -3080,17 +3162,16 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
                   if (ctx._tomLeve) partes.push('TOM: falam DE ti, não CONTIGO — reage leve e breve (1 linha, ou só um emoji se bastar). Não faças perguntas nem puxes conversa.');
                 }
               } catch {}
-              // v7.84: FACTOS DA MENSAGEM — anti-alucinação (PV incluído).
+              // Mapa único de remetente/destinatário/conteúdo/citação para a
+              // AURA responder sem misturar autor actual, autor citado e origem.
               try {
-                const lks = require('./linkPolicy').links(cleanText);
-                const mm = msg.message || {};
-                const med = mm.audioMessage ? 'áudio/voz' : mm.imageMessage ? 'imagem' : mm.videoMessage ? 'vídeo' : mm.stickerMessage ? 'sticker' : 'nenhuma';
-                partes.push(
-                  'FACTOS DA MENSAGEM ACTUAL (não inventes além disto):\n' +
-                  `- links presentes: ${lks.length ? lks.slice(0, 3).join(', ') : 'nenhum'}\n` +
-                  `- media: ${med}\n` +
-                  'Nunca digas que entraste, visitaste ou verificaste um link ou grupo se a mensagem não tem link.'
-                );
+                const mapaMensagem = auraCompreensao.blocoMensagem(ctx.messageInfo, {
+                  textoActual: cleanText || text,
+                  dest: ctx.dest,
+                  senderLabel: ctx.identidade?.rotulo || ctx.pushName || '',
+                  transcricao: !!ctx.audioTranscription,
+                });
+                if (mapaMensagem) partes.push(mapaMensagem);
               } catch {}
             } catch (e) { console.warn('[Aura cerebro]', e.message?.slice(0, 60)); }
             _consciencia = partes.join('\n\n');
@@ -3136,7 +3217,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
           } catch {}
           answer = await auraModes.assistantRespond(prompt, {
             botName: config.bot.name, userName: ctx.pushName, identidade: _identBloco,
-            isGroup: ctx.isGroup, groupName: ctx.groupName,
+            isGroup: ctx.isGroup, groupName: ctx.groupName, remoteJid: ctx.remoteJid,
             groupContext, historyArray, prefix,
             isOwner, isVip, isAdmin: ctx.isAdmin,
             senderNumber: ctx.senderNumber,
@@ -3168,13 +3249,11 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
 
       // ⚡ Reacção automática de emoji (interacção contextual)
       // v6.43: só a AURA acordada reage. O assistente fica sóbrio.
-      if (_awake && isOwner && !aura.isSilenced(ctx.senderNumber)) {  // v6.52: era `!isSilenced` — variavel inexistente, rebentava a resposta da AURA em TODAS as mensagens
-        const ownerReacts = ['🖤', '🌹', '💕', '😏', '🥰', '✨', '💗', '💫', '😈'];
-        const rEmoji = ownerReacts[Math.floor(Math.random() * ownerReacts.length)];
+      if (_awake && isOwner && !aura.isSilenced(ctx.senderNumber)) {  // v6.52: evita o erro anterior da variável de silêncio inexistente
+        const rEmoji = chooseAuraReaction(cleanText || text, ctx);
         sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
       } else if (_awake && !isOwner) {
-        const neutralReacts = ['👀', '💬', '✨', '👍'];
-        const rEmoji = neutralReacts[Math.floor(Math.random() * neutralReacts.length)];
+        const rEmoji = chooseAuraReaction(cleanText || text, ctx);
         sock.sendMessage(ctx.remoteJid, { react: { text: rEmoji, key: msg.key } }).catch(() => {});
       }
       
@@ -3402,8 +3481,16 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
           const uni = require('../aura/auraUniversal');
           const brainU = require('../aura/auraBrain');
           const t0 = String(cleanText || '').trim();
-          // guarda de instruções: "se alguém mandar link, bane" é regra, não ordem
-          const eOrdem = t0.length >= 4 && t0.length <= 220 && brainU.pareceOrdem(t0) && !require('../aura/auraCommands').eInstrucao(t0);
+          const intentPolicyU = require('../aura/auraGrupo');
+          const directedToAura = !ctx.isGroup || intentPolicyU.isDirectedToAura({
+            isGroup: true,
+            isBotMentioned,
+            isReplyToAura: isReplyToBot,
+            dest: ctx.dest,
+          });
+          // Guarda de instruções: "se alguém mandar link, bane" é regra, não ordem;
+          // em grupo, a ordem também tem de ser explicitamente dirigida à AURA.
+          const eOrdem = directedToAura && t0.length >= 4 && t0.length <= 220 && brainU.pareceOrdem(t0) && !require('../aura/auraCommands').eInstrucao(t0);
           if (eOrdem) {
             const guardaU = require('../aura/auraInstructionGuard');
             let escolha = await uni.escolherComando(t0, require('./ai'));
@@ -3453,7 +3540,13 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       }
 
       // ── Imagem da persona virtual AURA — identificada como ficcional.
-      if (ctx._photoIntent || (ctx._superIntent && ctx._superIntent.intent === 'PHOTO_REQUEST')) {
+      // Conteúdo de jogo/assunto é tratado pela pesquisa acima; nunca chega
+      // aqui como selfie por causa de um fallback lexical.
+      const _personaPhotoIntent = !!(
+        (ctx.imageIntent?.requested && ctx.imageIntent.target === 'persona') ||
+        (ctx._superIntent?.intent === 'PHOTO_REQUEST' && ctx._superIntent?.intentDetails?.photoTarget === 'persona')
+      );
+      if (_personaPhotoIntent && (!ctx.isGroup || !!ctx.dest?.directToAura)) {
         try {
           const selfieMod = require('../aura/auraSelfie');
           const fs = require('fs');
@@ -3465,8 +3558,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
           else if (/fofa|cute|linda|amor/.test(tLower)) tipo = 'cute';
           else if (/live|stream|jogando|game/.test(tLower)) tipo = 'stream';
           
-          // Detecta se é pedido direto pra ela
-          const isDirect = ctx._superIntent?.isDirectToAura || isOwner || isPv || /\baura\b|\btua\b|\bteu\b|\bsua\b|\bvoce\b|\bvc\b|\btu\b/.test(tLower);
+          // Só entrega a imagem se o destinatário foi confirmado pelo router.
+          const isDirect = !ctx.isGroup || !!ctx.dest?.directToAura;
           const confidence = ctx._superIntent?.intentConfidence || ctx._photoIntent?.intentConfidence || 80;
           
           if (isDirect && confidence >= 40) {
@@ -3561,7 +3654,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
         try { _semReagir = !!require('../aura/auraBrain').modos(ctx.remoteJid).semReagir; } catch {}
         if (!_semReagir) {
           try {
-            const emoji = require('../aura/auraDecide').escolherReacao(cleanText);
+            const emoji = chooseAuraReaction(cleanText, ctx);
             await sock.sendMessage(ctx.remoteJid, { react: { text: emoji, key: msg.key } });
             return true;   // reagiu — não duplica com texto
           } catch (e) {
@@ -4204,40 +4297,64 @@ async function _fotosPedidas(sock, msg, ctx, cleanText) {
   try {
     const imgSearch = require('./imageSearch');
     const pedido = imgSearch.detectarPedidoImagem(cleanText);
-    if (!pedido || pedido.gerar) return null;
+    if (pedido?.gerar) return null; // geração explícita segue o fluxo próprio.
 
+    const imageIntent = ctx.imageIntent;
+    if (imageIntent?.requested) {
+      // Um pedido no grupo só é nosso se houver vocativo, @AURA ou reply à AURA.
+      if (ctx.isGroup && !ctx.dest?.directToAura) return null;
+      if (imageIntent.target === 'persona') return null; // tratado pelo sender de persona.
+      if (imageIntent.target === 'ambiguous' || (!imageIntent.query && !imageIntent.searchQuery && imageIntent.target === 'content')) {
+        await sock.sendMessage(ctx.remoteJid, {
+          text: imageIntent.clarification || 'Queres uma imagem da personagem virtual AURA ou de que assunto/objeto? Não vou adivinhar o alvo.',
+        }, { quoted: msg });
+        return 'falhou';
+      }
+      if (imageIntent.target === 'content') {
+        const query = String(imageIntent.searchQuery || imageIntent.query || '').trim();
+        if (!query) {
+          await sock.sendMessage(ctx.remoteJid, {
+            text: 'Não consegui identificar qual imagem queres. Diz o jogo ou assunto pelo nome, por favor.',
+          }, { quoted: msg });
+          return 'falhou';
+        }
+        const imgs = await imgSearch.buscarImagens(query, 1).catch(() => null);
+        if (imgs?.length && /^https?:/i.test(String(imgs[0].url || ''))) {
+          await sock.sendMessage(ctx.remoteJid, {
+            image: { url: imgs[0].url },
+            caption: imageIntent.caption || `Imagem de referência pesquisada sobre ${imageIntent.query || query}; não é uma captura verificada de uma live real.`,
+          }, { quoted: msg });
+          try { imgSearch.lembrarTermo(ctx.remoteJid, imageIntent.query || query); } catch {}
+          return 'enviadas';
+        }
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `Não encontrei uma imagem de referência fiável sobre ${imageIntent.query || query} agora. Não vou substituir por uma selfie nem fingir que é uma captura real.`,
+        }, { quoted: msg });
+        return 'falhou';
+      }
+    }
+
+    // Compatibilidade para pedidos antigos que o classificador novo não cobre.
+    if (!pedido) return null;
+    if (ctx.isGroup && !ctx.dest?.directToAura) return null;
     const { termo, nomes } = imgSearch.resolverTermo({
       jid: ctx.remoteJid, termo: pedido.termo, texto: cleanText,
     });
-    const alvos = nomes.length ? nomes : [termo];
+    const alvos = nomes.length ? nomes : [termo].filter(Boolean);
+    if (!alvos.length) return null;
 
     const enviadas = [];
     for (const alvo of alvos) {
       const imgs = await imgSearch.buscarImagens(alvo, 1).catch(() => null);
       if (imgs?.length && /^https?:/i.test(String(imgs[0].url || ''))) {
-        await sock.sendMessage(ctx.remoteJid, {
-          image: { url: imgs[0].url },
-          ...(alvos.length > 1 ? { caption: alvo } : {}),
-        }, { quoted: msg });
+        await sock.sendMessage(ctx.remoteJid, { image: { url: imgs[0].url }, caption: `Imagem pesquisada sobre ${alvo}; resultado de referência, não uma captura verificada.` }, { quoted: msg });
         enviadas.push(alvo);
         try { imgSearch.lembrarTermo(ctx.remoteJid, alvo); } catch {}
       }
     }
     if (enviadas.length) return 'enviadas';
-
-    // Sem foto explícita no pedido ("me dá um X") → deixa a IA conversar
-    if (!/\b(foto|imagem|fotografia|retrato|picture|photo)\b/i.test(cleanText || '')) {
-      return null;
-    }
-
-    // Não achou → responde como pessoa, não finge nem manda lixo
-    const linhas = [
-      `Não achei foto de ${alvos.join(' e ')} agora. Tenta pedir de outra forma.`,
-      `Hmm... ${alvos.join(' e ')}. Não me apareceu nenhuma foto boa aqui, desculpa.`,
-    ];
-    await sock.sendMessage(ctx.remoteJid, {
-      text: linhas[Math.floor(Math.random() * linhas.length)],
-    }, { quoted: msg });
+    if (!/\b(foto|imagem|fotografia|retrato|picture|photo)\b/i.test(cleanText || '')) return null;
+    await sock.sendMessage(ctx.remoteJid, { text: `Não encontrei uma imagem de ${alvos.join(' e ')} agora.` }, { quoted: msg });
     return 'falhou';
   } catch (e) {
     console.warn('[Aura imagem]', String(e?.message || e).slice(0, 60));
@@ -4342,4 +4459,4 @@ async function handle(sock, msg) {
   }
 }
 
-module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv };
+module.exports = { handle, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv, fotosPedidas: _fotosPedidas };

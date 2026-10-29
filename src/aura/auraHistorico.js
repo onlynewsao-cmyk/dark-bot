@@ -1,4 +1,5 @@
 'use strict';
+const compreensao = require('./auraCompreensao');
 /**
  * AURA HISTÓRICO — consulta de mensagens disponíveis no WhatsApp
  * ═══════════════════════════════════════════════════════════
@@ -29,14 +30,36 @@ function norm(s) {
     .trim();
 }
 
-/** Texto visível de uma mensagem (texto, legenda de mídia, etc.). */
+// Formas frequentes de relatar uma fala. Não são capacidades novas: ampliam
+// a compreensão das consultas de histórico ("quem falou/falava sobre X?").
+const VERBOS_RELATO = '(?:escreveu|escreve|escrevia|escreviam|escreveram|escrevendo|' +
+  'mandou|manda|mandava|mandavam|mandaram|mandando|' +
+  'enviou|envia|enviava|enviavam|enviaram|enviando|' +
+  'digitou|digita|digitava|digitavam|digitaram|digitando|' +
+  'disse|diz|dizia|diziam|disseram|dizendo|' +
+  'falou|fala|falava|falavam|falaram|falando|' +
+  'comentou|comenta|comentava|comentavam|comentaram|comentando|' +
+  'mencionou|menciona|mencionava|mencionavam|mencionaram|mencionando|' +
+  'perguntou|pergunta|perguntava|perguntavam|perguntaram|perguntando|' +
+  'respondeu|responde|respondia|respondiam|responderam|respondendo|' +
+  'discutiu|discute|discutia|discutiam|discutiram|discutindo|' +
+  'conversou|conversa|conversava|conversavam|conversaram|conversando|' +
+  '(?:estava|estavam|tava|tavam|esteve|esta|ta|anda|andava)\\s+(?:a\\s+)?' +
+  '(?:falar|falando|escrever|escrevendo|dizer|dizendo|comentar|comentando|' +
+  'discutir|discutindo|conversar|conversando))';
+
+const STOPWORDS_CONSULTA = new Set([
+  'a', 'as', 'o', 'os', 'um', 'uma', 'uns', 'umas', 'de', 'do', 'da', 'dos', 'das',
+  'em', 'no', 'na', 'nos', 'nas', 'por', 'para', 'com', 'sobre', 'acerca', 'que',
+  'foi', 'quem', 'fala', 'falou', 'falava', 'disse', 'escreveu', 'ontem', 'hoje',
+  'agora', 'antes', 'depois', 'isto', 'isso', 'aquilo', 'essa', 'esse', 'esta', 'este',
+]);
+
+/** Texto visível de uma mensagem; mídia sem legenda fica tipada, não some. */
 function textoDaMsg(msg) {
-  const m = msg?.message;
-  if (!m) return '';
-  return m.conversation || m.extendedTextMessage?.text ||
-    m.imageMessage?.caption || m.videoMessage?.caption ||
-    m.documentMessage?.caption || m.editedMessage?.message?.conversation ||
-    m.editedMessage?.message?.extendedTextMessage?.text || '';
+  const info = compreensao.inspecionarMensagem(msg);
+  if (info.texto) return info.texto;
+  return info.media ? `[${info.tipo}${info.caption ? `: ${info.caption}` : ' sem legenda'}]` : '';
 }
 
 /** As mensagens deste grupo (não do bot), mais recentes primeiro. */
@@ -49,6 +72,7 @@ function mensagensDoGrupo(grupoJid, limite = 300) {
   for (const [, msg] of cache) {
     if (msg?.key?.remoteJid !== grupoJid) continue;
     if (msg.key.fromMe) continue;
+    const info = compreensao.inspecionarMensagem(msg);
     const txt = textoDaMsg(msg);
     if (!txt || txt.length < 2) continue;
     const ts = Number(msg.messageTimestamp) || 0;
@@ -57,6 +81,11 @@ function mensagensDoGrupo(grupoJid, limite = 300) {
       jid: msg.key.participant || grupoJid,
       nome: msg.pushName || '',
       texto: txt,
+      tipo: info.tipo,
+      media: info.media,
+      links: info.links,
+      encaminhamento: info.encaminhamento,
+      citado: info.citado,
       ts,
       ordem: i,
     });
@@ -80,6 +109,7 @@ function mensagensDePessoa(pessoaJid, limite = 100) {
     const isFromPerson = rJid === pessoaJid || part === pessoaJid || rJid.includes(pessoaJid.split('@')[0]);
     if (!isFromPerson) continue;
     if (msg.key.fromMe) continue;
+    const info = compreensao.inspecionarMensagem(msg);
     const txt = textoDaMsg(msg);
     if (!txt || txt.length < 2) continue;
     const ts = Number(msg.messageTimestamp) || 0;
@@ -89,6 +119,11 @@ function mensagensDePessoa(pessoaJid, limite = 100) {
       remoteJid: rJid,
       nome: msg.pushName || '',
       texto: txt,
+      tipo: info.tipo,
+      media: info.media,
+      links: info.links,
+      encaminhamento: info.encaminhamento,
+      citado: info.citado,
       ts,
       ordem: i,
     });
@@ -159,21 +194,23 @@ async function verConversa(sock, ctx, texto) {
   };
 }
 
-/** Jid da mensagem citada (quem a escreveu), se existir. */
+/** Autor e conteúdo da mensagem citada; origem do chat não é autor. */
 function citado(msg) {
-  const ci = msg?.message?.extendedTextMessage?.contextInfo ||
-             msg?.message?.imageMessage?.contextInfo ||
-             msg?.message?.videoMessage?.contextInfo ||
-             msg?.message?.stickerMessage?.contextInfo || // v7.83: paridade com isReplyToBot
-             msg?.message?.audioMessage?.contextInfo ||
-             msg?.message?.buttonsResponseMessage?.contextInfo ||
-             msg?.message?.interactiveResponseMessage?.contextInfo;
-  if (!ci) return null;
-  const quoted = ci.quotedMessage;
-  const txt = textoDaMsg({ message: quoted }) || '';
+  const info = compreensao.inspecionarMensagem(msg);
+  const q = info.citado;
+  if (!q) return null;
   return {
-    jid: ci.participant || ci.remoteJid || null,
-    texto: txt,
+    jid: q.authorJid || q.authorAltJid || null,
+    authorAltJid: q.authorAltJid || '',
+    texto: q.texto || '',
+    tipo: q.tipo,
+    media: q.media,
+    caption: q.caption,
+    links: q.links,
+    encaminhamento: q.encaminhamento,
+    remoteJid: q.sourceRemoteJid || '',
+    stanzaId: q.stanzaId || '',
+    authorName: q.authorName || '',
   };
 }
 
@@ -251,44 +288,54 @@ async function quemEscreveu(sock, ctx, texto, msg) {
     };
   }
 
-  // 2. termo a procurar depois do verbo
-  const m = t.match(/quem\s+(?:foi\s+que\s+)?(?:escreveu|mandou|enviou|digitou|disse)\s+(.+)$/);
-  let q = m ? m[1].replace(/[?!.]+$/, '').trim() : '';
-  // "isso/essa/esta/aquilo" sozinhos não identificam nada
+  // 2. tópico/texto a procurar depois de um verbo de fala, incluindo
+  // presente, passado, imperfeito e formas compostas ("estava a falar").
+  const m = t.match(new RegExp(
+    `\\bquem\\s+(?:foi\\s+que\\s+)?(${VERBOS_RELATO})\\b\\s+` +
+    `(?:(?:sobre|acerca\\s+de|a\\s+respeito\\s+de|do|da|dos|das|de)\\s+)?(.+)$`, 'i'));
+  let q = m ? m[2].replace(/[?!.]+$/, '').trim() : '';
+  // "isso/essa/esta/aquilo" sozinhos não identificam nada.
   if (/^(isso|essa|essa mensagem|esta|este|aquilo|isto|essa msg|a mensagem)$/.test(q)) q = '';
-  if (!q || q.length < 3) {
-    // não há como saber — deixa a conversa normal responder
+  const consulta = norm(q);
+  const termos = consulta.split(/[^a-z0-9@]+/).filter(w => w.length > 1 && !STOPWORDS_CONSULTA.has(w));
+  if (!q || q.length < 2 || !termos.length) {
+    // Sem texto citado nem tópico pesquisável, não inventa um autor.
     return { ok: false, msg: null };
   }
 
   const msgs = mensagensDoGrupo(ctx.remoteJid, 300);
-  const achadas = msgs.filter(x => norm(x.texto).includes(norm(q))).slice(0, 3);
+  const achadas = msgs.filter(x => {
+    const textoMsg = norm(x.texto);
+    return textoMsg.includes(consulta) || termos.every(termo => textoMsg.includes(termo));
+  }).slice(0, 3);
   if (!achadas.length) {
     return {
       ok: true,
-      msg: `Varri as últimas ${msgs.length} mensagens deste grupo e *ninguém* escreveu algo com "${q}".`,
+      msg: `Não encontrei mensagens sobre "${q}" nas últimas ${msgs.length} mensagens disponíveis deste chat.`,
     };
   }
-  // v7.40: cada achado diz QUANDO foi ("hoje às 14:03", "há 3 dias")
+  // v7.40: cada achado diz QUANDO foi ("hoje às 14:03", "há 3 dias").
   let quando = () => '';
   try { quando = require('./auraUniversal').quandoFoi; } catch {}
   const linhas = achadas.map(x =>
     `▸ @${String(x.jid).split('@')[0]} (*${x.nome || x.jid.split('@')[0]}*)${x.ts ? ' — ' + quando(x.ts) : ''}: "${x.texto.slice(0, 120)}"`);
   return {
     ok: true,
-    msg: `Quem escreveu "${q}":\n\n${linhas.join('\n')}`,
+    msg: `Encontrei estas mensagens relacionadas com "${q}":\n\n${linhas.join('\n')}`,
     mencionar: achadas.map(x => x.jid),
   };
 }
 
-/** "o que é que o João escreveu?" → últimas mensagens dele. */
+/** "o que é que o João escreveu/falou?" → últimas mensagens dele. */
 async function oQueEscreveu(sock, ctx, texto, msg) {
   const t = norm(texto);
   let nome = '';
-  let m = t.match(/(?:o que|mostra o que|que)\s+(?:e\s+que\s+)?(?:o|a|ao|a)\s+@?([a-z0-9_\-]{2,30})\s+(?:escreveu|disse|mandou|falou|enviou|digitou)/);
+  let m = t.match(new RegExp(
+    `(?:o que|mostra o que|que)\\s+(?:e\\s+que\\s+)?(?:o|a|ao)\\s+@?([a-z0-9_\\-]{2,30})\\s+${VERBOS_RELATO}\\b`, 'i'));
   if (m) nome = m[1];
   else {
-    m = t.match(/(?:o que|mostra o que)\s+(?:e\s+que\s+)?(?:escreveu|disse|mandou|falou)\s+(?:o|a)\s+@?([a-z0-9_\-]{2,30})/);
+    m = t.match(new RegExp(
+      `(?:o que|mostra o que)\\s+(?:e\\s+que\\s+)?${VERBOS_RELATO}\\b\\s+(?:o|a)\\s+@?([a-z0-9_\\-]{2,30})`, 'i'));
     if (m) nome = m[1];
     else {
       // v12.3: ver conversa com X, o que conversei com X, mensagens antigas do X
@@ -439,7 +486,7 @@ async function falarComTodos(sock, ctx, texto, msg) {
 }
 
 module.exports = {
-  norm, textoDaMsg, mensagensDoGrupo, mensagensDePessoa, verConversa, citado, nomeDoJid,
+  norm, VERBOS_RELATO, textoDaMsg, mensagensDoGrupo, mensagensDePessoa, verConversa, citado, nomeDoJid,
   participantes, resolverPessoa,
   quemEscreveu, oQueEscreveu, falarCom, falarComTodos,
   parseFalarCom,

@@ -29,6 +29,9 @@ const GIRIA_RES = [
 // Falam DELA (3ª pessoa): "a aura" + verbo 3ª pessoa por perto.
 const SOBRE_RE = /\ba aura\b.{0,20}\b(e|esta|estava|era|foi|disse|diz|faz|fez|vai|sabe|sabia|tem|tinha|gosta|adora|acha|pensou|mora|chegou)\b/;
 const SOBRE_RE2 = /\b(esta|estava|era|foi|anda|cade|sumiu|apareceu)\b.{0,12}\ba aura\b/;
+// "Aura é fixe" (sem artigo) também pode ser 3.ª pessoa; só é vocativo
+// quando a pontuação/forma da frase deixa claro que a estão a chamar.
+const SOBRE_RE_NU = /^aura\s+(?:e|esta|estava|era|foi|anda|sumiu|apareceu|disse|diz|faz|fez|vai|sabe|sabia|tem|tinha|gosta|adora|acha|pensou|mora|chegou)\b/;
 
 function ehVocativo(t, nomes) {
   for (const n of nomes) {
@@ -89,8 +92,9 @@ function analisar(o = {}) {
     : null;
 
   const giria = GIRIA_RES.some(re => re.test(t));
-  const vocativo = ehVocativo(t, nomes);
-  const sobreMim = !mencaoBot && !(respostaA?.eBot) && !vocativo && !giria && (SOBRE_RE.test(t) || SOBRE_RE2.test(t));
+  const falaDelaSemArtigo = SOBRE_RE_NU.test(t);
+  const vocativo = !falaDelaSemArtigo && ehVocativo(t, nomes);
+  const sobreMim = !mencaoBot && !(respostaA?.eBot) && !vocativo && !giria && (SOBRE_RE.test(t) || SOBRE_RE2.test(t) || falaDelaSemArtigo);
   const motivos = [];
   if (mencaoBot) motivos.push('mencionaram-te (@)');
   if (respostaA?.eBot) motivos.push('responderam a uma tua mensagem');
@@ -99,6 +103,8 @@ function analisar(o = {}) {
 
   return {
     paraMim, motivos, sobreMim, giria,
+    vocativo,
+    mencionouBot: mencaoBot,
     mencoes,           // outros marcados (sem o bot)
     respostaA,         // a quem responde (null = msg nova)
     textoCitado: String(quotedTexto || '').slice(0, 140),
