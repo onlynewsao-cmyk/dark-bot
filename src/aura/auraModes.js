@@ -329,9 +329,12 @@ async function assistantRespond(text, opts = {}) {
   // v7.40: consciência temporal + tamanho da resposta
   try { const uni = require('./auraUniversal'); systemPrompt += '\n\n' + uni.blocoTemporal() + '\n' + uni.blocoTamanho(text); } catch {}
 
+  systemPrompt += '\n' + require('./auraDialogue').clarificationHint(text);
+
   try {
     const reply = await ai.chat(text, systemPrompt, {
       history: opts.historyArray || [],
+      quotedMessage: opts.quotedMessage, signal: opts.signal,
       groupContext: opts.groupContext || '',
       cacheScope: require('crypto').createHash('sha256')
         .update([opts.remoteJid || '', String(opts.senderNumber || '').replace(/\D/g, ''), opts.isOwner ? 'owner' : 'user'].join('\0'))
@@ -351,9 +354,9 @@ async function assistantRespond(text, opts = {}) {
       } catch {}
       if (limpo) return limpo;   // se sanitizou até ficar vazio → fallback
     }
-  } catch {}
+  } catch (error) { if (require('../bot/aiCancellation').isAbort(error)) throw error; }
 
-  return assistantFallback(text, opts);
+  return 'Não consegui consultar a IA agora. Tenta novamente daqui a pouco.';
 }
 
 /**

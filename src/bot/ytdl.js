@@ -30,10 +30,15 @@ const videoCompat = require('./videoCompat');
 let _ffmpeg = null;
 function ffmpegBin() {
   if (_ffmpeg) return _ffmpeg;
-  try { _ffmpeg = require('ffmpeg-static'); if (_ffmpeg) return _ffmpeg; } catch {}
-  for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg', 'ffmpeg']) {
-    try { const r = spawnSync(p, ['-version'], { timeout: 3000, stdio: 'pipe' }); if (r.status === 0) { _ffmpeg = p; return p; } } catch {}
+  // O ffmpeg do sistema vem com ffprobe ao lado (o yt-dlp precisa dos dois
+  // para converter em MP3). O ffmpeg-static só serve se o binário existir
+  // mesmo — se o download do postinstall falhou, o caminho aponta para nada
+  // e TODOS os downloads de música falhavam no pós-processamento.
+  for (const p of ['/usr/bin/ffmpeg', '/usr/local/bin/ffmpeg']) {
+    try { if (fs.existsSync(p) && spawnSync(p, ['-version'], { timeout: 3000, stdio: 'pipe' }).status === 0) { _ffmpeg = p; return p; } } catch {}
   }
+  try { const st = require('ffmpeg-static'); if (st && fs.existsSync(st)) { _ffmpeg = st; return st; } } catch {}
+  try { if (spawnSync('ffmpeg', ['-version'], { timeout: 3000, stdio: 'pipe' }).status === 0) { _ffmpeg = 'ffmpeg'; return _ffmpeg; } } catch {}
   _ffmpeg = 'ffmpeg'; return _ffmpeg;
 }
 
@@ -45,6 +50,38 @@ function ytdlpBin() {
     try { const r = spawnSync(p, ['--version'], { timeout: 3000, stdio: 'pipe' }); if (r.status === 0) { _ytdlp = p; return p; } } catch {}
   }
   _ytdlp = ''; return '';
+}
+
+// O YouTube exige um runtime JS para extrair formatos; o yt-dlp só activa o
+// deno por omissão. O container já tem Node — usa-o quando a versão suporta.
+let _ytdlpJsArgs = null;
+function ytdlpJsArgs(bin) {
+  if (_ytdlpJsArgs !== null) return _ytdlpJsArgs;
+  _ytdlpJsArgs = [];
+  try {
+    const help = spawnSync(bin, ['--help'], { timeout: 5000, stdio: 'pipe' }).stdout?.toString() || '';
+    if (help.includes('--js-runtimes')) _ytdlpJsArgs = ['--js-runtimes', 'node:' + process.execPath];
+  } catch {}
+  return _ytdlpJsArgs;
+}
+
+// Auto-actualização em segundo plano (no máximo 1×/12 h) quando o YouTube
+// muda e o yt-dlp do build fica desactualizado. Desliga com YTDLP_AUTO_UPDATE=off.
+let _ytdlpUpdateAt = 0;
+function maybeUpdateYtdlp(errMsg = '') {
+  if (process.env.YTDLP_AUTO_UPDATE === 'off') return;
+  if (!/sign in|not a bot|unable to extract|http error 403|precondition|nsig|signature|no video formats|requested format is not available/i.test(errMsg)) return;
+  if (Date.now() - _ytdlpUpdateAt < 12 * 3600 * 1000) return;
+  _ytdlpUpdateAt = Date.now();
+  try {
+    const { spawn } = require('child_process');
+    const py = spawnSync('python3', ['--version'], { timeout: 3000 }).status === 0 ? 'python3' : 'python';
+    const child = spawn(py, ['-m', 'pip', 'install', '-U', '--quiet', '--break-system-packages', 'yt-dlp'], { stdio: 'ignore', detached: true });
+    child.on('exit', (code) => { console.log('[ytdl] auto-update yt-dlp terminou com código', code); _ytdlp = null; _ytdlpJsArgs = null; });
+    child.on('error', () => {});
+    child.unref();
+    console.log('[ytdl] yt-dlp falhou com erro do YouTube — a actualizar em segundo plano');
+  } catch {}
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -165,7 +202,7 @@ async function ytdlpDownload(videoUrl, audioOnly = true, quality = '128k', maxHe
   const ffmpegDir = path.dirname(ffmpegPath);
 
   const args = ['--no-playlist', '--max-filesize', '50m', '-o', outTpl, '--no-part', '--quiet',
-    '--ffmpeg-location', ffmpegDir];
+    '--ffmpeg-location', ffmpegDir, ...ytdlpJsArgs(bin)];
 
   if (audioOnly) {
     args.push('-x', '--audio-format', 'mp3', '--audio-quality', String(quality || '128k').toUpperCase());
@@ -189,7 +226,13 @@ async function ytdlpDownload(videoUrl, audioOnly = true, quality = '128k', maxHe
   args.push(videoUrl);
 
   try {
-    await execFileAsync(bin, args, { timeout: 120000, stdio: 'pipe' });
+    try {
+      await execFileAsync(bin, args, { timeout: 120000, stdio: 'pipe', maxBuffer: 8 * 1024 * 1024 });
+    } catch (e) {
+      const detail = String(e.stderr || e.message || '').split('\n').filter(l => /ERROR|error/.test(l)).pop() || String(e.message || '').slice(0, 120);
+      maybeUpdateYtdlp(detail);
+      throw new Error(detail.replace(/^ERROR:\s*/, '').slice(0, 160));
+    }
     const files = fs.readdirSync(tmp);
     if (!files.length) throw new Error('yt-dlp não gerou ficheiro');
     const outFile = path.join(tmp, files[0]);

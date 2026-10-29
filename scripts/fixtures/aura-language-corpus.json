@@ -1,0 +1,8544 @@
+{
+  "version": 1,
+  "note": "Template-based linguistic regression corpus, not new bot capabilities or proof of model quality.",
+  "scenarios": [
+    {
+      "id": 1,
+      "kind": "literal",
+      "text": "diga oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 2,
+      "kind": "literal",
+      "text": "Aura, diga oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 3,
+      "kind": "literal",
+      "text": "Por favor, diga oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 4,
+      "kind": "literal",
+      "text": "Aura, diga oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 5,
+      "kind": "literal",
+      "text": "diga oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 6,
+      "kind": "literal",
+      "text": "Aura, diga oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 7,
+      "kind": "literal",
+      "text": "Por favor, diga oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 8,
+      "kind": "literal",
+      "text": "Aura, diga oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 9,
+      "kind": "literal",
+      "text": "diga olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 10,
+      "kind": "literal",
+      "text": "Aura, diga olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 11,
+      "kind": "literal",
+      "text": "Por favor, diga olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 12,
+      "kind": "literal",
+      "text": "Aura, diga olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 13,
+      "kind": "literal",
+      "text": "diga olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 14,
+      "kind": "literal",
+      "text": "Aura, diga olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 15,
+      "kind": "literal",
+      "text": "Por favor, diga olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 16,
+      "kind": "literal",
+      "text": "Aura, diga olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 17,
+      "kind": "literal",
+      "text": "diga bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 18,
+      "kind": "literal",
+      "text": "Aura, diga bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 19,
+      "kind": "literal",
+      "text": "Por favor, diga bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 20,
+      "kind": "literal",
+      "text": "Aura, diga bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 21,
+      "kind": "literal",
+      "text": "diga bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 22,
+      "kind": "literal",
+      "text": "Aura, diga bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 23,
+      "kind": "literal",
+      "text": "Por favor, diga bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 24,
+      "kind": "literal",
+      "text": "Aura, diga bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 25,
+      "kind": "literal",
+      "text": "diga boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 26,
+      "kind": "literal",
+      "text": "Aura, diga boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 27,
+      "kind": "literal",
+      "text": "Por favor, diga boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 28,
+      "kind": "literal",
+      "text": "Aura, diga boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 29,
+      "kind": "literal",
+      "text": "diga boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 30,
+      "kind": "literal",
+      "text": "Aura, diga boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 31,
+      "kind": "literal",
+      "text": "Por favor, diga boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 32,
+      "kind": "literal",
+      "text": "Aura, diga boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 33,
+      "kind": "literal",
+      "text": "diga boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 34,
+      "kind": "literal",
+      "text": "Aura, diga boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 35,
+      "kind": "literal",
+      "text": "Por favor, diga boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 36,
+      "kind": "literal",
+      "text": "Aura, diga boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 37,
+      "kind": "literal",
+      "text": "diga boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 38,
+      "kind": "literal",
+      "text": "Aura, diga boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 39,
+      "kind": "literal",
+      "text": "Por favor, diga boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 40,
+      "kind": "literal",
+      "text": "Aura, diga boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 41,
+      "kind": "literal",
+      "text": "diga hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 42,
+      "kind": "literal",
+      "text": "Aura, diga hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 43,
+      "kind": "literal",
+      "text": "Por favor, diga hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 44,
+      "kind": "literal",
+      "text": "Aura, diga hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 45,
+      "kind": "literal",
+      "text": "diga hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 46,
+      "kind": "literal",
+      "text": "Aura, diga hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 47,
+      "kind": "literal",
+      "text": "Por favor, diga hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 48,
+      "kind": "literal",
+      "text": "Aura, diga hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 49,
+      "kind": "literal",
+      "text": "diga hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 50,
+      "kind": "literal",
+      "text": "Aura, diga hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 51,
+      "kind": "literal",
+      "text": "Por favor, diga hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 52,
+      "kind": "literal",
+      "text": "Aura, diga hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 53,
+      "kind": "literal",
+      "text": "diga hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 54,
+      "kind": "literal",
+      "text": "Aura, diga hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 55,
+      "kind": "literal",
+      "text": "Por favor, diga hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 56,
+      "kind": "literal",
+      "text": "Aura, diga hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 57,
+      "kind": "literal",
+      "text": "diz oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 58,
+      "kind": "literal",
+      "text": "Aura, diz oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 59,
+      "kind": "literal",
+      "text": "Por favor, diz oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 60,
+      "kind": "literal",
+      "text": "Aura, diz oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 61,
+      "kind": "literal",
+      "text": "diz oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 62,
+      "kind": "literal",
+      "text": "Aura, diz oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 63,
+      "kind": "literal",
+      "text": "Por favor, diz oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 64,
+      "kind": "literal",
+      "text": "Aura, diz oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 65,
+      "kind": "literal",
+      "text": "diz olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 66,
+      "kind": "literal",
+      "text": "Aura, diz olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 67,
+      "kind": "literal",
+      "text": "Por favor, diz olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 68,
+      "kind": "literal",
+      "text": "Aura, diz olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 69,
+      "kind": "literal",
+      "text": "diz olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 70,
+      "kind": "literal",
+      "text": "Aura, diz olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 71,
+      "kind": "literal",
+      "text": "Por favor, diz olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 72,
+      "kind": "literal",
+      "text": "Aura, diz olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 73,
+      "kind": "literal",
+      "text": "diz bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 74,
+      "kind": "literal",
+      "text": "Aura, diz bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 75,
+      "kind": "literal",
+      "text": "Por favor, diz bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 76,
+      "kind": "literal",
+      "text": "Aura, diz bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 77,
+      "kind": "literal",
+      "text": "diz bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 78,
+      "kind": "literal",
+      "text": "Aura, diz bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 79,
+      "kind": "literal",
+      "text": "Por favor, diz bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 80,
+      "kind": "literal",
+      "text": "Aura, diz bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 81,
+      "kind": "literal",
+      "text": "diz boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 82,
+      "kind": "literal",
+      "text": "Aura, diz boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 83,
+      "kind": "literal",
+      "text": "Por favor, diz boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 84,
+      "kind": "literal",
+      "text": "Aura, diz boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 85,
+      "kind": "literal",
+      "text": "diz boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 86,
+      "kind": "literal",
+      "text": "Aura, diz boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 87,
+      "kind": "literal",
+      "text": "Por favor, diz boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 88,
+      "kind": "literal",
+      "text": "Aura, diz boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 89,
+      "kind": "literal",
+      "text": "diz boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 90,
+      "kind": "literal",
+      "text": "Aura, diz boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 91,
+      "kind": "literal",
+      "text": "Por favor, diz boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 92,
+      "kind": "literal",
+      "text": "Aura, diz boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 93,
+      "kind": "literal",
+      "text": "diz boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 94,
+      "kind": "literal",
+      "text": "Aura, diz boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 95,
+      "kind": "literal",
+      "text": "Por favor, diz boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 96,
+      "kind": "literal",
+      "text": "Aura, diz boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 97,
+      "kind": "literal",
+      "text": "diz hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 98,
+      "kind": "literal",
+      "text": "Aura, diz hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 99,
+      "kind": "literal",
+      "text": "Por favor, diz hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 100,
+      "kind": "literal",
+      "text": "Aura, diz hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 101,
+      "kind": "literal",
+      "text": "diz hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 102,
+      "kind": "literal",
+      "text": "Aura, diz hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 103,
+      "kind": "literal",
+      "text": "Por favor, diz hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 104,
+      "kind": "literal",
+      "text": "Aura, diz hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 105,
+      "kind": "literal",
+      "text": "diz hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 106,
+      "kind": "literal",
+      "text": "Aura, diz hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 107,
+      "kind": "literal",
+      "text": "Por favor, diz hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 108,
+      "kind": "literal",
+      "text": "Aura, diz hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 109,
+      "kind": "literal",
+      "text": "diz hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 110,
+      "kind": "literal",
+      "text": "Aura, diz hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 111,
+      "kind": "literal",
+      "text": "Por favor, diz hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 112,
+      "kind": "literal",
+      "text": "Aura, diz hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 113,
+      "kind": "literal",
+      "text": "dizer oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 114,
+      "kind": "literal",
+      "text": "Aura, dizer oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 115,
+      "kind": "literal",
+      "text": "Por favor, dizer oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 116,
+      "kind": "literal",
+      "text": "Aura, dizer oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 117,
+      "kind": "literal",
+      "text": "dizer oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 118,
+      "kind": "literal",
+      "text": "Aura, dizer oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 119,
+      "kind": "literal",
+      "text": "Por favor, dizer oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 120,
+      "kind": "literal",
+      "text": "Aura, dizer oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 121,
+      "kind": "literal",
+      "text": "dizer olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 122,
+      "kind": "literal",
+      "text": "Aura, dizer olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 123,
+      "kind": "literal",
+      "text": "Por favor, dizer olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 124,
+      "kind": "literal",
+      "text": "Aura, dizer olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 125,
+      "kind": "literal",
+      "text": "dizer olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 126,
+      "kind": "literal",
+      "text": "Aura, dizer olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 127,
+      "kind": "literal",
+      "text": "Por favor, dizer olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 128,
+      "kind": "literal",
+      "text": "Aura, dizer olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 129,
+      "kind": "literal",
+      "text": "dizer bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 130,
+      "kind": "literal",
+      "text": "Aura, dizer bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 131,
+      "kind": "literal",
+      "text": "Por favor, dizer bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 132,
+      "kind": "literal",
+      "text": "Aura, dizer bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 133,
+      "kind": "literal",
+      "text": "dizer bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 134,
+      "kind": "literal",
+      "text": "Aura, dizer bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 135,
+      "kind": "literal",
+      "text": "Por favor, dizer bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 136,
+      "kind": "literal",
+      "text": "Aura, dizer bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 137,
+      "kind": "literal",
+      "text": "dizer boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 138,
+      "kind": "literal",
+      "text": "Aura, dizer boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 139,
+      "kind": "literal",
+      "text": "Por favor, dizer boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 140,
+      "kind": "literal",
+      "text": "Aura, dizer boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 141,
+      "kind": "literal",
+      "text": "dizer boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 142,
+      "kind": "literal",
+      "text": "Aura, dizer boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 143,
+      "kind": "literal",
+      "text": "Por favor, dizer boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 144,
+      "kind": "literal",
+      "text": "Aura, dizer boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 145,
+      "kind": "literal",
+      "text": "dizer boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 146,
+      "kind": "literal",
+      "text": "Aura, dizer boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 147,
+      "kind": "literal",
+      "text": "Por favor, dizer boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 148,
+      "kind": "literal",
+      "text": "Aura, dizer boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 149,
+      "kind": "literal",
+      "text": "dizer boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 150,
+      "kind": "literal",
+      "text": "Aura, dizer boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 151,
+      "kind": "literal",
+      "text": "Por favor, dizer boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 152,
+      "kind": "literal",
+      "text": "Aura, dizer boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 153,
+      "kind": "literal",
+      "text": "dizer hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 154,
+      "kind": "literal",
+      "text": "Aura, dizer hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 155,
+      "kind": "literal",
+      "text": "Por favor, dizer hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 156,
+      "kind": "literal",
+      "text": "Aura, dizer hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 157,
+      "kind": "literal",
+      "text": "dizer hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 158,
+      "kind": "literal",
+      "text": "Aura, dizer hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 159,
+      "kind": "literal",
+      "text": "Por favor, dizer hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 160,
+      "kind": "literal",
+      "text": "Aura, dizer hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 161,
+      "kind": "literal",
+      "text": "dizer hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 162,
+      "kind": "literal",
+      "text": "Aura, dizer hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 163,
+      "kind": "literal",
+      "text": "Por favor, dizer hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 164,
+      "kind": "literal",
+      "text": "Aura, dizer hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 165,
+      "kind": "literal",
+      "text": "dizer hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 166,
+      "kind": "literal",
+      "text": "Aura, dizer hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 167,
+      "kind": "literal",
+      "text": "Por favor, dizer hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 168,
+      "kind": "literal",
+      "text": "Aura, dizer hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 169,
+      "kind": "literal",
+      "text": "fala oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 170,
+      "kind": "literal",
+      "text": "Aura, fala oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 171,
+      "kind": "literal",
+      "text": "Por favor, fala oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 172,
+      "kind": "literal",
+      "text": "Aura, fala oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 173,
+      "kind": "literal",
+      "text": "fala oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 174,
+      "kind": "literal",
+      "text": "Aura, fala oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 175,
+      "kind": "literal",
+      "text": "Por favor, fala oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 176,
+      "kind": "literal",
+      "text": "Aura, fala oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 177,
+      "kind": "literal",
+      "text": "fala olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 178,
+      "kind": "literal",
+      "text": "Aura, fala olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 179,
+      "kind": "literal",
+      "text": "Por favor, fala olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 180,
+      "kind": "literal",
+      "text": "Aura, fala olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 181,
+      "kind": "literal",
+      "text": "fala olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 182,
+      "kind": "literal",
+      "text": "Aura, fala olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 183,
+      "kind": "literal",
+      "text": "Por favor, fala olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 184,
+      "kind": "literal",
+      "text": "Aura, fala olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 185,
+      "kind": "literal",
+      "text": "fala bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 186,
+      "kind": "literal",
+      "text": "Aura, fala bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 187,
+      "kind": "literal",
+      "text": "Por favor, fala bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 188,
+      "kind": "literal",
+      "text": "Aura, fala bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 189,
+      "kind": "literal",
+      "text": "fala bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 190,
+      "kind": "literal",
+      "text": "Aura, fala bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 191,
+      "kind": "literal",
+      "text": "Por favor, fala bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 192,
+      "kind": "literal",
+      "text": "Aura, fala bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 193,
+      "kind": "literal",
+      "text": "fala boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 194,
+      "kind": "literal",
+      "text": "Aura, fala boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 195,
+      "kind": "literal",
+      "text": "Por favor, fala boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 196,
+      "kind": "literal",
+      "text": "Aura, fala boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 197,
+      "kind": "literal",
+      "text": "fala boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 198,
+      "kind": "literal",
+      "text": "Aura, fala boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 199,
+      "kind": "literal",
+      "text": "Por favor, fala boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 200,
+      "kind": "literal",
+      "text": "Aura, fala boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 201,
+      "kind": "literal",
+      "text": "fala boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 202,
+      "kind": "literal",
+      "text": "Aura, fala boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 203,
+      "kind": "literal",
+      "text": "Por favor, fala boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 204,
+      "kind": "literal",
+      "text": "Aura, fala boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 205,
+      "kind": "literal",
+      "text": "fala boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 206,
+      "kind": "literal",
+      "text": "Aura, fala boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 207,
+      "kind": "literal",
+      "text": "Por favor, fala boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 208,
+      "kind": "literal",
+      "text": "Aura, fala boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 209,
+      "kind": "literal",
+      "text": "fala hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 210,
+      "kind": "literal",
+      "text": "Aura, fala hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 211,
+      "kind": "literal",
+      "text": "Por favor, fala hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 212,
+      "kind": "literal",
+      "text": "Aura, fala hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 213,
+      "kind": "literal",
+      "text": "fala hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 214,
+      "kind": "literal",
+      "text": "Aura, fala hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 215,
+      "kind": "literal",
+      "text": "Por favor, fala hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 216,
+      "kind": "literal",
+      "text": "Aura, fala hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 217,
+      "kind": "literal",
+      "text": "fala hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 218,
+      "kind": "literal",
+      "text": "Aura, fala hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 219,
+      "kind": "literal",
+      "text": "Por favor, fala hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 220,
+      "kind": "literal",
+      "text": "Aura, fala hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 221,
+      "kind": "literal",
+      "text": "fala hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 222,
+      "kind": "literal",
+      "text": "Aura, fala hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 223,
+      "kind": "literal",
+      "text": "Por favor, fala hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 224,
+      "kind": "literal",
+      "text": "Aura, fala hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 225,
+      "kind": "literal",
+      "text": "fale oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 226,
+      "kind": "literal",
+      "text": "Aura, fale oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 227,
+      "kind": "literal",
+      "text": "Por favor, fale oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 228,
+      "kind": "literal",
+      "text": "Aura, fale oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 229,
+      "kind": "literal",
+      "text": "fale oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 230,
+      "kind": "literal",
+      "text": "Aura, fale oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 231,
+      "kind": "literal",
+      "text": "Por favor, fale oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 232,
+      "kind": "literal",
+      "text": "Aura, fale oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 233,
+      "kind": "literal",
+      "text": "fale olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 234,
+      "kind": "literal",
+      "text": "Aura, fale olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 235,
+      "kind": "literal",
+      "text": "Por favor, fale olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 236,
+      "kind": "literal",
+      "text": "Aura, fale olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 237,
+      "kind": "literal",
+      "text": "fale olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 238,
+      "kind": "literal",
+      "text": "Aura, fale olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 239,
+      "kind": "literal",
+      "text": "Por favor, fale olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 240,
+      "kind": "literal",
+      "text": "Aura, fale olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 241,
+      "kind": "literal",
+      "text": "fale bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 242,
+      "kind": "literal",
+      "text": "Aura, fale bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 243,
+      "kind": "literal",
+      "text": "Por favor, fale bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 244,
+      "kind": "literal",
+      "text": "Aura, fale bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 245,
+      "kind": "literal",
+      "text": "fale bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 246,
+      "kind": "literal",
+      "text": "Aura, fale bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 247,
+      "kind": "literal",
+      "text": "Por favor, fale bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 248,
+      "kind": "literal",
+      "text": "Aura, fale bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 249,
+      "kind": "literal",
+      "text": "fale boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 250,
+      "kind": "literal",
+      "text": "Aura, fale boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 251,
+      "kind": "literal",
+      "text": "Por favor, fale boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 252,
+      "kind": "literal",
+      "text": "Aura, fale boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 253,
+      "kind": "literal",
+      "text": "fale boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 254,
+      "kind": "literal",
+      "text": "Aura, fale boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 255,
+      "kind": "literal",
+      "text": "Por favor, fale boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 256,
+      "kind": "literal",
+      "text": "Aura, fale boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 257,
+      "kind": "literal",
+      "text": "fale boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 258,
+      "kind": "literal",
+      "text": "Aura, fale boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 259,
+      "kind": "literal",
+      "text": "Por favor, fale boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 260,
+      "kind": "literal",
+      "text": "Aura, fale boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 261,
+      "kind": "literal",
+      "text": "fale boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 262,
+      "kind": "literal",
+      "text": "Aura, fale boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 263,
+      "kind": "literal",
+      "text": "Por favor, fale boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 264,
+      "kind": "literal",
+      "text": "Aura, fale boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 265,
+      "kind": "literal",
+      "text": "fale hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 266,
+      "kind": "literal",
+      "text": "Aura, fale hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 267,
+      "kind": "literal",
+      "text": "Por favor, fale hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 268,
+      "kind": "literal",
+      "text": "Aura, fale hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 269,
+      "kind": "literal",
+      "text": "fale hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 270,
+      "kind": "literal",
+      "text": "Aura, fale hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 271,
+      "kind": "literal",
+      "text": "Por favor, fale hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 272,
+      "kind": "literal",
+      "text": "Aura, fale hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 273,
+      "kind": "literal",
+      "text": "fale hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 274,
+      "kind": "literal",
+      "text": "Aura, fale hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 275,
+      "kind": "literal",
+      "text": "Por favor, fale hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 276,
+      "kind": "literal",
+      "text": "Aura, fale hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 277,
+      "kind": "literal",
+      "text": "fale hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 278,
+      "kind": "literal",
+      "text": "Aura, fale hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 279,
+      "kind": "literal",
+      "text": "Por favor, fale hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 280,
+      "kind": "literal",
+      "text": "Aura, fale hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 281,
+      "kind": "literal",
+      "text": "falar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 282,
+      "kind": "literal",
+      "text": "Aura, falar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 283,
+      "kind": "literal",
+      "text": "Por favor, falar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 284,
+      "kind": "literal",
+      "text": "Aura, falar oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 285,
+      "kind": "literal",
+      "text": "falar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 286,
+      "kind": "literal",
+      "text": "Aura, falar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 287,
+      "kind": "literal",
+      "text": "Por favor, falar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 288,
+      "kind": "literal",
+      "text": "Aura, falar oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 289,
+      "kind": "literal",
+      "text": "falar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 290,
+      "kind": "literal",
+      "text": "Aura, falar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 291,
+      "kind": "literal",
+      "text": "Por favor, falar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 292,
+      "kind": "literal",
+      "text": "Aura, falar olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 293,
+      "kind": "literal",
+      "text": "falar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 294,
+      "kind": "literal",
+      "text": "Aura, falar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 295,
+      "kind": "literal",
+      "text": "Por favor, falar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 296,
+      "kind": "literal",
+      "text": "Aura, falar olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 297,
+      "kind": "literal",
+      "text": "falar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 298,
+      "kind": "literal",
+      "text": "Aura, falar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 299,
+      "kind": "literal",
+      "text": "Por favor, falar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 300,
+      "kind": "literal",
+      "text": "Aura, falar bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 301,
+      "kind": "literal",
+      "text": "falar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 302,
+      "kind": "literal",
+      "text": "Aura, falar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 303,
+      "kind": "literal",
+      "text": "Por favor, falar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 304,
+      "kind": "literal",
+      "text": "Aura, falar bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 305,
+      "kind": "literal",
+      "text": "falar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 306,
+      "kind": "literal",
+      "text": "Aura, falar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 307,
+      "kind": "literal",
+      "text": "Por favor, falar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 308,
+      "kind": "literal",
+      "text": "Aura, falar boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 309,
+      "kind": "literal",
+      "text": "falar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 310,
+      "kind": "literal",
+      "text": "Aura, falar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 311,
+      "kind": "literal",
+      "text": "Por favor, falar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 312,
+      "kind": "literal",
+      "text": "Aura, falar boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 313,
+      "kind": "literal",
+      "text": "falar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 314,
+      "kind": "literal",
+      "text": "Aura, falar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 315,
+      "kind": "literal",
+      "text": "Por favor, falar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 316,
+      "kind": "literal",
+      "text": "Aura, falar boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 317,
+      "kind": "literal",
+      "text": "falar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 318,
+      "kind": "literal",
+      "text": "Aura, falar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 319,
+      "kind": "literal",
+      "text": "Por favor, falar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 320,
+      "kind": "literal",
+      "text": "Aura, falar boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 321,
+      "kind": "literal",
+      "text": "falar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 322,
+      "kind": "literal",
+      "text": "Aura, falar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 323,
+      "kind": "literal",
+      "text": "Por favor, falar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 324,
+      "kind": "literal",
+      "text": "Aura, falar hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 325,
+      "kind": "literal",
+      "text": "falar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 326,
+      "kind": "literal",
+      "text": "Aura, falar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 327,
+      "kind": "literal",
+      "text": "Por favor, falar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 328,
+      "kind": "literal",
+      "text": "Aura, falar hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 329,
+      "kind": "literal",
+      "text": "falar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 330,
+      "kind": "literal",
+      "text": "Aura, falar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 331,
+      "kind": "literal",
+      "text": "Por favor, falar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 332,
+      "kind": "literal",
+      "text": "Aura, falar hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 333,
+      "kind": "literal",
+      "text": "falar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 334,
+      "kind": "literal",
+      "text": "Aura, falar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 335,
+      "kind": "literal",
+      "text": "Por favor, falar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 336,
+      "kind": "literal",
+      "text": "Aura, falar hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 337,
+      "kind": "literal",
+      "text": "manda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 338,
+      "kind": "literal",
+      "text": "Aura, manda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 339,
+      "kind": "literal",
+      "text": "Por favor, manda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 340,
+      "kind": "literal",
+      "text": "Aura, manda oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 341,
+      "kind": "literal",
+      "text": "manda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 342,
+      "kind": "literal",
+      "text": "Aura, manda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 343,
+      "kind": "literal",
+      "text": "Por favor, manda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 344,
+      "kind": "literal",
+      "text": "Aura, manda oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 345,
+      "kind": "literal",
+      "text": "manda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 346,
+      "kind": "literal",
+      "text": "Aura, manda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 347,
+      "kind": "literal",
+      "text": "Por favor, manda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 348,
+      "kind": "literal",
+      "text": "Aura, manda olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 349,
+      "kind": "literal",
+      "text": "manda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 350,
+      "kind": "literal",
+      "text": "Aura, manda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 351,
+      "kind": "literal",
+      "text": "Por favor, manda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 352,
+      "kind": "literal",
+      "text": "Aura, manda olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 353,
+      "kind": "literal",
+      "text": "manda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 354,
+      "kind": "literal",
+      "text": "Aura, manda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 355,
+      "kind": "literal",
+      "text": "Por favor, manda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 356,
+      "kind": "literal",
+      "text": "Aura, manda bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 357,
+      "kind": "literal",
+      "text": "manda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 358,
+      "kind": "literal",
+      "text": "Aura, manda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 359,
+      "kind": "literal",
+      "text": "Por favor, manda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 360,
+      "kind": "literal",
+      "text": "Aura, manda bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 361,
+      "kind": "literal",
+      "text": "manda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 362,
+      "kind": "literal",
+      "text": "Aura, manda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 363,
+      "kind": "literal",
+      "text": "Por favor, manda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 364,
+      "kind": "literal",
+      "text": "Aura, manda boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 365,
+      "kind": "literal",
+      "text": "manda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 366,
+      "kind": "literal",
+      "text": "Aura, manda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 367,
+      "kind": "literal",
+      "text": "Por favor, manda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 368,
+      "kind": "literal",
+      "text": "Aura, manda boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 369,
+      "kind": "literal",
+      "text": "manda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 370,
+      "kind": "literal",
+      "text": "Aura, manda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 371,
+      "kind": "literal",
+      "text": "Por favor, manda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 372,
+      "kind": "literal",
+      "text": "Aura, manda boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 373,
+      "kind": "literal",
+      "text": "manda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 374,
+      "kind": "literal",
+      "text": "Aura, manda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 375,
+      "kind": "literal",
+      "text": "Por favor, manda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 376,
+      "kind": "literal",
+      "text": "Aura, manda boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 377,
+      "kind": "literal",
+      "text": "manda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 378,
+      "kind": "literal",
+      "text": "Aura, manda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 379,
+      "kind": "literal",
+      "text": "Por favor, manda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 380,
+      "kind": "literal",
+      "text": "Aura, manda hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 381,
+      "kind": "literal",
+      "text": "manda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 382,
+      "kind": "literal",
+      "text": "Aura, manda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 383,
+      "kind": "literal",
+      "text": "Por favor, manda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 384,
+      "kind": "literal",
+      "text": "Aura, manda hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 385,
+      "kind": "literal",
+      "text": "manda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 386,
+      "kind": "literal",
+      "text": "Aura, manda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 387,
+      "kind": "literal",
+      "text": "Por favor, manda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 388,
+      "kind": "literal",
+      "text": "Aura, manda hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 389,
+      "kind": "literal",
+      "text": "manda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 390,
+      "kind": "literal",
+      "text": "Aura, manda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 391,
+      "kind": "literal",
+      "text": "Por favor, manda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 392,
+      "kind": "literal",
+      "text": "Aura, manda hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 393,
+      "kind": "literal",
+      "text": "mande oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 394,
+      "kind": "literal",
+      "text": "Aura, mande oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 395,
+      "kind": "literal",
+      "text": "Por favor, mande oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 396,
+      "kind": "literal",
+      "text": "Aura, mande oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 397,
+      "kind": "literal",
+      "text": "mande oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 398,
+      "kind": "literal",
+      "text": "Aura, mande oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 399,
+      "kind": "literal",
+      "text": "Por favor, mande oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 400,
+      "kind": "literal",
+      "text": "Aura, mande oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 401,
+      "kind": "literal",
+      "text": "mande olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 402,
+      "kind": "literal",
+      "text": "Aura, mande olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 403,
+      "kind": "literal",
+      "text": "Por favor, mande olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 404,
+      "kind": "literal",
+      "text": "Aura, mande olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 405,
+      "kind": "literal",
+      "text": "mande olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 406,
+      "kind": "literal",
+      "text": "Aura, mande olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 407,
+      "kind": "literal",
+      "text": "Por favor, mande olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 408,
+      "kind": "literal",
+      "text": "Aura, mande olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 409,
+      "kind": "literal",
+      "text": "mande bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 410,
+      "kind": "literal",
+      "text": "Aura, mande bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 411,
+      "kind": "literal",
+      "text": "Por favor, mande bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 412,
+      "kind": "literal",
+      "text": "Aura, mande bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 413,
+      "kind": "literal",
+      "text": "mande bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 414,
+      "kind": "literal",
+      "text": "Aura, mande bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 415,
+      "kind": "literal",
+      "text": "Por favor, mande bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 416,
+      "kind": "literal",
+      "text": "Aura, mande bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 417,
+      "kind": "literal",
+      "text": "mande boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 418,
+      "kind": "literal",
+      "text": "Aura, mande boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 419,
+      "kind": "literal",
+      "text": "Por favor, mande boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 420,
+      "kind": "literal",
+      "text": "Aura, mande boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 421,
+      "kind": "literal",
+      "text": "mande boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 422,
+      "kind": "literal",
+      "text": "Aura, mande boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 423,
+      "kind": "literal",
+      "text": "Por favor, mande boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 424,
+      "kind": "literal",
+      "text": "Aura, mande boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 425,
+      "kind": "literal",
+      "text": "mande boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 426,
+      "kind": "literal",
+      "text": "Aura, mande boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 427,
+      "kind": "literal",
+      "text": "Por favor, mande boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 428,
+      "kind": "literal",
+      "text": "Aura, mande boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 429,
+      "kind": "literal",
+      "text": "mande boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 430,
+      "kind": "literal",
+      "text": "Aura, mande boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 431,
+      "kind": "literal",
+      "text": "Por favor, mande boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 432,
+      "kind": "literal",
+      "text": "Aura, mande boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 433,
+      "kind": "literal",
+      "text": "mande hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 434,
+      "kind": "literal",
+      "text": "Aura, mande hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 435,
+      "kind": "literal",
+      "text": "Por favor, mande hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 436,
+      "kind": "literal",
+      "text": "Aura, mande hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 437,
+      "kind": "literal",
+      "text": "mande hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 438,
+      "kind": "literal",
+      "text": "Aura, mande hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 439,
+      "kind": "literal",
+      "text": "Por favor, mande hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 440,
+      "kind": "literal",
+      "text": "Aura, mande hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 441,
+      "kind": "literal",
+      "text": "mande hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 442,
+      "kind": "literal",
+      "text": "Aura, mande hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 443,
+      "kind": "literal",
+      "text": "Por favor, mande hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 444,
+      "kind": "literal",
+      "text": "Aura, mande hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 445,
+      "kind": "literal",
+      "text": "mande hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 446,
+      "kind": "literal",
+      "text": "Aura, mande hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 447,
+      "kind": "literal",
+      "text": "Por favor, mande hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 448,
+      "kind": "literal",
+      "text": "Aura, mande hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 449,
+      "kind": "literal",
+      "text": "mandar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 450,
+      "kind": "literal",
+      "text": "Aura, mandar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 451,
+      "kind": "literal",
+      "text": "Por favor, mandar oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 452,
+      "kind": "literal",
+      "text": "Aura, mandar oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 453,
+      "kind": "literal",
+      "text": "mandar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 454,
+      "kind": "literal",
+      "text": "Aura, mandar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 455,
+      "kind": "literal",
+      "text": "Por favor, mandar oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 456,
+      "kind": "literal",
+      "text": "Aura, mandar oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 457,
+      "kind": "literal",
+      "text": "mandar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 458,
+      "kind": "literal",
+      "text": "Aura, mandar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 459,
+      "kind": "literal",
+      "text": "Por favor, mandar olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 460,
+      "kind": "literal",
+      "text": "Aura, mandar olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 461,
+      "kind": "literal",
+      "text": "mandar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 462,
+      "kind": "literal",
+      "text": "Aura, mandar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 463,
+      "kind": "literal",
+      "text": "Por favor, mandar olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 464,
+      "kind": "literal",
+      "text": "Aura, mandar olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 465,
+      "kind": "literal",
+      "text": "mandar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 466,
+      "kind": "literal",
+      "text": "Aura, mandar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 467,
+      "kind": "literal",
+      "text": "Por favor, mandar bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 468,
+      "kind": "literal",
+      "text": "Aura, mandar bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 469,
+      "kind": "literal",
+      "text": "mandar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 470,
+      "kind": "literal",
+      "text": "Aura, mandar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 471,
+      "kind": "literal",
+      "text": "Por favor, mandar bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 472,
+      "kind": "literal",
+      "text": "Aura, mandar bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 473,
+      "kind": "literal",
+      "text": "mandar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 474,
+      "kind": "literal",
+      "text": "Aura, mandar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 475,
+      "kind": "literal",
+      "text": "Por favor, mandar boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 476,
+      "kind": "literal",
+      "text": "Aura, mandar boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 477,
+      "kind": "literal",
+      "text": "mandar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 478,
+      "kind": "literal",
+      "text": "Aura, mandar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 479,
+      "kind": "literal",
+      "text": "Por favor, mandar boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 480,
+      "kind": "literal",
+      "text": "Aura, mandar boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 481,
+      "kind": "literal",
+      "text": "mandar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 482,
+      "kind": "literal",
+      "text": "Aura, mandar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 483,
+      "kind": "literal",
+      "text": "Por favor, mandar boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 484,
+      "kind": "literal",
+      "text": "Aura, mandar boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 485,
+      "kind": "literal",
+      "text": "mandar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 486,
+      "kind": "literal",
+      "text": "Aura, mandar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 487,
+      "kind": "literal",
+      "text": "Por favor, mandar boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 488,
+      "kind": "literal",
+      "text": "Aura, mandar boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 489,
+      "kind": "literal",
+      "text": "mandar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 490,
+      "kind": "literal",
+      "text": "Aura, mandar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 491,
+      "kind": "literal",
+      "text": "Por favor, mandar hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 492,
+      "kind": "literal",
+      "text": "Aura, mandar hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 493,
+      "kind": "literal",
+      "text": "mandar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 494,
+      "kind": "literal",
+      "text": "Aura, mandar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 495,
+      "kind": "literal",
+      "text": "Por favor, mandar hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 496,
+      "kind": "literal",
+      "text": "Aura, mandar hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 497,
+      "kind": "literal",
+      "text": "mandar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 498,
+      "kind": "literal",
+      "text": "Aura, mandar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 499,
+      "kind": "literal",
+      "text": "Por favor, mandar hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 500,
+      "kind": "literal",
+      "text": "Aura, mandar hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 501,
+      "kind": "literal",
+      "text": "mandar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 502,
+      "kind": "literal",
+      "text": "Aura, mandar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 503,
+      "kind": "literal",
+      "text": "Por favor, mandar hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 504,
+      "kind": "literal",
+      "text": "Aura, mandar hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 505,
+      "kind": "literal",
+      "text": "envia oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 506,
+      "kind": "literal",
+      "text": "Aura, envia oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 507,
+      "kind": "literal",
+      "text": "Por favor, envia oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 508,
+      "kind": "literal",
+      "text": "Aura, envia oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 509,
+      "kind": "literal",
+      "text": "envia oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 510,
+      "kind": "literal",
+      "text": "Aura, envia oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 511,
+      "kind": "literal",
+      "text": "Por favor, envia oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 512,
+      "kind": "literal",
+      "text": "Aura, envia oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 513,
+      "kind": "literal",
+      "text": "envia olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 514,
+      "kind": "literal",
+      "text": "Aura, envia olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 515,
+      "kind": "literal",
+      "text": "Por favor, envia olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 516,
+      "kind": "literal",
+      "text": "Aura, envia olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 517,
+      "kind": "literal",
+      "text": "envia olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 518,
+      "kind": "literal",
+      "text": "Aura, envia olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 519,
+      "kind": "literal",
+      "text": "Por favor, envia olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 520,
+      "kind": "literal",
+      "text": "Aura, envia olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 521,
+      "kind": "literal",
+      "text": "envia bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 522,
+      "kind": "literal",
+      "text": "Aura, envia bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 523,
+      "kind": "literal",
+      "text": "Por favor, envia bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 524,
+      "kind": "literal",
+      "text": "Aura, envia bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 525,
+      "kind": "literal",
+      "text": "envia bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 526,
+      "kind": "literal",
+      "text": "Aura, envia bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 527,
+      "kind": "literal",
+      "text": "Por favor, envia bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 528,
+      "kind": "literal",
+      "text": "Aura, envia bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 529,
+      "kind": "literal",
+      "text": "envia boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 530,
+      "kind": "literal",
+      "text": "Aura, envia boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 531,
+      "kind": "literal",
+      "text": "Por favor, envia boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 532,
+      "kind": "literal",
+      "text": "Aura, envia boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 533,
+      "kind": "literal",
+      "text": "envia boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 534,
+      "kind": "literal",
+      "text": "Aura, envia boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 535,
+      "kind": "literal",
+      "text": "Por favor, envia boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 536,
+      "kind": "literal",
+      "text": "Aura, envia boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 537,
+      "kind": "literal",
+      "text": "envia boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 538,
+      "kind": "literal",
+      "text": "Aura, envia boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 539,
+      "kind": "literal",
+      "text": "Por favor, envia boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 540,
+      "kind": "literal",
+      "text": "Aura, envia boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 541,
+      "kind": "literal",
+      "text": "envia boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 542,
+      "kind": "literal",
+      "text": "Aura, envia boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 543,
+      "kind": "literal",
+      "text": "Por favor, envia boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 544,
+      "kind": "literal",
+      "text": "Aura, envia boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 545,
+      "kind": "literal",
+      "text": "envia hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 546,
+      "kind": "literal",
+      "text": "Aura, envia hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 547,
+      "kind": "literal",
+      "text": "Por favor, envia hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 548,
+      "kind": "literal",
+      "text": "Aura, envia hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 549,
+      "kind": "literal",
+      "text": "envia hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 550,
+      "kind": "literal",
+      "text": "Aura, envia hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 551,
+      "kind": "literal",
+      "text": "Por favor, envia hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 552,
+      "kind": "literal",
+      "text": "Aura, envia hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 553,
+      "kind": "literal",
+      "text": "envia hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 554,
+      "kind": "literal",
+      "text": "Aura, envia hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 555,
+      "kind": "literal",
+      "text": "Por favor, envia hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 556,
+      "kind": "literal",
+      "text": "Aura, envia hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 557,
+      "kind": "literal",
+      "text": "envia hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 558,
+      "kind": "literal",
+      "text": "Aura, envia hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 559,
+      "kind": "literal",
+      "text": "Por favor, envia hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 560,
+      "kind": "literal",
+      "text": "Aura, envia hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 561,
+      "kind": "literal",
+      "text": "envie oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 562,
+      "kind": "literal",
+      "text": "Aura, envie oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 563,
+      "kind": "literal",
+      "text": "Por favor, envie oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 564,
+      "kind": "literal",
+      "text": "Aura, envie oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 565,
+      "kind": "literal",
+      "text": "envie oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 566,
+      "kind": "literal",
+      "text": "Aura, envie oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 567,
+      "kind": "literal",
+      "text": "Por favor, envie oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 568,
+      "kind": "literal",
+      "text": "Aura, envie oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 569,
+      "kind": "literal",
+      "text": "envie olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 570,
+      "kind": "literal",
+      "text": "Aura, envie olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 571,
+      "kind": "literal",
+      "text": "Por favor, envie olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 572,
+      "kind": "literal",
+      "text": "Aura, envie olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 573,
+      "kind": "literal",
+      "text": "envie olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 574,
+      "kind": "literal",
+      "text": "Aura, envie olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 575,
+      "kind": "literal",
+      "text": "Por favor, envie olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 576,
+      "kind": "literal",
+      "text": "Aura, envie olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 577,
+      "kind": "literal",
+      "text": "envie bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 578,
+      "kind": "literal",
+      "text": "Aura, envie bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 579,
+      "kind": "literal",
+      "text": "Por favor, envie bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 580,
+      "kind": "literal",
+      "text": "Aura, envie bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 581,
+      "kind": "literal",
+      "text": "envie bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 582,
+      "kind": "literal",
+      "text": "Aura, envie bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 583,
+      "kind": "literal",
+      "text": "Por favor, envie bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 584,
+      "kind": "literal",
+      "text": "Aura, envie bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 585,
+      "kind": "literal",
+      "text": "envie boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 586,
+      "kind": "literal",
+      "text": "Aura, envie boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 587,
+      "kind": "literal",
+      "text": "Por favor, envie boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 588,
+      "kind": "literal",
+      "text": "Aura, envie boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 589,
+      "kind": "literal",
+      "text": "envie boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 590,
+      "kind": "literal",
+      "text": "Aura, envie boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 591,
+      "kind": "literal",
+      "text": "Por favor, envie boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 592,
+      "kind": "literal",
+      "text": "Aura, envie boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 593,
+      "kind": "literal",
+      "text": "envie boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 594,
+      "kind": "literal",
+      "text": "Aura, envie boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 595,
+      "kind": "literal",
+      "text": "Por favor, envie boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 596,
+      "kind": "literal",
+      "text": "Aura, envie boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 597,
+      "kind": "literal",
+      "text": "envie boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 598,
+      "kind": "literal",
+      "text": "Aura, envie boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 599,
+      "kind": "literal",
+      "text": "Por favor, envie boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 600,
+      "kind": "literal",
+      "text": "Aura, envie boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 601,
+      "kind": "literal",
+      "text": "envie hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 602,
+      "kind": "literal",
+      "text": "Aura, envie hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 603,
+      "kind": "literal",
+      "text": "Por favor, envie hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 604,
+      "kind": "literal",
+      "text": "Aura, envie hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 605,
+      "kind": "literal",
+      "text": "envie hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 606,
+      "kind": "literal",
+      "text": "Aura, envie hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 607,
+      "kind": "literal",
+      "text": "Por favor, envie hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 608,
+      "kind": "literal",
+      "text": "Aura, envie hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 609,
+      "kind": "literal",
+      "text": "envie hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 610,
+      "kind": "literal",
+      "text": "Aura, envie hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 611,
+      "kind": "literal",
+      "text": "Por favor, envie hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 612,
+      "kind": "literal",
+      "text": "Aura, envie hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 613,
+      "kind": "literal",
+      "text": "envie hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 614,
+      "kind": "literal",
+      "text": "Aura, envie hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 615,
+      "kind": "literal",
+      "text": "Por favor, envie hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 616,
+      "kind": "literal",
+      "text": "Aura, envie hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 617,
+      "kind": "literal",
+      "text": "escreve oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 618,
+      "kind": "literal",
+      "text": "Aura, escreve oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 619,
+      "kind": "literal",
+      "text": "Por favor, escreve oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 620,
+      "kind": "literal",
+      "text": "Aura, escreve oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 621,
+      "kind": "literal",
+      "text": "escreve oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 622,
+      "kind": "literal",
+      "text": "Aura, escreve oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 623,
+      "kind": "literal",
+      "text": "Por favor, escreve oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 624,
+      "kind": "literal",
+      "text": "Aura, escreve oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 625,
+      "kind": "literal",
+      "text": "escreve olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 626,
+      "kind": "literal",
+      "text": "Aura, escreve olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 627,
+      "kind": "literal",
+      "text": "Por favor, escreve olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 628,
+      "kind": "literal",
+      "text": "Aura, escreve olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 629,
+      "kind": "literal",
+      "text": "escreve olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 630,
+      "kind": "literal",
+      "text": "Aura, escreve olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 631,
+      "kind": "literal",
+      "text": "Por favor, escreve olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 632,
+      "kind": "literal",
+      "text": "Aura, escreve olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 633,
+      "kind": "literal",
+      "text": "escreve bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 634,
+      "kind": "literal",
+      "text": "Aura, escreve bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 635,
+      "kind": "literal",
+      "text": "Por favor, escreve bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 636,
+      "kind": "literal",
+      "text": "Aura, escreve bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 637,
+      "kind": "literal",
+      "text": "escreve bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 638,
+      "kind": "literal",
+      "text": "Aura, escreve bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 639,
+      "kind": "literal",
+      "text": "Por favor, escreve bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 640,
+      "kind": "literal",
+      "text": "Aura, escreve bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 641,
+      "kind": "literal",
+      "text": "escreve boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 642,
+      "kind": "literal",
+      "text": "Aura, escreve boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 643,
+      "kind": "literal",
+      "text": "Por favor, escreve boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 644,
+      "kind": "literal",
+      "text": "Aura, escreve boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 645,
+      "kind": "literal",
+      "text": "escreve boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 646,
+      "kind": "literal",
+      "text": "Aura, escreve boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 647,
+      "kind": "literal",
+      "text": "Por favor, escreve boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 648,
+      "kind": "literal",
+      "text": "Aura, escreve boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 649,
+      "kind": "literal",
+      "text": "escreve boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 650,
+      "kind": "literal",
+      "text": "Aura, escreve boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 651,
+      "kind": "literal",
+      "text": "Por favor, escreve boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 652,
+      "kind": "literal",
+      "text": "Aura, escreve boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 653,
+      "kind": "literal",
+      "text": "escreve boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 654,
+      "kind": "literal",
+      "text": "Aura, escreve boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 655,
+      "kind": "literal",
+      "text": "Por favor, escreve boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 656,
+      "kind": "literal",
+      "text": "Aura, escreve boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 657,
+      "kind": "literal",
+      "text": "escreve hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 658,
+      "kind": "literal",
+      "text": "Aura, escreve hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 659,
+      "kind": "literal",
+      "text": "Por favor, escreve hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 660,
+      "kind": "literal",
+      "text": "Aura, escreve hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 661,
+      "kind": "literal",
+      "text": "escreve hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 662,
+      "kind": "literal",
+      "text": "Aura, escreve hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 663,
+      "kind": "literal",
+      "text": "Por favor, escreve hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 664,
+      "kind": "literal",
+      "text": "Aura, escreve hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 665,
+      "kind": "literal",
+      "text": "escreve hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 666,
+      "kind": "literal",
+      "text": "Aura, escreve hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 667,
+      "kind": "literal",
+      "text": "Por favor, escreve hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 668,
+      "kind": "literal",
+      "text": "Aura, escreve hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 669,
+      "kind": "literal",
+      "text": "escreve hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 670,
+      "kind": "literal",
+      "text": "Aura, escreve hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 671,
+      "kind": "literal",
+      "text": "Por favor, escreve hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 672,
+      "kind": "literal",
+      "text": "Aura, escreve hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 673,
+      "kind": "literal",
+      "text": "escreva oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 674,
+      "kind": "literal",
+      "text": "Aura, escreva oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 675,
+      "kind": "literal",
+      "text": "Por favor, escreva oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 676,
+      "kind": "literal",
+      "text": "Aura, escreva oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 677,
+      "kind": "literal",
+      "text": "escreva oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 678,
+      "kind": "literal",
+      "text": "Aura, escreva oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 679,
+      "kind": "literal",
+      "text": "Por favor, escreva oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 680,
+      "kind": "literal",
+      "text": "Aura, escreva oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 681,
+      "kind": "literal",
+      "text": "escreva olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 682,
+      "kind": "literal",
+      "text": "Aura, escreva olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 683,
+      "kind": "literal",
+      "text": "Por favor, escreva olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 684,
+      "kind": "literal",
+      "text": "Aura, escreva olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 685,
+      "kind": "literal",
+      "text": "escreva olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 686,
+      "kind": "literal",
+      "text": "Aura, escreva olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 687,
+      "kind": "literal",
+      "text": "Por favor, escreva olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 688,
+      "kind": "literal",
+      "text": "Aura, escreva olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 689,
+      "kind": "literal",
+      "text": "escreva bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 690,
+      "kind": "literal",
+      "text": "Aura, escreva bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 691,
+      "kind": "literal",
+      "text": "Por favor, escreva bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 692,
+      "kind": "literal",
+      "text": "Aura, escreva bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 693,
+      "kind": "literal",
+      "text": "escreva bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 694,
+      "kind": "literal",
+      "text": "Aura, escreva bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 695,
+      "kind": "literal",
+      "text": "Por favor, escreva bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 696,
+      "kind": "literal",
+      "text": "Aura, escreva bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 697,
+      "kind": "literal",
+      "text": "escreva boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 698,
+      "kind": "literal",
+      "text": "Aura, escreva boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 699,
+      "kind": "literal",
+      "text": "Por favor, escreva boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 700,
+      "kind": "literal",
+      "text": "Aura, escreva boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 701,
+      "kind": "literal",
+      "text": "escreva boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 702,
+      "kind": "literal",
+      "text": "Aura, escreva boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 703,
+      "kind": "literal",
+      "text": "Por favor, escreva boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 704,
+      "kind": "literal",
+      "text": "Aura, escreva boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 705,
+      "kind": "literal",
+      "text": "escreva boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 706,
+      "kind": "literal",
+      "text": "Aura, escreva boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 707,
+      "kind": "literal",
+      "text": "Por favor, escreva boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 708,
+      "kind": "literal",
+      "text": "Aura, escreva boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 709,
+      "kind": "literal",
+      "text": "escreva boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 710,
+      "kind": "literal",
+      "text": "Aura, escreva boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 711,
+      "kind": "literal",
+      "text": "Por favor, escreva boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 712,
+      "kind": "literal",
+      "text": "Aura, escreva boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 713,
+      "kind": "literal",
+      "text": "escreva hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 714,
+      "kind": "literal",
+      "text": "Aura, escreva hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 715,
+      "kind": "literal",
+      "text": "Por favor, escreva hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 716,
+      "kind": "literal",
+      "text": "Aura, escreva hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 717,
+      "kind": "literal",
+      "text": "escreva hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 718,
+      "kind": "literal",
+      "text": "Aura, escreva hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 719,
+      "kind": "literal",
+      "text": "Por favor, escreva hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 720,
+      "kind": "literal",
+      "text": "Aura, escreva hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 721,
+      "kind": "literal",
+      "text": "escreva hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 722,
+      "kind": "literal",
+      "text": "Aura, escreva hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 723,
+      "kind": "literal",
+      "text": "Por favor, escreva hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 724,
+      "kind": "literal",
+      "text": "Aura, escreva hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 725,
+      "kind": "literal",
+      "text": "escreva hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 726,
+      "kind": "literal",
+      "text": "Aura, escreva hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 727,
+      "kind": "literal",
+      "text": "Por favor, escreva hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 728,
+      "kind": "literal",
+      "text": "Aura, escreva hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 729,
+      "kind": "literal",
+      "text": "responde oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 730,
+      "kind": "literal",
+      "text": "Aura, responde oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 731,
+      "kind": "literal",
+      "text": "Por favor, responde oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 732,
+      "kind": "literal",
+      "text": "Aura, responde oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 733,
+      "kind": "literal",
+      "text": "responde oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 734,
+      "kind": "literal",
+      "text": "Aura, responde oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 735,
+      "kind": "literal",
+      "text": "Por favor, responde oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 736,
+      "kind": "literal",
+      "text": "Aura, responde oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 737,
+      "kind": "literal",
+      "text": "responde olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 738,
+      "kind": "literal",
+      "text": "Aura, responde olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 739,
+      "kind": "literal",
+      "text": "Por favor, responde olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 740,
+      "kind": "literal",
+      "text": "Aura, responde olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 741,
+      "kind": "literal",
+      "text": "responde olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 742,
+      "kind": "literal",
+      "text": "Aura, responde olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 743,
+      "kind": "literal",
+      "text": "Por favor, responde olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 744,
+      "kind": "literal",
+      "text": "Aura, responde olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 745,
+      "kind": "literal",
+      "text": "responde bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 746,
+      "kind": "literal",
+      "text": "Aura, responde bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 747,
+      "kind": "literal",
+      "text": "Por favor, responde bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 748,
+      "kind": "literal",
+      "text": "Aura, responde bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 749,
+      "kind": "literal",
+      "text": "responde bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 750,
+      "kind": "literal",
+      "text": "Aura, responde bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 751,
+      "kind": "literal",
+      "text": "Por favor, responde bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 752,
+      "kind": "literal",
+      "text": "Aura, responde bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 753,
+      "kind": "literal",
+      "text": "responde boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 754,
+      "kind": "literal",
+      "text": "Aura, responde boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 755,
+      "kind": "literal",
+      "text": "Por favor, responde boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 756,
+      "kind": "literal",
+      "text": "Aura, responde boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 757,
+      "kind": "literal",
+      "text": "responde boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 758,
+      "kind": "literal",
+      "text": "Aura, responde boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 759,
+      "kind": "literal",
+      "text": "Por favor, responde boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 760,
+      "kind": "literal",
+      "text": "Aura, responde boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 761,
+      "kind": "literal",
+      "text": "responde boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 762,
+      "kind": "literal",
+      "text": "Aura, responde boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 763,
+      "kind": "literal",
+      "text": "Por favor, responde boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 764,
+      "kind": "literal",
+      "text": "Aura, responde boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 765,
+      "kind": "literal",
+      "text": "responde boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 766,
+      "kind": "literal",
+      "text": "Aura, responde boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 767,
+      "kind": "literal",
+      "text": "Por favor, responde boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 768,
+      "kind": "literal",
+      "text": "Aura, responde boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 769,
+      "kind": "literal",
+      "text": "responde hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 770,
+      "kind": "literal",
+      "text": "Aura, responde hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 771,
+      "kind": "literal",
+      "text": "Por favor, responde hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 772,
+      "kind": "literal",
+      "text": "Aura, responde hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 773,
+      "kind": "literal",
+      "text": "responde hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 774,
+      "kind": "literal",
+      "text": "Aura, responde hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 775,
+      "kind": "literal",
+      "text": "Por favor, responde hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 776,
+      "kind": "literal",
+      "text": "Aura, responde hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 777,
+      "kind": "literal",
+      "text": "responde hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 778,
+      "kind": "literal",
+      "text": "Aura, responde hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 779,
+      "kind": "literal",
+      "text": "Por favor, responde hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 780,
+      "kind": "literal",
+      "text": "Aura, responde hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 781,
+      "kind": "literal",
+      "text": "responde hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 782,
+      "kind": "literal",
+      "text": "Aura, responde hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 783,
+      "kind": "literal",
+      "text": "Por favor, responde hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 784,
+      "kind": "literal",
+      "text": "Aura, responde hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 785,
+      "kind": "literal",
+      "text": "responda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 786,
+      "kind": "literal",
+      "text": "Aura, responda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 787,
+      "kind": "literal",
+      "text": "Por favor, responda oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 788,
+      "kind": "literal",
+      "text": "Aura, responda oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 789,
+      "kind": "literal",
+      "text": "responda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 790,
+      "kind": "literal",
+      "text": "Aura, responda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 791,
+      "kind": "literal",
+      "text": "Por favor, responda oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 792,
+      "kind": "literal",
+      "text": "Aura, responda oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 793,
+      "kind": "literal",
+      "text": "responda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 794,
+      "kind": "literal",
+      "text": "Aura, responda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 795,
+      "kind": "literal",
+      "text": "Por favor, responda olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 796,
+      "kind": "literal",
+      "text": "Aura, responda olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 797,
+      "kind": "literal",
+      "text": "responda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 798,
+      "kind": "literal",
+      "text": "Aura, responda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 799,
+      "kind": "literal",
+      "text": "Por favor, responda olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 800,
+      "kind": "literal",
+      "text": "Aura, responda olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 801,
+      "kind": "literal",
+      "text": "responda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 802,
+      "kind": "literal",
+      "text": "Aura, responda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 803,
+      "kind": "literal",
+      "text": "Por favor, responda bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 804,
+      "kind": "literal",
+      "text": "Aura, responda bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 805,
+      "kind": "literal",
+      "text": "responda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 806,
+      "kind": "literal",
+      "text": "Aura, responda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 807,
+      "kind": "literal",
+      "text": "Por favor, responda bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 808,
+      "kind": "literal",
+      "text": "Aura, responda bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 809,
+      "kind": "literal",
+      "text": "responda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 810,
+      "kind": "literal",
+      "text": "Aura, responda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 811,
+      "kind": "literal",
+      "text": "Por favor, responda boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 812,
+      "kind": "literal",
+      "text": "Aura, responda boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 813,
+      "kind": "literal",
+      "text": "responda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 814,
+      "kind": "literal",
+      "text": "Aura, responda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 815,
+      "kind": "literal",
+      "text": "Por favor, responda boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 816,
+      "kind": "literal",
+      "text": "Aura, responda boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 817,
+      "kind": "literal",
+      "text": "responda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 818,
+      "kind": "literal",
+      "text": "Aura, responda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 819,
+      "kind": "literal",
+      "text": "Por favor, responda boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 820,
+      "kind": "literal",
+      "text": "Aura, responda boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 821,
+      "kind": "literal",
+      "text": "responda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 822,
+      "kind": "literal",
+      "text": "Aura, responda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 823,
+      "kind": "literal",
+      "text": "Por favor, responda boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 824,
+      "kind": "literal",
+      "text": "Aura, responda boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 825,
+      "kind": "literal",
+      "text": "responda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 826,
+      "kind": "literal",
+      "text": "Aura, responda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 827,
+      "kind": "literal",
+      "text": "Por favor, responda hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 828,
+      "kind": "literal",
+      "text": "Aura, responda hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 829,
+      "kind": "literal",
+      "text": "responda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 830,
+      "kind": "literal",
+      "text": "Aura, responda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 831,
+      "kind": "literal",
+      "text": "Por favor, responda hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 832,
+      "kind": "literal",
+      "text": "Aura, responda hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 833,
+      "kind": "literal",
+      "text": "responda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 834,
+      "kind": "literal",
+      "text": "Aura, responda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 835,
+      "kind": "literal",
+      "text": "Por favor, responda hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 836,
+      "kind": "literal",
+      "text": "Aura, responda hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 837,
+      "kind": "literal",
+      "text": "responda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 838,
+      "kind": "literal",
+      "text": "Aura, responda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 839,
+      "kind": "literal",
+      "text": "Por favor, responda hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 840,
+      "kind": "literal",
+      "text": "Aura, responda hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 841,
+      "kind": "literal",
+      "text": "repete oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 842,
+      "kind": "literal",
+      "text": "Aura, repete oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 843,
+      "kind": "literal",
+      "text": "Por favor, repete oi",
+      "expected": "Oi!"
+    },
+    {
+      "id": 844,
+      "kind": "literal",
+      "text": "Aura, repete oi, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 845,
+      "kind": "literal",
+      "text": "repete oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 846,
+      "kind": "literal",
+      "text": "Aura, repete oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 847,
+      "kind": "literal",
+      "text": "Por favor, repete oi!",
+      "expected": "Oi!"
+    },
+    {
+      "id": 848,
+      "kind": "literal",
+      "text": "Aura, repete oi!, por favor.",
+      "expected": "Oi!"
+    },
+    {
+      "id": 849,
+      "kind": "literal",
+      "text": "repete olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 850,
+      "kind": "literal",
+      "text": "Aura, repete olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 851,
+      "kind": "literal",
+      "text": "Por favor, repete olá",
+      "expected": "Olá!"
+    },
+    {
+      "id": 852,
+      "kind": "literal",
+      "text": "Aura, repete olá, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 853,
+      "kind": "literal",
+      "text": "repete olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 854,
+      "kind": "literal",
+      "text": "Aura, repete olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 855,
+      "kind": "literal",
+      "text": "Por favor, repete olá!",
+      "expected": "Olá!"
+    },
+    {
+      "id": 856,
+      "kind": "literal",
+      "text": "Aura, repete olá!, por favor.",
+      "expected": "Olá!"
+    },
+    {
+      "id": 857,
+      "kind": "literal",
+      "text": "repete bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 858,
+      "kind": "literal",
+      "text": "Aura, repete bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 859,
+      "kind": "literal",
+      "text": "Por favor, repete bom dia",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 860,
+      "kind": "literal",
+      "text": "Aura, repete bom dia, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 861,
+      "kind": "literal",
+      "text": "repete bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 862,
+      "kind": "literal",
+      "text": "Aura, repete bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 863,
+      "kind": "literal",
+      "text": "Por favor, repete bom dia!",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 864,
+      "kind": "literal",
+      "text": "Aura, repete bom dia!, por favor.",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 865,
+      "kind": "literal",
+      "text": "repete boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 866,
+      "kind": "literal",
+      "text": "Aura, repete boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 867,
+      "kind": "literal",
+      "text": "Por favor, repete boa tarde",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 868,
+      "kind": "literal",
+      "text": "Aura, repete boa tarde, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 869,
+      "kind": "literal",
+      "text": "repete boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 870,
+      "kind": "literal",
+      "text": "Aura, repete boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 871,
+      "kind": "literal",
+      "text": "Por favor, repete boa tarde!",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 872,
+      "kind": "literal",
+      "text": "Aura, repete boa tarde!, por favor.",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 873,
+      "kind": "literal",
+      "text": "repete boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 874,
+      "kind": "literal",
+      "text": "Aura, repete boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 875,
+      "kind": "literal",
+      "text": "Por favor, repete boa noite",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 876,
+      "kind": "literal",
+      "text": "Aura, repete boa noite, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 877,
+      "kind": "literal",
+      "text": "repete boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 878,
+      "kind": "literal",
+      "text": "Aura, repete boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 879,
+      "kind": "literal",
+      "text": "Por favor, repete boa noite!",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 880,
+      "kind": "literal",
+      "text": "Aura, repete boa noite!, por favor.",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 881,
+      "kind": "literal",
+      "text": "repete hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 882,
+      "kind": "literal",
+      "text": "Aura, repete hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 883,
+      "kind": "literal",
+      "text": "Por favor, repete hello",
+      "expected": "Hello!"
+    },
+    {
+      "id": 884,
+      "kind": "literal",
+      "text": "Aura, repete hello, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 885,
+      "kind": "literal",
+      "text": "repete hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 886,
+      "kind": "literal",
+      "text": "Aura, repete hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 887,
+      "kind": "literal",
+      "text": "Por favor, repete hello!",
+      "expected": "Hello!"
+    },
+    {
+      "id": 888,
+      "kind": "literal",
+      "text": "Aura, repete hello!, por favor.",
+      "expected": "Hello!"
+    },
+    {
+      "id": 889,
+      "kind": "literal",
+      "text": "repete hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 890,
+      "kind": "literal",
+      "text": "Aura, repete hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 891,
+      "kind": "literal",
+      "text": "Por favor, repete hi",
+      "expected": "Hi!"
+    },
+    {
+      "id": 892,
+      "kind": "literal",
+      "text": "Aura, repete hi, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 893,
+      "kind": "literal",
+      "text": "repete hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 894,
+      "kind": "literal",
+      "text": "Aura, repete hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 895,
+      "kind": "literal",
+      "text": "Por favor, repete hi!",
+      "expected": "Hi!"
+    },
+    {
+      "id": 896,
+      "kind": "literal",
+      "text": "Aura, repete hi!, por favor.",
+      "expected": "Hi!"
+    },
+    {
+      "id": 897,
+      "kind": "literal",
+      "text": "Podes dizer oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 898,
+      "kind": "literal",
+      "text": "Podes dizer olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 899,
+      "kind": "literal",
+      "text": "Podes dizer bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 900,
+      "kind": "literal",
+      "text": "Podes dizer boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 901,
+      "kind": "literal",
+      "text": "Podes dizer boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 902,
+      "kind": "literal",
+      "text": "Podes dizer hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 903,
+      "kind": "literal",
+      "text": "Podes dizer hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 904,
+      "kind": "literal",
+      "text": "Podes escrever oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 905,
+      "kind": "literal",
+      "text": "Podes escrever olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 906,
+      "kind": "literal",
+      "text": "Podes escrever bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 907,
+      "kind": "literal",
+      "text": "Podes escrever boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 908,
+      "kind": "literal",
+      "text": "Podes escrever boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 909,
+      "kind": "literal",
+      "text": "Podes escrever hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 910,
+      "kind": "literal",
+      "text": "Podes escrever hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 911,
+      "kind": "literal",
+      "text": "Podes enviar oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 912,
+      "kind": "literal",
+      "text": "Podes enviar olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 913,
+      "kind": "literal",
+      "text": "Podes enviar bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 914,
+      "kind": "literal",
+      "text": "Podes enviar boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 915,
+      "kind": "literal",
+      "text": "Podes enviar boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 916,
+      "kind": "literal",
+      "text": "Podes enviar hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 917,
+      "kind": "literal",
+      "text": "Podes enviar hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 918,
+      "kind": "literal",
+      "text": "Podes repetir oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 919,
+      "kind": "literal",
+      "text": "Podes repetir olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 920,
+      "kind": "literal",
+      "text": "Podes repetir bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 921,
+      "kind": "literal",
+      "text": "Podes repetir boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 922,
+      "kind": "literal",
+      "text": "Podes repetir boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 923,
+      "kind": "literal",
+      "text": "Podes repetir hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 924,
+      "kind": "literal",
+      "text": "Podes repetir hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 925,
+      "kind": "literal",
+      "text": "Consegues dizer oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 926,
+      "kind": "literal",
+      "text": "Consegues dizer olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 927,
+      "kind": "literal",
+      "text": "Consegues dizer bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 928,
+      "kind": "literal",
+      "text": "Consegues dizer boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 929,
+      "kind": "literal",
+      "text": "Consegues dizer boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 930,
+      "kind": "literal",
+      "text": "Consegues dizer hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 931,
+      "kind": "literal",
+      "text": "Consegues dizer hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 932,
+      "kind": "literal",
+      "text": "Consegues escrever oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 933,
+      "kind": "literal",
+      "text": "Consegues escrever olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 934,
+      "kind": "literal",
+      "text": "Consegues escrever bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 935,
+      "kind": "literal",
+      "text": "Consegues escrever boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 936,
+      "kind": "literal",
+      "text": "Consegues escrever boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 937,
+      "kind": "literal",
+      "text": "Consegues escrever hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 938,
+      "kind": "literal",
+      "text": "Consegues escrever hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 939,
+      "kind": "literal",
+      "text": "Consegues enviar oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 940,
+      "kind": "literal",
+      "text": "Consegues enviar olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 941,
+      "kind": "literal",
+      "text": "Consegues enviar bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 942,
+      "kind": "literal",
+      "text": "Consegues enviar boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 943,
+      "kind": "literal",
+      "text": "Consegues enviar boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 944,
+      "kind": "literal",
+      "text": "Consegues enviar hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 945,
+      "kind": "literal",
+      "text": "Consegues enviar hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 946,
+      "kind": "literal",
+      "text": "Consegues repetir oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 947,
+      "kind": "literal",
+      "text": "Consegues repetir olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 948,
+      "kind": "literal",
+      "text": "Consegues repetir bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 949,
+      "kind": "literal",
+      "text": "Consegues repetir boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 950,
+      "kind": "literal",
+      "text": "Consegues repetir boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 951,
+      "kind": "literal",
+      "text": "Consegues repetir hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 952,
+      "kind": "literal",
+      "text": "Consegues repetir hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 953,
+      "kind": "literal",
+      "text": "Pode dizer oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 954,
+      "kind": "literal",
+      "text": "Pode dizer olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 955,
+      "kind": "literal",
+      "text": "Pode dizer bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 956,
+      "kind": "literal",
+      "text": "Pode dizer boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 957,
+      "kind": "literal",
+      "text": "Pode dizer boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 958,
+      "kind": "literal",
+      "text": "Pode dizer hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 959,
+      "kind": "literal",
+      "text": "Pode dizer hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 960,
+      "kind": "literal",
+      "text": "Pode escrever oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 961,
+      "kind": "literal",
+      "text": "Pode escrever olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 962,
+      "kind": "literal",
+      "text": "Pode escrever bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 963,
+      "kind": "literal",
+      "text": "Pode escrever boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 964,
+      "kind": "literal",
+      "text": "Pode escrever boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 965,
+      "kind": "literal",
+      "text": "Pode escrever hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 966,
+      "kind": "literal",
+      "text": "Pode escrever hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 967,
+      "kind": "literal",
+      "text": "Pode enviar oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 968,
+      "kind": "literal",
+      "text": "Pode enviar olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 969,
+      "kind": "literal",
+      "text": "Pode enviar bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 970,
+      "kind": "literal",
+      "text": "Pode enviar boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 971,
+      "kind": "literal",
+      "text": "Pode enviar boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 972,
+      "kind": "literal",
+      "text": "Pode enviar hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 973,
+      "kind": "literal",
+      "text": "Pode enviar hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 974,
+      "kind": "literal",
+      "text": "Pode repetir oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 975,
+      "kind": "literal",
+      "text": "Pode repetir olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 976,
+      "kind": "literal",
+      "text": "Pode repetir bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 977,
+      "kind": "literal",
+      "text": "Pode repetir boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 978,
+      "kind": "literal",
+      "text": "Pode repetir boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 979,
+      "kind": "literal",
+      "text": "Pode repetir hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 980,
+      "kind": "literal",
+      "text": "Pode repetir hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 981,
+      "kind": "literal",
+      "text": "Poderias dizer oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 982,
+      "kind": "literal",
+      "text": "Poderias dizer olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 983,
+      "kind": "literal",
+      "text": "Poderias dizer bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 984,
+      "kind": "literal",
+      "text": "Poderias dizer boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 985,
+      "kind": "literal",
+      "text": "Poderias dizer boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 986,
+      "kind": "literal",
+      "text": "Poderias dizer hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 987,
+      "kind": "literal",
+      "text": "Poderias dizer hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 988,
+      "kind": "literal",
+      "text": "Poderias escrever oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 989,
+      "kind": "literal",
+      "text": "Poderias escrever olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 990,
+      "kind": "literal",
+      "text": "Poderias escrever bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 991,
+      "kind": "literal",
+      "text": "Poderias escrever boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 992,
+      "kind": "literal",
+      "text": "Poderias escrever boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 993,
+      "kind": "literal",
+      "text": "Poderias escrever hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 994,
+      "kind": "literal",
+      "text": "Poderias escrever hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 995,
+      "kind": "literal",
+      "text": "Poderias enviar oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 996,
+      "kind": "literal",
+      "text": "Poderias enviar olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 997,
+      "kind": "literal",
+      "text": "Poderias enviar bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 998,
+      "kind": "literal",
+      "text": "Poderias enviar boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 999,
+      "kind": "literal",
+      "text": "Poderias enviar boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 1000,
+      "kind": "literal",
+      "text": "Poderias enviar hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 1001,
+      "kind": "literal",
+      "text": "Poderias enviar hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 1002,
+      "kind": "literal",
+      "text": "Poderias repetir oi?",
+      "expected": "Oi!"
+    },
+    {
+      "id": 1003,
+      "kind": "literal",
+      "text": "Poderias repetir olá?",
+      "expected": "Olá!"
+    },
+    {
+      "id": 1004,
+      "kind": "literal",
+      "text": "Poderias repetir bom dia?",
+      "expected": "Bom dia!"
+    },
+    {
+      "id": 1005,
+      "kind": "literal",
+      "text": "Poderias repetir boa tarde?",
+      "expected": "Boa tarde!"
+    },
+    {
+      "id": 1006,
+      "kind": "literal",
+      "text": "Poderias repetir boa noite?",
+      "expected": "Boa noite!"
+    },
+    {
+      "id": 1007,
+      "kind": "literal",
+      "text": "Poderias repetir hello?",
+      "expected": "Hello!"
+    },
+    {
+      "id": 1008,
+      "kind": "literal",
+      "text": "Poderias repetir hi?",
+      "expected": "Hi!"
+    },
+    {
+      "id": 1009,
+      "kind": "normalize",
+      "text": "apague o pedido",
+      "expected": "apaga o pedido"
+    },
+    {
+      "id": 1010,
+      "kind": "normalize",
+      "text": "Aura, apague o pedido",
+      "expected": "apaga o pedido"
+    },
+    {
+      "id": 1011,
+      "kind": "normalize",
+      "text": "Por favor, apague o pedido",
+      "expected": "apaga o pedido"
+    },
+    {
+      "id": 1012,
+      "kind": "normalize",
+      "text": "Aura, apague o pedido, por favor.",
+      "expected": "apaga o pedido"
+    },
+    {
+      "id": 1013,
+      "kind": "normalize",
+      "text": "remova o pedido",
+      "expected": "remove o pedido"
+    },
+    {
+      "id": 1014,
+      "kind": "normalize",
+      "text": "Aura, remova o pedido",
+      "expected": "remove o pedido"
+    },
+    {
+      "id": 1015,
+      "kind": "normalize",
+      "text": "Por favor, remova o pedido",
+      "expected": "remove o pedido"
+    },
+    {
+      "id": 1016,
+      "kind": "normalize",
+      "text": "Aura, remova o pedido, por favor.",
+      "expected": "remove o pedido"
+    },
+    {
+      "id": 1017,
+      "kind": "normalize",
+      "text": "abra o pedido",
+      "expected": "abre o pedido"
+    },
+    {
+      "id": 1018,
+      "kind": "normalize",
+      "text": "Aura, abra o pedido",
+      "expected": "abre o pedido"
+    },
+    {
+      "id": 1019,
+      "kind": "normalize",
+      "text": "Por favor, abra o pedido",
+      "expected": "abre o pedido"
+    },
+    {
+      "id": 1020,
+      "kind": "normalize",
+      "text": "Aura, abra o pedido, por favor.",
+      "expected": "abre o pedido"
+    },
+    {
+      "id": 1021,
+      "kind": "normalize",
+      "text": "feche o pedido",
+      "expected": "fecha o pedido"
+    },
+    {
+      "id": 1022,
+      "kind": "normalize",
+      "text": "Aura, feche o pedido",
+      "expected": "fecha o pedido"
+    },
+    {
+      "id": 1023,
+      "kind": "normalize",
+      "text": "Por favor, feche o pedido",
+      "expected": "fecha o pedido"
+    },
+    {
+      "id": 1024,
+      "kind": "normalize",
+      "text": "Aura, feche o pedido, por favor.",
+      "expected": "fecha o pedido"
+    },
+    {
+      "id": 1025,
+      "kind": "normalize",
+      "text": "crie o pedido",
+      "expected": "cria o pedido"
+    },
+    {
+      "id": 1026,
+      "kind": "normalize",
+      "text": "Aura, crie o pedido",
+      "expected": "cria o pedido"
+    },
+    {
+      "id": 1027,
+      "kind": "normalize",
+      "text": "Por favor, crie o pedido",
+      "expected": "cria o pedido"
+    },
+    {
+      "id": 1028,
+      "kind": "normalize",
+      "text": "Aura, crie o pedido, por favor.",
+      "expected": "cria o pedido"
+    },
+    {
+      "id": 1029,
+      "kind": "normalize",
+      "text": "envie o pedido",
+      "expected": "envia o pedido"
+    },
+    {
+      "id": 1030,
+      "kind": "normalize",
+      "text": "Aura, envie o pedido",
+      "expected": "envia o pedido"
+    },
+    {
+      "id": 1031,
+      "kind": "normalize",
+      "text": "Por favor, envie o pedido",
+      "expected": "envia o pedido"
+    },
+    {
+      "id": 1032,
+      "kind": "normalize",
+      "text": "Aura, envie o pedido, por favor.",
+      "expected": "envia o pedido"
+    },
+    {
+      "id": 1033,
+      "kind": "normalize",
+      "text": "mande o pedido",
+      "expected": "manda o pedido"
+    },
+    {
+      "id": 1034,
+      "kind": "normalize",
+      "text": "Aura, mande o pedido",
+      "expected": "manda o pedido"
+    },
+    {
+      "id": 1035,
+      "kind": "normalize",
+      "text": "Por favor, mande o pedido",
+      "expected": "manda o pedido"
+    },
+    {
+      "id": 1036,
+      "kind": "normalize",
+      "text": "Aura, mande o pedido, por favor.",
+      "expected": "manda o pedido"
+    },
+    {
+      "id": 1037,
+      "kind": "normalize",
+      "text": "publique o pedido",
+      "expected": "publica o pedido"
+    },
+    {
+      "id": 1038,
+      "kind": "normalize",
+      "text": "Aura, publique o pedido",
+      "expected": "publica o pedido"
+    },
+    {
+      "id": 1039,
+      "kind": "normalize",
+      "text": "Por favor, publique o pedido",
+      "expected": "publica o pedido"
+    },
+    {
+      "id": 1040,
+      "kind": "normalize",
+      "text": "Aura, publique o pedido, por favor.",
+      "expected": "publica o pedido"
+    },
+    {
+      "id": 1041,
+      "kind": "normalize",
+      "text": "promova o pedido",
+      "expected": "promove o pedido"
+    },
+    {
+      "id": 1042,
+      "kind": "normalize",
+      "text": "Aura, promova o pedido",
+      "expected": "promove o pedido"
+    },
+    {
+      "id": 1043,
+      "kind": "normalize",
+      "text": "Por favor, promova o pedido",
+      "expected": "promove o pedido"
+    },
+    {
+      "id": 1044,
+      "kind": "normalize",
+      "text": "Aura, promova o pedido, por favor.",
+      "expected": "promove o pedido"
+    },
+    {
+      "id": 1045,
+      "kind": "normalize",
+      "text": "rebaixe o pedido",
+      "expected": "rebaixa o pedido"
+    },
+    {
+      "id": 1046,
+      "kind": "normalize",
+      "text": "Aura, rebaixe o pedido",
+      "expected": "rebaixa o pedido"
+    },
+    {
+      "id": 1047,
+      "kind": "normalize",
+      "text": "Por favor, rebaixe o pedido",
+      "expected": "rebaixa o pedido"
+    },
+    {
+      "id": 1048,
+      "kind": "normalize",
+      "text": "Aura, rebaixe o pedido, por favor.",
+      "expected": "rebaixa o pedido"
+    },
+    {
+      "id": 1049,
+      "kind": "normalize",
+      "text": "ignore o pedido",
+      "expected": "ignora o pedido"
+    },
+    {
+      "id": 1050,
+      "kind": "normalize",
+      "text": "Aura, ignore o pedido",
+      "expected": "ignora o pedido"
+    },
+    {
+      "id": 1051,
+      "kind": "normalize",
+      "text": "Por favor, ignore o pedido",
+      "expected": "ignora o pedido"
+    },
+    {
+      "id": 1052,
+      "kind": "normalize",
+      "text": "Aura, ignore o pedido, por favor.",
+      "expected": "ignora o pedido"
+    },
+    {
+      "id": 1053,
+      "kind": "normalize",
+      "text": "bloqueie o pedido",
+      "expected": "bloqueia o pedido"
+    },
+    {
+      "id": 1054,
+      "kind": "normalize",
+      "text": "Aura, bloqueie o pedido",
+      "expected": "bloqueia o pedido"
+    },
+    {
+      "id": 1055,
+      "kind": "normalize",
+      "text": "Por favor, bloqueie o pedido",
+      "expected": "bloqueia o pedido"
+    },
+    {
+      "id": 1056,
+      "kind": "normalize",
+      "text": "Aura, bloqueie o pedido, por favor.",
+      "expected": "bloqueia o pedido"
+    },
+    {
+      "id": 1057,
+      "kind": "normalize",
+      "text": "silencie o pedido",
+      "expected": "silencia o pedido"
+    },
+    {
+      "id": 1058,
+      "kind": "normalize",
+      "text": "Aura, silencie o pedido",
+      "expected": "silencia o pedido"
+    },
+    {
+      "id": 1059,
+      "kind": "normalize",
+      "text": "Por favor, silencie o pedido",
+      "expected": "silencia o pedido"
+    },
+    {
+      "id": 1060,
+      "kind": "normalize",
+      "text": "Aura, silencie o pedido, por favor.",
+      "expected": "silencia o pedido"
+    },
+    {
+      "id": 1061,
+      "kind": "normalize",
+      "text": "adicione o pedido",
+      "expected": "adiciona o pedido"
+    },
+    {
+      "id": 1062,
+      "kind": "normalize",
+      "text": "Aura, adicione o pedido",
+      "expected": "adiciona o pedido"
+    },
+    {
+      "id": 1063,
+      "kind": "normalize",
+      "text": "Por favor, adicione o pedido",
+      "expected": "adiciona o pedido"
+    },
+    {
+      "id": 1064,
+      "kind": "normalize",
+      "text": "Aura, adicione o pedido, por favor.",
+      "expected": "adiciona o pedido"
+    },
+    {
+      "id": 1065,
+      "kind": "normalize",
+      "text": "pesquise o pedido",
+      "expected": "pesquisa o pedido"
+    },
+    {
+      "id": 1066,
+      "kind": "normalize",
+      "text": "Aura, pesquise o pedido",
+      "expected": "pesquisa o pedido"
+    },
+    {
+      "id": 1067,
+      "kind": "normalize",
+      "text": "Por favor, pesquise o pedido",
+      "expected": "pesquisa o pedido"
+    },
+    {
+      "id": 1068,
+      "kind": "normalize",
+      "text": "Aura, pesquise o pedido, por favor.",
+      "expected": "pesquisa o pedido"
+    },
+    {
+      "id": 1069,
+      "kind": "normalize",
+      "text": "procure o pedido",
+      "expected": "procura o pedido"
+    },
+    {
+      "id": 1070,
+      "kind": "normalize",
+      "text": "Aura, procure o pedido",
+      "expected": "procura o pedido"
+    },
+    {
+      "id": 1071,
+      "kind": "normalize",
+      "text": "Por favor, procure o pedido",
+      "expected": "procura o pedido"
+    },
+    {
+      "id": 1072,
+      "kind": "normalize",
+      "text": "Aura, procure o pedido, por favor.",
+      "expected": "procura o pedido"
+    },
+    {
+      "id": 1073,
+      "kind": "normalize",
+      "text": "traduza o pedido",
+      "expected": "traduz o pedido"
+    },
+    {
+      "id": 1074,
+      "kind": "normalize",
+      "text": "Aura, traduza o pedido",
+      "expected": "traduz o pedido"
+    },
+    {
+      "id": 1075,
+      "kind": "normalize",
+      "text": "Por favor, traduza o pedido",
+      "expected": "traduz o pedido"
+    },
+    {
+      "id": 1076,
+      "kind": "normalize",
+      "text": "Aura, traduza o pedido, por favor.",
+      "expected": "traduz o pedido"
+    },
+    {
+      "id": 1077,
+      "kind": "normalize",
+      "text": "resuma o pedido",
+      "expected": "resume o pedido"
+    },
+    {
+      "id": 1078,
+      "kind": "normalize",
+      "text": "Aura, resuma o pedido",
+      "expected": "resume o pedido"
+    },
+    {
+      "id": 1079,
+      "kind": "normalize",
+      "text": "Por favor, resuma o pedido",
+      "expected": "resume o pedido"
+    },
+    {
+      "id": 1080,
+      "kind": "normalize",
+      "text": "Aura, resuma o pedido, por favor.",
+      "expected": "resume o pedido"
+    },
+    {
+      "id": 1081,
+      "kind": "normalize",
+      "text": "gere o pedido",
+      "expected": "gera o pedido"
+    },
+    {
+      "id": 1082,
+      "kind": "normalize",
+      "text": "Aura, gere o pedido",
+      "expected": "gera o pedido"
+    },
+    {
+      "id": 1083,
+      "kind": "normalize",
+      "text": "Por favor, gere o pedido",
+      "expected": "gera o pedido"
+    },
+    {
+      "id": 1084,
+      "kind": "normalize",
+      "text": "Aura, gere o pedido, por favor.",
+      "expected": "gera o pedido"
+    },
+    {
+      "id": 1085,
+      "kind": "normalize",
+      "text": "configure o pedido",
+      "expected": "configura o pedido"
+    },
+    {
+      "id": 1086,
+      "kind": "normalize",
+      "text": "Aura, configure o pedido",
+      "expected": "configura o pedido"
+    },
+    {
+      "id": 1087,
+      "kind": "normalize",
+      "text": "Por favor, configure o pedido",
+      "expected": "configura o pedido"
+    },
+    {
+      "id": 1088,
+      "kind": "normalize",
+      "text": "Aura, configure o pedido, por favor.",
+      "expected": "configura o pedido"
+    },
+    {
+      "id": 1089,
+      "kind": "normalize",
+      "text": "ative o pedido",
+      "expected": "ativa o pedido"
+    },
+    {
+      "id": 1090,
+      "kind": "normalize",
+      "text": "Aura, ative o pedido",
+      "expected": "ativa o pedido"
+    },
+    {
+      "id": 1091,
+      "kind": "normalize",
+      "text": "Por favor, ative o pedido",
+      "expected": "ativa o pedido"
+    },
+    {
+      "id": 1092,
+      "kind": "normalize",
+      "text": "Aura, ative o pedido, por favor.",
+      "expected": "ativa o pedido"
+    },
+    {
+      "id": 1093,
+      "kind": "normalize",
+      "text": "desative o pedido",
+      "expected": "desativa o pedido"
+    },
+    {
+      "id": 1094,
+      "kind": "normalize",
+      "text": "Aura, desative o pedido",
+      "expected": "desativa o pedido"
+    },
+    {
+      "id": 1095,
+      "kind": "normalize",
+      "text": "Por favor, desative o pedido",
+      "expected": "desativa o pedido"
+    },
+    {
+      "id": 1096,
+      "kind": "normalize",
+      "text": "Aura, desative o pedido, por favor.",
+      "expected": "desativa o pedido"
+    },
+    {
+      "id": 1097,
+      "kind": "normalize",
+      "text": "ligue o pedido",
+      "expected": "liga o pedido"
+    },
+    {
+      "id": 1098,
+      "kind": "normalize",
+      "text": "Aura, ligue o pedido",
+      "expected": "liga o pedido"
+    },
+    {
+      "id": 1099,
+      "kind": "normalize",
+      "text": "Por favor, ligue o pedido",
+      "expected": "liga o pedido"
+    },
+    {
+      "id": 1100,
+      "kind": "normalize",
+      "text": "Aura, ligue o pedido, por favor.",
+      "expected": "liga o pedido"
+    },
+    {
+      "id": 1101,
+      "kind": "normalize",
+      "text": "desligue o pedido",
+      "expected": "desliga o pedido"
+    },
+    {
+      "id": 1102,
+      "kind": "normalize",
+      "text": "Aura, desligue o pedido",
+      "expected": "desliga o pedido"
+    },
+    {
+      "id": 1103,
+      "kind": "normalize",
+      "text": "Por favor, desligue o pedido",
+      "expected": "desliga o pedido"
+    },
+    {
+      "id": 1104,
+      "kind": "normalize",
+      "text": "Aura, desligue o pedido, por favor.",
+      "expected": "desliga o pedido"
+    },
+    {
+      "id": 1105,
+      "kind": "normalize",
+      "text": "agende o pedido",
+      "expected": "agenda o pedido"
+    },
+    {
+      "id": 1106,
+      "kind": "normalize",
+      "text": "Aura, agende o pedido",
+      "expected": "agenda o pedido"
+    },
+    {
+      "id": 1107,
+      "kind": "normalize",
+      "text": "Por favor, agende o pedido",
+      "expected": "agenda o pedido"
+    },
+    {
+      "id": 1108,
+      "kind": "normalize",
+      "text": "Aura, agende o pedido, por favor.",
+      "expected": "agenda o pedido"
+    },
+    {
+      "id": 1109,
+      "kind": "normalize",
+      "text": "avise o pedido",
+      "expected": "avisa o pedido"
+    },
+    {
+      "id": 1110,
+      "kind": "normalize",
+      "text": "Aura, avise o pedido",
+      "expected": "avisa o pedido"
+    },
+    {
+      "id": 1111,
+      "kind": "normalize",
+      "text": "Por favor, avise o pedido",
+      "expected": "avisa o pedido"
+    },
+    {
+      "id": 1112,
+      "kind": "normalize",
+      "text": "Aura, avise o pedido, por favor.",
+      "expected": "avisa o pedido"
+    },
+    {
+      "id": 1113,
+      "kind": "normalize",
+      "text": "mencione o pedido",
+      "expected": "menciona o pedido"
+    },
+    {
+      "id": 1114,
+      "kind": "normalize",
+      "text": "Aura, mencione o pedido",
+      "expected": "menciona o pedido"
+    },
+    {
+      "id": 1115,
+      "kind": "normalize",
+      "text": "Por favor, mencione o pedido",
+      "expected": "menciona o pedido"
+    },
+    {
+      "id": 1116,
+      "kind": "normalize",
+      "text": "Aura, mencione o pedido, por favor.",
+      "expected": "menciona o pedido"
+    },
+    {
+      "id": 1117,
+      "kind": "normalize",
+      "text": "verifique o pedido",
+      "expected": "verifica o pedido"
+    },
+    {
+      "id": 1118,
+      "kind": "normalize",
+      "text": "Aura, verifique o pedido",
+      "expected": "verifica o pedido"
+    },
+    {
+      "id": 1119,
+      "kind": "normalize",
+      "text": "Por favor, verifique o pedido",
+      "expected": "verifica o pedido"
+    },
+    {
+      "id": 1120,
+      "kind": "normalize",
+      "text": "Aura, verifique o pedido, por favor.",
+      "expected": "verifica o pedido"
+    },
+    {
+      "id": 1121,
+      "kind": "normalize",
+      "text": "escreva o pedido",
+      "expected": "escreve o pedido"
+    },
+    {
+      "id": 1122,
+      "kind": "normalize",
+      "text": "Aura, escreva o pedido",
+      "expected": "escreve o pedido"
+    },
+    {
+      "id": 1123,
+      "kind": "normalize",
+      "text": "Por favor, escreva o pedido",
+      "expected": "escreve o pedido"
+    },
+    {
+      "id": 1124,
+      "kind": "normalize",
+      "text": "Aura, escreva o pedido, por favor.",
+      "expected": "escreve o pedido"
+    },
+    {
+      "id": 1125,
+      "kind": "normalize",
+      "text": "explique o pedido",
+      "expected": "explica o pedido"
+    },
+    {
+      "id": 1126,
+      "kind": "normalize",
+      "text": "Aura, explique o pedido",
+      "expected": "explica o pedido"
+    },
+    {
+      "id": 1127,
+      "kind": "normalize",
+      "text": "Por favor, explique o pedido",
+      "expected": "explica o pedido"
+    },
+    {
+      "id": 1128,
+      "kind": "normalize",
+      "text": "Aura, explique o pedido, por favor.",
+      "expected": "explica o pedido"
+    },
+    {
+      "id": 1129,
+      "kind": "nonaction",
+      "text": "Não apague o grupo",
+      "expected": true
+    },
+    {
+      "id": 1130,
+      "kind": "nonaction",
+      "text": "Nunca apague o grupo",
+      "expected": true
+    },
+    {
+      "id": 1131,
+      "kind": "nonaction",
+      "text": "Como fazer para apague o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1132,
+      "kind": "nonaction",
+      "text": "A frase diz: «apague o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1133,
+      "kind": "nonaction",
+      "text": "Podes não apague o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1134,
+      "kind": "nonaction",
+      "text": "Não remova o grupo",
+      "expected": true
+    },
+    {
+      "id": 1135,
+      "kind": "nonaction",
+      "text": "Nunca remova o grupo",
+      "expected": true
+    },
+    {
+      "id": 1136,
+      "kind": "nonaction",
+      "text": "Como fazer para remova o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1137,
+      "kind": "nonaction",
+      "text": "A frase diz: «remova o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1138,
+      "kind": "nonaction",
+      "text": "Podes não remova o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1139,
+      "kind": "nonaction",
+      "text": "Não abra o grupo",
+      "expected": true
+    },
+    {
+      "id": 1140,
+      "kind": "nonaction",
+      "text": "Nunca abra o grupo",
+      "expected": true
+    },
+    {
+      "id": 1141,
+      "kind": "nonaction",
+      "text": "Como fazer para abra o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1142,
+      "kind": "nonaction",
+      "text": "A frase diz: «abra o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1143,
+      "kind": "nonaction",
+      "text": "Podes não abra o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1144,
+      "kind": "nonaction",
+      "text": "Não feche o grupo",
+      "expected": true
+    },
+    {
+      "id": 1145,
+      "kind": "nonaction",
+      "text": "Nunca feche o grupo",
+      "expected": true
+    },
+    {
+      "id": 1146,
+      "kind": "nonaction",
+      "text": "Como fazer para feche o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1147,
+      "kind": "nonaction",
+      "text": "A frase diz: «feche o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1148,
+      "kind": "nonaction",
+      "text": "Podes não feche o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1149,
+      "kind": "nonaction",
+      "text": "Não crie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1150,
+      "kind": "nonaction",
+      "text": "Nunca crie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1151,
+      "kind": "nonaction",
+      "text": "Como fazer para crie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1152,
+      "kind": "nonaction",
+      "text": "A frase diz: «crie o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1153,
+      "kind": "nonaction",
+      "text": "Podes não crie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1154,
+      "kind": "nonaction",
+      "text": "Não envie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1155,
+      "kind": "nonaction",
+      "text": "Nunca envie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1156,
+      "kind": "nonaction",
+      "text": "Como fazer para envie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1157,
+      "kind": "nonaction",
+      "text": "A frase diz: «envie o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1158,
+      "kind": "nonaction",
+      "text": "Podes não envie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1159,
+      "kind": "nonaction",
+      "text": "Não mande o grupo",
+      "expected": true
+    },
+    {
+      "id": 1160,
+      "kind": "nonaction",
+      "text": "Nunca mande o grupo",
+      "expected": true
+    },
+    {
+      "id": 1161,
+      "kind": "nonaction",
+      "text": "Como fazer para mande o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1162,
+      "kind": "nonaction",
+      "text": "A frase diz: «mande o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1163,
+      "kind": "nonaction",
+      "text": "Podes não mande o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1164,
+      "kind": "nonaction",
+      "text": "Não publique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1165,
+      "kind": "nonaction",
+      "text": "Nunca publique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1166,
+      "kind": "nonaction",
+      "text": "Como fazer para publique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1167,
+      "kind": "nonaction",
+      "text": "A frase diz: «publique o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1168,
+      "kind": "nonaction",
+      "text": "Podes não publique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1169,
+      "kind": "nonaction",
+      "text": "Não promova o grupo",
+      "expected": true
+    },
+    {
+      "id": 1170,
+      "kind": "nonaction",
+      "text": "Nunca promova o grupo",
+      "expected": true
+    },
+    {
+      "id": 1171,
+      "kind": "nonaction",
+      "text": "Como fazer para promova o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1172,
+      "kind": "nonaction",
+      "text": "A frase diz: «promova o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1173,
+      "kind": "nonaction",
+      "text": "Podes não promova o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1174,
+      "kind": "nonaction",
+      "text": "Não rebaixe o grupo",
+      "expected": true
+    },
+    {
+      "id": 1175,
+      "kind": "nonaction",
+      "text": "Nunca rebaixe o grupo",
+      "expected": true
+    },
+    {
+      "id": 1176,
+      "kind": "nonaction",
+      "text": "Como fazer para rebaixe o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1177,
+      "kind": "nonaction",
+      "text": "A frase diz: «rebaixe o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1178,
+      "kind": "nonaction",
+      "text": "Podes não rebaixe o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1179,
+      "kind": "nonaction",
+      "text": "Não ignore o grupo",
+      "expected": true
+    },
+    {
+      "id": 1180,
+      "kind": "nonaction",
+      "text": "Nunca ignore o grupo",
+      "expected": true
+    },
+    {
+      "id": 1181,
+      "kind": "nonaction",
+      "text": "Como fazer para ignore o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1182,
+      "kind": "nonaction",
+      "text": "A frase diz: «ignore o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1183,
+      "kind": "nonaction",
+      "text": "Podes não ignore o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1184,
+      "kind": "nonaction",
+      "text": "Não bloqueie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1185,
+      "kind": "nonaction",
+      "text": "Nunca bloqueie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1186,
+      "kind": "nonaction",
+      "text": "Como fazer para bloqueie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1187,
+      "kind": "nonaction",
+      "text": "A frase diz: «bloqueie o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1188,
+      "kind": "nonaction",
+      "text": "Podes não bloqueie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1189,
+      "kind": "nonaction",
+      "text": "Não silencie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1190,
+      "kind": "nonaction",
+      "text": "Nunca silencie o grupo",
+      "expected": true
+    },
+    {
+      "id": 1191,
+      "kind": "nonaction",
+      "text": "Como fazer para silencie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1192,
+      "kind": "nonaction",
+      "text": "A frase diz: «silencie o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1193,
+      "kind": "nonaction",
+      "text": "Podes não silencie o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1194,
+      "kind": "nonaction",
+      "text": "Não adicione o grupo",
+      "expected": true
+    },
+    {
+      "id": 1195,
+      "kind": "nonaction",
+      "text": "Nunca adicione o grupo",
+      "expected": true
+    },
+    {
+      "id": 1196,
+      "kind": "nonaction",
+      "text": "Como fazer para adicione o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1197,
+      "kind": "nonaction",
+      "text": "A frase diz: «adicione o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1198,
+      "kind": "nonaction",
+      "text": "Podes não adicione o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1199,
+      "kind": "nonaction",
+      "text": "Não pesquise o grupo",
+      "expected": true
+    },
+    {
+      "id": 1200,
+      "kind": "nonaction",
+      "text": "Nunca pesquise o grupo",
+      "expected": true
+    },
+    {
+      "id": 1201,
+      "kind": "nonaction",
+      "text": "Como fazer para pesquise o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1202,
+      "kind": "nonaction",
+      "text": "A frase diz: «pesquise o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1203,
+      "kind": "nonaction",
+      "text": "Podes não pesquise o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1204,
+      "kind": "nonaction",
+      "text": "Não procure o grupo",
+      "expected": true
+    },
+    {
+      "id": 1205,
+      "kind": "nonaction",
+      "text": "Nunca procure o grupo",
+      "expected": true
+    },
+    {
+      "id": 1206,
+      "kind": "nonaction",
+      "text": "Como fazer para procure o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1207,
+      "kind": "nonaction",
+      "text": "A frase diz: «procure o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1208,
+      "kind": "nonaction",
+      "text": "Podes não procure o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1209,
+      "kind": "nonaction",
+      "text": "Não traduza o grupo",
+      "expected": true
+    },
+    {
+      "id": 1210,
+      "kind": "nonaction",
+      "text": "Nunca traduza o grupo",
+      "expected": true
+    },
+    {
+      "id": 1211,
+      "kind": "nonaction",
+      "text": "Como fazer para traduza o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1212,
+      "kind": "nonaction",
+      "text": "A frase diz: «traduza o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1213,
+      "kind": "nonaction",
+      "text": "Podes não traduza o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1214,
+      "kind": "nonaction",
+      "text": "Não resuma o grupo",
+      "expected": true
+    },
+    {
+      "id": 1215,
+      "kind": "nonaction",
+      "text": "Nunca resuma o grupo",
+      "expected": true
+    },
+    {
+      "id": 1216,
+      "kind": "nonaction",
+      "text": "Como fazer para resuma o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1217,
+      "kind": "nonaction",
+      "text": "A frase diz: «resuma o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1218,
+      "kind": "nonaction",
+      "text": "Podes não resuma o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1219,
+      "kind": "nonaction",
+      "text": "Não gere o grupo",
+      "expected": true
+    },
+    {
+      "id": 1220,
+      "kind": "nonaction",
+      "text": "Nunca gere o grupo",
+      "expected": true
+    },
+    {
+      "id": 1221,
+      "kind": "nonaction",
+      "text": "Como fazer para gere o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1222,
+      "kind": "nonaction",
+      "text": "A frase diz: «gere o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1223,
+      "kind": "nonaction",
+      "text": "Podes não gere o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1224,
+      "kind": "nonaction",
+      "text": "Não configure o grupo",
+      "expected": true
+    },
+    {
+      "id": 1225,
+      "kind": "nonaction",
+      "text": "Nunca configure o grupo",
+      "expected": true
+    },
+    {
+      "id": 1226,
+      "kind": "nonaction",
+      "text": "Como fazer para configure o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1227,
+      "kind": "nonaction",
+      "text": "A frase diz: «configure o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1228,
+      "kind": "nonaction",
+      "text": "Podes não configure o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1229,
+      "kind": "nonaction",
+      "text": "Não ative o grupo",
+      "expected": true
+    },
+    {
+      "id": 1230,
+      "kind": "nonaction",
+      "text": "Nunca ative o grupo",
+      "expected": true
+    },
+    {
+      "id": 1231,
+      "kind": "nonaction",
+      "text": "Como fazer para ative o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1232,
+      "kind": "nonaction",
+      "text": "A frase diz: «ative o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1233,
+      "kind": "nonaction",
+      "text": "Podes não ative o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1234,
+      "kind": "nonaction",
+      "text": "Não desative o grupo",
+      "expected": true
+    },
+    {
+      "id": 1235,
+      "kind": "nonaction",
+      "text": "Nunca desative o grupo",
+      "expected": true
+    },
+    {
+      "id": 1236,
+      "kind": "nonaction",
+      "text": "Como fazer para desative o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1237,
+      "kind": "nonaction",
+      "text": "A frase diz: «desative o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1238,
+      "kind": "nonaction",
+      "text": "Podes não desative o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1239,
+      "kind": "nonaction",
+      "text": "Não ligue o grupo",
+      "expected": true
+    },
+    {
+      "id": 1240,
+      "kind": "nonaction",
+      "text": "Nunca ligue o grupo",
+      "expected": true
+    },
+    {
+      "id": 1241,
+      "kind": "nonaction",
+      "text": "Como fazer para ligue o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1242,
+      "kind": "nonaction",
+      "text": "A frase diz: «ligue o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1243,
+      "kind": "nonaction",
+      "text": "Podes não ligue o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1244,
+      "kind": "nonaction",
+      "text": "Não desligue o grupo",
+      "expected": true
+    },
+    {
+      "id": 1245,
+      "kind": "nonaction",
+      "text": "Nunca desligue o grupo",
+      "expected": true
+    },
+    {
+      "id": 1246,
+      "kind": "nonaction",
+      "text": "Como fazer para desligue o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1247,
+      "kind": "nonaction",
+      "text": "A frase diz: «desligue o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1248,
+      "kind": "nonaction",
+      "text": "Podes não desligue o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1249,
+      "kind": "nonaction",
+      "text": "Não agende o grupo",
+      "expected": true
+    },
+    {
+      "id": 1250,
+      "kind": "nonaction",
+      "text": "Nunca agende o grupo",
+      "expected": true
+    },
+    {
+      "id": 1251,
+      "kind": "nonaction",
+      "text": "Como fazer para agende o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1252,
+      "kind": "nonaction",
+      "text": "A frase diz: «agende o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1253,
+      "kind": "nonaction",
+      "text": "Podes não agende o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1254,
+      "kind": "nonaction",
+      "text": "Não avise o grupo",
+      "expected": true
+    },
+    {
+      "id": 1255,
+      "kind": "nonaction",
+      "text": "Nunca avise o grupo",
+      "expected": true
+    },
+    {
+      "id": 1256,
+      "kind": "nonaction",
+      "text": "Como fazer para avise o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1257,
+      "kind": "nonaction",
+      "text": "A frase diz: «avise o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1258,
+      "kind": "nonaction",
+      "text": "Podes não avise o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1259,
+      "kind": "nonaction",
+      "text": "Não mencione o grupo",
+      "expected": true
+    },
+    {
+      "id": 1260,
+      "kind": "nonaction",
+      "text": "Nunca mencione o grupo",
+      "expected": true
+    },
+    {
+      "id": 1261,
+      "kind": "nonaction",
+      "text": "Como fazer para mencione o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1262,
+      "kind": "nonaction",
+      "text": "A frase diz: «mencione o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1263,
+      "kind": "nonaction",
+      "text": "Podes não mencione o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1264,
+      "kind": "nonaction",
+      "text": "Não verifique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1265,
+      "kind": "nonaction",
+      "text": "Nunca verifique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1266,
+      "kind": "nonaction",
+      "text": "Como fazer para verifique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1267,
+      "kind": "nonaction",
+      "text": "A frase diz: «verifique o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1268,
+      "kind": "nonaction",
+      "text": "Podes não verifique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1269,
+      "kind": "nonaction",
+      "text": "Não escreva o grupo",
+      "expected": true
+    },
+    {
+      "id": 1270,
+      "kind": "nonaction",
+      "text": "Nunca escreva o grupo",
+      "expected": true
+    },
+    {
+      "id": 1271,
+      "kind": "nonaction",
+      "text": "Como fazer para escreva o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1272,
+      "kind": "nonaction",
+      "text": "A frase diz: «escreva o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1273,
+      "kind": "nonaction",
+      "text": "Podes não escreva o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1274,
+      "kind": "nonaction",
+      "text": "Não explique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1275,
+      "kind": "nonaction",
+      "text": "Nunca explique o grupo",
+      "expected": true
+    },
+    {
+      "id": 1276,
+      "kind": "nonaction",
+      "text": "Como fazer para explique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1277,
+      "kind": "nonaction",
+      "text": "A frase diz: «explique o grupo»",
+      "expected": true
+    },
+    {
+      "id": 1278,
+      "kind": "nonaction",
+      "text": "Podes não explique o grupo?",
+      "expected": true
+    },
+    {
+      "id": 1279,
+      "kind": "format",
+      "text": "mande a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1280,
+      "kind": "format",
+      "text": "Aura, mande a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1281,
+      "kind": "format",
+      "text": "Por favor, mande a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1282,
+      "kind": "format",
+      "text": "Aura, mande a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1283,
+      "kind": "format",
+      "text": "mande a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1284,
+      "kind": "format",
+      "text": "Aura, mande a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1285,
+      "kind": "format",
+      "text": "Por favor, mande a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1286,
+      "kind": "format",
+      "text": "Aura, mande a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1287,
+      "kind": "format",
+      "text": "mande a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1288,
+      "kind": "format",
+      "text": "Aura, mande a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1289,
+      "kind": "format",
+      "text": "Por favor, mande a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1290,
+      "kind": "format",
+      "text": "Aura, mande a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1291,
+      "kind": "format",
+      "text": "envia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1292,
+      "kind": "format",
+      "text": "Aura, envia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1293,
+      "kind": "format",
+      "text": "Por favor, envia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1294,
+      "kind": "format",
+      "text": "Aura, envia a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1295,
+      "kind": "format",
+      "text": "envia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1296,
+      "kind": "format",
+      "text": "Aura, envia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1297,
+      "kind": "format",
+      "text": "Por favor, envia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1298,
+      "kind": "format",
+      "text": "Aura, envia a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1299,
+      "kind": "format",
+      "text": "envia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1300,
+      "kind": "format",
+      "text": "Aura, envia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1301,
+      "kind": "format",
+      "text": "Por favor, envia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1302,
+      "kind": "format",
+      "text": "Aura, envia a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1303,
+      "kind": "format",
+      "text": "grava a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1304,
+      "kind": "format",
+      "text": "Aura, grava a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1305,
+      "kind": "format",
+      "text": "Por favor, grava a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1306,
+      "kind": "format",
+      "text": "Aura, grava a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1307,
+      "kind": "format",
+      "text": "grava a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1308,
+      "kind": "format",
+      "text": "Aura, grava a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1309,
+      "kind": "format",
+      "text": "Por favor, grava a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1310,
+      "kind": "format",
+      "text": "Aura, grava a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1311,
+      "kind": "format",
+      "text": "grava a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1312,
+      "kind": "format",
+      "text": "Aura, grava a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1313,
+      "kind": "format",
+      "text": "Por favor, grava a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1314,
+      "kind": "format",
+      "text": "Aura, grava a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1315,
+      "kind": "format",
+      "text": "responde a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1316,
+      "kind": "format",
+      "text": "Aura, responde a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1317,
+      "kind": "format",
+      "text": "Por favor, responde a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1318,
+      "kind": "format",
+      "text": "Aura, responde a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1319,
+      "kind": "format",
+      "text": "responde a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1320,
+      "kind": "format",
+      "text": "Aura, responde a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1321,
+      "kind": "format",
+      "text": "Por favor, responde a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1322,
+      "kind": "format",
+      "text": "Aura, responde a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1323,
+      "kind": "format",
+      "text": "responde a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1324,
+      "kind": "format",
+      "text": "Aura, responde a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1325,
+      "kind": "format",
+      "text": "Por favor, responde a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1326,
+      "kind": "format",
+      "text": "Aura, responde a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1327,
+      "kind": "format",
+      "text": "fala a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1328,
+      "kind": "format",
+      "text": "Aura, fala a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1329,
+      "kind": "format",
+      "text": "Por favor, fala a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1330,
+      "kind": "format",
+      "text": "Aura, fala a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1331,
+      "kind": "format",
+      "text": "fala a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1332,
+      "kind": "format",
+      "text": "Aura, fala a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1333,
+      "kind": "format",
+      "text": "Por favor, fala a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1334,
+      "kind": "format",
+      "text": "Aura, fala a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1335,
+      "kind": "format",
+      "text": "fala a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1336,
+      "kind": "format",
+      "text": "Aura, fala a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1337,
+      "kind": "format",
+      "text": "Por favor, fala a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1338,
+      "kind": "format",
+      "text": "Aura, fala a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1339,
+      "kind": "format",
+      "text": "leia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1340,
+      "kind": "format",
+      "text": "Aura, leia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1341,
+      "kind": "format",
+      "text": "Por favor, leia a resposta em áudio",
+      "expected": "audio"
+    },
+    {
+      "id": 1342,
+      "kind": "format",
+      "text": "Aura, leia a resposta em áudio, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1343,
+      "kind": "format",
+      "text": "leia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1344,
+      "kind": "format",
+      "text": "Aura, leia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1345,
+      "kind": "format",
+      "text": "Por favor, leia a resposta em voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1346,
+      "kind": "format",
+      "text": "Aura, leia a resposta em voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1347,
+      "kind": "format",
+      "text": "leia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1348,
+      "kind": "format",
+      "text": "Aura, leia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1349,
+      "kind": "format",
+      "text": "Por favor, leia a resposta uma nota de voz",
+      "expected": "audio"
+    },
+    {
+      "id": 1350,
+      "kind": "format",
+      "text": "Aura, leia a resposta uma nota de voz, por favor.",
+      "expected": "audio"
+    },
+    {
+      "id": 1351,
+      "kind": "format",
+      "text": "Não mande áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1352,
+      "kind": "format",
+      "text": "Aura, Não mande áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1353,
+      "kind": "format",
+      "text": "Por favor, Não mande áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1354,
+      "kind": "format",
+      "text": "Aura, Não mande áudio, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1355,
+      "kind": "format",
+      "text": "sem áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1356,
+      "kind": "format",
+      "text": "Aura, sem áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1357,
+      "kind": "format",
+      "text": "Por favor, sem áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1358,
+      "kind": "format",
+      "text": "Aura, sem áudio, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1359,
+      "kind": "format",
+      "text": "só texto",
+      "expected": "text"
+    },
+    {
+      "id": 1360,
+      "kind": "format",
+      "text": "Aura, só texto",
+      "expected": "text"
+    },
+    {
+      "id": 1361,
+      "kind": "format",
+      "text": "Por favor, só texto",
+      "expected": "text"
+    },
+    {
+      "id": 1362,
+      "kind": "format",
+      "text": "Aura, só texto, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1363,
+      "kind": "format",
+      "text": "responde por escrito",
+      "expected": "text"
+    },
+    {
+      "id": 1364,
+      "kind": "format",
+      "text": "Aura, responde por escrito",
+      "expected": "text"
+    },
+    {
+      "id": 1365,
+      "kind": "format",
+      "text": "Por favor, responde por escrito",
+      "expected": "text"
+    },
+    {
+      "id": 1366,
+      "kind": "format",
+      "text": "Aura, responde por escrito, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1367,
+      "kind": "format",
+      "text": "manda em texto",
+      "expected": "text"
+    },
+    {
+      "id": 1368,
+      "kind": "format",
+      "text": "Aura, manda em texto",
+      "expected": "text"
+    },
+    {
+      "id": 1369,
+      "kind": "format",
+      "text": "Por favor, manda em texto",
+      "expected": "text"
+    },
+    {
+      "id": 1370,
+      "kind": "format",
+      "text": "Aura, manda em texto, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1371,
+      "kind": "format",
+      "text": "não consigo ouvir",
+      "expected": "text"
+    },
+    {
+      "id": 1372,
+      "kind": "format",
+      "text": "Aura, não consigo ouvir",
+      "expected": "text"
+    },
+    {
+      "id": 1373,
+      "kind": "format",
+      "text": "Por favor, não consigo ouvir",
+      "expected": "text"
+    },
+    {
+      "id": 1374,
+      "kind": "format",
+      "text": "Aura, não consigo ouvir, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1375,
+      "kind": "format",
+      "text": "não quero voz",
+      "expected": "text"
+    },
+    {
+      "id": 1376,
+      "kind": "format",
+      "text": "Aura, não quero voz",
+      "expected": "text"
+    },
+    {
+      "id": 1377,
+      "kind": "format",
+      "text": "Por favor, não quero voz",
+      "expected": "text"
+    },
+    {
+      "id": 1378,
+      "kind": "format",
+      "text": "Aura, não quero voz, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1379,
+      "kind": "format",
+      "text": "não grave áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1380,
+      "kind": "format",
+      "text": "Aura, não grave áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1381,
+      "kind": "format",
+      "text": "Por favor, não grave áudio",
+      "expected": "text"
+    },
+    {
+      "id": 1382,
+      "kind": "format",
+      "text": "Aura, não grave áudio, por favor.",
+      "expected": "text"
+    },
+    {
+      "id": 1383,
+      "kind": "clarification",
+      "text": "O quê?",
+      "expected": true
+    },
+    {
+      "id": 1384,
+      "kind": "clarification",
+      "text": "Aura, O quê?",
+      "expected": true
+    },
+    {
+      "id": 1385,
+      "kind": "clarification",
+      "text": "Por favor, O quê?",
+      "expected": true
+    },
+    {
+      "id": 1386,
+      "kind": "clarification",
+      "text": "Como assim?",
+      "expected": true
+    },
+    {
+      "id": 1387,
+      "kind": "clarification",
+      "text": "Aura, Como assim?",
+      "expected": true
+    },
+    {
+      "id": 1388,
+      "kind": "clarification",
+      "text": "Por favor, Como assim?",
+      "expected": true
+    },
+    {
+      "id": 1389,
+      "kind": "clarification",
+      "text": "Não entendi",
+      "expected": true
+    },
+    {
+      "id": 1390,
+      "kind": "clarification",
+      "text": "Aura, Não entendi",
+      "expected": true
+    },
+    {
+      "id": 1391,
+      "kind": "clarification",
+      "text": "Por favor, Não entendi",
+      "expected": true
+    },
+    {
+      "id": 1392,
+      "kind": "clarification",
+      "text": "Não percebi",
+      "expected": true
+    },
+    {
+      "id": 1393,
+      "kind": "clarification",
+      "text": "Aura, Não percebi",
+      "expected": true
+    },
+    {
+      "id": 1394,
+      "kind": "clarification",
+      "text": "Por favor, Não percebi",
+      "expected": true
+    },
+    {
+      "id": 1395,
+      "kind": "clarification",
+      "text": "Explica melhor",
+      "expected": true
+    },
+    {
+      "id": 1396,
+      "kind": "clarification",
+      "text": "Aura, Explica melhor",
+      "expected": true
+    },
+    {
+      "id": 1397,
+      "kind": "clarification",
+      "text": "Por favor, Explica melhor",
+      "expected": true
+    },
+    {
+      "id": 1398,
+      "kind": "clarification",
+      "text": "Podes esclarecer?",
+      "expected": true
+    },
+    {
+      "id": 1399,
+      "kind": "clarification",
+      "text": "Aura, Podes esclarecer?",
+      "expected": true
+    },
+    {
+      "id": 1400,
+      "kind": "clarification",
+      "text": "Por favor, Podes esclarecer?",
+      "expected": true
+    },
+    {
+      "id": 1401,
+      "kind": "clarification",
+      "text": "Por quê?",
+      "expected": true
+    },
+    {
+      "id": 1402,
+      "kind": "clarification",
+      "text": "Aura, Por quê?",
+      "expected": true
+    },
+    {
+      "id": 1403,
+      "kind": "clarification",
+      "text": "Por favor, Por quê?",
+      "expected": true
+    },
+    {
+      "id": 1404,
+      "kind": "clarification",
+      "text": "Repete por outras palavras",
+      "expected": true
+    },
+    {
+      "id": 1405,
+      "kind": "clarification",
+      "text": "Aura, Repete por outras palavras",
+      "expected": true
+    },
+    {
+      "id": 1406,
+      "kind": "clarification",
+      "text": "Por favor, Repete por outras palavras",
+      "expected": true
+    },
+    {
+      "id": 1407,
+      "kind": "clarification",
+      "text": "Explica isso",
+      "expected": true
+    },
+    {
+      "id": 1408,
+      "kind": "clarification",
+      "text": "Aura, Explica isso",
+      "expected": true
+    },
+    {
+      "id": 1409,
+      "kind": "clarification",
+      "text": "Por favor, Explica isso",
+      "expected": true
+    },
+    {
+      "id": 1410,
+      "kind": "clarification",
+      "text": "Que?",
+      "expected": true
+    },
+    {
+      "id": 1411,
+      "kind": "clarification",
+      "text": "Aura, Que?",
+      "expected": true
+    },
+    {
+      "id": 1412,
+      "kind": "clarification",
+      "text": "Por favor, Que?",
+      "expected": true
+    },
+    {
+      "id": 1413,
+      "kind": "format",
+      "text": "Diga oi",
+      "expected": null
+    },
+    {
+      "id": 1414,
+      "kind": "format",
+      "text": "O áudio falhou",
+      "expected": null
+    },
+    {
+      "id": 1415,
+      "kind": "format",
+      "text": "Como enviar um áudio?",
+      "expected": null
+    },
+    {
+      "id": 1416,
+      "kind": "format",
+      "text": "escreve «manda áudio»",
+      "expected": null
+    },
+    {
+      "id": 1417,
+      "kind": "format",
+      "text": "não sei onde ficou a mensagem de voz",
+      "expected": null
+    },
+    {
+      "id": 1418,
+      "kind": "literal",
+      "text": "não diga oi",
+      "expected": null
+    },
+    {
+      "id": 1419,
+      "kind": "literal",
+      "text": "diz oi ao João",
+      "expected": null
+    },
+    {
+      "id": 1420,
+      "kind": "literal",
+      "text": "a frase diz «diga oi»",
+      "expected": null
+    },
+    {
+      "id": 1421,
+      "kind": "literal",
+      "text": "como dizer oi?",
+      "expected": null
+    },
+    {
+      "id": 1422,
+      "kind": "literal",
+      "text": "diga o que pensas",
+      "expected": null
+    },
+    {
+      "id": 1423,
+      "kind": "literal",
+      "text": "não, quero uma explicação",
+      "expected": null
+    }
+  ]
+}

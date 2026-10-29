@@ -118,6 +118,14 @@ class WhatsAppBot {
     this._reconnectTimer = null;
     this._connectionTimer = null;
     this._healthTimer = null;
+    this._qrTimer = null;
+    this._monitorsStarted = false;
+  }
+
+  // Publish the singleton before monitors can synchronously call getBot().
+  _startMonitors() {
+    if (this._monitorsStarted) return;
+    this._monitorsStarted = true;
     // v9.14 — CENTRAL DE SESSÕES: quando uma slot guardada é promovida
     // (nova sessão que FUNCIONA), reinicia o socket principal já com as
     // credenciais dela em «creds» (trocadas pela sessionCenter).
@@ -131,7 +139,6 @@ class WhatsAppBot {
     } catch (e) { this.log('warn', 'sessionCenter: ' + String(e?.message || e).slice(0, 60)); }
     // v12.9.3: vigia de GUARDAR SESSÃO (auto-backup 6h + auto-restauro no boot)
     try { require('./sessionBackup').arrancar(); } catch (e) { this.log('warn', 'sessionBackup: ' + String(e?.message || e).slice(0, 60)); }
-    this._qrTimer = null;
     this._startHealthWatchdog();
   }
 
@@ -772,6 +779,7 @@ let _instance = null;
 function getBot(io) {
   if (!_instance) _instance = new WhatsAppBot();
   if (io) _instance.setIO(io);
+  _instance._startMonitors();
   return _instance;
 }
 

@@ -25,7 +25,7 @@ module.exports = function registerIACases(registerCase) {
       `*${prefix}aiapis*   — estado das APIs`
     );
 
-    const hasAI = !!(config.ai.groqApiKey || config.ai.geminiApiKey || config.ai.openrouterApiKey || config.ai.openaiApiKey);
+    const hasAI = !!(config.ai.groqApiKey || config.ai.geminiApiKey || config.ai.openrouterApiKey || config.ai.openaiApiKey || config.ai.deepseekApiKey || config.ai.cerebrasApiKey || config.ai.huggingfaceKey || config.ai.apifreellmKey);
     if (!hasAI) return reply('❌ IA sem chave. Configure GROQ_API_KEY no Render.');
 
     react('🤔');
@@ -34,21 +34,21 @@ module.exports = function registerIACases(registerCase) {
       const u    = await User.findOne({ whatsappNumber: ctx.senderNumber }).lean().catch(() => null);
       const memOpts = {
         history:     mem ? mem.getContextWindow(12) : [],
+        cacheScope: JSON.stringify([ctx.remoteJid, ctx.senderNumber]),
+        userRole: ctx.isPrimaryOwner ? 'owner' : u?.isPremium?.() ? 'premium' : 'free',
         userTone:    u?.aiTone || '',
         userProfile: { name: ctx.pushName, gender: u?.gender || '' },
       };
 
-      if (mem) { mem.addMessage('user', text); await mem.save().catch(() => {}); }
+      if (mem) await AiMemory.appendMessage(ctx.senderNumber, null, 'user', text).catch(() => {});
 
-      const answer = await Promise.race([
-        ai.chat(text, '', memOpts),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000)),
-      ]);
-
-      if (mem) { mem.addMessage('assistant', answer); await mem.save().catch(() => {}); }
+      const answer = await ai.chat(text, '', memOpts);
 
       react('✅');
-      return reply('🧠 *' + config.bot.name + ' IA:*\n\n' + sanitizeAI(answer));
+      const clean = sanitizeAI(answer);
+      const result = await reply('🧠 *' + config.bot.name + ' IA:*\n\n' + clean);
+      if (mem && !result?.suppressed) await AiMemory.appendMessage(ctx.senderNumber, null, 'assistant', clean).catch(() => {});
+      return result;
     } catch (e) {
       react('❌');
       return reply('❌ Erro na IA. Tente novamente.');

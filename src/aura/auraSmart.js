@@ -47,6 +47,11 @@ function classifyMessage(text) {
   const plain = tl.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const wordCount = t.split(/\s+/).filter(w => w.length > 0).length;
 
+  // A short question/clarification is not an acknowledgement or random emoji cue.
+  if (/[?？]/.test(t) || /^(?:o qu[eê]|qu[eê]|como assim|porque|por que)$/i.test(t)) {
+    return { type: 'complex', confidence: 0.95, emotion: 'neutral', isQuestion: true, wordCount };
+  }
+
   // Saudação — verificar ANTES de trivial (evita que "oi" seja trivial)
   if (GREETING_RE.test(tl) && wordCount <= 4) {
     return { type: 'greeting', confidence: 0.9, emotion: 'happy', isQuestion: false, wordCount };

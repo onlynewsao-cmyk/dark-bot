@@ -10,6 +10,7 @@
  * Pinterest: siputzx → Cobalt → Bing images
  */
 const { tryApis, cobaltDownload, tikwmDownload, siputzxPinterest, siputzxPinterestSearch, proxySocialDownload, loaderYoutubeAudio } = require('./helpers');
+const mediaHandler = require('../mediaHandler');
 
 // ==================== TIKTOK ====================
 async function tiktok(url) {

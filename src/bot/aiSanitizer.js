@@ -56,20 +56,7 @@ function sanitizeAI(text, opts = {}) {
   // ~~strike~~ → texto
   t = t.replace(/~~([^~]{1,100})~~/g, '$1');
 
-  // 4. Remove disclaimers comuns no final
-  const disclaimerPatterns = [
-    /\n*Lembre-se[\s\S]{20,500}$/i,
-    /\n*Esse código é apenas[\s\S]{20,500}$/i,
-    /\n*É importante lembrar[\s\S]{20,500}$/i,
-    /\n*Note que[\s\S]{20,300}$/i,
-    /\n*Esse é apenas um exemplo[\s\S]{20,500}$/i,
-    /\n*Lembrando que[\s\S]{20,300}$/i,
-    /\n*Obs:?\s*[\s\S]{20,300}$/i,
-    /\n*⚠️\s*Note[\s\S]{20,300}$/i,
-  ];
-  for (const pat of disclaimerPatterns) {
-    t = t.replace(pat, '');
-  }
+  // Preserve factual caveats, consent/safety information and provider boundaries.
 
   // 5. Remove linhas vazias excessivas
   t = t.replace(/\n{3,}/g, '\n\n');
@@ -83,7 +70,7 @@ function sanitizeAI(text, opts = {}) {
   }
 
   // 8. Se ficou vazio após limpeza, retorna mensagem padrão
-  if (t.length < 5) return 'Resposta processada mas ficou vazia após limpeza.';
+  if (!t) return ''; // Never invent a reply after formatting.
 
   return t;
 }

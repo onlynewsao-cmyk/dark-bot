@@ -394,7 +394,7 @@ module.exports = function registerDownloads2(registerCase) {
       const page = (await axios.get(url, { timeout: 15000 })).data;
       const dlUrl = page.match(/href="(https:\/\/download[^"]+)"/)?.[1] || page.match(/"download_link"\s*:\s*"([^"]+)"/)?.[1];
       if (!dlUrl) throw new Error('Link de download não encontrado');
-      const r = await axios.get(dlUrl.replace(/\\//g, '/'), { responseType: 'stream', timeout: 60000 });
+      const r = await axios.get(dlUrl.replace(/\\\//g, '/'), { responseType: 'stream', timeout: 60000 });
       const chunks = [];
       for await (const chunk of r.data) chunks.push(chunk);
       const buf = Buffer.concat(chunks);

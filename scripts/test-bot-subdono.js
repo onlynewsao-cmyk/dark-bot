@@ -67,10 +67,20 @@ const check = (l, c, e = '') => { if (c) { ok++; console.log(`  ✅ ${l}`); } el
 
   console.log('\n══════ 3) commandHandler — flags ══════');
   const src = fs.readFileSync(path.join(__dirname, '../src/bot/commandHandler.js'), 'utf8');
-  check('isBotSelf considera fromMe, sock.user.id, BOT_NUMBER e LID', /isBotSelf\s*=\s*!!msg\.key\?\.fromMe[\s\S]{0,400}botSelfLid/.test(src));
-  check('isOwner inclui isBotSelf', /isOwner = [\s\S]{0,400}\|\|\s*isBotSelf;/.test(src));
-  check('isPrimaryOwner NÃO inclui o bot (só OWNER_NUMBER/dashboard)', /ctx\.isPrimaryOwner = ctx\.senderNumber === envOwnerNum \|\| \(dbOwnerNum && ctx\.senderNumber === dbOwnerNum\);/.test(src));
-  check('ctx.isSubOwner exposto', /ctx\.isSubOwner\s*=/.test(src));
+  // A identidade passou para ownerIdentity.resolveOwnerFlags — testa o
+  // comportamento (não o texto) e confirma que o handler o usa.
+  const oi = require('../src/bot/ownerIdentity');
+  const cfgId = { owner: { number: '244945280380' }, bot: { number: '244900000099' } };
+  const sockId = { user: { id: '244900000099:5@s.whatsapp.net', lid: '111222:5@lid' } };
+  const fFromMe = oi.resolveOwnerFlags({ ctx: { senderNumber: '244900000099' }, msg: { key: { fromMe: true } }, sock: sockId, config: cfgId });
+  const fBotNum = oi.resolveOwnerFlags({ ctx: { senderNumber: '244900000099' }, msg: { key: {} }, sock: sockId, config: cfgId });
+  const fBotLid = oi.resolveOwnerFlags({ ctx: { senderNumber: '000', senderLid: '111222@lid', isGroup: true }, msg: { key: {} }, sock: sockId, config: cfgId });
+  const fDono = oi.resolveOwnerFlags({ ctx: { senderNumber: '244945280380' }, msg: { key: {} }, sock: sockId, config: cfgId });
+  const fOutro = oi.resolveOwnerFlags({ ctx: { senderNumber: '244911111111' }, msg: { key: {} }, sock: sockId, config: cfgId });
+  check('isBotSelf considera fromMe, sock.user.id, BOT_NUMBER e LID', fFromMe.isBotSelf && fBotNum.isBotSelf && fBotLid.isBotSelf && !fOutro.isBotSelf);
+  check('isOwner inclui isBotSelf', fFromMe.isOwner && fBotNum.isOwner && fBotLid.isOwner && !fOutro.isOwner);
+  check('isPrimaryOwner NÃO inclui o bot (só OWNER_NUMBER/dashboard)', fDono.isPrimaryOwner && !fFromMe.isPrimaryOwner && !fBotNum.isPrimaryOwner);
+  check('ctx.isSubOwner exposto', fBotNum.isSubOwner === true && fDono.isSubOwner === false && /resolveOwnerFlags\([\s\S]{0,120}\)[\s\S]{0,80}Object\.assign\(ctx, ownerFlags\)/.test(src));
 
   console.log('\n══════ 4) whatsapp.js / aura ══════');
   const wa = fs.readFileSync(path.join(__dirname, '../src/bot/whatsapp.js'), 'utf8');

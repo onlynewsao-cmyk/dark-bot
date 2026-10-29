@@ -107,7 +107,7 @@ module.exports = function registerInfoCases(registerCase) {
   });
 
   // ── case 'donos' ───────────────────────────────────────────
-  registerCase(['donos', 'subdonos', 'equipe', 'staff'], async ({ reply }) => {
+  registerCase(['donos', 'subdonos', 'equipe', 'staff'], async ({ ctx, reply }) => {
     const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
@@ -313,7 +313,7 @@ module.exports = function registerInfoCases(registerCase) {
   });
 
   // ── hora / data ────────────────────────────────────────────
-  registerCase(['hora', 'horas', 'data', 'date', 'agora'], async ({ sock, msg, ctx }) => {
+  registerCase(['hora', 'horas', 'data', 'date', 'agora'], async ({ sock, msg, ctx, reply }) => {
     const t = await getActiveTheme(ctx.remoteJid);
     const f = t.frame;
     const b = t.bullet;
@@ -363,7 +363,7 @@ module.exports = function registerInfoCases(registerCase) {
     } catch {}
 
     let versao = '?';
-    try { versao = require('../../../package.json').version || '?'; } catch { try { versao = require('../../package.json').version || '?'; } catch {} }
+    try { versao = require('../../../package.json').version || '?'; } catch {}
 
     const mem = process.memoryUsage();
     const ram = Math.round(mem.heapUsed / 1024 / 1024);

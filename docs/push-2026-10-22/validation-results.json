@@ -1,0 +1,631 @@
+{
+  "generated_at": "2026-10-22T00:49:57.145323+00:00",
+  "base_commit": "9cf54d14ab68e9d7e1c5a964ab219c28cab17e1c",
+  "branch": "fix/aura-conversation-2026-10-22",
+  "node": "v20.20.2",
+  "guard": "Credential-stripped subprocesses; dotenv disabled; DB/child/external network blocked. Only security test permits literal loopback. Test mocks may replace guard methods; not a security sandbox.",
+  "syntax": {
+    "js": {
+      "total": 541,
+      "passed": 541,
+      "failures": []
+    },
+    "ejs": {
+      "total": 37,
+      "passed": 37,
+      "failures": []
+    }
+  },
+  "tests": [
+    {
+      "script": "scripts/test-ai-timeout.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.643,
+      "guard_blocks": {},
+      "summary": [
+        "AI TIMEOUT: 3 OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-wa-timeout.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.522,
+      "guard_blocks": {},
+      "summary": [
+        "WA TIMEOUT: OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-aura-confirmation.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.562,
+      "guard_blocks": {},
+      "summary": [
+        "AURA CONFIRMATION: OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-aura-learning-schedule.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.57,
+      "guard_blocks": {},
+      "summary": [
+        "✅ falha ao persistir a confirmação bloqueia a execução",
+        "16 verificações passaram."
+      ]
+    },
+    {
+      "script": "scripts/test-menu-gif-policy.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.533,
+      "guard_blocks": {},
+      "summary": [
+        "7 verificações passaram."
+      ]
+    },
+    {
+      "script": "scripts/test-roles.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.569,
+      "guard_blocks": {},
+      "summary": [
+        "  12 OK / 0 FALHOU"
+      ]
+    },
+    {
+      "script": "scripts/test-aura-modes.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.384,
+      "guard_blocks": {},
+      "summary": [
+        "  28 OK / 0 FALHOU"
+      ]
+    },
+    {
+      "script": "scripts/test-channel-and-status-fixes.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 1.34,
+      "guard_blocks": {
+        "child-process": 1
+      },
+      "summary": [
+        "--- ALL CHANNEL & STATUS TESTS PASSED (6/6) ---"
+      ]
+    },
+    {
+      "script": "scripts/test-group-events-participants.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 1.24,
+      "guard_blocks": {
+        "database": 3
+      },
+      "summary": [
+        "✔ object Baileys (id=lid + phoneNumber) ok",
+        "✔ object com id PN ok",
+        "✔ ADD string legacy ok",
+        "✅ group-events participants OK"
+      ]
+    },
+    {
+      "script": "scripts/test-pv-command-aura-fix.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 1.995,
+      "guard_blocks": {
+        "child-process": 1
+      },
+      "summary": [
+        "  ✅ commandHandler tem verificação de !_pareceCmd no atalho do Dono no PV",
+        "🎉 RESULTADO: 39 OK / 0 FALHAS"
+      ]
+    },
+    {
+      "script": "scripts/test-prefixo-auto.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.443,
+      "guard_blocks": {},
+      "summary": [
+        "  ✅ handler: hook antes do gate (RE + send)",
+        "🎉 PREFIXO-AUTO: 21 OK / 0 FALHOU"
+      ]
+    },
+    {
+      "script": "scripts/test-menu-routing.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.379,
+      "guard_blocks": {},
+      "summary": [
+        "✅ 15 OK / 0 FALHOU"
+      ]
+    },
+    {
+      "script": "scripts/test-sticker-global.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.342,
+      "guard_blocks": {},
+      "summary": []
+    },
+    {
+      "script": "scripts/test-video-whatsapp.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.513,
+      "guard_blocks": {},
+      "summary": []
+    },
+    {
+      "script": "scripts/test-aura-bugfixes.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.557,
+      "guard_blocks": {},
+      "summary": [
+        "AURA BUGFIXES: 11 groups OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-request-cache-isolation.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.627,
+      "guard_blocks": {},
+      "summary": [
+        "REQUEST CACHE ISOLATION: 8 scenarios OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-ai-context-cache.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.665,
+      "guard_blocks": {},
+      "summary": [
+        "AI CONTEXT CACHE: 14 groups OK / 0 falhas; 14 simulated requests, no network"
+      ]
+    },
+    {
+      "script": "scripts/test-control-security.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.859,
+      "guard_blocks": {},
+      "summary": [
+        "CONTROL SECURITY: 7 groups OK / 0 falhas; loopback only, mock RPG storage"
+      ]
+    },
+    {
+      "script": "scripts/test-handler-conversation-controls.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.785,
+      "guard_blocks": {},
+      "summary": [
+        "HANDLER CONVERSATION CONTROLS: 14 groups OK / 0 falhas; no DB, providers or accounts"
+      ]
+    },
+    {
+      "script": "scripts/test-aura-language.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.657,
+      "guard_blocks": {},
+      "summary": [
+        "AURA LANGUAGE: 1423 scenarios OK / 0 falhas; {\"literal\":1014,\"normalize\":120,\"nonaction\":150,\"format\":109,\"clarification\":30}"
+      ]
+    },
+    {
+      "script": "scripts/test-conversation-memory.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.568,
+      "guard_blocks": {},
+      "summary": [
+        "CONVERSATION MEMORY: concurrent creation, 100 atomic appends, context separation and delivery observer OK; mocked storage only"
+      ]
+    },
+    {
+      "script": "scripts/test-message-router-controls.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.617,
+      "guard_blocks": {},
+      "summary": [
+        "MESSAGE ROUTER CONTROLS: priority under saturation, same-batch pause, replay dedup, moderation, FIFO, arrival cancellation under a full queue and 4 invalid capacity values OK"
+      ]
+    },
+    {
+      "script": "scripts/test-aura-context.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.572,
+      "guard_blocks": {},
+      "summary": [
+        "AURA CONTEXT: 9 groups OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-ai-cancellation.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.598,
+      "guard_blocks": {},
+      "summary": [
+        "AI CANCELLATION: 5 groups OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/test-conversation-cancellation.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.408,
+      "guard_blocks": {},
+      "summary": [
+        "CONVERSATION CANCELLATION: 6 groups OK / 0 falhas"
+      ]
+    },
+    {
+      "script": "scripts/smoke-local.js",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_seconds": 0.989,
+      "guard_blocks": {
+        "database": 1,
+        "child-process": 1
+      },
+      "summary": [
+        "17 OK / 0 FALHOU"
+      ]
+    }
+  ],
+  "linguistic_corpus": {
+    "scenarios": 1423,
+    "type": "template-derived linguistic assertions, not 1423 new commands or live model evaluations"
+  },
+  "diff_check": {
+    "exit_code": 0,
+    "details": ""
+  },
+  "not_executed": [
+    "production bootstrap",
+    "real MongoDB",
+    "real WhatsApp accounts",
+    "provider calls",
+    "Northflank deployment",
+    "adult-resource requests",
+    "blanket npm test",
+    "native media integration"
+  ],
+  "source_sha256": {
+    "src/aura/actions/advancedActions.js": "4e8be557ef56ec5f8f3ee3d521ebd4ed5be6ea1f75d1a6e3b47ac63eac2f0b92",
+    "src/aura/actions/megaActions.js": "343979320d325a721aa8044edf9c61640c98c55dce70be1a492d28f78e5c30dd",
+    "src/aura/actions/profileActions.js": "9aa5c5c579fc9f9caf09ccfd060d84057e004f1aadf7e85e71a3c806fc3736e6",
+    "src/aura/auraActions.js": "eb6628ca071fa18353a32ae0941be5786fcbd65819804b651563bc1215aa2d6c",
+    "src/aura/auraAgenda.js": "343b986494073414abb2311aad4a93be256152a08fe2d6c4e996cf7c180a4cf3",
+    "src/aura/auraAssunto.js": "d2ec953b027e9b74998383c378177e120e64923021035532d0ef22ca9916216e",
+    "src/aura/auraAvancada.js": "a91803ff1015fc489bfc836cc005248a7e40ff0fba06c3ebdaeada145ec7a619",
+    "src/aura/auraAvisos.js": "830fa1fcf93307db46d5c459f9220f4aa508c2a269af57276c502f200c4764a1",
+    "src/aura/auraBrain.js": "e061873228a0cfae8d85d559bbc126d2a609e8e09f461c64d796aba674630469",
+    "src/aura/auraCanais.js": "2fa5e980828c4c7ca5ee22955446a6f4d85a2a8b9edbfb1de967c92749d72882",
+    "src/aura/auraCerebro.js": "6ac2895ebf76a852556c3940d5660e2e567c062b102fe05079fd0ce9daa13083",
+    "src/aura/auraCommands.js": "6dc01006047245a6d3a97a83a8d4070062dbbeed48ffc51a29839663491fa876",
+    "src/aura/auraConfirmacao.js": "8be4868fa6faa61721a0d37fa04b945ead82608aa1d24c817d9e3e83612ac251",
+    "src/aura/auraContext.js": "98e4e5a37c081de3cc73eb0149532a698333cd68e1b9e1f73093fea1e725434b",
+    "src/aura/auraContextual.js": "57d21f1645439866e9e708f8b6a064420d35b8e25d9229acd86bf0ff0c6cb6f3",
+    "src/aura/auraConversation.js": "ccb3f0d79d27bcba8615ef02e17f3fe1c80b38aa3a6e8451945c9d1c6650a3b4",
+    "src/aura/auraDecide.js": "25962439899c0664cf210ed01c3b784c627fdbfcef8648c44d68d17e0ef3e64b",
+    "src/aura/auraDelivery.js": "0c3eb1a1379a9562f8321262cd6318ea98091b25c977773a42408fbeaae6a438",
+    "src/aura/auraDestinatario.js": "79734f7dc06ab1eaac64d8fb6391157cae3139dd497c7d99abb55ef19bd57c34",
+    "src/aura/auraDialogue.js": "f6859f73fca5dd1424bc57d2f0c2018756d5c1f621013afe8bbef09cd4925ece",
+    "src/aura/auraEscolha.js": "df16e67a6e0295593427c3e01598caa7fd64a2c38c428f0616bf3fcb02be5c87",
+    "src/aura/auraEvolucao.js": "8fe9cf8e368c7e914e428c1557586325de35b9822e12888b28518f2049f05af8",
+    "src/aura/auraExec.js": "24e7d2504b62359aa4f1b2543bc0a9c1f70638dfb04409b74b6ab48188aadfdc",
+    "src/aura/auraFala.js": "ab32705dca6b7bb3c7072a39b24b37f45744b6a0b8372e7f7f443566279b45be",
+    "src/aura/auraGrupo.js": "e013ebeb23440197757c41822d168e9c2367050405d3ea04b5390ed8f682cf57",
+    "src/aura/auraHistorico.js": "353b53723819fb18009ef91607983718ecc692d18c785fd982dda6bacb6d8c2b",
+    "src/aura/auraHuman.js": "585b6c32a14d9df86ba934745e9b4adc4cd3ea427d59861f4d84e4ac55956b4f",
+    "src/aura/auraIdentidade.js": "c5b90cfeba75a51cb6b334d602b365693eea7132245a58ecf32d9ec790a86b97",
+    "src/aura/auraInstructionGuard.js": "78046b899a6bf2f25fc2d778ffda3b4149b9b6c26be4a35eaf022ebb398bbc07",
+    "src/aura/auraIntent.js": "9f792242fd222f79517c7799bfed1b4507bb0bdbc72633353680df703dcdf71b",
+    "src/aura/auraInterpret.js": "f3aa9cd59c1bbb2ead38b6e1325602b135f0930276a1d46584e4a77a64ca3fae",
+    "src/aura/auraLinhaTempo.js": "2379557fd4938beef27b91f3b7ec2b3aa23ed946a07acd6cdd6d87e2cbee2006",
+    "src/aura/auraMedia.js": "a91f218cd118d1981ac773134fc52ffaa1eeb846c517e9e1240f8f90d59c61b8",
+    "src/aura/auraMemory.js": "d305a320370474772e6e6a53362f57648ac934e6d37d39de85cdb0e4160bba9d",
+    "src/aura/auraModes.js": "af40f2c99bf22bb5b49f2686e97d7244d7e6504b6e5db58ae0acab30b21d4fe7",
+    "src/aura/auraPercepcao.js": "856e189bca918ffdb3e1d6495db8476a086130d4242ecfd2171b00daddf09e10",
+    "src/aura/auraProativa.js": "ff90c9e0a05e6d446fa1dfd90b2443bd863a18ed6025e075ae3c8ee9f138a9eb",
+    "src/aura/auraReaction.js": "b645b073caf4eefc224cbf35c0215cd1da89b33cfcd1f4874b42941a1956247e",
+    "src/aura/auraSanitizer.js": "5c43aaeb2dca4cbb8856f3d27a36618aaffcb7da0118d0d0e56f6041865bbae0",
+    "src/aura/auraSelfie.js": "15ed62f233609e5ce14c1310e5909638623aa62ff32a304f9bf962f1e3a56742",
+    "src/aura/auraSmart.js": "b32d4e759ff79c6d3cd5f93eee725e739026cdecac6028b1ed25c4db52532fe5",
+    "src/aura/auraSorteios.js": "b66e53f4739f5b805341542766a2dcfee0092c0cf359a201f617091b186ff5a9",
+    "src/aura/auraTalk.js": "7a6695ee8eafbeccc918c9d4a2284aa481160d8211db942fcd89e91c2114b3f0",
+    "src/aura/auraUniversal.js": "5cff84e8cc4af0f6b6a3281d3fb80eab797b9b7c4a457373ed24c24bc5fd06dc",
+    "src/aura/auraVida.js": "1d516d3631544a31ec9d7c48d00d359740efc1dfb3763209c45af30c88aca05c",
+    "src/aura/auraViewOnce.js": "9ce9dfea86ad52cc5ced14af53c59d68f329ee370f0ad58900e5b6fa4795bd65",
+    "src/aura/auraVigilante.js": "262a686c76e35ecd13c0803d5eb3dd1740abdd58209b26880ebd7f8ea98746c3",
+    "src/aura/auraVontade.js": "89c3c875e0ee261d9f802a838ed4dff646de614f55cd0de68a71a2ad40d0f604",
+    "src/aura/auraVotacao.js": "76e81d987aee2ddf8f0036114bb335021a4c08a47b58393e7e6c117bdd2aedf6",
+    "src/aura/auraVoz.js": "b87f317cbb7bf7ed369ddb7399d635637cf585c97c272af64e123c17a1426925",
+    "src/aura/context/userContext.js": "5f614ae0e32d5864e71eb320227a54d17253debc9ae51bc5c1fe1f51c681a44e",
+    "src/aura/decision/intentHandler.js": "c74326513b2ae72ea1518f9b5eed56af5b89531054524373119e24cf53649418",
+    "src/aura/memory/groupMemory/groupMemory.js": "11f6de05c89c83cf1edb8deab6efd3c1676edacfbdbb8a2c00298accedba058a",
+    "src/aura/memory/loyaltySystem.js": "6b665e6e63b05169777ba54eada89ef0a54549d0480982e7fa5523a0e3a80000",
+    "src/aura/memory/scheduledActions.js": "e4a40ebbc123f9b8bac569d47216a01a1370781ba65fe244d2173e4a33846a38",
+    "src/aura/offlineResponses.js": "017520b22af5457322899678c220d59beabafc708c2c41d524fcf013493c5861",
+    "src/aura/rulesEngine.js": "58e2842de2604240d939838561e0b4abee88314d0596b044ce0d1d7e553f6716",
+    "src/aura/stickerBan.js": "3f4fd4e7863eb8de0ec4b7fee3ffaa7cd1d6619aec55808a921f6703f1340ad5",
+    "src/bot/adultSources.js": "0412b1fbe395b056d8e0db21f2625ed01bf8075b9e730519f62c487cf962972c",
+    "src/bot/ai.js": "85714db9b7313b10f4f8f5914668962ef46cf037202a42fe01e2160ce470742c",
+    "src/bot/aiCancellation.js": "29e328ef6d967884ab09b930a4e4ee77799374acd783f0afa93282c2dec13161",
+    "src/bot/aiContext.js": "ac5406e694fd189b8029b89e3d985d85e872fc82f960a591f08cb3f4b5539759",
+    "src/bot/aiSanitizer.js": "75aed61d1ef20e62a5eeeda6c8de585818b6421b426534f7548f255e31015158",
+    "src/bot/aiTimeout.js": "cae99878014c55c19bc703e9f829cd6cc08067f17dc71b5838574a8dffbb4324",
+    "src/bot/antiFoba.js": "6633b6c5933580ef3c59a627015cd1ad3cc926311f1d4038acd2c255995e92a8",
+    "src/bot/antiLink.js": "fbfbcbc293772ec53585ba8dc039e24780503933747e798799cfe5a4a480e672",
+    "src/bot/antiSpam.js": "279e1b0725bef9e290f2e8c94e57997735f467ddd64a5aeca4065d08a685d025",
+    "src/bot/antiSticker.js": "e1f88fab5b9feb3baffa4bb950c03af37ef828a028b41a70dcd85ba1feb2d276",
+    "src/bot/antiTipos.js": "e52ff8cf119c9ce1e9edd1e4191ef6b10654785773ba56794df75439265b2423",
+    "src/bot/atenderChamada.js": "715ecf2e71833014f6562c52a9f7da21cf5e028e03a8a97e0203dd6bb32eb8cb",
+    "src/bot/auraPersonality.js": "f154fc7f49a36432ed5ff51a3050ccbbea321f41bd4209e927aa41a1cf818740",
+    "src/bot/autoApresentar.js": "ef1b100e40990432222b7e73885044d738b39ecba2ca049fc8eedfe30c2ec83d",
+    "src/bot/autoCall.js": "267a796bf02bbfc5d7eba721179115fe717fc7ff9f64d6851e852384704c750a",
+    "src/bot/autoDl.js": "6481be97dac7a1be85bc9efae2efe82163b3d2990d05eea01fe6b3cb714747ef",
+    "src/bot/botConfigCache.js": "a43be5f9a2a869cd22a3987154cc4347132028c9da3ffc5d8d1be59457fb26cc",
+    "src/bot/botPersonality.js": "75cc48f94e39ae429ef8655f7c44bcadf950d63385e7a1f9a25f0a89e8d09c16",
+    "src/bot/buttonHandler.js": "f4d2d3baaf53785575f4b2061f6eb2267d421b5d8f5af8b52209ff40115a27b9",
+    "src/bot/callBridge.js": "bfa79d60c6b7a21649f688c1832e99fc41789d2d0fc8964c17a4128d2a75774a",
+    "src/bot/callHandler.js": "0ad3d02d0df3d71ea93f2f500a0189a239ed28382bd48d77365bcc850cbda5a9",
+    "src/bot/callSocket.js": "b5c60bdaada9e81d234234c09d7186cfc7a74e684a477b0fef54df348b48f81f",
+    "src/bot/callVoip.js": "f5b11496c9d72a3a403942e1d52ce9a4e2097e42455c6a491f25e10e087ee8ff",
+    "src/bot/capturaViva.js": "2c49e15088bb16d88a333163e19484eba854830ad0dd1e3a481e48c64fdfe45f",
+    "src/bot/caseAxios.js": "afaae7ad545b0c55e8bec169359260f8b4c4c9a3bef1b18b949e98f9efda7153",
+    "src/bot/caseHandler.js": "ce795516b000c3996ad766c44c1529e2f5083ade98d30699fab22434cb6fba94",
+    "src/bot/cases/adminExtra.js": "818764d9fc273d21211cac513aff54e7c4e9ae9d1a851cf453b07f6159339dd8",
+    "src/bot/cases/audioAdmin2.js": "5289aa07d3ea2810117ead818414563969ef9f37a287a1629e198c8e7d8f7be8",
+    "src/bot/cases/auraEvolucaoCase.js": "17d81c2ec7e3353f1a1b9be4353de1dba552fee5f652676a6a21b8af471cd24c",
+    "src/bot/cases/auraHub.js": "0ca872674f58a2fa84262b57d462d58234af1acb0ea66464b73e81284c2f8130",
+    "src/bot/cases/auraVidaCase.js": "005e90e304772baeea44a088dad6714201145e81e56071f010843979983da177",
+    "src/bot/cases/auraVigilante.js": "bbca4d4caf35169bfa23f9643aca924eb4cc9c1edfe2416370637d4b5302d1de",
+    "src/bot/cases/auraestado.js": "2caf573eef8afcb01c6fb6117caf6a944b9a5ee6b0262ad3d6cf37a5ae06b0a9",
+    "src/bot/cases/auraset.js": "3e316fdc62d8d73043b170a892aef2791d78a7b7b6bb78e03284613070cdc3c3",
+    "src/bot/cases/canal.js": "70021f8dc75f825df10d0b69b7ad1078bf7642bea7f0e4c354d0e5e5f2dc6a94",
+    "src/bot/cases/canalSuper.js": "ed302af28a622a9e4f600c0f1fb74c98377ba371a358e839f6fe2b87fc4fad67",
+    "src/bot/cases/cap.js": "e52b1025e1795cfc70a522bbcbd69464f5e0514b699d282ab6d7470288741138",
+    "src/bot/cases/centralGrupos.js": "dfc77666af831d11577da866f98b371a66b32e08374f36da7e610be65848b543",
+    "src/bot/cases/chamadaVoz.js": "9768de1be59d1beb23c1f158367333ee97440d17c26a22a6a4554dcdc5e27880",
+    "src/bot/cases/chamadas.js": "7cef36a768054cd77c7b4828ba2b30b6697a2c0756ba0a80352580c832e20caf",
+    "src/bot/cases/change.js": "8f27c59277f817a9d102cd8a12beb4771abcf090ea6041d9f33048e24ec17ef5",
+    "src/bot/cases/convert.js": "8aec66fe7642e48bf679adade9d9ab82a9ac494217b009ba7b2e197fb594867f",
+    "src/bot/cases/crescimento.js": "dab78a3bcf10243b13722e92756c61e11816c3225ac760b559055cbc60c15458",
+    "src/bot/cases/divulgacao.js": "22c9ea8bcd3b3ce45f34444b5cc82d1b284922f7329f1eb2330483b32263f602",
+    "src/bot/cases/downloads.js": "f129f2fac89b3a3f6154f1ccf9fbbbe1d496c2d43c699b4dd73c42a22314e5c7",
+    "src/bot/cases/downloads2.js": "e37dfcf222389908d2982e7f11ad9e5f7727e39e1da29e94eeff5337e76e392e",
+    "src/bot/cases/dynamicSubmenus.js": "44eefa3eff10f2ccba34d975d6b2639a8282b10f0e0eb82d47d3b5b3233be893",
+    "src/bot/cases/economia2.js": "a62740ff1e313048c0760b1d78446378b3ed4ac363662bd76b4cf31b01b2cb4f",
+    "src/bot/cases/extraCases.js": "fceff1f7d099c82d55a625fb7352b6ad9086c82877c81599c965af816840c258",
+    "src/bot/cases/extras.js": "f9d8415cf913b70bc69b5dc5cda82dbf1b17250924c859a3d09c56c609da77f0",
+    "src/bot/cases/figcategorias.js": "0d5ecb2c7ae0284819708cb49ae4583c1c5f828e79d384a821cd4377ba0681aa",
+    "src/bot/cases/finalizar.js": "87dffee0881bbccac5393f1672385f57dac414d031cebdb46ac0ad93c1b76527",
+    "src/bot/cases/fontes.js": "5a0862bb3832ba428e546b4865a61b69db48b49f066da35bba92bf60ef277bf6",
+    "src/bot/cases/fotinha.js": "15df69b1f9960059ce32b128bb9cee2f7ce89e4876dfd2385d051feefbc5e7e6",
+    "src/bot/cases/freefire.js": "4b7f7a123e98e24f57b57ff3bc4a3c2d86e0b52af27e7c8176f43f4c372c47b2",
+    "src/bot/cases/grupos.js": "f816d712be9e5321f7a187c3bb6f351a639d3cd14a1d59c11f3c83cd20e79ec9",
+    "src/bot/cases/gruposPro.js": "cf6c59ca0cfedf229a7449c798186ebea05e29656ce6c7b282710b368dbb2e40",
+    "src/bot/cases/ia.js": "2c8c6baad02d49a89d495daba4db295338be8dee6d938f72a1c427417c216d0d",
+    "src/bot/cases/ia2.js": "de0a7360312624789306139e0000a770e499fdefa6d9348209c082bca5edc425",
+    "src/bot/cases/identidadeCanal.js": "f8e4669406d4e02d370f98c871e0a555960c299f0fabd46ad30883ac7c5d3348",
+    "src/bot/cases/incomingAdmin.js": "fc684b6d1bb7a821b8a2d2e7469e2ce8714f48a394b8ac9dd9f23953511fa300",
+    "src/bot/cases/incomingGames.js": "6acdc0a2a2a963000673e5f47d9d5ee54c89045c2b64c1ddbbb6bbe0321e600f",
+    "src/bot/cases/incomingTools.js": "70e32b5d8e53bd733836922894d6327eeac581a4eadefd524c1523779c6d58d8",
+    "src/bot/cases/info.js": "4968fed6348f751fa66a545084299af6e36e0d89fcf86cd661afbf5ed41721cb",
+    "src/bot/cases/interacoes2.js": "41f69ea0095a7abf2de7f80dd8061b014215b23d1e7c56c16f2c40cf45c341aa",
+    "src/bot/cases/jogos2.js": "625fbcd23d72df90353147b7b926016b3d054d72810d7ac7f3574b7ef5c1918d",
+    "src/bot/cases/logos.js": "e03402d6f593262a4a2a352962e446ea70811359af41cbe1f81339551e225cba",
+    "src/bot/cases/medidores.js": "fb28445f6f496c3bd6b48845a13a7736ee8141c8514a2ca1a402945cbe454553",
+    "src/bot/cases/musica.js": "5d4e8fcb510e4ffbfee9bb945b41b1f52d69cbb85dcec3d8d480e6cf3f7dc634",
+    "src/bot/cases/online.js": "750f7d901163a2deae853543626e7c0d8282523b95041d3235a7e43e6b126fa5",
+    "src/bot/cases/pack.js": "cf29de9a7bfac8c068058b18c31c4c3cfb85ac71bb906ce7e649cd3bc9c27f57",
+    "src/bot/cases/perf.js": "b6956d85f71ee832d951feb342dd9c73db9b1431b9820e90667dc5a63cfc3598",
+    "src/bot/cases/perfilWhatsApp.js": "3850c854c0bbe636faf3ee2e17cf584cda72f5369ba556cec7ca4e0531fce477",
+    "src/bot/cases/premium.js": "f4e0b1f37e4011f2fb40135d058cdf71be28dda136dc0727fd1eec58a7ac1382",
+    "src/bot/cases/random.js": "c9f28fd833f341fdbf0f61860a7d6ff2cc6b3032619f75c10f594be95a301d30",
+    "src/bot/cases/rental2.js": "675659ad52bc11d52819ccd1e694374ec6e760b1472069c870c9820176f858e8",
+    "src/bot/cases/rpg2.js": "a671aa6633c8e5437a179f5a1b8a22164a7c579ddd1279e410a84994a27cfdf3",
+    "src/bot/cases/rpgCommunity.js": "61e66e32c8213e0e343b17c76d9f52fe2ea3455ca44bae015c87cc16474f832d",
+    "src/bot/cases/rpgRegions.js": "2239e4f14cc08bc55c0adc28e6dacb807b2c09b543d4562ea3cd0e7c14577777",
+    "src/bot/cases/rpgSetup.js": "b4743d1a2e557eccbc397b60cdc595456d85df2d1db68efe6a810bfb51c5eee7",
+    "src/bot/cases/rpgTab.js": "5dfd98841677fcf4b977e976d269b47b3f8d80142a11d2d2a6c364d49e1d7045",
+    "src/bot/cases/rpgTrade.js": "4866f3674333fa33363d6a7ce3ac08280838265f3e9ed1c22c6abd45ac382366",
+    "src/bot/cases/rpgVisuals.js": "aedf90192341696ede66c7cb44433db89a80a977a88e5a97c7c9db619666812b",
+    "src/bot/cases/rpgWorld.js": "0428c0388dbc0ab15433635ac003c51ff9b3bdb0f3618b191ecc48380d42f34b",
+    "src/bot/cases/search2.js": "b0a3da4cf2662f9463ec07080d802432f20da0ca271535bed29bd13a76b5c383",
+    "src/bot/cases/sessionBackup.js": "6cdc39a73cdfd9dfac6be531d09ec0de9c107f19bf2c8ed4ec4247556a8a472f",
+    "src/bot/cases/setmenu.js": "652d85fd4737f35f7f5f30ae797bfec682f04e7196b5efac4df383ed8dd4a357",
+    "src/bot/cases/stickerBan.js": "409177ebfe3b91c18b833e56407ca56ce5ec0db3c237b7c6dd54a3881401aa63",
+    "src/bot/cases/stickerly.js": "6ec246e62a225ec6847985bdf2b0ef5bc0a5392bd80ab1b5971f381cd011d9c9",
+    "src/bot/cases/stickers.js": "61981a1bc446784508d18ae61dd7cfe56ffefa830f02906d7561c7c083d61835",
+    "src/bot/cases/stickers2.js": "669c2f496f6e31368797ad67ecd7703ee555f152c129d4fd1f285f2e7edb3849",
+    "src/bot/cases/stubs.js": "a5aca3cb32f5a507c2020657810e6b10bc6373c0d04c6509e608e2f545f4858f",
+    "src/bot/cases/texto2.js": "319c555a6fc1de565c7cfc9c8acf6c23c5bb4856d2296a0e03e5ee8a35464cba",
+    "src/bot/cases/votacao.js": "451b0d8391e58613e7d66428923191ea3cc6a555e974a8860614b86f5753436f",
+    "src/bot/cases/welcm.js": "e33c5d82a58c4588bf119514a6e7c039810c51a4370db37df8467324e7a66d90",
+    "src/bot/centralBase.js": "43a03361aa8e88dbe67b482061bcb67a9379e2ad9ab9e27032918a7549579a53",
+    "src/bot/centralTexto.js": "beac88e11c5fb57c1be02e369b1c5cf14850b71a7018d5d70e8c0dbb2c54d969",
+    "src/bot/centralUI.js": "58c5cdfae4ed73133bdfe466efdb7464618fd596fe9b9d23fb40adc0d410d57d",
+    "src/bot/changeConfirm.js": "c03799f39ba339720af405de521f80592b0c6fde33da4b9a6178d7f5174e8156",
+    "src/bot/changeThemes.js": "f4336eca4c064f66fbf23df38585f641f82dab6dfa1012dced2372cfef2e3653",
+    "src/bot/commandCatalog.js": "7335a7000926313e8b1aac36348205851c11eaef9f5c2fba4b0a7c9d367a8050",
+    "src/bot/commandDescriptions.js": "574ef94c99c1050583678a2a9929b24e5d9a0128dc788feaee66ec3a80c999a9",
+    "src/bot/commandHandler.js": "ac1f4f58f1a11d2153b6b4492c359225e1dfc11abd46184f058312a34fe8607f",
+    "src/bot/communityDetector.js": "af2d999b6ec1d777afd71b6772b731f6d1d946aa0be37fbe7467ee15f5c25692",
+    "src/bot/compressor.js": "bfc32e9e63a1ee7389ef23d586a33f6ddda210d2860f48aa879de9014da5d31a",
+    "src/bot/convertEngine.js": "30034227acb6470b439a4d6f2481fd708eaf710f5b538fc84a91a07ed8b7712c",
+    "src/bot/crescimento.js": "dda28df685a266f644eeea751966a27b02c14d8cc95e44da0c5c756edb437168",
+    "src/bot/darkUtils.js": "9f2474e07f96a371c283abfb7a7cfe1dafd935064c87181e5d8bdcce910f3c34",
+    "src/bot/dl/helpers.js": "064410d3b587274f59ad2ff24de683dcdd111b96f1afd1af48d65a13167e9aca",
+    "src/bot/dl/others.js": "17407ba1774178fafaebc5537c90d8506c9d06f17157558a8fd86256f5feb6a0",
+    "src/bot/dl/social.js": "3fc1b3a77c1f24b9c1735aa894978316f71b1f8df5238eb2e92adbc3e7645f96",
+    "src/bot/downloader.js": "7b0861791bbb6b66c689b0009beda5d24e86b4def4158eb91850e3708d054e91",
+    "src/bot/erome.js": "40254de62e19e519d171d2b6c26af621bfcf900169534c9048597e01c6ac1c52",
+    "src/bot/facebookPublisher.js": "8c0b5d49719d1ae4f001a430219ea518c26ce265c5923233ef2e24a14bcb21da",
+    "src/bot/fancyText.js": "abdc87d4df1d6d874ba8d707f939a590a02c9d80864cda43d21d4d973cd326d9",
+    "src/bot/gifHelper.js": "f870ef4eb884eefad9d4a8abf126c314ccc68291f35a1328f05bfdb724dd1c45",
+    "src/bot/groupBackup.js": "ea73ddae8a9982c0381f030476bc576fd75695e1a5ec3e1d8da64a81e0ef80ae",
+    "src/bot/groupEvents.js": "81258ed32c26368e0bbe42f38a5773d46cbf981de1f79bc90de8dde3c3254d8f",
+    "src/bot/hotCache.js": "7ad82e8178d883be4815a6a0a46905e7abd7f3ca64e8f99c2d9ade28789fe7a7",
+    "src/bot/humanizer.js": "20009e2cf19ac829a8166f1b1ce3772a0eb9772fe84de502cb336cf60d942751",
+    "src/bot/identidadeCanal.js": "832f80f2211ef756c90f2f2ad083d2dc818f311c298ea7116af0241882a74865",
+    "src/bot/identidadeViva.js": "8fceb5b6856793b23ae80ecfee7efc18ddc0f3f901a8bd6341a7986ce34b86d5",
+    "src/bot/imageSearch.js": "872c3eacd35ee587b4b67a950119b813643f40698a4c362b89d87f4f2460659a",
+    "src/bot/linkPolicy.js": "bf3a8704efc9834d33effa453c9c3071125c05184fb95138d4324d05427205c1",
+    "src/bot/listaEscolha.js": "472736460d8a32085bc73ce4d59ed1999fd17ae97d3391dfe44dcf8a42e1457e",
+    "src/bot/liveBroadcaster.js": "09ac5bfd3076eaf55407d3be0b130303ab651fd56893924c1dc7cee9db9c4776",
+    "src/bot/liveVoip.js": "0cd3d9ef064050cb7571b9026b6ba7b41b9f87983f74174c1340d5da8019ef4f",
+    "src/bot/mediaHandler.js": "19cdcd1a3d4760552b08f92f000ca5f7b47e000ce9cce0c138fba4f718dfb207",
+    "src/bot/menuBuilder.js": "779f649187f33f56ac328c1916ffe076620b64346321464bb5f4fdb92b28def2",
+    "src/bot/menuMediaPolicy.js": "6aa3bb66cdffd08068e59e0712c7dc1b7836fda542805fbb2d163b27faaae489",
+    "src/bot/menuThemes.js": "cd7c61aea29c0c08ff4ce1ee33b545d0d84746786c87dc3c77993582e439ee7f",
+    "src/bot/messageListener.js": "90f33fd17635274f4156ef3dd7fb4823a0b87a01fb95064853144b87670d7178",
+    "src/bot/messageRouter.js": "30595840e3656f4b0d0961f96e937869debb4d79ab67070bc7dc1de1732498b9",
+    "src/bot/modeGate.js": "eeee5705c755b82a366755e6f3ae95d4a7150470bebf6aaf957a8bf63f5a28b1",
+    "src/bot/mongoAuthState.js": "a64c0573b15d39765eba567a30485c3f34f6498e929f8c4e0442a56d0714940b",
+    "src/bot/musicaCard.js": "d48c0526f100e1d79fba24adf8d28983e5eaedd440d8a04f09f37d0375ee7b99",
+    "src/bot/muteOps.js": "aa8c704fbe9828591af80d4f682b6cfda8ef70f152c744cf4a8c355053acc576",
+    "src/bot/nativeCommands.js": "bd8e3584d63bed5a4fe515650f049aea19cb8b76105f945c50c364f1362d5b5f",
+    "src/bot/ownerIdentity.js": "d5ac5933929c26f6487145f594801841d0089e1c72de392b62b84d661ad8c573",
+    "src/bot/packages/cheats.js": "e4b0136d991f0d1a39cd8511fc08e634e10e9d8ea975829c3a09c856bd9f8895",
+    "src/bot/packages/economy.js": "754ea5a91bd65469de2d40f287d852c5ab4d86634aaaadb7d5154e18c05f1025",
+    "src/bot/packages/family.js": "a0f0eecdab8cbdb2ec284a7540988725b828339c623874e0f086ec97fd9d1123",
+    "src/bot/packages/games.js": "f2cf56b5a2f15cd4f76f13813321ee19883fd7a94c8209bd31478cd89b61cf9d",
+    "src/bot/packages/interactions.js": "e55089fd408068200c5c1ede23e40f5bbd29e2328f2ec473451bb3313fec1e3c",
+    "src/bot/packages/quizData.js": "f387ac8946cf4e65aaa19942860d970242f7754d5e8e678948235774efc55dea",
+    "src/bot/performance.js": "34052313b138b2eb00d5334ebf79c7c0b8c481891486897033466487b84edfdd",
+    "src/bot/pinAlbum.js": "bc08676644443a132a9667fea0104a0a7c7f952064f7a83e2397195d13e99498",
+    "src/bot/pinterestSearch.js": "b699424d371a724c1b90dbd1102ebaa556daab14af88982305d565010ace1054",
+    "src/bot/portal18.js": "1a5e74a0cb71c2314961032271fdf7e5cdb400cbdcc772d97e3f72407efdb5bd",
+    "src/bot/prefixCard.js": "0a2863018013335ad87fc57309ababf35b10e399e2da51108825dda18fc25ecd",
+    "src/bot/prefixEngine.js": "2378ebcc1a768c78299e3ed8b701993c4b0421dae46c8b832d3dd742b2edab74",
+    "src/bot/prefixManager.js": "5132e95183c872084f2739c3fe750d5710f13a125acb803063aff354a05a5632",
+    "src/bot/reactions.js": "3f6b981fc926ea16459154ff678791953d0e756c18e4b63e604b232795f10d85",
+    "src/bot/realCall.js": "32ace667f8c22776540b063c2dd983ff7a8c94729f6fdd6cf118c6fcf6496e70",
+    "src/bot/renderEngine.js": "7b0843f7f87579f614b18c048177b1fb7d9979fa7c191e58f6545e137715db52",
+    "src/bot/requestCache.js": "02c96866a164bf1373a11903c83068e6db5c279f532f010b185d1f698a68d775",
+    "src/bot/roleResolver.js": "af7b5c4d8b44320d6cce7a165bd45f963e5c7153d8a64a4439ccb279d07adcc9",
+    "src/bot/rpg/carousel.js": "060993281868bdf7cd522a6a732993802bafb9ebf9dddbbfb580d653844779eb",
+    "src/bot/rpg/catalog.js": "0fd70d7615bc09a3eac0892cec12bfb7149e286561aa27795f860c164a8df5ce",
+    "src/bot/rpg/combat.js": "af27da175c1cc2dadbc8e20b199208dd53a2c7465f581406462985a701d3d35a",
+    "src/bot/rpg/community.js": "8e554870944852c3f26e435d5e09dade55182b3f32ce45ed6ea57e5a160570b4",
+    "src/bot/rpg/createFlow.js": "11279d7196e74d62cb44bcaa22d7037331f014e5608baa3b773bc1647e82b384",
+    "src/bot/rpg/engine.js": "8c7a72ff7d6ef539c63424f0c1696eea47dd9531bfb5bb72c2e73703d066b1c1",
+    "src/bot/rpg/gate.js": "d86800e8cb86ca87b04a618d7d0034bee6b383e93ba7758f257740c8b47b2c52",
+    "src/bot/rpg/images.js": "eb1221ea7cff34a2e0e79a91ebd9ad0062b8705b778a8b0284d3cd6a27a4f810",
+    "src/bot/rpg/multiverse.js": "cb3ccff814281cd81a1c2eaf43ee8b3cb08353dfc13e2449661b6285251f1279",
+    "src/bot/rpg/regions.js": "e375db703bd20013fe7ce59b03cceaade9556bd90497a595cf2f6fdc9f5cf324",
+    "src/bot/rpg/reset788.js": "c64167b6c2b066739618e554a2ad114358e647164b5a648d657409c439035a92",
+    "src/bot/rpg/rpgTheme.js": "91c7ad592e438f811c1321c916d2247f1a9927931f02adc024e2a588f7357ba2",
+    "src/bot/rpg/storyMode.js": "7e0b2fe80a4606842d9a974dcabbac531614e0a8f6cb96338db82a62a96423f5",
+    "src/bot/rpg/trade.js": "021f1a588b682cdd45ff8d13962863afeefebec4433c65d7914ad0f1a84edc42",
+    "src/bot/rpg/ui.js": "abb4d1939ce1971ad8ba7aba5e4e49fa5a7d886a0021ab3d5ba652446658cf3b",
+    "src/bot/rpg/visuals.js": "55812a93ed08c37a0fa787fd7f7f9223ca6e36b347161870adead4bb6f47b54c",
+    "src/bot/rpg/world.js": "47c663796b3b3acd78de1826ef2f2fecbdb005838ceb3c6e94d63b54760540f4",
+    "src/bot/scheduler.js": "6e6cef6ac3c50e056d417ec2c1497bc45e8f0e61477c48241d68e979a65fe9a2",
+    "src/bot/sessionBackup.js": "0199e2d810951250f857be8ead15dfa106eac8e67ae7771d312c2a06815d20f0",
+    "src/bot/sessionCenter.js": "cf35a9b2e9634b36d315d5baa5be930a253fb672327410040322ea6736e3cdc7",
+    "src/bot/sexcom.js": "d2dd3db7ebcf3f501016dabcd056310c1327e5c37c6fd43fdc7d62bd98800813",
+    "src/bot/spotifyTiers.js": "c4b7b6c7b842be5bf43fe0c80204b9239fa7f6572d20d9f99e82581572dd5590",
+    "src/bot/stickerMaker.js": "8bb34b0db50e837dd3c8491f99157ffd66d3e0daaec29a79327218929adc5fd7",
+    "src/bot/stickerPack.js": "a4fac775145888f3a7865162cb390c02e8d584eb9e42119b3b5afbc9565ff081",
+    "src/bot/stickerRename.js": "9a71beb0fd0074b63e726f77a21a36727216a48ead3197dd3cdcef86f37150d5",
+    "src/bot/stickerVision.js": "e29d358a9f798d5faa0878cac7fba3c1a484c58ba3b9acf1a45ff3b78e5241ea",
+    "src/bot/stickerWm.js": "127f9018869d7ddabd6a196dbc7a8f7643a236333dd7ad5968a58c6922bf1770",
+    "src/bot/stickerly.js": "025727d9d65f00ee25b20ffb7be63b9b95c6edab30abec16975fc1b8c1869723",
+    "src/bot/styleTables.js": "1f6391a1d0215dae3d2a8e06f2ac3bf0e07e36427fa78c9a71d1262698d0bf22",
+    "src/bot/submenuData.js": "b947faa9d440c0ecfc0bfe1d65355d2eeca303d50101f7b5e6f45b3d76dded02",
+    "src/bot/systemZeroPlay.js": "4a1cd01cea78d63a9f33174c4f5a64740e865ed41224a1ec060c8c18b0663bc7",
+    "src/bot/themeFormatter.js": "b90d9321f109ce97542c5773b5c500986fb84a1285d257cbe096b78b2deaf77f",
+    "src/bot/themeResolver.js": "872a50f6fb9d449370d2f13cb3a6b324eb68c76b28f2bf4826568e6b5ee7dbb9",
+    "src/bot/uiInteractive.js": "a6898fac74870e655351149cd6134bcfb920c7393b207e282db7f7e8a6124a64",
+    "src/bot/userManager.js": "7a4d6501cab0572f8f3cf16c9330eddf181ea91ff50e819cd8383d7afe8877b4",
+    "src/bot/usync.js": "43df981f34d1e14b35e3764e66776afc406459641f2732ab7161c4ec0a11e30d",
+    "src/bot/videoCompat.js": "88499450e03d1d9a48bbba9d81da16b009028338660a48292e0923c09c131312",
+    "src/bot/waTimeout.js": "30a3da77623674610ddba5b240faf22f9afe9a39de482f106353c094dcfcbe3c",
+    "src/bot/watermark.js": "77459da43d0f782e03a63fe28d9a55ea73390e635d95b578c24e3f078835e04f",
+    "src/bot/weekKey.js": "10d53067c7a88b0b30e59b8a04215163e6522f9e5a1b2537d0d7f82c3a819fcd",
+    "src/bot/welcomeArt.js": "2bcbc67395db275a7b6bc1582e4c4e18fe9352660ee4c8747684fb975110366f",
+    "src/bot/welcomeImage.js": "05016138170774d99b95a690fe6da26a0e09934216ac4e66d0c53b32f3320070",
+    "src/bot/whatsapp.js": "40bfa65cb3e95cd79a862b2bdba48696fac3fb8d8c32c332caf736fe5ce917ed",
+    "src/bot/ytdl.js": "fef58301c457ea5ac8405b98b060e32c04e4e3e7eba27aa08abee53f5e95a7d8",
+    "src/cap/apiKeys.js": "295c2b863d74d0ccaa5838627ed0c2081bc8979906e94e2fb689a16127cf3140",
+    "src/cap/capEngine.js": "05b610d5ebc1d0986cf3b2fddaa9959b02335d29cb8002f06f7761b653d010cd",
+    "src/cap/igLogin.js": "6d1cacbe3cb988ba7b4c55c9b7ce94cf468d12b578257cfd8c92d7c87985afd5",
+    "src/config.js": "d44028e9f2a4a0123e81d231b7b069233d5c501995f9d6838170481b05089a76",
+    "src/database/connection.js": "75641c45e2e377e1ac38328b1442eed269b6dde2e348659a2260b5f1aed31b2b",
+    "src/database/migrate.js": "666a47169a98027fd8c00de8478cf328a460a6c032bd9e34b31c65b1f2962018",
+    "src/database/models/AiMemory.js": "cfdcf87cca61c9040383b8accf1f171b692844dccf6daa393224d948fb682594",
+    "src/database/models/AntiStatus.js": "3271ddab9f1a672b664251617161cb0f1d4957a78977a0575f46ae0c2defb04f",
+    "src/database/models/BannedSticker.js": "b62678f34cdd52ecdd0549516c8d18cb21283af7f24b80d31754f753f064330b",
+    "src/database/models/BotConfig.js": "481a8a8a86ae075e08d25d43891eb98fac87f05aeccfe58f46b057d4dd8c126d",
+    "src/database/models/CentralContacto.js": "20b922ed32cebef6ce7f8b46532a2c915efefed559bb486cb7efa3072fa4b6e2",
+    "src/database/models/CentralGrupo.js": "7f9bad7ef241820ee7a3e1b81ba09ade7c9a260d557fab23b3686ab808335f93",
+    "src/database/models/CloudMedia.js": "a2cf41238f3d1c6f1967b7607af037988afd3944710d111012637800e486ad54",
+    "src/database/models/Command.js": "8ff827b34d1178cce8ce7231e5a1e1b2c4c0e1912ce6527cf4f1b169ede59549",
+    "src/database/models/CommandOverride.js": "74a90f83c227c778249f4b1dc553045831017ec2ff401b1a7514183da87cdb87",
+    "src/database/models/DecryptLog.js": "45874b6b176b5cceea8a4e6198f731c996cf04c3dce14ca615ec5fca3d1a0aac",
+    "src/database/models/DeletedMessage.js": "9e76934dfa342dffeea80a8df6a3aed14323cf8f9ec812a5b877e97f13e913d9",
+    "src/database/models/Economy.js": "0518f5854758d7146089abd85aa47914d044961499082cf38e5a265fc1afcb0f",
+    "src/database/models/GameSession.js": "96cc995a16a34a9e5947a5db39cdc53912ba1170ba0cbb26a903b386b2d50f97",
+    "src/database/models/GroupMemberActivity.js": "4a01c78bfa4544b8600d8eb9564e96d7b19761ffd227790e3fd73bb1acb5d45e",
+    "src/database/models/GroupSettings.js": "76ee6361464505edac72bf5e21e5ba11ad35ec716ca635e7e1355a0ced5108c7",
+    "src/database/models/Log.js": "a27e7ec80fe1f47c4f4380520cb189ce73fdd4d9b8e15e3bf7e15574cfc8e8db",
+    "src/database/models/Media.js": "894cd2b1feb0f4eeeee9c9276e3be644fe1af8b8a1c3961881ce37d53a0afb3e",
+    "src/database/models/Payment.js": "3107a62aa545a60f53b5514b1a0ef822dc71a5abd65c44004f3ceb00c65ebe94",
+    "src/database/models/RPGPlayer.js": "6439613b5f88a12cf1e47fdfdf41f8370c4704255a4365aba571689b1bc0f01c",
+    "src/database/models/RPGTrade.js": "231984407fec083882b00ccae330a88fe6e71b93ae7fe33dcfde93f50e33ec57",
+    "src/database/models/Schedule.js": "7db5ee3c3e276f98eb46c7e1684ffdc1725ee823f40f9283c6eff2c14670fd34",
+    "src/database/models/Session.js": "ab11901807b874f939adc6aac2c8f11c2c72abe88154145f0fe12077e353a74b",
+    "src/database/models/SessionSlot.js": "ee44dffcf618e7f13526c53c1cd55b421a6ba8c40a731ab63a66bcc0bf6b7269",
+    "src/database/models/User.js": "a8747f9f31bfacdc9cd54bc4e5697bc7d19b4091de56f6662dfdfe435d7cd5b4",
+    "src/decrypter/brute.js": "0fc1da5eea382865828f57b0db1d3c9d7193c89d1d9d9c6d8c49c231663cb556",
+    "src/decrypter/engine.js": "91737796e34ddc61200bf56958f28440eddd2ba7f9affa402a5fde5fb7302b4c",
+    "src/decrypter/formats/_util.js": "3b8a26e2fad3ec6867aec134ae4d8f3558505cb11078e7089d6221390e64cec5",
+    "src/decrypter/formats/anytunnel.js": "4f62781c5da5eaf783f3a5d3a216eccb479ade68f9aaed2db994b7f5ed349f42",
+    "src/decrypter/formats/apnalite.js": "8162e743529e59bf44f5d480a95c09215751ece96369203f9a2f824025c74b95",
+    "src/decrypter/formats/bdnet.js": "761aa75eff58d0bf9e80af411714497e515886a48027df8c8fa00e3e5d291391",
+    "src/decrypter/formats/darktunnel.js": "021ef35ec5a566edd5865c027bbed607a494958e2bcf82dd19d01f476208844e",
+    "src/decrypter/formats/ehi.js": "f7378217731b5914b5103b3bcedf013c9284c5f7956c6b54b78d869d87bb9b25",
+    "src/decrypter/formats/hat.js": "5a2fa0d00b5f0c96ff52c043b3eab70d6869c9f661fc25d755a375cd83eaef93",
+    "src/decrypter/formats/json.js": "d9d33a0cb75970b61f9dde9b748785a7f316b9b520eebc204aaab23f24fe2302",
+    "src/decrypter/formats/netmod.js": "b892d7b77ca85a233f74fb119dd01fc95d7fc918a30822d3397c2769da7ac263",
+    "src/decrypter/formats/npv.js": "faa5763a83922310984c693251bd88933d08d961735e3d668da47c52b16802c1",
+    "src/decrypter/formats/openvpn.js": "87336f464ed978bec6a9fdf651538eb007ffa1596fee1643ede0876607d8fb73",
+    "src/decrypter/formats/ssh.js": "9fa744d10908e6c10ba7194d207974597735adfcc576538e5dda6fed917fa1d5",
+    "src/decrypter/formats/text.js": "50acc8837342d45cf090a585b79648a58a84814496ac1aa6494af851ab973fb7",
+    "src/decrypter/formats/tlstunnel.js": "ffd74ad057aca59daa30df6831b3b28ae9b1ad185c830db7185985e1bb532752",
+    "src/decrypter/formats/wireguard.js": "a49c5bc62176dfa572118c4509e8592360873a31014b4ae950495e68aec0789b",
+    "src/decrypter/formats/wyrvpn.js": "7610f90231803cbd95960414bcfbfa51fcbcbbef1b3a4a88f5a44c76163fdb7f",
+    "src/decrypter/formatter.js": "9a6165731a2baf0da9b3b2cf14a9239e5c982bbc84a1d4dc864b7e84e0e7bc15",
+    "src/decrypter/index.js": "9d4b93aa6a2761c85e19e336168d67cfa39b628729869ea73454e019d830f5ca",
+    "src/index.js": "d6fc83f7292d8b25d3f81b58e00f16378697b386c5f7b6317a473f6245336ab6",
+    "src/middleware/auth.js": "c79b40f275a8832626c8f8dc147b1e66673c34796910fecbfc2aa64908f4b350",
+    "src/middleware/controlAccess.js": "00707ed56dac1e5d6453513424b38182f4ba10c47de1c5ab1b9fc702ca3d6bb2",
+    "src/public/js/app.js": "1604966d47fb9d23584b7cff38a6d5c2c24cc7a20ab8a6160d9f680ff573188b",
+    "src/routes/api.js": "15a4ca782aa8766deb31323ac81715a48343bfe0707232c4e0864055a56971c3",
+    "src/routes/auth.js": "6fdea62db9eb525a804427106d586f75372c2b74312ac7ddfa5568cde8541cf1",
+    "src/routes/dashboard.js": "f69532304741aa99d610ccb186d4813889fda4a9763c15a8d409142cc4283186",
+    "src/sim/fakeSock.js": "11c86bb0fb02585ef67429e5850a971d6dd04fd5db49535a6aa5fd61e969994a",
+    "src/sim/server.js": "bcb32b118c3581419f15c702946ba3ecd74168d12c827318ce257fd9e4405cb6",
+    "src/sim/simulador.js": "93a0a1fe94f03af4242f9816f41d245cf9b8e9cd5898ddf44479cc2c32e92e50"
+  }
+}

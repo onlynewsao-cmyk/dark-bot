@@ -18,7 +18,6 @@ const visuals = require('../rpg/visuals');
 async function tReply(sock, msg, ctx, title, lines) {
   const rpgTheme = require('../rpg/rpgTheme');
   return rpgTheme.rpgReply(sock, msg, ctx, title, lines);
-  return sock.sendMessage(ctx.remoteJid, { text: corpo }, { quoted: msg });
 }
 
 module.exports = function registerRPGWorld(registerCase) {

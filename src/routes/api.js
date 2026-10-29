@@ -119,7 +119,7 @@ module.exports = function (io) {
   const router = express.Router();
 
   // ===== BOT =====
-  router.get('/bot/status', requireApiAuth, (req, res) => res.json(getBot(io).getStatus()));
+  router.get('/bot/status', requireApiAuth, (req, res) => res.json(require('../middleware/controlAccess').statusForUser(getBot(io).getStatus(), req.session.user)));
 
   // v7.44 — chamadas VoIP no socket principal (substitui callbot/liveVoip)
   router.get('/voip/calls', requireApiAuth, (req, res) => {
@@ -1592,10 +1592,10 @@ module.exports = function (io) {
 
   router.get('/ig/webhooks', _ig, (req, res) => {
     const c = igE(); c.load();
-    res.json({ ok: true, total: (c.state.webhooks || []).length, urls: c.state.webhooks || [], segredo_hmac: c.state.webhookSecret || null, dica: 'Valida o header X-Dark-Assinatura com HMAC-SHA256 deste segredo sobre o corpo' });
+    res.json({ ok: true, total: (c.state.webhooks || []).length, urls: c.state.webhooks || [], segredo_hmac: req.session?.user?.role === 'owner' ? c.state.webhookSecret || null : undefined, dica: 'Valida o header X-Dark-Assinatura com HMAC-SHA256 deste segredo sobre o corpo' });
   });
   router.post('/ig/webhook', _ig, (req, res) => {
-    try { const r = igE().addWebhook(req.body.url); res.json({ ok: true, total: r.urls.length, urls: r.urls, segredo_hmac: r.segredo, nota: 'Valida X-Dark-Assinatura: HMAC-SHA256(segredo, corpo)' }); }
+    try { const r = igE().addWebhook(req.body.url); res.json({ ok: true, total: r.urls.length, urls: r.urls, segredo_hmac: req.session?.user?.role === 'owner' ? r.segredo : undefined, nota: 'Valida X-Dark-Assinatura: HMAC-SHA256(segredo, corpo)' }); }
     catch (e) { res.json({ ok: false, erro: e.message }); }
   });
   router.post('/ig/webhook/remover', _ig, (req, res) => {
@@ -1662,7 +1662,7 @@ module.exports = function (io) {
     const st = getBot().getStatus();
     res.json({
       ok: true,
-      versao: (() => { try { return require('../package.json').version || null; } catch { return null; } })(),
+      versao: (() => { try { return require('../../package.json').version || null; } catch { return null; } })(),
       node: process.version, uptime_seg: Math.floor(process.uptime()),
       memoria_mb: Math.round(process.memoryUsage().rss / 1048576),
       whatsapp: { status: st.status, mensagens: st.messageCount },
@@ -1688,7 +1688,7 @@ module.exports = function (io) {
   // ═══ 🪝 entregas webhook + segredo HMAC ═══
   router.get('/ig/webhook/entregas', _ig, (req, res) => {
     const c = igE(); c.load();
-    res.json({ ok: true, segredo: c.state.webhookSecret || null, dica: 'Valida X-Dark-Assinatura: HMAC-SHA256(segredo, corpo) = "sha256="+hex', entregas: (c.state.webhookLog || []).slice(-50).reverse() });
+    res.json({ ok: true, segredo: req.session?.user?.role === 'owner' ? c.state.webhookSecret || null : undefined, dica: 'Valida X-Dark-Assinatura: HMAC-SHA256(segredo, corpo) = "sha256="+hex', entregas: (c.state.webhookLog || []).slice(-50).reverse() });
   });
 
   // ═══ 🧠 IA — a inteligência do bot via API ═══

@@ -125,7 +125,10 @@ Module.prototype.require = function (id) {
   passed.push('!ytd: bytes MP3 reais no payload');
 
   out = await run(playCases, 'gyt', { text: 'https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 0:05' });
-  assert(out.some(payload => payload.video?.equals(samples.mp4)
+  // Com ffmpeg disponível (como no container) o vídeo é normalizado para o
+  // WhatsApp; sem ffmpeg segue o original. Ambos têm de ser MP4 reais.
+  assert(out.some(payload => Buffer.isBuffer(payload.video) && payload.video.length > 1024
+    && (payload.video.equals(samples.mp4) || payload.video.slice(4, 8).toString() === 'ftyp')
     && payload.mimetype === 'video/mp4'), '!gyt must build a real MP4 payload');
   passed.push('!gyt: bytes MP4 reais no payload');
 

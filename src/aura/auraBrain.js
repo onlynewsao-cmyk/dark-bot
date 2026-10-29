@@ -748,7 +748,7 @@ Nunca escolhas por palavra parecida: "grupos" não é canal_seguir/entrar_link (
 CAPACIDADES:
 ${lista}`;
   try {
-    const r = await ai.chat(texto, sys, { userRole: 'owner' }, true);
+    const r = await ai.chat(texto, sys, { userRole: 'owner', allowWeb: false, timeoutMs: 2500 }, true);
     const m = String(r || '').match(/\{[\s\S]*?\}/);
     if (!m) return null;
     const j = JSON.parse(m[0]);

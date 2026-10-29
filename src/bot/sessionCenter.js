@@ -791,16 +791,15 @@ let _timer = null;
 let _timerSaude = null;
 function arrancarVigia(intervaloMs = 30 * 60 * 1000) {
   if (_timer) return;
-  _varrerPresos().catch(() => {});   // v12.9.28: limpar 'A LIGAR' preso no arranque
-  _recuperarFalhaPendente().catch(() => {}); // 403 antigo + reserva já ligada
-  // A ronda pesada mantém as reservas vivas a cada 30 min. A saúde do bot
-  // é leve e precisa ser observada em separado, senão o limiar de 10 min
-  // podia na prática demorar até 40 min a disparar.
-  _vigiarBotCaido().catch(() => {});
+  // Establish the guard BEFORE callbacks that may re-enter through getBot().
   _timerSaude = setInterval(() => _vigiarBotCaido().catch(() => {}), 60 * 1000);
   _timer = setInterval(() => _ronda().catch(() => {}), intervaloMs);
   if (_timer.unref) _timer.unref();
   if (_timerSaude.unref) _timerSaude.unref();
+  _varrerPresos().catch(() => {});   // v12.9.28: limpar 'A LIGAR' preso no arranque
+  _recuperarFalhaPendente().catch(() => {}); // 403 antigo + reserva já ligada
+  // The first lightweight health check can safely reuse the existing instance.
+  _vigiarBotCaido().catch(() => {});
 }
 
 /** v12.9.42: pool de socks VIVOS p/ serviços (slots ativos/guardados que abrirem). */

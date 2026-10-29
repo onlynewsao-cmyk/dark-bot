@@ -116,12 +116,14 @@ async function bootstrap() {
   // v12.9.36: Central de Contactos em ESCALA (1M+) — a base vive no MongoDB
   try { require('./bot/centralBase').carregarMongo().catch(() => {}); } catch (_) {}
 
-  // v7.88: o mundo RPG recomeça do zero (uma vez) — toda a gente se regista de novo
-  require('./bot/rpg/reset788').run().catch(() => {});
+  // Never delete existing players as an implicit startup migration.
+  if (config.allowLegacyRpgReset) require('./bot/rpg/reset788').run({ confirmed: true }).catch(() => {});
 
   const app = express();
   const server = http.createServer(app);
-  const io = new Server(server, { cors: { origin: '*' } });
+  const io = new Server(server, { cors: { origin: new URL(config.appUrl).origin, credentials: true } });
+  const access = require('./middleware/controlAccess');
+  const { requireApiOwner } = require('./middleware/auth');
 
   // v6.82: liga o live broadcaster ao Socket.IO — o feed live do
   // dashboard (Grupos) recebe user:command / group:event / antilink:action.
@@ -134,69 +136,7 @@ async function bootstrap() {
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
 
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.static(path.join(__dirname, 'public')));
-
-  const sessionConfig = {
-    name: 'darkbot.sid',
-    secret: config.sessionSecret,
-    resave: false,
-    saveUninitialized: false,
-    proxy: true,
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24 * 7,
-      httpOnly: true,
-      secure: config.isProduction ? 'auto' : false,
-      sameSite: 'lax',
-    },
-  };
-  if (conn) {
-    sessionConfig.store = MongoStore.create({
-      mongoUrl: config.mongodb.uri,
-      collectionName: 'web_sessions',
-      ttl: 60 * 60 * 24 * 7,
-      // v6.88 — fix crítico de login: o kruptein (cifra de sessões do
-      // connect-mongo) EXIGE secret com ≥2 maiúsculas, ≥2 minúsculas,
-      // ≥2 dígitos e ≥2 caracteres especiais. Um SESSION_SECRET normal
-      // (ex.: `openssl rand -hex 32` — só minúsculas/hex, como o render.yaml
-      // recomenda) fazia req.session.save() rebentar → "Erro ao guardar
-      // sessão" → ninguém conseguia entrar no dashboard. Derivamos um
-      // secret determinístico SEMPRE válido; a cifra continua a depender
-      // do SESSION_SECRET real do ambiente.
-      crypto: { secret: sessionCryptoSecret(config.sessionSecret) },
-      touchAfter: 24 * 3600,
-    });
-  }
-  app.use(session(sessionConfig));
-
-  app.use(async (req, res, next) => {
-    res.locals.user = req.session.user || null;
-    res.locals.bot = config.bot;
-    res.locals.owner = {
-      name: config.owner.name,
-      number: config.owner.number,
-      username: config.owner.username,
-    };
-    res.locals.currentPath = req.path;
-    res.locals.siteMeta = {
-      title: await botConfigCache.get('site_meta_title', config.bot.name).catch(() => config.bot.name),
-      description: await botConfigCache.get('site_meta_description', 'DARK BOT - Bot WhatsApp profissional com Dashboard').catch(() => 'DARK BOT - Bot WhatsApp profissional com Dashboard'),
-      keywords: await botConfigCache.get('site_meta_keywords', 'whatsapp, bot, dark bot, automação').catch(() => 'whatsapp, bot, dark bot, automação'),
-      image: await botConfigCache.get('site_meta_image', '/img/logo.jpg').catch(() => '/img/logo.jpg'),
-    };
-    // Compatibilidade com views antigas, sem expor segredos reais do process.env.
-    res.locals.process = {
-      env: {
-        GROQ_API_KEY: config.ai.groqApiKey ? 'configured' : '',
-        GEMINI_API_KEY: config.ai.geminiApiKey ? 'configured' : '',
-        APP_URL: config.appUrl,
-        NODE_ENV: config.nodeEnv,
-      },
-    };
-    next();
-  });
-
+  // Liveness must not wait for sessions, metadata queries or WhatsApp.
   // ── /health — Render liveness + UptimeRobot monitor ──────────────────
   // UptimeRobot deve monitorar esta URL com status 200.
   // Endpoint SEM autenticação, público, resposta rápida.
@@ -233,35 +173,79 @@ async function bootstrap() {
     res.status(200).send('OK');
   });
 
-  // ── /status — Página pública de status do bot (sem login) ────────────
-  app.get('/status', (req, res) => {
-    const botStatus = getBot(io).getStatus();
-    const isOnline = botStatus.status === 'connected';
-    res.status(200).send(
-      `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8">` +
-      `<meta http-equiv="refresh" content="30">` +
-      `<title>${config.bot.name} — Status</title>` +
-      `<style>body{font-family:monospace;background:#0a0a0a;color:#8B5CF6;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}` +
-      `.box{text-align:center;padding:2rem;border:1px solid #8B5CF6;border-radius:12px;max-width:400px}` +
-      `h1{margin:0 0 1rem;font-size:1.5rem}.dot{display:inline-block;width:14px;height:14px;border-radius:50%;` +
-      `background:${isOnline ? '#22c55e' : '#ef4444'};margin-right:8px;vertical-align:middle}` +
-      `.muted{color:#666;font-size:.85rem;margin-top:1rem}</style></head>` +
-      `<body><div class="box">` +
-      `<h1>🕸️ ${config.bot.name}</h1>` +
-      `<p><span class="dot"></span><strong>${isOnline ? 'ONLINE' : 'OFFLINE'}</strong></p>` +
-      `<p>Bot: ${botStatus.status} | DB: ${conn ? 'ok' : 'off'}</p>` +
-      `<p>Mensagens: ${botStatus.messageCount || 0} | Comandos: ${botStatus.commandCount || 0}</p>` +
-      `<p class="muted">Uptime: ${botStatus.uptime || 0}s · Atualiza a cada 30s</p>` +
-      `</div></body></html>`
-    );
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.static(path.join(__dirname, 'public')));
+
+  const sessionConfig = {
+    name: 'darkbot.sid',
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    proxy: true,
+    cookie: {
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+      httpOnly: true,
+      secure: config.isProduction ? 'auto' : false,
+      sameSite: 'lax',
+    },
+  };
+  if (conn) {
+    sessionConfig.store = MongoStore.create({
+      mongoUrl: config.mongodb.uri,
+      collectionName: 'web_sessions',
+      ttl: 60 * 60 * 24 * 7,
+      // v6.88 — fix crítico de login: o kruptein (cifra de sessões do
+      // connect-mongo) EXIGE secret com ≥2 maiúsculas, ≥2 minúsculas,
+      // ≥2 dígitos e ≥2 caracteres especiais. Um SESSION_SECRET normal
+      // (ex.: `openssl rand -hex 32` — só minúsculas/hex, como o render.yaml
+      // recomenda) fazia req.session.save() rebentar → "Erro ao guardar
+      // sessão" → ninguém conseguia entrar no dashboard. Derivamos um
+      // secret determinístico SEMPRE válido; a cifra continua a depender
+      // do SESSION_SECRET real do ambiente.
+      crypto: { secret: sessionCryptoSecret(config.sessionSecret) },
+      touchAfter: 24 * 3600,
+    });
+  }
+  const sessionMiddleware = session(sessionConfig);
+  app.use(sessionMiddleware);
+  access.protectSocket(io, sessionMiddleware, config.appUrl);
+
+  app.use(async (req, res, next) => {
+    res.locals.user = req.session.user || null;
+    res.locals.bot = config.bot;
+    res.locals.owner = {
+      name: config.owner.name,
+      number: config.owner.number,
+      username: config.owner.username,
+    };
+    res.locals.currentPath = req.path;
+    res.locals.siteMeta = {
+      title: await botConfigCache.get('site_meta_title', config.bot.name).catch(() => config.bot.name),
+      description: await botConfigCache.get('site_meta_description', 'DARK BOT - Bot WhatsApp profissional com Dashboard').catch(() => 'DARK BOT - Bot WhatsApp profissional com Dashboard'),
+      keywords: await botConfigCache.get('site_meta_keywords', 'whatsapp, bot, dark bot, automação').catch(() => 'whatsapp, bot, dark bot, automação'),
+      image: await botConfigCache.get('site_meta_image', '/img/logo.jpg').catch(() => '/img/logo.jpg'),
+    };
+    // Compatibilidade com views antigas, sem expor segredos reais do process.env.
+    res.locals.process = {
+      env: {
+        GROQ_API_KEY: config.ai.groqApiKey ? 'configured' : '',
+        GEMINI_API_KEY: config.ai.geminiApiKey ? 'configured' : '',
+        APP_URL: config.appUrl,
+        NODE_ENV: config.nodeEnv,
+      },
+    };
+    next();
   });
+
+  // ── /status — Página pública de status do bot (sem login) ────────────
 
   // ── /diag — Diagnóstico REAL do processo em produção (v6.70) ─────────
   // O Dono reportou 2x que a AURA não responde, mas os testes locais
   // passam todos. Isto mostra o que o processo do Render TEM MESMO
   // em memória: commit, chaves, guardas do fluxo e config da base.
   // Sem isto, estou a adivinhar em vez de diagnosticar.
-  app.get('/diag', async (req, res) => {
+  app.get('/diag', requireApiOwner, async (req, res) => {
     const out = { ok: true, hora: new Date().toISOString() };
     try {
       const { execSync } = require('child_process');
@@ -356,7 +340,7 @@ async function bootstrap() {
   // v6.92: o commandHandler é carregado aqui (sob demanda) em vez de
   // no topo do bootstrap — evita logs de debug e inicialização pesada
   // durante o arranque do servidor.
-  app.get('/test-pv', async (req, res) => {
+  app.get('/test-pv', access.debugEnabled(config), requireApiOwner, async (req, res) => {
     const out = { ok: false };
     try {
       // Faz require directo (funciona no Render)
@@ -416,8 +400,8 @@ async function bootstrap() {
     res.render('status', {
       nome: config.bot?.name || 'DARK BOT',
       dono: config.owner?.name || 'Dark',
-      numero: String(st.user?.id || '').split('@')[0].replace(/D/g, ''),
-      online: /connected/i.test(st.status || ''),
+      numero: '', // Public status never exposes account identifiers.
+      online: st.status === 'connected',
       uptime: fmtU(st.uptime || 0),
       mensagens: st.messageCount || 0,
       sessoes: slots.filter(x => x.emUso || x.estado === 'ativa').length,
@@ -464,6 +448,29 @@ async function bootstrap() {
     socket.emit('bot:status', bot.getStatus());
   });
 
+  // Bind HTTP before any potentially slow WhatsApp reconnection.
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(config.port, '0.0.0.0', () => {
+      server.removeListener('error', reject);
+      console.log(`\n${'='.repeat(55)}`);
+      console.log(`🕸️  ${config.bot.name} v6 — DARK BOT`);
+      console.log(`${'='.repeat(55)}`);
+      console.log(`🚀 Servidor:   ${config.appUrl}`);
+      console.log(`📊 Dashboard:  ${config.appUrl}/dashboard`);
+      console.log(`🔌 Connect:    ${config.appUrl}/dashboard/connect`);
+      console.log(`❤️  Status:     ${config.appUrl}/status`);
+      console.log(`🏓 UptimePing: ${config.appUrl}/ping  ← Configura no UptimeRobot`);
+      console.log(`👑 Dono:       ${config.owner.name} (${config.owner.username})`);
+      console.log(`🌍 NODE_ENV:   ${config.nodeEnv}`);
+      console.log(`🗄️  MongoDB:    ${conn ? 'conectado ✅' : 'desconectado ⚠️'}`);
+      const hasAI = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY);
+      console.log(`🧠 IA:         ${hasAI ? 'configurada ✅' : 'sem chaves ⚠️ — defina GROQ_API_KEY no Render'}`);
+      console.log(`${'='.repeat(55)}\n`);
+      resolve();
+    });
+  });
+
   // Bot - tenta auto-conectar se já tem sessão (MongoDB ou local)
   const bot = getBot(io);
 
@@ -478,6 +485,8 @@ async function bootstrap() {
   async function tentarAutoStart() {
     try {
       if (!conn) return false;
+      const busy = () => bot.starting || ['connected', 'connecting', 'qr', 'pairing'].includes(bot.status);
+      if (busy()) return true; // do not restart a connection initiated through the dashboard
       const Session = require('./database/models/Session');
       // "creds" é o ficheiro que o useMongoAuthState escreve quando a sessão
       // principal está autenticada. As chaves de sinal têm nomes com hífen
@@ -490,6 +499,7 @@ async function bootstrap() {
         console.log('ℹ️  Nenhuma sessão WhatsApp autenticada no Mongo (sem doc "creds"). Use /dashboard/connect.');
         return false;
       }
+      if (busy()) return true; // dashboard may have connected while the query was pending
       console.log('🔄 Sessão WhatsApp encontrada no MongoDB — reconectando...');
       await bot.start({ mode: 'qr' });
       return true;
@@ -500,33 +510,37 @@ async function bootstrap() {
     }
   }
 
-  if (conn) {
-    // Primeira tentativa imediata. Se a MongoDB ainda não estiver pronta
-    // (Render Free / cold start), reagendamos com backoff.
-    let tentou = await tentarAutoStart();
-    let atraso = 3000;
-    for (let i = 0; i < 3 && !tentou; i++) {
-      await new Promise(r => setTimeout(r, atraso));
-      console.log(`[AutoStart] nova tentativa em ${atraso / 1000}s...`);
-      tentou = await tentarAutoStart();
-      atraso *= 2;
-    }
-
-    // v7.44 — Baileys secundário de chamadas REMOVIDO (2.º aparelho a reconectar = sinal de automação).
-    // As chamadas usam o socket principal (callVoip).
-  } else {
-    // Fallback: arquivos locais (desenvolvimento / sem Mongo)
-    try {
-      const fs = require('fs');
-      const authFolder = path.join(__dirname, '..', 'data', 'auth');
-      if (fs.existsSync(path.join(authFolder, 'creds.json'))) {
-        console.log('🔄 Sessão local encontrada - reconectando...');
-        bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+  async function autoConnectSavedSession() {
+    if (conn) {
+      // Primeira tentativa imediata. Se a MongoDB ainda não estiver pronta
+      // (Render Free / cold start), reagendamos com backoff.
+      let tentou = await tentarAutoStart();
+      let atraso = 3000;
+      for (let i = 0; i < 3 && !tentou; i++) {
+        await new Promise(r => setTimeout(r, atraso));
+        console.log(`[AutoStart] nova tentativa em ${atraso / 1000}s...`);
+        tentou = await tentarAutoStart();
+        atraso *= 2;
       }
-    } catch (e) {
-      console.error('[AutoStart/local]', e.message);
+
+      // v7.44 — Baileys secundário de chamadas REMOVIDO (2.º aparelho a reconectar = sinal de automação).
+      // As chamadas usam o socket principal (callVoip).
+    } else {
+      // Fallback: arquivos locais (desenvolvimento / sem Mongo)
+      try {
+        const fs = require('fs');
+        const authFolder = path.join(__dirname, '..', 'data', 'auth');
+        if (fs.existsSync(path.join(authFolder, 'creds.json'))) {
+          console.log('🔄 Sessão local encontrada - reconectando...');
+          bot.start({ mode: 'qr' }).catch(e => console.error('Auto-start:', e.message));
+        }
+      } catch (e) {
+        console.error('[AutoStart/local]', e.message);
+      }
     }
   }
+  // HTTP is ready; background reconnection must not block other startup tasks.
+  autoConnectSavedSession().catch(e => console.error('[AutoStart]', e?.name || 'Error'));
 
   // Scheduler + Cache refresh
   if (conn) {
@@ -574,23 +588,6 @@ async function bootstrap() {
       try { const capE = require('./cap/capEngine'); capE.arrancar().then(() => capE.start(() => bot.getSock?.() || bot.sock || null)).catch(e => console.warn('[CAP]', e.message)); } catch (_) {}
     } catch (e) { console.warn('[Proativa]', e.message); }
   }
-
-  server.listen(config.port, () => {
-    console.log(`\n${'='.repeat(55)}`);
-    console.log(`🕸️  ${config.bot.name} v6 — DARK BOT`);
-    console.log(`${'='.repeat(55)}`);
-    console.log(`🚀 Servidor:   ${config.appUrl}`);
-    console.log(`📊 Dashboard:  ${config.appUrl}/dashboard`);
-    console.log(`🔌 Connect:    ${config.appUrl}/dashboard/connect`);
-    console.log(`❤️  Status:     ${config.appUrl}/status`);
-    console.log(`🏓 UptimePing: ${config.appUrl}/ping  ← Configura no UptimeRobot`);
-    console.log(`👑 Dono:       ${config.owner.name} (${config.owner.username})`);
-    console.log(`🌍 NODE_ENV:   ${config.nodeEnv}`);
-    console.log(`🗄️  MongoDB:    ${conn ? 'conectado ✅' : 'desconectado ⚠️'}`);
-    const hasAI = !!(process.env.GROQ_API_KEY || process.env.GEMINI_API_KEY);
-    console.log(`🧠 IA:         ${hasAI ? 'configurada ✅' : 'sem chaves ⚠️ — defina GROQ_API_KEY no Render'}`);
-    console.log(`${'='.repeat(55)}\n`);
-  });
 }
 
 bootstrap().catch(err => {

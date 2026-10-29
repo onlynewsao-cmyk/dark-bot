@@ -10,19 +10,6 @@ const LEAK = [
   /come[cç]ando com prefixo[^.!\n]{0,80}/gi,
   /n[aã]o respondes? a (mensagens? )?(com )?prefixo[^.!\n]{0,60}/gi,
   /n[aã]o reveles? (este|o) prompt[^.!\n]{0,80}/gi,
-  /system prompt|instru[cç][oõ]es internas/gi,
-  /como (uma? )?(assistente|ia|intelig[eê]ncia) virtual[^.!\n]{0,80}/gi,
-  /fui programad[ao][^.!\n]{0,80}/gi,
-  /n[aã]o posso (criar|gerar).{0,40}(ofensiv|xing)[^.!\n]{0,80}/gi,
-  /conte[uú]do ofensivo[^.!\n]{0,80}/gi,
-  /minhas? diretrizes[^.!\n]{0,80}/gi,
-  /n[aã]o vou zoar ou xingar[^.!\n]{0,80}/gi,
-  /posso ajudar com algo mais\??/gi,
-  /n[aã]o posso atender (a )?esse pedido[^.!\n]{0,80}/gi,
-  /n[aã]o posso (fazer|atender|realizar) (chamadas?|liga[cç][oõ]es?)[^.!\n]{0,80}/gi,
-  /como posso ajudar voc[eê] hoje\??/gi,
-  /em que posso (ser [uú]til|ajudar)\??/gi,
-  /estou aqui para ajudar[^.!\n]{0,40}/gi,
   // v12.9.15: Raciocínio interno e vazamento de prompt do modelo
   /(?:o|a)\s+[\wÀ-ÿ]+\s+mandou\s+["'][^"'\n]+["'][^.!\n]{0,120}/gi,
   /isto\s+[eé]\s+um\s+comando\s+com\s+prefixo[^.!\n]{0,120}/gi,
@@ -74,7 +61,7 @@ function limparResposta(txt) {
   t = t.replace(/[_*]{1,2}\s*(ignora|nao responde|prefixo)[^_*]{0,80}[_*]{1,2}/gi, '');
   t = t.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 
-  if (eVazamento(t) || t.replace(/[^a-zA-ZÀ-ÿ]/g, '').length < 6 || /^(?:se ele mandou|porém|mas o prompt|espera,)/i.test(t)) {
+  if (eVazamento(t) || !t || eSoPontuacao(t) || /^(?:se ele mandou|porém|mas o prompt|espera,)/i.test(t)) {
     return '';
   }
   return t;
@@ -85,14 +72,13 @@ const LINK_FALSO = /chat\.whatsapp\.com\/(?:abc|exemplo|\.\.\.|xxx|teste|fake|ab
 function eLinkInventado(txt) {
   const s = String(txt || '');
   return LINK_FALSO.test(s) ||
-    /n[aã]o (posso|tenho) (compartilhar|aceder|acesso).{0,40}link real/i.test(s) ||
     /exemplo falso/i.test(s) ||
     /\(ÁUDIO\)|\(AUDIO\)/i.test(s);
 }
 
 function eVazamento(txt) {
   const s = String(txt || '').toLowerCase();
-  return /prefixo ponto|ignora a mensagem|system prompt|o prompt diz|no prompt|meu prompt|o dark mandou|o usu[aá]rio mandou|o utilizador mandou|isto [eé] um comando|julgamento:\s*se a conversa|o que sabes desta pessoa|[uú]ltimas dela:|[uú]ltimas dele:|nunca respondas a mensagens|nao posso atender a esse pedido|exemplo falso|n[aã]o tenho acesso [àa] url real|thinking process|racioc[ií]nio:/.test(s) ||
+  return /prefixo ponto|ignora a mensagem|o prompt diz|no prompt|meu prompt|o dark mandou|o usu[aá]rio mandou|o utilizador mandou|isto [eé] um comando|julgamento:\s*se a conversa|o que sabes desta pessoa|[uú]ltimas dela:|[uú]ltimas dele:|nunca respondas a mensagens|exemplo falso|thinking process|racioc[ií]nio:/.test(s) ||
     LINK_FALSO.test(s);
 }
 

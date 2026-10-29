@@ -521,6 +521,8 @@ async function auraRespond(text, ctx = {}) {
   }
   const respostaIdioma = _respostaIdioma(text);
   if (respostaIdioma) return respostaIdioma;
+  const interpretation = require('./auraInterpret');
+  if (interpretation.isExplicitRequest(text)) return interpretation.EXPLICIT_REPLY;
 
   // v6.44: carrega do MongoDB se não estiver em cache — assim a AURA
   // continua a lembrar-se das pessoas depois de o Render reiniciar.
@@ -600,11 +602,14 @@ async function auraRespond(text, ctx = {}) {
   // Último bloco: contexto real + rigor, depois dos prompts de personalidade.
   systemPrompt += '\n\n' + require('./auraContextual').contexto(remoteJid);
 
+  systemPrompt += '\n' + require('./auraDialogue').clarificationHint(text);
+
   // Tentar IA sempre (gera respostas únicas)
   try {
     const reply = await ai.chat(text, systemPrompt, {
       userRole,
       history: historyArray,
+      quotedMessage: ctx.quotedMessage, signal: ctx.signal,
       groupContext,
       cacheScope: _cacheScope({ remoteJid, senderNumber, isOwner }),
     }, isOwner);
@@ -618,7 +623,7 @@ async function auraRespond(text, ctx = {}) {
         const interpret = require('./auraInterpret');
         let clean = san.limparResposta(reply);
         if (san.eVazamento(reply) || san.eVazamento(clean)) {
-          return isOwner ? 'Estou por aqui, Dark.' : 'Diz.';
+          return 'Não consegui obter uma resposta coerente agora. Podes reformular?';
         }
         return interpret.consertarSeRecusou(clean, text);
       } catch {
@@ -628,10 +633,10 @@ async function auraRespond(text, ctx = {}) {
     _registarErroIA(String(reply || '').trim() || 'resposta vazia');
     throw new Error('IA indisponível');
   } catch (eIA) {
+    if (require('../bot/aiCancellation').isAbort(eIA)) throw eIA;
     if (!/IA indisponível/.test(eIA.message)) _registarErroIA(eIA.message);
     // Fallback DINÂMICO (nunca repete a mesma resposta)
-    const offline = generateDynamicResponse(text, userRole, mood, pushName, isOwner);
-    return offline;
+    return require('./auraFala').dizer('semCabeca', { jid: remoteJid, isOwner });
   }
 }
 
@@ -725,16 +730,11 @@ async function auraRespondSmart(text, ctx = {}) {
   // Anti-repetição: se a resposta é repetida, tentar variar
   if (response && auraSmart.isRepetitive(remoteJid, response)) {
     auraSmart.recordAntiRepBlock();
-    // Tentar resposta do cache como alternativa
-    const alt = auraSmart.cacheGet(text + '_alt', cacheScope);
-    if (alt && !auraSmart.isRepetitive(remoteJid, alt)) {
-      response = alt;
-    }
+
   }
 
   // Guardar no cache e rastrear
   if (response) {
-    auraSmart.cacheSet(text, response, cacheScope);
     auraSmart.trackResponse(remoteJid, response);
   }
 

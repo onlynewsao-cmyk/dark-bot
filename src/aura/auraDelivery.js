@@ -8,19 +8,22 @@ function temResposta(content) {
   if (typeof content.text === 'string' && content.text.trim()) return true;
   return ['audio', 'image', 'video', 'sticker', 'document', 'contacts', 'location', 'interactiveMessage', 'listMessage', 'poll'].some(k => !!content[k]);
 }
-function acompanhar(sock) {
+function acompanhar(sock, { onResponse } = {}) {
   let enviada = false;
   const proxy = new Proxy(sock, {
     get(target, prop) {
       if (prop === 'sendMessage') return async (...args) => {
         const result = await target.sendMessage(...args);
-        if (temResposta(args[1])) enviada = true;
+        if (!result?.suppressed && temResposta(args[1])) {
+          enviada = true;
+          if (onResponse) { try { await onResponse(args[1]); } catch (_) {} }
+        }
         return result;
       };
       if (prop === 'relayMessage' && typeof target.relayMessage === 'function') return async (...args) => {
         const result = await target.relayMessage(...args);
         // Relay é usado para cartões/listas nativos, não para presenças.
-        if (args[1] && Object.keys(args[1]).some(k => !['reactionMessage', 'protocolMessage'].includes(k))) enviada = true;
+        if (!result?.suppressed && args[1] && Object.keys(args[1]).some(k => !['reactionMessage', 'protocolMessage'].includes(k))) enviada = true;
         return result;
       };
       const value = Reflect.get(target, prop, target);

@@ -827,7 +827,7 @@ async function revokeGroupInvite(sock, groupJid) {
 
 async function sendVoiceMessage(sock, jid, text, voiceId = '21m00Tcm4TlvDq8ikWAM') {
   try {
-    const ai = require('../bot/ai');
+    const ai = require('../../bot/ai');
     const audioBuffer = await ai.speakWithFallback(text, voiceId);
     if (audioBuffer && audioBuffer.length > 500) {
       await sock.sendMessage(jid, { audio: audioBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true });

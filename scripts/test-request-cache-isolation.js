@@ -1,0 +1,55 @@
+'use strict';
+const assert = require('assert/strict');
+const cache = require('../src/bot/requestCache');
+const defer = () => { let resolve; let reject; const promise = new Promise((r, j) => { resolve = r; reject = j; }); return { promise, resolve, reject }; };
+(async () => {
+  const aStarted = defer(), bStarted = defer(), aReply = defer(), bReply = defer();
+  const a = cache.run(async () => {
+    cache.put('identity', 'A');
+    const first = cache.remember('shared-key', () => { aStarted.resolve(); return aReply.promise; });
+    await bStarted.promise;
+    assert.equal(cache.get('identity'), 'A');
+    assert.equal(await first, 'only-A');
+    assert.equal(cache.get('shared-key'), 'only-A');
+    assert.equal(await cache.remember('shared-key', () => { throw new Error('unexpected reload A'); }), 'only-A');
+  });
+  const b = cache.run(async () => {
+    cache.put('identity', 'B');
+    const first = cache.remember('shared-key', () => { bStarted.resolve(); return bReply.promise; });
+    await aStarted.promise;
+    assert.equal(cache.get('identity'), 'B');
+    aReply.resolve('only-A');
+    assert.equal(await first, 'only-B');
+    assert.equal(cache.get('shared-key'), 'only-B');
+  });
+  await aStarted.promise; await bStarted.promise; bReply.resolve('only-B');
+  await Promise.all([a, b]);
+  assert.equal(cache.get('identity'), undefined);
+  await cache.run(async () => {
+    let loads = 0;
+    const results = await Promise.all(Array.from({ length: 20 }, () => cache.remember('dedup', async () => { loads++; return 0; })));
+    assert.equal(loads, 1); assert.deepEqual(results, Array(20).fill(0));
+    let attempts = 0;
+    await assert.rejects(cache.remember('retry', () => { attempts++; throw new Error('fixture failure'); }), /fixture failure/);
+    assert.equal(await cache.remember('retry', () => { attempts++; return false; }), false);
+    assert.equal(attempts, 2);
+    const late = defer();
+    const pending = cache.remember('invalidated', () => late.promise);
+    cache.forget('invalidated'); cache.put('invalidated', 'new-value');
+    late.resolve('old-value'); await pending;
+    assert.equal(cache.get('invalidated'), 'new-value', 'slow reads cannot overwrite a newer write');
+    const failLate = defer();
+    const pendingFail = cache.remember('new-write', () => failLate.promise);
+    cache.put('new-write', 'keep-me');
+    failLate.reject(new Error('late failure')); await assert.rejects(pendingFail);
+    assert.equal(cache.get('new-write'), 'keep-me', 'slow failures cannot delete a newer value');
+    await cache.run(async () => { assert.equal(cache.get('invalidated'), undefined); cache.put('inner', 1); });
+    assert.equal(cache.get('invalidated'), 'new-value'); assert.equal(cache.get('inner'), undefined);
+  });
+  cache.begin(); cache.put('legacy', 1); assert.equal(cache.get('legacy'), 1); cache.end(); assert.equal(cache.get('legacy'), undefined);
+  let noScopeLoads = 0;
+  await cache.remember('outside', () => { noScopeLoads++; return 1; });
+  await cache.remember('outside', () => { noScopeLoads++; return 2; });
+  assert.equal(noScopeLoads, 2);
+  console.log('REQUEST CACHE ISOLATION: 8 scenarios OK / 0 falhas');
+})().catch(err => { console.error(err); process.exitCode = 1; });

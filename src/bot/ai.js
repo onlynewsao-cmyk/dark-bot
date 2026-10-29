@@ -142,15 +142,12 @@ const _aiCache = new Map(); // hash → { response, ts }
 const AI_CACHE_TTL = 10 * 60 * 1000;
 const AI_CACHE_MAX = 200;
 
-function _hashPrompt(prompt, system, cacheContext = '') {
-  const crypto = require('crypto');
-  const h = crypto.createHash('sha256');
-  h.update(JSON.stringify([String(prompt || ''), String(system || ''), cacheContext]));
-  return h.digest('hex');
+function _hashPrompt(prompt, system, context = '') {
+  return require('./aiContext').cacheKey(prompt, system, context);
 }
 
-function aiCacheGet(prompt, system, cacheContext = '') {
-  const h = _hashPrompt(prompt, system, cacheContext);
+function aiCacheGet(prompt, system, context = '') {
+  const h = _hashPrompt(prompt, system, context);
   const entry = _aiCache.get(h);
   if (!entry) return null;
   if (Date.now() - entry.ts > AI_CACHE_TTL) { _aiCache.delete(h); return null; }
@@ -160,9 +157,9 @@ function aiCacheGet(prompt, system, cacheContext = '') {
   return entry.response;
 }
 
-function aiCacheSet(prompt, system, response, cacheContext = '') {
+function aiCacheSet(prompt, system, response, context = '') {
   if (!response || response.startsWith('❌')) return; // não cachear erros
-  const h = _hashPrompt(prompt, system, cacheContext);
+  const h = _hashPrompt(prompt, system, context);
   _aiCache.set(h, { response, ts: Date.now() });
   // Evict LRU se ultrapassar o máximo
   while (_aiCache.size > AI_CACHE_MAX) {
@@ -444,19 +441,8 @@ async function chatGroq(messages, system, options = {}) {
 let _geminiModelCache = { list: null, ts: 0 };
 const GEMINI_MODEL_TTL = 60 * 60 * 1000; // 1 hora
 
-// ── v6.67: SEM CENSURA EXTERNA ──────────────────────────────
-// O Gemini bloqueia por omissão (BLOCK_MEDIUM_AND_ABOVE). Sem isto,
-// a AURA não pode zangar-se, ofender de volta nem falar de temas
-// adultos — o modelo devolvia vazio e ela caía nos fallbacks
-// robóticos ("_ri_ Hehe"). Quem decide o que é certo ou errado é
-// ela, não o filtro da Google.
-const GEMINI_SAFETY = [
-  { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_NONE' },
-  { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_NONE' },
-  { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-  { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-  { category: 'HARM_CATEGORY_CIVIC_INTEGRITY',   threshold: 'BLOCK_NONE' },
-];
+// Preserve Gemini provider-default safety settings.
+const GEMINI_SAFETY = [];
 
 async function getGeminiModels(parentSignal = null) {
   // Cache fresco → usa
@@ -590,100 +576,57 @@ async function chatOpenAI(messages, system, options = {}) {
  * @param {boolean}  isPriority   - VIP ou Dono (resposta mais rápida)
  */
 async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
-  const {
-    history      = [],
-    userTone     = '',
-    userProfile  = null,
-    groupContext  = '',
-    userRole     = 'free',
-    allowWeb     = true, // false: síntese de dados privados, nunca pesquisar o histórico
-  } = memoryOpts;
-
-  // v7.63: conta TODAS as chaves que a cadeia tenta (antes, ter só
-  // HuggingFace/Cerebras/ApiFreeLLM dizia "sem chave" por engano).
-  const hasAny = !!(
-    config.ai.groqApiKey || config.ai.geminiApiKey ||
-    config.ai.openrouterApiKey || config.ai.openaiApiKey ||
-    config.ai.huggingfaceKey || config.ai.cerebrasApiKey ||
-    config.ai.apifreellmKey || config.ai.deepseekApiKey
-  );
-  if (!hasAny) return '❌ IA sem chave. Configure GROQ_API_KEY ou DEEPSEEK_API_KEY na Northflank.';
-
-  // System prompt com personalidade (inclui tema activo e papel do utilizador)
-  const system = context || await buildSystemPrompt(userTone, userProfile, groupContext, userRole);
-
-  // v9.22: modo simples — cache com chave normalizada para mensagens curtas
-  // (melhora hit rate: "Oi" = "oi" = "OI" → mesma resposta)
-  const simpleMode = prompt.length < 80 && !needsWeb(prompt);
-  const cacheKey = simpleMode ? prompt.toLowerCase().trim() : prompt;
-  const cacheContext = {
-    scope: String(memoryOpts.cacheScope || ''),
-    userRole,
-    userTone,
-    userProfile: userProfile ? {
-      name: String(userProfile.name || ''),
-      gender: String(userProfile.gender || ''),
-      interests: Array.isArray(userProfile.interests) ? userProfile.interests.map(String) : [],
-      notes: String(userProfile.notes || ''),
-    } : null,
-    groupContext: String(groupContext || ''),
-    allowWeb: !!allowWeb,
-    history: Array.isArray(history) ? history.slice(-16).map(h => [h?.role || '', String(h?.content || '').slice(0, 600)]) : [],
-  };
-  const cached = aiCacheGet(cacheKey, system, cacheContext);
+  const { runAbortable, throwIfAborted, abortError } = require('./aiCancellation');
+  const signal = memoryOpts.signal;
+  throwIfAborted(signal);
+  const { userTone = '', userProfile = null, groupContext = '', userRole = 'free', allowWeb = true } = memoryOpts;
+  const frame = require('../aura/auraContext').buildFrame(prompt, memoryOpts);
+  if (frame.localReply) return frame.localReply;
+  const hasAny = !!(config.ai.groqApiKey || config.ai.geminiApiKey || config.ai.openrouterApiKey ||
+    config.ai.openaiApiKey || config.ai.huggingfaceKey || config.ai.cerebrasApiKey || config.ai.apifreellmKey || config.ai.deepseekApiKey);
+  if (!hasAny) return '❌ IA sem chave. Configure um provider de IA no ambiente do serviço.';
+  const base = context || await runAbortable(() => buildSystemPrompt(userTone, userProfile, groupContext, userRole), { signal });
+  throwIfAborted(signal);
+  const system = base + '\n\n' + frame.instructions;
+  const cacheContext = { scope: memoryOpts.cacheScope || '', role: userRole, group: groupContext,
+    history: frame.history, quote: frame.quote };
+  const cacheEnabled = !!cacheContext.scope && !needsWeb(prompt);
+  const cached = cacheEnabled ? aiCacheGet(prompt, system, cacheContext) : null;
   if (cached) return cached;
-
-  // Orçamento total: limita a cadeia inteira, não apenas cada provider.
-  // Cada request recebe também um AbortSignal para não continuar em fundo
-  // depois de passar para o provider seguinte.
-  const TOTAL_TIMEOUT = isPriority ? 30000 : 45000;
-  const PER_PROVIDER_TIMEOUT = isPriority ? 8000 : 10000;
-  const deadline = Date.now() + TOTAL_TIMEOUT;
-
-  // Contexto web se necessário — faz parte do mesmo orçamento total.
-  let finalPrompt = prompt;
-  if (allowWeb && needsWeb(prompt)) {
+  const budget = require('./aiContext').chatBudget(memoryOpts, isPriority);
+  const deadline = Date.now() + budget.total;
+  let finalPrompt = frame.userContent;
+  // Do not send quoted/private history or an ambiguous follow-up to web search.
+  if (allowWeb && frame.allowWeb && needsWeb(prompt)) {
     const remaining = deadline - Date.now();
     if (remaining > 0) {
-      const webController = new AbortController();
       try {
-        const web = await withTimeout(
-          getWebContext(prompt, { signal: webController.signal }),
-          Math.min(5000, remaining),
-          webController
-        );
-        if (web) finalPrompt = web + '\nPergunta: ' + prompt;
-      } catch {}
+        const web = await runAbortable(s => getWebContext(prompt, { signal: s }), { signal, timeoutMs: Math.min(5000, remaining) });
+        if (web) finalPrompt = web + '\nPergunta: ' + frame.userContent;
+      } catch (error) { if (signal?.aborted) throw abortError(); }
     }
   }
-
-  // Histórico de conversa (últimas 16 mensagens, ou 6 para modo simples)
-  const histLimit = simpleMode ? 6 : 16;
-  const histMsgs = history.slice(-histLimit).map(h => ({
-    role:    h.role === 'assistant' ? 'assistant' : 'user',
-    content: String(h.content || '').slice(0, 600),
-  }));
-  const messages = [...histMsgs, { role: 'user', content: finalPrompt }];
-
-  async function tentarProvider(name, enabled, label, chamar) {
+  const messages = [...frame.history, { role: 'user', content: finalPrompt }];
+  async function tentarProvider(name, enabled, label, call) {
+    throwIfAborted(signal);
     if (!enabled || !providerUp(name)) return null;
     const remaining = deadline - Date.now();
     if (remaining <= 0) return null;
-    const timeoutMs = Math.min(PER_PROVIDER_TIMEOUT, remaining);
-    const controller = new AbortController();
     try {
-      const answer = await withTimeout(chamar({ signal: controller.signal }), timeoutMs, controller);
+      const answer = await runAbortable(s => call({ signal: s }), { signal, timeoutMs: Math.min(budget.provider, remaining) });
+      throwIfAborted(signal);
+      if (!String(answer || '').trim()) throw new Error('resposta vazia');
       providerReset(name);
-      aiCacheSet(cacheKey, system, answer, cacheContext);
+      if (cacheEnabled) aiCacheSet(prompt, system, answer, cacheContext);
       return answer;
-    } catch (e) {
-      providerFail(name, e);
-      console.warn(`[IA] ${label}:`, shortErr(e));
+    } catch (error) {
+      // Superseded/paused messages are not outages and must not trip the circuit breaker.
+      if (signal?.aborted) throw abortError();
+      providerFail(name, error);
+      console.warn(`[IA] ${label}:`, shortErr(error));
       return null;
     }
   }
-
-  // Fallback sequencial com um limite total de latência.
   const providers = [
     ['groq', !!config.ai.groqApiKey, 'Groq', o => chatGroq(messages, system, o)],
     ['deepseek', !!config.ai.deepseekApiKey, 'DeepSeek', o => chatDeepSeek(messages, system, o)],
@@ -694,16 +637,13 @@ async function chat(prompt, context = '', memoryOpts = {}, isPriority = false) {
     ['openrouter', !!config.ai.openrouterApiKey, 'Router', o => chatRouter(messages, system, o)],
     ['openai', !!config.ai.openaiApiKey, 'OpenAI', o => chatOpenAI(messages, system, o)],
   ];
-
-  for (const [name, enabled, label, chamar] of providers) {
+  for (const [name, enabled, label, call] of providers) {
+    throwIfAborted(signal);
     if (Date.now() >= deadline) break;
-    const answer = await tentarProvider(name, enabled, label, chamar);
+    const answer = await tentarProvider(name, enabled, label, call);
     if (answer) return answer;
   }
-  // v7.63: SEM fallback público — o PopCat morreu ("Timed Out" sempre),
-  // o Pollinations exige chave e o DuckDuckGo mete captcha anti-bot.
-  // Falhar rápido para as respostas de personalidade (offlineResponses).
-
+  throwIfAborted(signal);
   return '❌ IA offline agora. Tente de novo.';
 }
 
@@ -963,12 +903,15 @@ const ELEVEN_DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL'; // Sarah — feminina
 let _elevenVoiceCache = { id: null, ts: 0 };
 
 /** Descobre uma voz utilizável nesta conta (cache 1h). */
-async function getElevenVoice() {
+async function getElevenVoice(options = {}) {
+  if (options.signal?.aborted) throw new Error('aborted');
   if (_elevenVoiceCache.id && (Date.now() - _elevenVoiceCache.ts) < 3600e3) {
     return _elevenVoiceCache.id;
   }
   try {
     const ctrl = new AbortController();
+    const onAbort = () => ctrl.abort();
+    options.signal?.addEventListener('abort', onAbort, { once: true });
     const to = setTimeout(() => ctrl.abort(), 8000);
     let list;
     try {
@@ -976,7 +919,7 @@ async function getElevenVoice() {
         signal: ctrl.signal, headers: { 'xi-api-key': config.ai.elevenlabsKey },
       });
       list = await r.json();
-    } finally { clearTimeout(to); }
+    } finally { clearTimeout(to); options.signal?.removeEventListener('abort', onAbort); }
 
     const voices = list?.voices || [];
     // Prefere a voz padrão; senão uma feminina; senão a primeira da conta
@@ -991,10 +934,11 @@ async function getElevenVoice() {
   return ELEVEN_DEFAULT_VOICE;
 }
 
-async function speakElevenLabs(text, voiceId = null) {
+async function speakElevenLabs(text, voiceId = null, options = {}) {
+  if (options.signal?.aborted) throw new Error('aborted');
   if (!config.ai.elevenlabsKey) throw new Error('sem chave ElevenLabs');
   if (!text || text.length < 1) throw new Error('texto vazio');
-  if (!voiceId) voiceId = await getElevenVoice();
+  if (!voiceId) voiceId = await getElevenVoice(options);
   const https = require('https');
   const body = JSON.stringify({
     text: text.slice(0, 2500),
@@ -1016,7 +960,7 @@ async function speakElevenLabs(text, voiceId = null) {
     const req = https.request({
       hostname: 'api.elevenlabs.io', path: `/v1/text-to-speech/${voiceId}`, method: 'POST',
       headers: { 'xi-api-key': config.ai.elevenlabsKey, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg', 'Content-Length': Buffer.byteLength(body) },
-      timeout: 60000, // v7.36: 15s cortava áudios longos (ficava só o início ou nada)
+      timeout: 15000, signal: options.signal,
     }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
@@ -1271,12 +1215,14 @@ function splitForTts(text, maxLen = 900) {
 }
 
 // gTTS (Google Translate) — grátis, PT, sem chave. Limite ~200 chars por pedido.
-function speakGoogleTts(text, lang = 'pt') {
+function speakGoogleTts(text, lang = 'pt', options = {}) {
+  if (options.signal?.aborted) return Promise.reject(new Error('aborted'));
   const https = require('https');
   const parts = splitForTts(text, 190);
   const one = (q) => new Promise((resolve, reject) => {
+    if (options.signal?.aborted) return reject(new Error('aborted'));
     const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(q)}`;
-    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124 Safari/537.36', 'Referer': 'https://translate.google.com/' }, timeout: 15000 }, res => {
+    const req = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124 Safari/537.36', 'Referer': 'https://translate.google.com/' }, timeout: 15000, signal: options.signal }, res => {
       const chunks = []; res.on('data', c => chunks.push(c));
       res.on('end', () => { const b = Buffer.concat(chunks); if (res.statusCode !== 200 || b.length < 300) return reject(new Error('gTTS HTTP ' + res.statusCode)); resolve(b); });
     });
@@ -1285,45 +1231,39 @@ function speakGoogleTts(text, lang = 'pt') {
   return (async () => Buffer.concat(await mapCap(parts, 4, (p) => one(p))))(); // v7.52: pedaços em paralelo
 }
 
-async function speakWithFallback(text, voiceId = null) {
+async function speakWithFallback(text, voiceId = null, options = {}) {
+  const { runAbortable, throwIfAborted, isAbort } = require('./aiCancellation');
+  throwIfAborted(options.signal);
   const full = String(text || '').trim();
-  if (!full) return null;
-  // Tentar ElevenLabs primeiro — em pedaços de ≤900 chars, concatenados (MP3 concatena bem)
-  try {
-    const parts = splitForTts(full, 900);
-    // v7.52: pedaços em paralelo (tecto 3) — texto longo fala ~3x mais rápido
-    const got = await mapCap(parts, 3, (p) => speakElevenLabs(p, voiceId));
-    const bufs = got.filter(a => a && a.length > 500);
-    if (bufs.length !== parts.length) throw new Error('pedaço vazio');
-    if (bufs.length) return Buffer.concat(bufs);
-  } catch (e) {
-    console.warn('[Voz] ElevenLabs falhou:', e.message);
+  // Prefer a complete text fallback over cutting a requested long narration.
+  if (!full || full.length > 6000) return null;
+  const configured = Number(process.env.AURA_TTS_TIMEOUT_MS) || 12000;
+  const requested = Number(options.timeoutMs) || configured;
+  const deadline = Date.now() + Math.max(25, Math.min(20000, configured, requested));
+  async function stage(fn) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error('timeout');
+    return runAbortable(fn, { signal: options.signal, timeoutMs: remaining });
   }
-  // Fallback 2: Google TTS (grátis)
-  try { const g = await speakGoogleTts(full, 'pt'); if (g && g.length > 500) return g; }
-  catch (e) { console.warn('[Voz] gTTS falhou:', e.message); }
-  
-  // Fallback: usar TTS gratuito do sistema
-  try {
-    const _efAsync = require('util').promisify(require('child_process').execFile); // v7.52: async, sem shell
-    const tmpFile = `/tmp/aura-voice-${Date.now()}.mp3`;
-    
-    // Usar espeak ou similar se disponível
+  if (config.ai.elevenlabsKey) {
     try {
-      const { stdout: _wav } = await _efAsync('espeak', ['-v', 'pt', String(text), '--stdout'], { timeout: 10000, maxBuffer: 12 * 1024 * 1024, encoding: 'buffer' });
-      require('fs').writeFileSync(tmpFile, _wav);
-      const fs = require('fs');
-      const audio = fs.readFileSync(tmpFile);
-      fs.unlinkSync(tmpFile);
-      if (audio.length > 500) return audio;
-    } catch {}
-    
-    // Fallback final: gerar áudio silencioso com metadados
-    console.warn('[Voz] Usando fallback de texto');
-    return null;
-  } catch {
-    return null;
+      return await stage(async signal => {
+        const parts = splitForTts(full, 900);
+        const voice = voiceId || await getElevenVoice({ signal });
+        const got = await mapCap(parts, 3, p => speakElevenLabs(p, voice, { signal }));
+        if (got.some(b => !b || b.length <= 500)) throw new Error('áudio vazio');
+        return Buffer.concat(got);
+      });
+    } catch (e) { if (isAbort(e)) throw e; console.warn('[Voz] ElevenLabs:', shortErr(e)); }
   }
+  if (Date.now() < deadline) {
+    try {
+      const google = await stage(signal => speakGoogleTts(full, 'pt', { signal }));
+      if (google?.length > 500) return google;
+    } catch (e) { if (isAbort(e)) throw e; console.warn('[Voz] gTTS:', shortErr(e)); }
+  }
+  // Do not label espeak WAV bytes as MP3 or spawn an unbounded local fallback.
+  return null;
 }
 
 module.exports = {

@@ -60,18 +60,34 @@ AiMemorySchema.methods.resetHistory = function () {
   this.resetAt = new Date();
 };
 
-// getOrCreate por contextId (grupo ou PV)
-// Para grupos: contextId = "GROUP:" + groupJid
-// Para PV:     contextId = "PV:" + userNumber
+// Use atomic appends: document.save() of a copied array can overwrite another
+// message when concurrent handlers read the same conversation.
+const creating = new Map();
+function contextIdFor(userNumber, groupJid = null) {
+  return groupJid ? `GROUP:${groupJid}` : `PV:${userNumber}`;
+}
+AiMemorySchema.statics.contextIdFor = contextIdFor;
 AiMemorySchema.statics.getOrCreate = async function (userNumber, groupJid = null) {
-  const contextId = groupJid ? `GROUP:${groupJid}` : `PV:${userNumber}`;
-  let mem = await this.findOne({ contextId });
-  if (!mem) mem = await this.create({ contextId, userNumber });
-  else if (!mem.userNumber && userNumber) {
-    mem.userNumber = userNumber;
-    await mem.save().catch(() => {});
+  const contextId = contextIdFor(userNumber, groupJid);
+  if (!creating.has(contextId)) {
+    const promise = this.findOneAndUpdate({ contextId }, {
+      $setOnInsert: { contextId, userNumber, history: [], totalMessages: 0, lastInteraction: new Date() },
+    }, { upsert: true, new: true, setDefaultsOnInsert: false });
+    creating.set(contextId, Promise.resolve(promise).finally(() => creating.delete(contextId)));
   }
-  return mem;
+  return creating.get(contextId);
+};
+AiMemorySchema.statics.appendMessage = async function (userNumber, groupJid, role, content) {
+  if (!['user', 'assistant'].includes(role)) throw new Error('Papel de histórico inválido');
+  const text = String(content || '').slice(0, 2000);
+  if (!text.trim()) return null;
+  // Ensure a context exists using the process-local creation deduplication.
+  await this.getOrCreate(userNumber, groupJid);
+  return this.findOneAndUpdate({ contextId: contextIdFor(userNumber, groupJid) }, {
+    $push: { history: { $each: [{ role, content: text, ts: new Date() }], $slice: -40 } },
+    $set: { lastInteraction: new Date() },
+    $inc: { totalMessages: 1 },
+  }, { new: true, runValidators: true });
 };
 
 module.exports = mongoose.model('AiMemory', AiMemorySchema);
