@@ -20,6 +20,17 @@ function digits(key, fallback = '') {
   return env(key, fallback).replace(/\D/g, '');
 }
 
+// Um URL sem protocolo (ex.: "p01--bot.code.run") faz new URL(APP_URL)
+// lançar TypeError antes do servidor abrir a porta, causando 503 no deploy.
+// Northflank fornece domínio HTTPS; em desenvolvimento local preservamos HTTP.
+function appUrl(key, fallback) {
+  const raw = env(key, '');
+  if (!raw) return fallback;
+  if (/^[a-z][a-z\d+.-]*:\/\//i.test(raw)) return raw;
+  const local = /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(raw);
+  return `${local ? 'http' : 'https'}://${raw}`;
+}
+
 const port    = num('PORT', 3000);
 const nodeEnv = env('NODE_ENV', 'development');
 
@@ -34,7 +45,7 @@ module.exports = {
   sessionSecret: require('./middleware/controlAccess').sessionSecret(env('SESSION_SECRET'), nodeEnv === 'production'),
   debugEndpoints: env('ENABLE_DEBUG_ENDPOINTS', 'false') === 'true',
   allowLegacyRpgReset: env('ALLOW_LEGACY_RPG_RESET', 'false') === 'true',
-  appUrl:        env('APP_URL', `http://localhost:${port}`),
+  appUrl:        appUrl('APP_URL', `http://localhost:${port}`),
 
   // Canal WhatsApp (aparece no menu)
   channelUrl: env('WHATSAPP_CHANNEL_URL', 'https://whatsapp.com/channel/0029VbDMnJs6buMDAqf2Fq1z'),

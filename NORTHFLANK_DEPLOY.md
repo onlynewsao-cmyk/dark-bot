@@ -13,7 +13,7 @@ No Northflank:
 1. Abrir o projeto `dark-bot`.
 2. Selecionar **Create service**.
 3. Escolher **Build from repository**.
-4. Ligar ao GitHub usando a integração oficial/OAuth e selecionar `onlynewsao-cmyk/darknet-tunnel`. Se o Northflank solicitar um token, colá-lo apenas no campo seguro da integração; nunca em variáveis de build, ficheiros ou logs.
+4. Ligar ao GitHub usando a integração oficial/OAuth e selecionar `onlynewsao-cmyk/dark-bot`. Se o Northflank solicitar um token, colá-lo apenas no campo seguro da integração; nunca em variáveis de build, ficheiros ou logs.
 5. Branch: `main`.
 6. Build type: `Dockerfile`.
 7. Dockerfile path: `/Dockerfile`.
