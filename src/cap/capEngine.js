@@ -509,7 +509,51 @@ function ytdlpCookieFile() {
 // e links de partilha: /share/…, /share_reel/…, ig.me/m/… (segue o redirect).
 const IG_LINK_RE = /instagram\.com\/(?:[^/]+\/)?(p|reel|reels|tv)\/([A-Za-z0-9_-]+)/i;
 const IG_STORY_RE = /instagram\.com\/stories\/([^/#?]+)\/([A-Za-z0-9_-]+)/i;
+const IG_STORY_USER_RE = /instagram\.com\/stories\/([^/#?]+)\/?(?:[?#].*)?$/i;
 const IG_HL_RE = /instagram\.com\/stories\/highlights\/([A-Za-z0-9_-]+)/i;
+
+// SnapInsta é um fallback público para posts/reels e stories activos. Não
+// recebe cookies nem credenciais do bot: apenas a URL pública consultada.
+const SNAPINSTA_API = 'https://snapinsta.com.br/api/download.php';
+function isInstagramPostUrl(value) {
+  try {
+    const u = new URL(value);
+    const host = u.hostname.toLowerCase();
+    return u.protocol === 'https:' && (host === 'instagram.com' || host.endsWith('.instagram.com'));
+  } catch { return false; }
+}
+function isInstagramCdnUrl(value) {
+  try {
+    const u = new URL(value);
+    const host = u.hostname.toLowerCase();
+    return u.protocol === 'https:' && (host.endsWith('.cdninstagram.com') || host.endsWith('.fbcdn.net'));
+  } catch { return false; }
+}
+
+async function storiesPublicas(usernameOrLink) {
+  const raw = String(usernameOrLink || '').trim();
+  const fromUrl = raw.match(/instagram\.com\/stories\/([^/?#]+)/i);
+  const username = normUser(fromUrl?.[1] || raw);
+  if (!/^[a-z0-9._]{1,30}$/i.test(username) || username.toLowerCase() === 'highlights') throw new Error('Utilizador Instagram inválido');
+  const link = fromUrl ? raw : `https://www.instagram.com/stories/${username}/`;
+  try {
+    const medias = await snapInstaPublicMedias(link);
+    if (medias.length) return { username, link, medias, source: 'snapinsta' };
+  } catch (e) {
+    throw new Error('SnapInsta: ' + e.message.slice(0, 100));
+  }
+  throw new Error('SnapInsta não devolveu stories públicos activos');
+}
+
+async function storyPublicItem(usernameOrLink) {
+  const pub = await storiesPublicas(usernameOrLink);
+  return {
+    id: `public_story_${pub.username}_${Date.now()}`,
+    shortcode: `public_story_${pub.username}`,
+    tipo: 'story', ts: Date.now(), caption: '', link: pub.link,
+    medias: pub.medias, username: pub.username, source: pub.source,
+  };
+}
 
 async function resolverLink(link) {
   let url = String(link || '').trim();
@@ -536,12 +580,69 @@ async function resolverLink(link) {
   if (m) return { tipo: 'highlight', id: m[1], url };
   m = url.match(IG_STORY_RE);
   if (m && m[1].toLowerCase() !== 'highlights') return { tipo: 'story', username: m[1], pk: m[2], url };
+  m = url.match(IG_STORY_USER_RE);
+  if (m && m[1].toLowerCase() !== 'highlights') return { tipo: 'story', username: m[1], pk: '', url };
   m = url.match(IG_LINK_RE);
   if (m) return { tipo: m[1].toLowerCase() === 'tv' ? 'post' : (m[1].toLowerCase() === 'p' ? 'post' : 'reel'), shortcode: m[2], url };
   return null;
 }
 
-// link → item(s) pronto(s) para processarItem. Camadas: sessão (API app) → yt-dlp → embed.
+// Resolve qualquer URL público suportado pelo SnapInsta. Não recebe cookies,
+// sessão ou credenciais; as URLs retornadas precisam ser CDN HTTPS oficial.
+async function snapInstaPublicMedias(link) {
+  const value = String(link || '').trim();
+  if (!isInstagramPostUrl(value)) throw new Error('SnapInsta aceita somente URL pública do Instagram');
+  const body = JSON.stringify({ url: value });
+  const response = await httpReq('POST', SNAPINSTA_API, {
+    proxy: false,
+    timeout: 45000,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Origin': 'https://snapinsta.com.br',
+      'Referer': 'https://snapinsta.com.br/',
+    },
+    body,
+  });
+  if (response.status !== 200) throw new Error(`SnapInsta HTTP ${response.status}`);
+  let data;
+  try { data = JSON.parse(response.body.toString('utf8')); }
+  catch { throw new Error('SnapInsta respondeu JSON inválido'); }
+  if (data?.status !== true || !Array.isArray(data.media) || !data.media.length) {
+    throw new Error('SnapInsta: ' + String(data?.message || 'mídia pública indisponível').slice(0, 120));
+  }
+  const medias = data.media.map((media) => {
+    const url = String(media?.url || '');
+    if (!isInstagramCdnUrl(url)) return null;
+    const type = String(media?.fileType || '').toLowerCase();
+    return { url, isVideo: type.startsWith('video/') || /\.mp4(?:\?|$)/i.test(url) };
+  }).filter(Boolean);
+  if (!medias.length) throw new Error('SnapInsta não devolveu mídia CDN válida');
+  return medias;
+}
+
+// Fallback sem login para post/reel público.
+async function snapInstaItem(link, resolved = null) {
+  const info = resolved || await resolverLink(link);
+  if (!info || !['post', 'reel'].includes(info.tipo) || !isInstagramPostUrl(info.url)) {
+    throw new Error('SnapInsta aceita somente post ou reel público do Instagram');
+  }
+  const medias = await snapInstaPublicMedias(info.url);
+
+  return {
+    id: `snap_${info.shortcode}`,
+    shortcode: info.shortcode,
+    tipo: info.tipo,
+    ts: 0,
+    caption: '',
+    link: info.url,
+    medias,
+    username: '',
+    source: 'snapinsta',
+  };
+}
+
+// link → item(s) pronto(s) para processarItem. Camadas: sessão (API app) → yt-dlp → embed → SnapInsta.
 async function itemDeLink(link) {
   const info = await resolverLink(link);
   if (!info) throw new Error('Link do Instagram não reconhecido');
@@ -551,17 +652,22 @@ async function itemDeLink(link) {
       const us = await igProfile(info.username).catch(() => null);
       if (us?.id) {
         const st = await igStories(us.id, info.username);
-        const hit = st.items?.find(x => String(x.shortcode) === String(info.pk));
+        const hit = info.pk && st.items?.find(x => String(x.shortcode) === String(info.pk));
         if (hit) return [hit];
-        if (st.items?.length && !st.needsLogin) throw new Error(`Esse story de @${info.username} já expirou (não está nos activos)`);
+        if (info.pk && st.items?.length && !st.needsLogin) throw new Error(`Esse story de @${info.username} já expirou (não está nos activos)`);
       }
     } catch (e) { if (/expirou/.test(e.message)) throw e; }
-    // 2. yt-dlp no URL do story
+    // 2. provider público testado: link ou @user → stories activos, sem sessão.
+    try {
+      const item = await storyPublicItem(info.url);
+      if (item.medias.length) return [item];
+    } catch {}
+    // 3. yt-dlp fica como último recurso para um link de story específico.
     try {
       const it = await ytdlpUrl(info.url);
       if (it?.medias?.[0]?.url) return [{ ...it, username: info.username }];
     } catch {}
-    throw new Error(`Story de @${info.username} indisponível (expirou ou o IG bloqueou — tenta ${'{p}'}cap story @${info.username})`);
+    throw new Error(`Story de @${info.username} indisponível (expirou, é privado ou os providers públicos falharam)`);
   }
   if (info.tipo === 'highlight') {
     // sessão: reels_media highlight:<rid>
@@ -599,6 +705,11 @@ async function itemDeLink(link) {
     const it = await embedItem(info.shortcode);
     if (it?.medias?.[0]?.url) return [it];
   } catch (e) { erros.push('embed: ' + e.message.slice(0, 60)); }
+  // Serviço externo público, somente para posts/reels. Não usa sessão IG.
+  try {
+    const it = await snapInstaItem(info.url, info);
+    if (it?.medias?.[0]?.url) return [it];
+  } catch (e) { erros.push('SnapInsta: ' + e.message.slice(0, 60)); }
   // sessão: shortcode → media info via oEmbed (dá o pk) → /media/{pk}/info/
   try {
     const oe = await httpGet(`https://api.instagram.com/oembed/?url=${encodeURIComponent(info.url)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
@@ -872,6 +983,46 @@ async function htmlPayload(username) {
   return out;
 }
 
+// Consulta complementar somente de perfis públicos por @usuario. A página é
+// server-rendered, por isso continua útil quando os endpoints do Instagram
+// devolvem 429. Não usamos o proxy de mídia desse site nem qualquer sessão.
+function _metricIqSaved(value) {
+  const m = String(value || '').trim().replace(/\s+/g, '').match(/^([\d.,]+)([KMB])?$/i);
+  if (!m) return 0;
+  let n = parseFloat(m[1].replace(/\.(?=.*\.)/g, '').replace(',', '.'));
+  if (!Number.isFinite(n)) return 0;
+  const suffix = (m[2] || '').toUpperCase();
+  if (suffix === 'K') n *= 1e3; else if (suffix === 'M') n *= 1e6; else if (suffix === 'B') n *= 1e9;
+  return Math.round(n);
+}
+function _iqText(value) {
+  return String(value || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim();
+}
+async function perfilPublicoIqSaved(username) {
+  const u = normUser(username);
+  if (!/^[a-z0-9._]{1,30}$/i.test(u)) throw new Error('Utilizador Instagram inválido');
+  const r = await httpGet(`https://iqsaved.com/pt/viewer/${encodeURIComponent(u)}/`, {
+    proxy: false, timeout: 30000,
+    headers: { 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8' },
+  });
+  if (r.status !== 200) throw new Error(`IQSaved HTTP ${r.status}`);
+  const html = r.body.toString('utf8');
+  const foundUser = (html.match(/profile-info__username[^>]*>\s*@?([^\s<]+)/i) || [])[1] || '';
+  if (foundUser.toLowerCase() !== u) throw new Error('Perfil público não encontrado');
+  const field = (name) => _iqText((html.match(new RegExp(`${name}[^>]*>([\\s\\S]*?)<\\/`, 'i')) || [])[1]);
+  return {
+    username: u,
+    nome: field('profile-info__fullname'),
+    bio: field('profile-info__biography'),
+    posts: _metricIqSaved(field('profile-info__stats-posts')),
+    seguidores: _metricIqSaved(field('profile-info__stats-followers')),
+    seguindo: _metricIqSaved(field('profile-info__stats-follows')),
+    verificado: /profile-info__is-verified(?![^"']*is-hidden)/i.test(html),
+    privado: false,
+    fonte: 'iqsaved-public',
+  };
+}
+
 async function perfilStats(username) {
   const u = normUser(username);
   const ck = 'p:' + u;
@@ -946,6 +1097,20 @@ async function perfilStats(username) {
       }
     } catch {}
   }
+  // FONTE 5: consulta pública por @ no IQSaved. Só entra quando os canais
+  // oficiais não devolveram números; evita depender dela em operação normal.
+  if (!out.seguidores && !out.posts) {
+    try {
+      const pub = await perfilPublicoIqSaved(u);
+      out.nome = out.nome || pub.nome;
+      out.bio = out.bio || pub.bio;
+      out.seguidores = pub.seguidores || 0;
+      out.seguindo = pub.seguindo || 0;
+      out.posts = pub.posts || 0;
+      out.verificado = out.verificado || pub.verificado;
+      out.fontes.push(pub.fonte);
+    } catch {}
+  }
   // v12.9.20: SNAPSHOT de crescimento (série histórica p/ /api/ig/crescimento)
   if (out.seguidores > 0) {
     try {
@@ -991,7 +1156,9 @@ async function rescueProfile(u) {
     } catch {}
   }
   let st = {}; try { st = await perfilStats(un); } catch {}
-  if (!items.length && !st.seguidores && !st.posts) return null;
+  // igProfile precisa de itens reais; estatísticas isoladas continuam em
+  // perfilStats/cap stats e não devem fingir que o feed foi lido.
+  if (!items.length) return null;
   return {
     id: st.id || '', username: un, nome: st.nome || '@' + un, bio: st.bio || '',
     privado: !!st.privado, verificado: !!st.verificado,
@@ -1591,8 +1758,8 @@ module.exports = {
   PROVIDERS, DATA_DIR, DEFAULT_INTERVAL_MIN,
   load, save, arrancar, _reset, state,
   parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
-  validarSessao, validarSessaoDuplo, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv, sincronizar, inferirUsername, feedViaGraphql, feedViaApp, perfilStats, rescueProfile, addWebhook, delWebhook, listWebhooks, limparCache, crescimento, htmlPayload, fotoHD, igGetApp,
-  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, itemDeLink, normalizarCookies, sniffMime, baixarMedia,
+  validarSessao, validarSessaoDuplo, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv, sincronizar, inferirUsername, feedViaGraphql, feedViaApp, perfilStats, perfilPublicoIqSaved, rescueProfile, addWebhook, delWebhook, listWebhooks, limparCache, crescimento, htmlPayload, fotoHD, igGetApp,
+  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, snapInstaItem, snapInstaPublicMedias, storiesPublicas, storyPublicItem, itemDeLink, normalizarCookies, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
   start, stop, tick,

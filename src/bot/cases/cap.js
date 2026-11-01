@@ -67,7 +67,7 @@ const AJUDA = (p) => [
   `▸ ${p}cap log — últimas capturas (baixou / falhou / enviou)`,
   `▸ ${p}cap login <sessionid> — sessão IG (stories, highlights, feed completo) · ${p}cap login <user> <senha> (PV) · ${p}cap codigo 123456 (verificação) · ${p}cap sessoes · ${p}cap testar · ${p}cap logout [@conta|all]`,
   '',
-  `> Stories e feed completo exigem sessão. Sem sessão: últimos 12 posts públicos.`,
+  `> Stories públicos activos também funcionam sem sessão por @ ou link; conteúdo privado, highlights e feed completo exigem sessão.`,
 ];
 
 module.exports = function registerCap(registerCase) {
@@ -263,7 +263,7 @@ module.exports = function registerCap(registerCase) {
         ...perfilInfo,
         `📤 Destino: ${destino === ctx.remoteJid ? 'este chat' : destino}`,
         `⏱️ Verifica a cada ${t.intervaloMin} min · galeria ${t.guardar ? 'ON' : 'OFF'}`,
-        cap.hasSession('ig') ? '⏳ Stories: ON' : `⏳ Stories: precisa de ${p}cap login <sessionid>`,
+        cap.hasSession('ig') ? '⏳ Stories: ON (inclui sessão)' : `⏳ Stories públicos: ON · privados/highlights: ${p}cap login <sessionid>`,
         '',
         `> Novidades a partir de agora chegam aqui. Para puxar o histórico: ${p}cap all @${t.username}`,
       ]);
@@ -442,11 +442,34 @@ module.exports = function registerCap(registerCase) {
       const limite = Math.min(parseInt(args[2]) || 12, 60);
       const t = cap.getTarget(alvoArg) || { key: cap.keyOf(platform, username), platform, username, destinos: [], guardar: false, stats: {} };
       try {
-        const perfil = await prov.profile(username);
+        // Para stories públicos, não depender do perfil/API do Instagram quando
+        // o IP recebeu 429: o fallback externo só recebe @username, sem cookies.
+        let perfil = null;
+        let publicStoryFallback = null;
+        try { perfil = await prov.profile(username); }
+        catch (profileErr) {
+          if (!/^(storys|story|stories|storiesnow)$/.test(sub)) throw profileErr;
+          publicStoryFallback = await cap.storyPublicItem(username).catch(() => null);
+          if (!publicStoryFallback?.medias?.length) throw profileErr;
+          perfil = { id: '', items: [] };
+        }
         let items = []; let aviso = '';
         if (sub === 'reels') items = perfil.items.filter(i => i.tipo === 'reel');
         else if (sub === 'highlights' || sub === 'destaques') { const h = await prov.highlights(perfil.id, username); items = h.items; if (h.needsLogin) aviso = `⭐ Highlights exigem sessão: ${p}cap login <sessionid>`; }
-        else { const st = await prov.stories(perfil.id, username); items = st.items; if (st.needsLogin) aviso = `⏳ Stories exigem sessão: ${p}cap login <sessionid>`; }
+        else {
+          if (publicStoryFallback) items = [publicStoryFallback];
+          else {
+            const st = await prov.stories(perfil.id, username);
+            items = st.items;
+            // Sem sessão/API limitada, tenta stories públicos pelo @ antes de
+            // informar que é preciso login. Não envia cookies ao provider.
+            if (!items.length) {
+              const publicStory = await cap.storyPublicItem(username).catch(() => null);
+              if (publicStory?.medias?.length) items = [publicStory];
+              else if (st.needsLogin) aviso = `⏳ Stories exigem sessão ou precisam estar públicos/activos: ${p}cap login <sessionid>`;
+            }
+          }
+        }
         if (aviso) return tReply(sock, msg, ctx, '📡 C∆P', [aviso]);
         if (!items.length) return tReply(sock, msg, ctx, '📡 C∆P', [
           `Nada em ${sub} para @${username}.`,
