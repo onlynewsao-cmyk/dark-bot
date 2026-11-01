@@ -9,23 +9,40 @@ const stickerMaker = require('../stickerMaker');
 const config       = require('../../config');
 const ai           = require('../ai');
 
+/**
+ * Resolve a mídia que alimenta o criador principal de stickers.
+ * Todos os aliases usam exatamente esta função: foto, vídeo, GIF (videoMessage
+ * com gifPlayback) e GIF/imagem/vídeo encaminhados como documento. Não há um
+ * caminho especial que corte ou mude a proporção para um dos comandos.
+ */
+function mensagemParaSticker(m) {
+  const raw = m?.msg?.message || {};
+  const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
+  const aceita = (message) => {
+    if (!message || typeof message !== 'object') return false;
+    if (message.imageMessage || message.videoMessage) return true;
+    const mime = String(message.documentMessage?.mimetype || '').toLowerCase();
+    return /^(image|video)\//.test(mime);
+  };
+  if (aceita(raw)) return m.msg;
+  if (aceita(quoted)) return { message: quoted };
+  return null;
+}
+
 module.exports = function registerStickerCases(registerCase) {
 
-  // ── !sticker / !s — Foto/Vídeo → Sticker ─────────────────────────
-  registerCase(['sticker', 's', 'fig', 'figurinha'], async ({ m, sock, ctx, isOwner, reply, react }) => {
-    const raw = m.msg?.message || {};
-    const quoted = raw.extendedTextMessage?.contextInfo?.quotedMessage;
-    const srcMsg = (raw.imageMessage || raw.videoMessage)
-      ? m.msg
-      : (quoted?.imageMessage || quoted?.videoMessage)
-        ? { message: quoted }
-        : null;
-    if (!srcMsg) return reply('🎨 Envie ou responda uma foto/vídeo com *!sticker*');
+  // ── !sticker / !s / !fig / !f — Foto/Vídeo/GIF → Sticker ─────────
+  // A saída é sempre o motor create(): canvas único 512×512, contain e sem
+  // crop. Assim a imagem completa é preservada e reescalada de forma igual.
+  registerCase(['sticker', 's', 'fig', 'f', 'figurinha'], async ({ m, sock, ctx, isOwner, reply, react }) => {
+    const srcMsg = mensagemParaSticker(m);
+    if (!srcMsg) return reply('🎨 Envie ou responda uma foto, vídeo ou GIF com *!sticker*');
     react('⏳');
     try {
       const buf = await mediaHandler.downloadFromMessage(srcMsg);
       const mime = stickerMaker.detectMime ? stickerMaker.detectMime(buf) : 'image/jpeg';
-      const isAnimated = !!(srcMsg.message?.videoMessage || quoted?.videoMessage) || mime === 'image/gif';
+      const isAnimated = !!srcMsg.message?.videoMessage || mime === 'image/gif' ||
+        (mime === 'image/webp' && !!stickerMaker.isAnimatedWebp?.(buf));
       const stk = await stickerMaker.create(buf, {
         botName: config.bot.name, ownerName: config.owner.name,
         userName: ctx.pushName, groupName: ctx.groupName || 'PV', isVideo: isAnimated,

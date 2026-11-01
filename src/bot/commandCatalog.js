@@ -58,7 +58,7 @@ const CATALOG = [
   { name: 'pinmp4', category: 'downloads', emoji: '🎬', description: 'Baixa vídeo MP4 do Pinterest por link', native: true },
 
   // ===== STICKERS =====
-  { name: 'sticker', category: 'stickers', emoji: '🎨', description: 'Cria sticker preservando a imagem inteira, sem corte', native: true },
+  { name: 'sticker', category: 'stickers', emoji: '🎨', description: 'Cria sticker 512×512 preservando toda a foto, vídeo ou GIF, sem corte', native: true, aliases: ['s', 'fig', 'f', 'figurinha'] },
   { name: 'sfull', category: 'stickers', emoji: '🖼️', description: 'Sticker mostrando a imagem inteira sem cortar', native: true },
   { name: 'stickerwm', category: 'stickers', emoji: '💧', description: 'Configura marca d\'água/metadados dos stickers', native: true, ownerOnly: true },
   { name: 'definestickwm', category: 'stickers', emoji: '💧', description: 'Activa a marca dos stickers deste grupo (nome ou link de canal/grupo)', ownerOrAdmin: true },
