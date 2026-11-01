@@ -2,11 +2,12 @@
  * DARK BOT v7.3 — YT Download Engine
  * ─────────────────────────────────────────────────────────────
  * Estratégia multi-fallback (por ordem de prioridade):
- *  1. yt-dlp local (se instalado — funciona no Render)
- *  2. @distube/ytdl-core (stream directo)
- *  3. youtubei.js (stream directo)
- *  4. Loader.to (serviço externo — funciona em qualquer lado)
- *  5. SystemZone /api/ytmp4 (quando disponível)
+ *  1. Piped proxy público verificado (sem chave nem configuração)
+ *  2. yt-dlp local
+ *  3. @distube/ytdl-core (stream directo)
+ *  4. youtubei.js (stream directo)
+ *  5. Loader.to (legado)
+ *  6. SystemZone /api/ytmp4 (quando disponível)
  *
  * Áudio: baixa M4A/MP4 → extrai MP3 com ffmpeg
  * Vídeo: baixa MP4 directo
@@ -24,6 +25,12 @@ const yts        = require('yt-search');
 const SZ_URL = (process.env.SYSTEMZONE_API_URL || 'https://systemzone.store').replace(/\/$/, '');
 const SZ_KEY = process.env.SYSTEMZONE_API_KEY || 'freekey';
 const MAX_SEC = Number(process.env.MAX_YOUTUBE_SECONDS || 5400);
+// Instância Piped testada com transferência completa de MP4 no ambiente do
+// bot. Não pede chave, cookie ou variável. Aceitamos estritamente o proxy da
+// própria instância para evitar seguir URLs arbitrárias da resposta pública.
+const PIPED_API_URL = 'https://api.piped.private.coffee';
+const PIPED_PROXY_HOST = 'proxy.piped.private.coffee';
+const PIPED_MAX_BYTES = 50 * 1024 * 1024;
 const videoCompat = require('./videoCompat');
 
 // ─── ffmpeg ──────────────────────────────────────────────────
@@ -79,7 +86,6 @@ function writeYtCookies(tmpDir) {
     return file;
   } catch { return ''; }
 }
-function hasYtCookies() { return !!(process.env.YT_COOKIES_BASE64 || process.env.YTDLP_COOKIES_BASE64); }
 function youtubeBlocked(err) { return /sign in to confirm|not a bot|login required|no video formats|http error 403/i.test(String(err?.message || err || '')); }
 
 // Auto-actualização em segundo plano (no máximo 1×/12 h) quando o YouTube
@@ -159,6 +165,87 @@ async function fetchJson(url, timeoutMs = 30000) {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   } finally { clearTimeout(t); }
+}
+
+// ─── Piped (sem chave; API e proxy verificados em transferência real) ───
+function pipedProxyUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.hostname === PIPED_PROXY_HOST ? url : null;
+  } catch { return null; }
+}
+
+function streamHeight(stream) {
+  const match = String(stream?.quality || '').match(/(\d{3,4})p/i);
+  return Number(match?.[1] || 0);
+}
+
+function isPipedMp4Stream(stream) {
+  return !!(stream?.url && !stream?.videoOnly &&
+    (/video\/mp4/i.test(stream.mimeType || '') || /MPEG_4|MP4/i.test(stream.format || '')) &&
+    pipedProxyUrl(stream.url));
+}
+
+function selectPipedStream(data, audioOnly, maxHeight = 720) {
+  const audio = (data?.audioStreams || [])
+    .filter(stream => stream?.url && /audio\//i.test(stream.mimeType || '') && pipedProxyUrl(stream.url))
+    .sort((a, b) => Number(b.bitrate || 0) - Number(a.bitrate || 0));
+  if (audioOnly && audio.length) return audio[0];
+
+  // Alguns vídeos expõem somente MP4 combinado (áudio + vídeo). Para áudio,
+  // escolhemos a menor qualidade disponível e extraímos MP3 localmente.
+  const muxed = (data?.videoStreams || [])
+    .filter(isPipedMp4Stream)
+    .filter(stream => streamHeight(stream) > 0)
+    .sort((a, b) => streamHeight(a) - streamHeight(b));
+  if (!muxed.length) return null;
+  if (audioOnly) return muxed[0];
+
+  const target = Number(maxHeight) || 720;
+  const withinTarget = muxed.filter(stream => streamHeight(stream) <= target);
+  const candidates = withinTarget.length ? withinTarget : muxed;
+  return candidates[candidates.length - 1];
+}
+
+async function fetchPipedBuffer(streamUrl, maxBytes = PIPED_MAX_BYTES, timeoutMs = 120000) {
+  const url = pipedProxyUrl(streamUrl);
+  if (!url) throw new Error('Piped devolveu origem de mídia não autorizada');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'DarkBot/7.3' } });
+    if (!response.ok) throw new Error('Piped mídia: HTTP ' + response.status);
+    const declared = Number(response.headers.get('content-length') || 0);
+    if (declared > maxBytes) throw new Error('Piped mídia excede 50 MB');
+    if (!response.body) throw new Error('Piped mídia sem conteúdo');
+
+    const reader = response.body.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      total += value.length;
+      if (total > maxBytes) {
+        try { await reader.cancel(); } catch {}
+        throw new Error('Piped mídia excede 50 MB');
+      }
+      chunks.push(value);
+    }
+    const buffer = Buffer.concat(chunks, total);
+    if (buffer.length < 1024) throw new Error('Piped entregou mídia vazia');
+    return buffer;
+  } finally { clearTimeout(timer); }
+}
+
+async function pipedDownload(videoId, audioOnly = true, maxHeight = 720) {
+  if (!/^[\w-]{11}$/.test(String(videoId || ''))) throw new Error('Piped requer ID YouTube válido');
+  const data = await fetchJson(`${PIPED_API_URL}/streams/${encodeURIComponent(videoId)}`, 20000);
+  const stream = selectPipedStream(data, audioOnly, maxHeight);
+  if (!stream) throw new Error('Piped não disponibilizou MP4 com áudio');
+  if (Number(stream.contentLength || 0) > PIPED_MAX_BYTES) throw new Error('Piped mídia excede 50 MB');
+  const buffer = await fetchPipedBuffer(stream.url);
+  return { buffer, title: data?.title || '', duration: Number(data?.duration || 0), quality: stream.quality || '' };
 }
 
 // ─── Busca de vídeo ──────────────────────────────────────────
@@ -461,7 +548,16 @@ async function getAudio(query, quality = '128k') {
 
   const errors = [];
 
-  // 1. yt-dlp
+  // 1. Piped: usa a saída proxy da instância, não o IP do servidor do bot.
+  if (meta.videoId) {
+    try {
+      const r = await pipedDownload(meta.videoId, true);
+      const mp3buf = await extractAudioFromBuffer(r.buffer, quality);
+      return { ...meta, title: r.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'Piped' };
+    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 80)); }
+  }
+
+  // 2. yt-dlp
   let bloqueadoNoYoutube = false;
   try {
     const buf = await ytdlpDownload(meta.url, true, quality, '720');
@@ -474,14 +570,14 @@ async function getAudio(query, quality = '128k') {
   // Quando o YouTube bloqueou o IP, ytdl-core e youtubei recebem a mesma
   // barreira. Não gastar dezenas de segundos em duas tentativas redundantes.
   if (!bloqueadoNoYoutube) {
-    // 2. @distube/ytdl-core
+    // 3. @distube/ytdl-core
     try {
       const { buf } = await distubeDlAudio(meta.url);
       const mp3buf = await extractAudioFromBuffer(buf, quality);
       return { ...meta, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'ytdl-core' };
     } catch (e) { errors.push('ytdl-core: ' + e.message?.slice(0, 60)); }
 
-    // 3. youtubei.js
+    // 4. youtubei.js
     if (meta.videoId) {
       try {
         const m4abuf = await youtubeijsStream(meta.videoId, true);
@@ -493,7 +589,7 @@ async function getAudio(query, quality = '128k') {
     errors.push('YouTube bloqueou IP; saltados ytdl-core/youtubei redundantes');
   }
 
-  // 4. Loader.to
+  // 5. Loader.to (legado)
   try {
     const r = await loaderDownload(meta.url, 'mp3');
     // Loader.to pode ignorar o bitrate pedido; normalizamos sempre com
@@ -502,7 +598,7 @@ async function getAudio(query, quality = '128k') {
     return { ...meta, title: r.title || meta.title, buffer: mp3buf, mimetype: 'audio/mpeg', ext: 'mp3', quality, source: 'loader.to' };
   } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
 
-  // 5. SystemZone
+  // 6. SystemZone
   try {
     const info = await szDownloadMP4(meta.url);
     const mp4buf = await fetchBuf(info.url, 120000);
@@ -513,8 +609,8 @@ async function getAudio(query, quality = '128k') {
   } catch (e) { errors.push('SZ: ' + e.message?.slice(0, 60)); }
 
   console.error('[ytdl.getAudio] ' + errors.length + ' métodos falharam:', errors.join(' | '));
-  const dica = bloqueadoNoYoutube && !hasYtCookies()
-    ? '\n\n⚙️ Dono: o YouTube bloqueou o IP do servidor. Configure YT_COOKIES_BASE64 (cookies Netscape em base64) ou YTDLP_PROXY.'
+  const dica = bloqueadoNoYoutube
+    ? '\n\n⚙️ O YouTube bloqueou o IP local e o Piped não respondeu com mídia agora. Tenta novamente mais tarde.'
     : '';
   throw new Error('❌ Download indisponível. Tenta de novo.' + dica + '\n\n🎵 Link: ' + meta.url);
 }
@@ -529,13 +625,25 @@ async function getVideo(query, maxHeight = '720') {
 
   const errors = [];
 
-  // 1. yt-dlp
+  // 1. Piped: MP4 combinado já contém áudio e vídeo, pronto para WhatsApp.
+  if (meta.videoId) {
+    try {
+      let buf = (await pipedDownload(meta.videoId, false, maxHeight)).buffer;
+      if (buf.length > 15 * 1024 * 1024) {
+        const compressed = await compressVideoForWhatsApp(buf);
+        if (compressed?.length && compressed.length < buf.length) buf = compressed;
+      }
+      return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(buf), source: 'Piped' };
+    } catch (e) { errors.push('Piped: ' + e.message?.slice(0, 80)); }
+  }
+
+  // 2. yt-dlp
   try {
     const buf = await ytdlpDownload(meta.url, false, '128k', maxHeight);
     return { ...meta, buffer: buf, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(buf), source: 'yt-dlp' };
   } catch (e) { errors.push('yt-dlp: ' + e.message?.slice(0, 60)); }
 
-  // 2. youtubei.js
+  // 3. youtubei.js
   if (meta.videoId) {
     try {
       const buf = await youtubeijsStream(meta.videoId, false);
@@ -543,13 +651,13 @@ async function getVideo(query, maxHeight = '720') {
     } catch (e) { errors.push('youtubei: ' + e.message?.slice(0, 60)); }
   }
 
-  // 3. Loader.to
+  // 4. Loader.to (legado)
   try {
     const r = await loaderDownload(meta.url, maxHeight);
     return { ...meta, title: r.title || meta.title, buffer: r.buffer, mimetype: 'video/mp4', ext: 'mp4', quality: actualVideoQuality(r.buffer), source: 'loader.to' };
   } catch (e) { errors.push('loader.to: ' + e.message?.slice(0, 60)); }
 
-  // 4. SystemZone
+  // 5. SystemZone
   try {
     const info = await szDownloadMP4(meta.url);
     const buf = await fetchBuf(info.url, 180000);
