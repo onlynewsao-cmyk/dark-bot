@@ -49,3 +49,20 @@ if (mortos.length) {
   process.exit(1);
 }
 console.log('✅ Nenhum comando de INTERAÇÕES & FAMÍLIA está morto.\n');
+
+// Regressão: havia dois motores de interação. O case antigo exigia uma key
+// Tenor (e usava URLs de fallback inválidas), enquanto o pacote moderno usava
+// gifHelper. Isto fazia o mesmo gesto ora vir com GIF, ora apenas texto.
+const legacy = fs.readFileSync(path.join(ROOT, 'cases', 'interacoes2.js'), 'utf8');
+const gifs = fs.readFileSync(path.join(ROOT, 'gifHelper.js'), 'utf8');
+const checks = [
+  ['case usa gifHelper unificado', /const \{ sendWithGif \} = require\('\.\.\/gifHelper'\)/.test(legacy)],
+  ['case delega gestos canónicos ao pacote', /canonicalInteractions/.test(legacy)],
+  ['case não depende de chave Tenor', !/tenorApiKey|getInteractionGif|async function getGif/.test(legacy)],
+  ['case não envia URL GIF crua', !/video:\s*\{\s*url:\s*gifUrl/.test(legacy)],
+  ['helper mantém fontes sem filtro de conteúdo', /contentfilter=off/.test(gifs)],
+];
+for (const [name, pass] of checks) {
+  if (!pass) { console.log(`❌ GIF unificado: ${name}`); process.exit(1); }
+  console.log(`  ✅ GIF unificado: ${name}`);
+}

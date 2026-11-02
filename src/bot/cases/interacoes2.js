@@ -5,39 +5,13 @@
 'use strict';
 
 const config = require('../../config');
+const { sendWithGif } = require('../gifHelper');
+const canonicalInteractions = require('../packages/interactions');
 const R = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
 const P = a => a[Math.floor(Math.random() * a.length)];
 
-// ── GIFs para interações (Tenor fallback + URLs directas) ──
-const INTERACTION_GIFS = {
-  soco: ['https://media.tenor.com/images/8b88e0e0e0e0e0e0e0e0e0e0e0e0e0e0/tenor.gif'],
-  beijar: ['https://media.tenor.com/images/kiss-anime.gif'],
-  abracar: ['https://media.tenor.com/images/hug-anime.gif'],
-  tapa: ['https://media.tenor.com/images/slap-anime.gif'],
-  morder: ['https://media.tenor.com/images/bite-anime.gif'],
-  lamber: ['https://media.tenor.com/images/lick-anime.gif'],
-  dancar: ['https://media.tenor.com/images/dance-anime.gif'],
-  cafune: ['https://media.tenor.com/images/pat-anime.gif'],
-  explodir: ['https://media.tenor.com/images/explosion-anime.gif'],
-  matar: ['https://media.tenor.com/images/kill-anime.gif'],
-  proteger: ['https://media.tenor.com/images/protect-anime.gif'],
-  baterrpg: ['https://media.tenor.com/images/sword-fight-anime.gif'],
-};
-
-async function getInteractionGif(action) {
-  // Tentar Tenor API primeiro
-  if (config.tenorApiKey) {
-    try {
-      const axios = require('axios');
-      const r = await axios.get('https://tenor.googleapis.com/v2/search?q=' + encodeURIComponent(action + ' anime') + '&key=' + config.tenorApiKey + '&limit=1&media_filter=gif', { timeout: 5000 });
-      const url = r.data?.results?.[0]?.media_formats?.gif?.url;
-      if (url) return url;
-    } catch {}
-  }
-  // Fallback: URL directa
-  const gifs = INTERACTION_GIFS[action] || INTERACTION_GIFS[action.replace(/r$/, '')];
-  return gifs ? gifs[0] : null;
-}
+// Há dois históricos de interações no bot: cases e packages. Todos usam agora
+// o mesmo gifHelper multi-fonte, sem depender de uma key Tenor ou URLs falsas.
 
 
 // ── Cache de relacionamentos, famílias, clãs, pets ──
@@ -52,23 +26,14 @@ function getFamily(id) { if (!_families.has(id)) _families.set(id, { parent: nul
 function getPets(id) { if (!_pets.has(id)) _pets.set(id, []); return _pets.get(id); }
 function getRep(id) { if (!_reps.has(id)) _reps.set(id, { rep: 0, votes: 0 }); return _reps.get(id); }
 
-// ── GIFs por acção (Tenor API ou fallback emoji) ──
-async function getGif(query) {
-  if (config.tenorApiKey) {
-    try {
-      const axios = require('axios');
-      const r = await axios.get(`https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(query)}&key=${config.tenorApiKey}&limit=1&media_filter=gif`, { timeout: 5000 });
-      return r.data?.results?.[0]?.media_formats?.gif?.url || null;
-    } catch {}
-  }
-  return null;
-}
-
-// Helper resposta com tema
-async function tReply(sock, msg, ctx, title, lines) {
+// Helper resposta com tema. Eventos de interação podem usar o mesmo GIF
+// normalizado; se todas as fontes falharem, sendWithGif devolve o texto.
+async function tReply(sock, msg, ctx, title, lines, { gif = '', mentions = [] } = {}) {
   const RE = require('../renderEngine');
   const t = await RE.getTheme(ctx.remoteJid);
-  return sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, title, lines, { botName: config.bot.name }) }, { quoted: msg });
+  const text = RE.renderBlock(t, title, lines, { botName: config.bot.name });
+  if (gif) return sendWithGif(sock, msg, ctx, text, mentions, gif);
+  return sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
 }
 
 // ── Acções físicas com GIF/emoji ──
@@ -107,55 +72,59 @@ const NSFW_ACTIONS = {
   beijarb: { emoji: '💋', verbs: ['deu um beijo ousado em'] },
 };
 
+// Alias histórico → ação canónica do pacote. Assim um comando antigo e o
+// comando novo enviam exatamente a mesma mídia GIF/MP4 para o WhatsApp.
+const CANONICAL_ACTION_ALIAS = {
+  socar: 'soco', tapar: 'tapa', beijo: 'beijar', abraco: 'abracar',
+  mordida: 'morder', mata: 'matar', lambida: 'lamber',
+};
+// Ações sem equivalente no pacote também passam pelo gifHelper multi-fonte.
+const LEGACY_GIF_QUERY = {
+  lamber: 'lick', lambida: 'lick', explodir: 'power', tomate: 'yeet',
+  proteger: 'care', baterrpg: 'beat',
+  sexo: 'flirt', surubao: 'party', goza: 'flirt', gozar: 'flirt',
+  mamar: 'care', mamada: 'care', beijob: 'kiss', beijarb: 'kiss',
+};
+
 module.exports = function registerInteracoes2(registerCase) {
 
-  // ═══ ACÇÕES FÍSICAS (GIF + MENCÕES + REPLY) ═══
+  // ═══ ACÇÕES FÍSICAS (uma única rota GIF para cases + packages) ═══
   for (const [cmd, data] of Object.entries(ACTIONS)) {
+    const canonical = canonicalInteractions[cmd] || canonicalInteractions[CANONICAL_ACTION_ALIAS[cmd]];
+    // Os comandos existentes no pacote passam pelo mesmo handler que o menu
+    // moderno. Isso elimina o antigo resultado "um tem GIF e outro não".
+    if (typeof canonical === 'function') {
+      registerCase([cmd], canonical, true);
+      continue;
+    }
     registerCase([cmd], async ({ sock, msg, ctx, args }) => {
       const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
       const target = args[0] ? args.join(' ') : 'o ar 😂';
-      const verb = P(data.verbs);
-      const gifUrl = await getGif(data.gif || cmd);
       const mentions = [...mentionedJids];
       const tNum = target.replace(/\D/g, '');
       if (tNum.length >= 8 && !mentions.some(m => m.includes(tNum))) mentions.push(tNum + '@s.whatsapp.net');
-      const caption = data.emoji + ' *' + ctx.pushName + '* ' + verb + ' *' + target + '*';
-      if (gifUrl) {
-        await sock.sendMessage(ctx.remoteJid, { video: { url: gifUrl }, gifPlayback: true, caption, mentions }, { quoted: msg });
-      } else {
-        const RE = require('../renderEngine');
-        const t = await RE.getTheme(ctx.remoteJid);
-        await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' INTERAÇÃO', [caption], { botName: config.bot.name }), mentions }, { quoted: msg });
-      }
-      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
+      const caption = data.emoji + ' *' + ctx.pushName + '* ' + P(data.verbs) + ' *' + target + '*';
+      await sendWithGif(sock, msg, ctx, caption, mentions, LEGACY_GIF_QUERY[cmd] || data.gif || cmd);
+      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } }).catch(() => {});
     }, true);
   }
 
-  // ═══ ACÇÕES NSFW (GIF + MENCÕES + REPLY) ═══
+  // ═══ ACÇÕES ADULTAS (mesmo transporte GIF/MP4; sem depender de key) ═══
   for (const [cmd, data] of Object.entries(NSFW_ACTIONS)) {
     registerCase([cmd], async ({ sock, msg, ctx, args }) => {
       const mentionedJids = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
       const target = args[0] ? args.join(' ') : 'alguém 😏';
-      const verb = P(data.verbs);
-      const gifUrl = await getGif(data.gif || cmd);
       const mentions = [...mentionedJids];
       const tNum = target.replace(/\D/g, '');
       if (tNum.length >= 8 && !mentions.some(m => m.includes(tNum))) mentions.push(tNum + '@s.whatsapp.net');
-      const caption = data.emoji + ' *' + ctx.pushName + '* ' + verb + ' *' + target + '*';
-      if (gifUrl) {
-        await sock.sendMessage(ctx.remoteJid, { video: { url: gifUrl }, gifPlayback: true, caption, mentions }, { quoted: msg });
-      } else {
-        const RE = require('../renderEngine');
-        const t = await RE.getTheme(ctx.remoteJid);
-        await sock.sendMessage(ctx.remoteJid, { text: RE.renderBlock(t, data.emoji + ' NSFW', [caption, '', '> 🔞 Conteúdo adulto'], { botName: config.bot.name }), mentions }, { quoted: msg });
-      }
-      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } });
+      const caption = data.emoji + ' *' + ctx.pushName + '* ' + P(data.verbs) + ' *' + target + '*';
+      await sendWithGif(sock, msg, ctx, caption, mentions, LEGACY_GIF_QUERY[cmd] || 'flirt');
+      sock.sendMessage(ctx.remoteJid, { react: { text: data.emoji, key: msg.key } }).catch(() => {});
     }, true);
   }
 
   // ═══ RELACIONAMENTOS ═══
   registerCase(['namorar'], async ({ sock, msg, ctx, args }) => {
-    const gifUrl = await getGif('love anime couple');
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
     const rel = getRel(ctx.senderNumber);
     if (rel.partner) return tReply(sock, msg, ctx, '💕 NAMORAR', [`❌ Já estás a namorar com ${rel.partner}!`]);
@@ -165,11 +134,10 @@ module.exports = function registerInteracoes2(registerCase) {
     return tReply(sock, msg, ctx, '💕 NAMORAR', [
       `💕 *${ctx.pushName}* começou a namorar com *${target}*!`,
       `❤️ Que sejam felizes!`,
-    ]);
+    ], { gif: 'love' });
   }, true);
 
   registerCase(['casar', 'casamento'], async ({ sock, msg, ctx, args }) => {
-    const gifUrl = await getGif('wedding anime');
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
     const rel = getRel(ctx.senderNumber);
     if (rel.status === 'casado') return tReply(sock, msg, ctx, '💒 CASAR', [`❌ Já estás casado(a)!`]);
@@ -180,11 +148,10 @@ module.exports = function registerInteracoes2(registerCase) {
       `💒 *${ctx.pushName}* casou com *${target}*!`,
       `💍 Que o amor dure para sempre!`,
       `📅 ${new Date().toLocaleDateString('pt-BR')}`,
-    ]);
+    ], { gif: 'marry' });
   }, true);
 
   registerCase(['terminar'], async ({ sock, msg, ctx }) => {
-    const gifUrl = await getGif('breakup anime sad');
     const rel = getRel(ctx.senderNumber);
     if (!rel.partner) return tReply(sock, msg, ctx, '💔 TERMINAR', [`❌ Não estás num relacionamento`]);
     const ex = rel.partner;
@@ -193,18 +160,17 @@ module.exports = function registerInteracoes2(registerCase) {
     return tReply(sock, msg, ctx, '💔 TERMINAR', [
       `💔 *${ctx.pushName}* terminou com *${ex}*`,
       `😢 Melhor sorte da próxima vez...`,
-    ]);
+    ], { gif: 'divorce' });
   }, true);
 
   registerCase(['trair'], async ({ sock, msg, ctx, args }) => {
-    const gifUrl = await getGif('cheating anime drama');
     const rel = getRel(ctx.senderNumber);
     if (!rel.partner) return tReply(sock, msg, ctx, '😈 TRAIR', [`❌ Não tens parceiro(a) para trair`]);
     const target = args[0]?.replace(/[@+]/g, '') || 'alguém';
     return tReply(sock, msg, ctx, '😈 TRAIÇÃO', [
       `😈 *${ctx.pushName}* traiu *${rel.partner}* com *${target}*!`,
       `💔 Que vergonha...`,
-    ]);
+    ], { gif: 'betrayal' });
   }, true);
 
   registerCase(['relacionamento', 'brincadeira', 'namoro'], async ({ sock, msg, ctx }) => {
