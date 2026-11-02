@@ -9,7 +9,8 @@
  *  • Detecta se baixou ou não (tamanho, mimetype, erro) e regista log
  *  • Destinos: grupos/PV/canal do WhatsApp + galeria em disco
  *  • "Capture all": baixa tudo o que está disponível do perfil
- *  • Stories: só com sessão IG (cap login <sessionid>) — degrada com aviso
+ *  • Conteúdo público (contas, links e stories) via SnapInsta; sessão IG só para
+ *    conteúdo privado, histórico completo e fallbacks autenticados
  *
  * Estado persistido em data/cap/cap.json (+ espelho em BotConfig quando
  * a BD está ligada).  Nenhum segredo vai para ficheiros versionados —
@@ -545,10 +546,35 @@ async function storiesPublicas(usernameOrLink) {
   throw new Error('SnapInsta não devolveu stories públicos activos');
 }
 
+// O link CDN pode renovar a assinatura em cada consulta. O pathname identifica o
+// story sem guardar um URL assinado nas chaves de monitoramento.
+function publicStoryMediaId(username, media) {
+  const crypto = require('crypto');
+  let stableUrl = String(media?.url || '');
+  try { stableUrl = new URL(stableUrl).pathname; } catch {}
+  return crypto.createHash('sha1').update(`${String(username).toLowerCase()}|${stableUrl}`).digest('hex').slice(0, 24);
+}
+
+// A versão granular é usada pelo monitoramento: cada story tem uma chave
+// estável e só os novos são enviados no próximo ciclo. O comando manual pode
+// continuar a tratar todos como uma única captura através de storyPublicItem.
+async function storiesPublicItems(usernameOrLink) {
+  const pub = await storiesPublicas(usernameOrLink);
+  const now = Date.now();
+  return pub.medias.map((media, index) => ({
+    id: `public_story_${pub.username}_${publicStoryMediaId(pub.username, media)}`,
+    shortcode: `public_story_${pub.username}_${index + 1}`,
+    tipo: 'story', ts: now, caption: '', link: pub.link,
+    medias: [media], username: pub.username, source: pub.source,
+  }));
+}
+
 async function storyPublicItem(usernameOrLink) {
   const pub = await storiesPublicas(usernameOrLink);
+  const signature = pub.medias.map(media => publicStoryMediaId(pub.username, media)).join('|');
+  const crypto = require('crypto');
   return {
-    id: `public_story_${pub.username}_${Date.now()}`,
+    id: `public_story_${pub.username}_${crypto.createHash('sha1').update(signature).digest('hex').slice(0, 24)}`,
     shortcode: `public_story_${pub.username}`,
     tipo: 'story', ts: Date.now(), caption: '', link: pub.link,
     medias: pub.medias, username: pub.username, source: pub.source,
@@ -621,17 +647,19 @@ async function snapInstaPublicMedias(link) {
   return medias;
 }
 
-// Fallback sem login para post/reel público.
+// Item público sem sessão para post, reel ou highlight. Stories activos usam
+// storiesPublicItems para manter uma chave individual por mídia.
 async function snapInstaItem(link, resolved = null) {
   const info = resolved || await resolverLink(link);
-  if (!info || !['post', 'reel'].includes(info.tipo) || !isInstagramPostUrl(info.url)) {
-    throw new Error('SnapInsta aceita somente post ou reel público do Instagram');
+  if (!info || !['post', 'reel', 'highlight'].includes(info.tipo) || !isInstagramPostUrl(info.url)) {
+    throw new Error('SnapInsta aceita somente mídia pública do Instagram');
   }
   const medias = await snapInstaPublicMedias(info.url);
+  const key = info.shortcode || info.id;
 
   return {
-    id: `snap_${info.shortcode}`,
-    shortcode: info.shortcode,
+    id: `snap_${key}`,
+    shortcode: info.shortcode || `highlight_${info.id}`,
     tipo: info.tipo,
     ts: 0,
     caption: '',
@@ -642,12 +670,73 @@ async function snapInstaItem(link, resolved = null) {
   };
 }
 
-// link → item(s) pronto(s) para processarItem. Camadas: sessão (API app) → yt-dlp → embed → SnapInsta.
+// O endpoint público também aceita o URL de uma conta. Ele entrega as
+// mídias do perfil sem metadados de post; transformamo-las em itens estáveis
+// para que .cap all, ultimo, reels e o monitoramento funcionem sem login.
+function snapInstaMediaKey(media) {
+  const crypto = require('crypto');
+  let stable = String(media?.url || '');
+  try { stable = new URL(stable).pathname; } catch {}
+  return crypto.createHash('sha1').update(stable).digest('hex').slice(0, 24);
+}
+function snapInstaIsProfilePicture(media) {
+  try { return /\/t51\.75761-19\//.test(new URL(String(media?.url || '')).pathname); }
+  catch { return false; }
+}
+async function snapInstaProfile(username) {
+  const u = normUser(username);
+  if (!/^[a-z0-9._]{1,30}$/i.test(u)) throw new Error('Utilizador Instagram inválido');
+  const link = `https://www.instagram.com/${u}/`;
+  const seen = new Set();
+  const medias = (await snapInstaPublicMedias(link)).filter(media => {
+    if (snapInstaIsProfilePicture(media)) return false;
+    const key = snapInstaMediaKey(media);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!medias.length) throw new Error('SnapInsta não devolveu posts públicos da conta');
+  const now = Date.now();
+  // O provider lista o mais recente primeiro. O motor C∆P usa a ordem antiga
+  // → recente, então .ultimo e o limite de .all continuam coerentes.
+  const items = medias.slice(0, 120).map((media, index) => {
+    const key = snapInstaMediaKey(media);
+    return {
+      id: `snap_profile_${u}_${key}`, shortcode: `public_${key}`,
+      tipo: media.isVideo ? 'reel' : 'post', ts: now - index * 1000,
+      caption: '', link, medias: [media], username: u, source: 'snapinsta',
+    };
+  }).sort((a, b) => a.ts - b.ts);
+  let stats = {};
+  // Só a página pública de estatísticas: não volta a chamar endpoints IG que
+  // costumam responder 429 no servidor sem sessão.
+  try { stats = await perfilPublicoIqSaved(u); } catch {}
+  return {
+    // ID sintético: mantém os fluxos do C∆P que exigem uma chave de perfil,
+    // sem fingir que é o PK privado do Instagram.
+    id: `public_${u}`, username: u, nome: stats.nome || '@' + u, bio: stats.bio || '',
+    privado: false, verificado: !!stats.verificado,
+    seguidores: stats.seguidores || 0, seguindo: stats.seguindo || 0,
+    posts: stats.posts || items.length, highlights: 0,
+    temReels: items.some(item => item.tipo === 'reel'), foto: '',
+    // O provider devolve o conjunto público disponível, não uma paginação
+    // verificável do feed inteiro; não apresentar isso como histórico completo.
+    items, hasMore: true, endCursor: '', via: 'snapinsta-profile',
+  };
+}
+
+// link → item(s) pronto(s) para processarItem. Conteúdo público prioriza
+// SnapInsta sem sessão; sessão, yt-dlp e embed são recuperação para privado/falha.
 async function itemDeLink(link) {
   const info = await resolverLink(link);
   if (!info) throw new Error('Link do Instagram não reconhecido');
   if (info.tipo === 'story') {
-    // 1. sessão: stories activos do user → apanha o pk do link
+    // Público e sem sessão primeiro. Para stories privados/expirados, mantém
+    // o acesso autenticado e o yt-dlp como recuperação.
+    try {
+      const item = await storyPublicItem(info.url);
+      if (item.medias.length) return [item];
+    } catch {}
     try {
       const us = await igProfile(info.username).catch(() => null);
       if (us?.id) {
@@ -657,12 +746,7 @@ async function itemDeLink(link) {
         if (info.pk && st.items?.length && !st.needsLogin) throw new Error(`Esse story de @${info.username} já expirou (não está nos activos)`);
       }
     } catch (e) { if (/expirou/.test(e.message)) throw e; }
-    // 2. provider público testado: link ou @user → stories activos, sem sessão.
-    try {
-      const item = await storyPublicItem(info.url);
-      if (item.medias.length) return [item];
-    } catch {}
-    // 3. yt-dlp fica como último recurso para um link de story específico.
+    // Último recurso para um link de story específico.
     try {
       const it = await ytdlpUrl(info.url);
       if (it?.medias?.[0]?.url) return [{ ...it, username: info.username }];
@@ -670,6 +754,11 @@ async function itemDeLink(link) {
     throw new Error(`Story de @${info.username} indisponível (expirou, é privado ou os providers públicos falharam)`);
   }
   if (info.tipo === 'highlight') {
+    // Highlights públicos também tentam SnapInsta antes de exigir a sessão.
+    try {
+      const it = await snapInstaItem(info.url, info);
+      if (it?.medias?.[0]?.url) return [it];
+    } catch {}
     // sessão: reels_media highlight:<rid>
     const sess = pickSession();
     if (sess) {
@@ -695,8 +784,13 @@ async function itemDeLink(link) {
     } catch {}
     throw new Error('Highlight indisponível (sessão precisa de estar válida — .cap login <cookies>)');
   }
-  // post / reel / tv
+  // post / reel / tv: padrão público e sem cookies primeiro.
   const erros = [];
+  try {
+    const it = await snapInstaItem(info.url, info);
+    if (it?.medias?.[0]?.url) return [it];
+  } catch (e) { erros.push('SnapInsta: ' + e.message.slice(0, 60)); }
+  // Privado ou SnapInsta temporariamente indisponível: rotas legadas.
   try {
     const it = await ytdlpUrl(info.url);
     if (it?.medias?.[0]?.url) return [it];
@@ -705,11 +799,6 @@ async function itemDeLink(link) {
     const it = await embedItem(info.shortcode);
     if (it?.medias?.[0]?.url) return [it];
   } catch (e) { erros.push('embed: ' + e.message.slice(0, 60)); }
-  // Serviço externo público, somente para posts/reels. Não usa sessão IG.
-  try {
-    const it = await snapInstaItem(info.url, info);
-    if (it?.medias?.[0]?.url) return [it];
-  } catch (e) { erros.push('SnapInsta: ' + e.message.slice(0, 60)); }
   // sessão: shortcode → media info via oEmbed (dá o pk) → /media/{pk}/info/
   try {
     const oe = await httpGet(`https://api.instagram.com/oembed/?url=${encodeURIComponent(info.url)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
@@ -1174,6 +1263,16 @@ async function igProfile(username) {
   const _ck = 'p:' + u;
   const _hit = _profCache.get(_ck);
   if (_hit && Date.now() - _hit.at < 180e3) return _hit.v;
+  // Conta pública sem login: SnapInsta já devolve as mídias do perfil e evita
+  // a cadeia Instagram que recebe 429 neste IP. Sessões continuam prioritárias
+  // para privado, feed completo e qualquer fallback autenticado.
+  if (!sessionsAtivas().length) {
+    try {
+      const pub = await snapInstaProfile(u);
+      _profCache.set(_ck, { at: Date.now(), v: pub });
+      return pub;
+    } catch {}
+  }
   // v12.9.21: CANAL DA APP PRIMEIRO — web_profile_info (web-UA) é o mais
   // bloqueado de todos; users/search e feed/user com UA da APP provaram passar.
   let r = await igGetApp(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
@@ -1579,13 +1678,28 @@ function limparCache() {
   return n;
 }
 
+// O feed pode vir da sessão/GraphQL, mas a transferência de cada post público
+// passa sempre pelo provider unificado. Se ele não responder, o URL do feed
+// autenticado continua intacto como fallback — inclusive para perfis privados.
+async function itemComMidiasPublicas(item) {
+  if (item?.source === 'snapinsta' || !item?.link) return item;
+  try {
+    const info = await resolverLink(item.link);
+    if (!info || !['post', 'reel', 'highlight'].includes(info.tipo)) return item;
+    const publico = await snapInstaItem(info.url, info);
+    if (!publico?.medias?.length) return item;
+    return { ...item, medias: publico.medias, source: 'snapinsta' };
+  } catch { return item; }
+}
+
 async function processarItem(sock, t, item, { destinos, guardar = t.guardar, forcar = false } = {}) {
   if (!forcar && jaVisto(t.key, item.id)) return { skipped: true };
+  const mediaItem = await itemComMidiasPublicas(item);
   const files = []; const erros = [];
-  for (let i = 0; i < item.medias.length; i++) {
+  for (let i = 0; i < mediaItem.medias.length; i++) {
     try {
       let f;
-      try { f = await baixarMedia(item.medias[i]); }
+      try { f = await baixarMedia(mediaItem.medias[i]); }
       catch (e0) {
         // v12.9.11: fallback UNIVERSAL — resolve pelo LINK com a cadeia
         // completa (yt-dlp → embed → oEmbed+sessão → stories/highlights
@@ -1610,16 +1724,16 @@ async function processarItem(sock, t, item, { destinos, guardar = t.guardar, for
       if (guardar) { try { f.path = guardarNoDisco(t.key, item, i, f); } catch (e) { erros.push(`disco: ${e.message}`); } }
     } catch (e) { erros.push(`media ${i + 1}: ${e.message}`); }
   }
-  const baixou = files.length > 0 && files.length === item.medias.length;
+  const baixou = files.length > 0 && files.length === mediaItem.medias.length;
   const parcial = files.length > 0 && !baixou;
   t.stats = t.stats || { baixados: 0, falhados: 0, enviados: 0 };
-  if (baixou || parcial) { t.stats.baixados++; registar({ target: t.key, item: item.shortcode, tipo: item.tipo, status: parcial ? 'parcial' : 'baixado', detalhe: `${files.length}/${item.medias.length} · ${(files.reduce((a, f) => a + f.bytes, 0) / 1048576).toFixed(1)} MB${erros.length ? ' · ' + erros.join('; ') : ''}` }); }
+  if (baixou || parcial) { t.stats.baixados++; registar({ target: t.key, item: item.shortcode, tipo: item.tipo, status: parcial ? 'parcial' : 'baixado', detalhe: `${files.length}/${mediaItem.medias.length} · ${(files.reduce((a, f) => a + f.bytes, 0) / 1048576).toFixed(1)} MB${erros.length ? ' · ' + erros.join('; ') : ''}` }); }
   else { t.stats.falhados++; registar({ target: t.key, item: item.shortcode, tipo: item.tipo, status: 'falhou', detalhe: erros.join('; ') || 'sem media' }); }
 
   let envio = { ok: 0, fail: 0 };
   const dest = destinos || t.destinos || [];
   // envia só se há media baixada, ou se o item é texto puro (sem media); falha total → só log
-  const textoPuro = item.medias.length === 0 && !!item.caption;
+  const textoPuro = mediaItem.medias.length === 0 && !!item.caption;
   if (sock && dest.length && (files.length || textoPuro)) {
     envio = await enviarItem(sock, t, item, files, dest);
     t.stats.enviados += envio.ok;
@@ -1634,7 +1748,7 @@ async function processarItem(sock, t, item, { destinos, guardar = t.guardar, for
     enviadoWhatsApp: envio.ok > 0,
   });
   save();
-  return { skipped: false, baixou, parcial, files: files.length, total: item.medias.length, erros, envio, bytes: files.reduce((a, f) => a + f.bytes, 0) };
+  return { skipped: false, baixou, parcial, files: files.length, total: mediaItem.medias.length, erros, envio, bytes: files.reduce((a, f) => a + f.bytes, 0) };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1652,9 +1766,15 @@ async function verificarAlvo(sock, t, { forcar = false, incluirStories = t.stori
 
     let items = perfil.items;
     if (incluirStories) {
-      const st = await prov.stories(perfil.id, t.username).catch(e => ({ items: [], error: e.message }));
-      res.storiesNeedLogin = !!st.needsLogin;
-      items = items.concat(st.items || []);
+      // Monitoramento público também prioriza SnapInsta. As chaves de cada
+      // story são estáveis, por isso o scheduler não reenvia o mesmo story.
+      const publicStories = t.platform === 'ig' ? await storiesPublicItems(t.username).catch(() => []) : [];
+      if (publicStories.length) items = items.concat(publicStories);
+      else {
+        const st = await prov.stories(perfil.id, t.username).catch(e => ({ items: [], error: e.message }));
+        res.storiesNeedLogin = !!st.needsLogin;
+        items = items.concat(st.items || []);
+      }
     }
 
     // 1.ª verificação: por defeito NÃO despeja o histórico todo — só marca como visto
@@ -1694,11 +1814,19 @@ async function capturarTudo(sock, t, { destinos, limite = 200, onProgress } = {}
   const perfil = await prov.profile(t.username);
   t.userId = perfil.id; t.nome = perfil.nome;
   let items = perfil.items;
-  let completo = !perfil.hasMore;
+  // A lista pública SnapInsta é útil sem login, mas não oferece paginação
+  // verificável; só marcamos completo quando o provider confirma o fim.
+  let completo = !perfil.hasMore && perfil.via !== 'snapinsta-profile';
   const full = await prov.feedAll(perfil.id, t.username).catch(() => ({ items: [], needsLogin: true }));
   if (full.items?.length > items.length) { items = full.items; completo = true; }
-  const st = await prov.stories(perfil.id, t.username).catch(() => ({ items: [] }));
-  items = items.concat(st.items || []);
+  // Stories públicos entram pelo mesmo provider do comando/link; a sessão é
+  // preservada apenas se o provider não enxergar conteúdo privado/expirado.
+  const publicStories = t.platform === 'ig' ? await storiesPublicItems(t.username).catch(() => []) : [];
+  if (publicStories.length) items = items.concat(publicStories);
+  else {
+    const st = await prov.stories(perfil.id, t.username).catch(() => ({ items: [] }));
+    items = items.concat(st.items || []);
+  }
   items = items.slice(-limite);
   const res = { total: items.length, baixados: 0, falhados: 0, enviados: 0, bytes: 0, completo, needsLogin: !!full.needsLogin, perfil };
   for (let i = 0; i < items.length; i++) {
@@ -1759,7 +1887,7 @@ module.exports = {
   load, save, arrancar, _reset, state,
   parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
   validarSessao, validarSessaoDuplo, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv, sincronizar, inferirUsername, feedViaGraphql, feedViaApp, perfilStats, perfilPublicoIqSaved, rescueProfile, addWebhook, delWebhook, listWebhooks, limparCache, crescimento, htmlPayload, fotoHD, igGetApp,
-  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, snapInstaItem, snapInstaPublicMedias, storiesPublicas, storyPublicItem, itemDeLink, normalizarCookies, sniffMime, baixarMedia,
+  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, snapInstaItem, snapInstaPublicMedias, snapInstaProfile, storiesPublicas, storiesPublicItems, storyPublicItem, itemDeLink, normalizarCookies, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
   start, stop, tick,
