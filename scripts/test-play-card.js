@@ -5,10 +5,15 @@ const Module = require('module');
 const originalRequire = Module.prototype.require;
 let buttonsEnabled = true;
 let audioFails = false;
+let primaryReturnsDeadUrl = false;
+let localFallbackCalls = 0;
 const fakeAudio = Buffer.alloc(4096, 1);
 const fakeMediaHandler = {
   isAudioBytes: () => true,
-  fetchBuffer: async () => fakeAudio,
+  fetchBuffer: async (url) => {
+    if (url === 'https://expired.example/audio.mp3') throw new Error('URL expirada');
+    return fakeAudio;
+  },
 };
 
 class FakeButtonV2 {
@@ -32,10 +37,18 @@ const results = [
   { title: 'Faixa Dois', author: 'Artista Dois', duration: '4:02', views: 23456, youtube_url: 'https://youtu.be/BBBBBBBBBBB' },
   { title: 'Faixa Três', author: 'Artista Três', duration: '5:43', views: 34567, youtube_url: 'https://youtu.be/CCCCCCCCCCC' },
 ];
+const fakeYtdl = {
+  getAudio: async (_url, quality) => {
+    localFallbackCalls++;
+    if (audioFails) throw new Error('mock local engine unavailable');
+    return { buffer: fakeAudio, title: 'Faixa Um', mimetype: 'audio/mpeg', quality, source: 'Piped' };
+  },
+};
 const fakeSystemZeroPlay = {
   ytsearch: async () => ({ resultados: results }),
   ytAudio: async (_url, quality) => {
     if (audioFails) throw new Error('mock provider unavailable');
+    if (primaryReturnsDeadUrl) return { url: 'https://expired.example/audio.mp3', title: 'Faixa Um', mimetype: 'audio/mpeg', quality };
     return { buffer: fakeAudio, title: 'Faixa Um', mimetype: 'audio/mpeg', quality };
   },
   sendPlayCard: async () => { throw new Error('unexpected legacy card fallback'); },
@@ -45,6 +58,7 @@ const fakeSystemZeroPlay = {
 Module.prototype.require = function (id) {
   if (id === '../../config' || id === '../config') return { footer: 'DARK BOT', bot: { name: 'DARK BOT' } };
   if (id === '../systemZeroPlay') return fakeSystemZeroPlay;
+  if (id === '../ytdl') return fakeYtdl;
   if (id === '../mediaHandler' || id === './mediaHandler') return fakeMediaHandler;
   if (id === '@systemzero/baileys/lib/MB.cjs') return buttonsEnabled ? { ButtonV2: FakeButtonV2 } : {};
   return originalRequire.apply(this, arguments);
@@ -123,7 +137,19 @@ Module.prototype.require = function (id) {
   assert.ok(!play3FallbackMessage?.opts?.quoted, 'play3 text card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 high-quality audio remains the quoted reply');
 
+  // Uma URL emitida pela API pode expirar antes do Baileys descarregar a mídia.
+  // !play deve então trocar para o motor local, em vez de avisar falha sem tentar.
   buttonsEnabled = true;
+  primaryReturnsDeadUrl = true;
+  localFallbackCalls = 0;
+  r = await run('play');
+  assert.strictEqual(localFallbackCalls, 1, '!play retries with local engine after a dead provider URL');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg),
+    '!play delivers local audio after the provider URL expires');
+  assert.ok(!r.sent.some(x => /não consegui entregar o áudio/i.test(x.reply || '')),
+    '!play does not report an audio failure while the local fallback succeeds');
+
+  primaryReturnsDeadUrl = false;
   audioFails = true;
   r = await run('play');
   assert.strictEqual(r.cards.length, 1, 'video card survives audio-provider failure');

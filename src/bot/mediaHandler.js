@@ -45,6 +45,10 @@ function fetchBuffer(url, redirects = 5, opts = {}) {
 }
 
 async function fetchJson(url, opts = {}) {
+  // Compatibilidade: vários motores antigos passam o timeout como número.
+  // Normalizá-lo evita que uma API morta consuma os 60 s padrão antes do
+  // próximo fallback de download.
+  if (typeof opts === 'number') opts = { timeout: opts };
   const buf = await fetchBuffer(url, 5, opts);
   try { return JSON.parse(buf.toString('utf-8')); }
   catch (e) { throw new Error('JSON inválido'); }

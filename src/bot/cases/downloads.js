@@ -34,21 +34,14 @@ async function sendAudioCard(sock, jid, quoted, r) {
   const fileName = `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`;
 
   let audioBuffer = r.buffer && Buffer.isBuffer(r.buffer) ? r.buffer : null;
-  try {
-    if (!audioBuffer) audioBuffer = await mediaHandler.fetchBuffer(r.url);
-    if (!mediaHandler.isAudioBytes(audioBuffer)) throw new Error('áudio vazio ou inválido');
-    console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' nocover');
-    return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
-  } catch (bufferError) {
-    // Algumas URLs de provider são válidas para o fetch do WhatsApp, mas
-    // expiram/bloqueiam o fetch do Node. Tenta a entrega por URL antes de
-    // trocar de provider; isso evita perder músicas que já foram geradas.
-    if (r.url) {
-      console.log('[MUSIC-SEND]', jid, 'URL', mime, (r.source || r.quality || '') + ' nocover');
-      return sock.sendMessage(jid, { audio: { url: r.url }, mimetype: mime, fileName, ptt: false }, { quoted });
-    }
-    throw bufferError;
-  }
+  // Não delegar uma URL efémera directamente ao WhatsApp. Alguns providers
+  // devolvem link que parece válido, mas expira/recusa o fetch do Baileys e a
+  // mensagem acaba sem áudio para o utilizador. Só confirmamos sucesso depois
+  // de obter e validar os bytes; assim o chamador pode trocar de provider.
+  if (!audioBuffer) audioBuffer = await mediaHandler.fetchBuffer(r.url, { timeout: 25000 });
+  if (!mediaHandler.isAudioBytes(audioBuffer)) throw new Error('áudio vazio ou inválido');
+  console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' nocover');
+  return sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
 }
 
 // ── Helper: envia vídeo MP4 reproduzível no WhatsApp ─────────
@@ -134,15 +127,42 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
 async function enviarAudioResultado(sock, jid, msg, video, quality) {
   const mediaUrl = String(video.youtube_url || video.url || '').trim();
   if (!mediaUrl) throw new Error('resultado sem URL de áudio');
-  const result = await systemZeroPlay.ytAudio(mediaUrl, quality);
-  if (!result || (!result.buffer && !result.url)) throw new Error('provider não devolveu áudio');
-  await sendAudioCard(sock, jid, msg, {
-    ...result,
-    title: result.title || video.title || 'Áudio',
-    author: result.author || video.author || '',
-    duration: result.duration || video.duration || '',
-    mimetype: result.mimetype || 'audio/mpeg',
-  });
+
+  // A API de busca pode devolver uma URL de download expirada. Antes este
+  // erro terminava o !play, mesmo com o motor local/Piped ainda disponível.
+  // A entrega faz parte do provider: se não conseguimos enviar os bytes,
+  // tentamos um segundo motor e só então declaramos falha.
+  let primaryError;
+  try {
+    const result = await systemZeroPlay.ytAudio(mediaUrl, quality);
+    if (!result || (!result.buffer && !result.url)) throw new Error('provider não devolveu áudio');
+    await sendAudioCard(sock, jid, msg, {
+      ...result,
+      title: result.title || video.title || 'Áudio',
+      author: result.author || video.author || '',
+      duration: result.duration || video.duration || '',
+      mimetype: result.mimetype || 'audio/mpeg',
+    });
+    return;
+  } catch (error) {
+    primaryError = error;
+    console.warn('[PLAY AUDIO] provider primário não entregou; a tentar motor local:', error.message?.slice(0, 100));
+  }
+
+  try {
+    const fallback = await ytdl.getAudio(mediaUrl, quality);
+    if (!fallback?.buffer) throw new Error('motor local não devolveu buffer');
+    await sendAudioCard(sock, jid, msg, {
+      ...fallback,
+      title: fallback.title || video.title || 'Áudio',
+      author: fallback.author || video.author || '',
+      duration: fallback.duration || video.duration || '',
+      mimetype: fallback.mimetype || 'audio/mpeg',
+    });
+  } catch (fallbackError) {
+    const primary = primaryError?.message ? `primário: ${primaryError.message}; ` : '';
+    throw new Error(primary + 'fallback: ' + (fallbackError.message || 'falhou'));
+  }
 }
 
 async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resultIndex = 0, quality = {}) {
