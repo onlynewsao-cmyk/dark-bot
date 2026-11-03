@@ -2540,9 +2540,26 @@ async function _handleInner(sock, msg, turn) {
             dest: ctx.dest || null, // v7.83
           });
           ctx._tomLeve = !!d.leve; // v7.83: falam DELA (indirecto) → resposta leve
-          // v7.40: STICKER solto em grupo não puxa resposta (nem do Dark) —
-          // só se for resposta a ela ou menção. No PV responde normal.
-          if (d.responde && ctx.isGroup && msg.message?.stickerMessage && !isBotMentioned && !isReplyToBot) {
+
+          // Consentimento de mídia: uma figurinha/foto/vídeo/documento solto
+          // não é uma pergunta. Não acorda a AURA, não activa conversa nem
+          // deixa uma descrição automática entrar no histórico/memória.
+          const _msgMedia = msg.message || {};
+          const _quotedMedia = getQuotedMessage(msg) || {};
+          const _passiveMediaType = _msgMedia.imageMessage || _quotedMedia.imageMessage ? 'imagem'
+            : _msgMedia.videoMessage || _quotedMedia.videoMessage ? 'video'
+              : _msgMedia.stickerMessage || _quotedMedia.stickerMessage ? 'sticker'
+                : _msgMedia.documentMessage || _quotedMedia.documentMessage ? 'documento' : '';
+          const _passiveText = String(cleanText || text || '').trim();
+          if (d.responde && _passiveMediaType && !_passiveText) {
+            _contaMsg(ctx.remoteJid);
+            return false;
+          }
+
+          // v7.40: sticker solto em grupo não puxa resposta (nem do Dark).
+          // A menção/citação, por si, também não autoriza descrever o sticker:
+          // só um pedido escrito de análise o fará no bloco de mídia abaixo.
+          if (d.responde && ctx.isGroup && _msgMedia.stickerMessage && !isBotMentioned && !isReplyToBot) {
             const pol = require('../aura/auraUniversal').politicaSticker({ isGroup: true, isReplyToBot, mencionada: isBotMentioned, isOwner });
             if (!pol.responde) {
               if (pol.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: chooseAuraReaction('sticker', ctx), key: msg.key } }).catch(() => {});
@@ -2588,6 +2605,13 @@ async function _handleInner(sock, msg, turn) {
       const _modes = _auraModes;
       const _awake = _auraAwakeHere;
 
+      // Também no modo Assistente: anexo visual sozinho não inicia conversa.
+      // Isto impede leitura/descrição automática fora do modo AURA acordado.
+      const _silentMedia = msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.stickerMessage || msg.message?.documentMessage || getQuotedMessage(msg)?.stickerMessage;
+      if (_silentMedia && !String(cleanText || text || '').trim()) {
+        _contaMsg(ctx.remoteJid);
+        return false;
+      }
       const hasMedia = !!(msg.message?.imageMessage || msg.message?.videoMessage || msg.message?.audioMessage || msg.message?.stickerMessage || getQuotedMessage(msg)?.stickerMessage);
       if (!isReplyToBot && !auraTriggerActive && !isOwnerFreeText && cleanText.length < 2 && !hasMedia) return false;
 
@@ -2700,10 +2724,18 @@ async function _handleInner(sock, msg, turn) {
       let _isViewOnce = false;
       const msgObj = msg.message;
       const quotedObj = getQuotedMessage(msg);
+      const mediaConsent = require('../aura/auraMediaConsent');
+      const mediaRequestText = String(cleanText || text || '');
+      const allowImageAnalysis = !!msgObj?.imageMessage && mediaConsent.pediuAnaliseDeMidia({ texto: mediaRequestText, tipo: 'imagem' });
+      const allowVideoAnalysis = !!msgObj?.videoMessage && mediaConsent.pediuAnaliseDeMidia({ texto: mediaRequestText, tipo: 'video' });
+      const allowStickerAnalysis = !!(msgObj?.stickerMessage || quotedObj?.stickerMessage) && mediaConsent.pediuAnaliseDeMidia({ texto: mediaRequestText, tipo: 'sticker' });
+      const allowDocumentAnalysis = !!msgObj?.documentMessage && mediaConsent.pediuAnaliseDeMidia({ texto: mediaRequestText, tipo: 'documento' });
+      const allowVisualInspection = allowImageAnalysis || allowVideoAnalysis || allowStickerAnalysis || allowDocumentAnalysis;
 
-      // v12.2: detecta view-once e salva automaticamente
+      // View-once só é guardado/aberto quando a pessoa pediu análise. Receber
+      // mídia de visualização única não é autorização para a AURA observá-la.
       try {
-        if (isViewOncePayload(msg.message) || msgObj?.imageMessage?.viewOnce || msgObj?.videoMessage?.viewOnce) {
+        if (allowVisualInspection && (isViewOncePayload(msg.message) || msgObj?.imageMessage?.viewOnce || msgObj?.videoMessage?.viewOnce)) {
           _isViewOnce = true;
           console.log('[ViewOnce] Detectado no commandHandler — salvando...');
           const voMod = require('../aura/auraViewOnce');
@@ -2711,7 +2743,7 @@ async function _handleInner(sock, msg, turn) {
         }
       } catch (e) { console.warn('[ViewOnce] detect error', e.message?.slice(0,50)); }
 
-      if (msgObj?.imageMessage) {
+      if (msgObj?.imageMessage && allowImageAnalysis) {
         isImage = true;
         const caption = msgObj.imageMessage.caption || '';
         const viewOncePrefix = _isViewOnce ? '👁️‍🗨️ VIEW-ONCE (visualização única) — tu SALVOU e VÊS! ' : '';
@@ -2727,7 +2759,7 @@ async function _handleInner(sock, msg, turn) {
         if (!mediaContext) {
           mediaContext = `${viewOncePrefix}📸 Alguém enviou uma FOTO.${caption ? ` Legenda: "${caption}"` : ''} ${_isViewOnce ? 'Era view-once mas tu já salvou e vês!' : ''} Comenta apenas com base no conteúdo analisado; não inventes quem aparece nem detalhes que não sejam claros.`;
         }
-      } else if (msgObj?.videoMessage) {
+      } else if (msgObj?.videoMessage && allowVideoAnalysis) {
         isVideo = true;
         const caption = msgObj.videoMessage.caption || '';
         const isGif = msgObj.videoMessage.gifPlayback;
@@ -2758,7 +2790,7 @@ async function _handleInner(sock, msg, turn) {
             ? '🎧 Foi recebido um áudio de voz, mas não há transcrição disponível. Não finjas que conseguiste ouvir ou identificar o conteúdo.'
             : '🎵 Foi recebido um ficheiro de áudio sem transcrição disponível.';
         }
-      } else if (msgObj?.stickerMessage || quotedObj?.stickerMessage) {
+      } else if ((msgObj?.stickerMessage || quotedObj?.stickerMessage) && allowStickerAnalysis) {
         isSticker = true;
         const stkMeta = msgObj?.stickerMessage || quotedObj?.stickerMessage || {};
         const citado = !msgObj?.stickerMessage && !!quotedObj?.stickerMessage;
@@ -2799,7 +2831,7 @@ async function _handleInner(sock, msg, turn) {
             ? '[Mandaram-te uma figurinha ANIMADA. Comenta o que VÊS no movimento.]'
             : '[Mandaram-te uma figurinha. Comenta o que VÊS nela.]';
         }
-      } else if (msgObj?.documentMessage) {
+      } else if (msgObj?.documentMessage && allowDocumentAnalysis) {
         // v7.8 — a AURA LÊ o documento (txt directo / PDF via Gemini)
         try {
           const am = require('../aura/auraMedia');
@@ -2817,7 +2849,8 @@ async function _handleInner(sock, msg, turn) {
 
       // v7.8 — a AURA LÊ links mandados na conversa
       const _urlNaMsg = String(cleanText || text || '').match(/https?:\/\/[^\s<>()"']+/i);
-      if (!mediaContext && _urlNaMsg) {
+      const allowLinkAnalysis = !!_urlNaMsg && mediaConsent.pediuAnaliseDeMidia({ texto: mediaRequestText, tipo: 'link' });
+      if (!mediaContext && _urlNaMsg && allowLinkAnalysis) {
         try {
           const am = require('../aura/auraMedia');
           const r = await am.lerLink(_urlNaMsg[0], require('./ai'));

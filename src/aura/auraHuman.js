@@ -422,7 +422,7 @@ PRÁTICO
     prompt += `\n\nMÍDIA NA MENSAGEM:\n${mediaContext}`;
   }
   if (isSticker) {
-    prompt += `\n\nSe a análise do sticker estiver incluída no contexto, comenta-a de forma breve. Se não estiver, diz que não conseguiste processar o conteúdo.`;
+    prompt += `\n\nO sistema só inclui análise de sticker quando a pessoa a pediu explicitamente. Responde apenas ao pedido concreto e à análise fornecida; não transformes uma figurinha recebida num assunto automático nem digas que a estiveste a observar sem pedido.`;
   }
 
   // Capacidades reais disponíveis; descrevê-las sem inventar identidade ou acesso.
