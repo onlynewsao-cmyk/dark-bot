@@ -1,5 +1,7 @@
 'use strict';
 
+const participantIdentity = require('./participantIdentity');
+
 /**
  * ╔══════════════════════════════════════════════════════════════╗
  * ║   DARK BOT — Anti-Fobados v1 (incoming-cases)                ║
@@ -31,7 +33,7 @@ const CAMPOS_DE_TEXTO = new Set([
 const REGEX_LINK = /(?:https?:\/\/|www\.|chat\.whatsapp\.com\/|whatsapp\.com\/(?:channel|invite)\/|wa\.me\/|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|gg|io|me|app|site|link|xyz|br)(?:\/|\b))/i;
 
 function somenteDigitos(valor) {
-  return String(valor || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+  return participantIdentity.jidNumber(valor);
 }
 
 function botName() {
@@ -110,7 +112,7 @@ function analisarMensagem(message) {
 function jidsDoParticipante(participante) {
   if (!participante) return [];
   if (typeof participante === 'string') return [participante];
-  return [participante.id, participante.jid, participante.lid, participante.phoneNumber, participante.pn]
+  return [participante.id, participante.jid, participante.lid, participante.phoneNumber, participante.pn, participante.pnJid]
     .filter(v => typeof v === 'string' && v);
 }
 
@@ -146,12 +148,13 @@ function botEhAdmin(meta, botId, botNum) {
 // ── Mensagens ────────────────────────────────────────────────────
 
 function painelAviso(alvo, motivo, acao) {
-  const numero = somenteDigitos(alvo) || 'desconhecido';
+  const numero = somenteDigitos(alvo);
+  const usuario = numero ? `@${numero}` : 'Membro';
   return [
     `╔━◈『 *${botName()} • Anti-Fobados* 』◈`,
     `┃`,
     `┃ 𝄞 *Ação   »* ${acao}`,
-    `┃ 𝄞 *Usuário »* @${numero}`,
+    `┃ 𝄞 *Usuário »* ${usuario}`,
     `┃`,
     `┃ 𝄞 *Motivo  »* ${motivo}`,
     `┗━◈`,
@@ -236,11 +239,14 @@ async function onJoin(sock, groupJid, participants, meta) {
     if (!botEhAdmin(metadata, botId, botNum)) return removidos;
 
     for (const entrada of participants || []) {
-      const jidEntrada = typeof entrada === 'string' ? entrada : (jidsDoParticipante(entrada)[0] || '');
+      const idsEntrada = jidsDoParticipante(entrada);
+      // Para operar, PN é preferível; para achar admin no metadata, testa
+      // também o LID exacto associado ao mesmo participante.
+      const jidEntrada = idsEntrada.find(j => /@s\.whatsapp\.net$/i.test(j)) || idsEntrada[0] || '';
       if (!jidEntrada) continue;
-      const participante = encontrarParticipante(metadata.participants, jidEntrada);
+      const participante = idsEntrada.map(id => encontrarParticipante(metadata.participants, id)).find(Boolean) || null;
       const telefone = somenteDigitos(
-        participante?.phoneNumber || participante?.pn ||
+        participante?.phoneNumber || participante?.pn || participante?.pnJid ||
         (jidEntrada.endsWith('@s.whatsapp.net') ? jidEntrada : ''));
       if (!telefone || !blacklist.some(ddi => telefone.startsWith(ddi))) continue;
       if (ehConfiavel(jidEntrada, participante, botId, botNum)) continue;

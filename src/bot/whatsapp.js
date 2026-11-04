@@ -30,6 +30,7 @@ const messageRouter   = require('./messageRouter');
 const antispam        = require('./antiSpam');
 const antiLink        = require('./antiLink');
 const groupEvents     = require('./groupEvents');
+const participantIdentity = require('./participantIdentity');
 
 const AUTH_FOLDER = path.join(__dirname, '..', '..', 'data', 'auth');
 if (!fs.existsSync(AUTH_FOLDER)) fs.mkdirSync(AUTH_FOLDER, { recursive: true });
@@ -615,36 +616,41 @@ class WhatsAppBot {
       });
 
       // Grupos
-      this.sock.ev.on('group-participants.update', async (event) => {
+      this.sock.ev.on('group-participants.update', async (originalEvent) => {
+        // Há eventos modernos em que WhatsApp fornece só @lid. Resolve uma
+        // única vez antes de todos os consumidores (welcome, X9, AURA e
+        // Auto-ADM), para nenhum deles transformar LID em falso telefone.
+        let event = originalEvent;
+        let eventMeta = null;
+        try {
+          eventMeta = await this.sock.groupMetadata(originalEvent.id).catch(() => null);
+          event = { ...(await participantIdentity.resolveGroupParticipantsEvent(this.sock, originalEvent, eventMeta)), _participantMetadata: eventMeta };
+        } catch {}
+
         try { await groupEvents.handle(this.sock, event); } catch {}
         // v7.42: linha do tempo da AURA (quem entrou/saiu/promoveu, quando)
         try {
-          const meta = await this.sock.groupMetadata(event.id).catch(() => null);
-          await require('../aura/auraLinhaTempo').doEventoParticipantes(this.sock, event, meta);
+          await require('../aura/auraLinhaTempo').doEventoParticipantes(this.sock, event, eventMeta);
         } catch {}
         // v7.96: "ela avisa sempre onde entrou" — quando a Aura é
         // ADICIONADA a um grupo, o Dark recebe o relatório em PV.
         try {
           if (event.action === 'add') {
             const selfs = [this.sock.user?.id, this.sock.user?.lid]
-              .map(s => String(s || '').split('@')[0].split(':')[0]).filter(Boolean);
+              .map(s => String(s || '').toLowerCase()).filter(Boolean);
             const fuiEu = (event.participants || []).some(p => {
-              // v11.2.3: participant pode ser string OU { id, phoneNumber, lid }
-              if (p && typeof p === 'object') {
-                const cands = [p.phoneNumber, p.pn, p.id, p.jid, p.lid].filter(Boolean);
-                return cands.some(c => selfs.includes(String(c).split('@')[0].split(':')[0].replace(/\D/g, '')) ||
-                                       selfs.includes(String(c).split('@')[0].split(':')[0]));
-              }
-              return selfs.includes(String(p).split('@')[0].split(':')[0]);
+              const ident = participantIdentity.normalizeParticipant(p);
+              const ids = [ident?.jid, ident?.pnJid, ident?.lid].filter(Boolean).map(v => String(v).toLowerCase());
+              return ids.some(id => selfs.includes(id))
+                || (!!ident?.number && ident.number === participantIdentity.jidNumber(this.sock.user?.id));
             });
             if (fuiEu) {
-              const meta = await this.sock.groupMetadata(event.id).catch(() => null);
-              const autorNumero = String(event.author || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+              const autor = event.authorInfo || participantIdentity.normalizeParticipant(event.author);
               await require('../aura/auraAvisos').avisarEntrada(this.sock, config, {
-                gname: meta?.subject || '',
-                autorNumero,
-                autorNome: '',
-                size: meta?.participants?.length || 0,
+                gname: eventMeta?.subject || '',
+                autorNumero: autor?.number || '',
+                autorNome: autor?.notify || autor?.name || '',
+                size: eventMeta?.participants?.length || 0,
               });
             }
           }

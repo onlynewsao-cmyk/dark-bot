@@ -122,6 +122,7 @@
     "test:cases": "node scripts/test-cases-media.js",
     "test:callvoip": "node scripts/test-call-voip.js",
     "test:incoming": "node scripts/test-incoming-cases.js",
+    "test:group-events": "node scripts/test-group-events-participants.js",
     "test:rpgcontextos": "node scripts/test-rpg-contextos.js",
     "test:mediacloud": "node scripts/test-mediacloud.js",
     "test:planos": "node scripts/test-planos.js",
