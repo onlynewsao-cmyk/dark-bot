@@ -76,7 +76,9 @@ module.exports = function registerAuraAgentCases(registerCase) {
     if (sub === 'executar' || sub === 'executa' || sub === 'run') {
       const step = /^\d+$/.test(rest) ? Number(rest) : undefined;
       try {
-        return reply(resultadoExecucao(await agent.executeStep(ctx.remoteJid, step, runtime), prefix));
+        const result = await agent.executeStep(ctx.remoteJid, step, runtime);
+        // Ex.: enquete nativa já é a própria entrega; não manda texto extra.
+        return result.silent ? true : reply(resultadoExecucao(result, prefix));
       } catch (e) {
         return reply('❌ ' + String(e.message || e).slice(0, 220));
       }
@@ -84,7 +86,8 @@ module.exports = function registerAuraAgentCases(registerCase) {
     if (sub === 'confirmar' || sub === 'confirm') {
       if (!rest) return reply(`❓ Usa o código gerado: \`${prefix}auraagent confirmar CONF-XXXX\`.`);
       try {
-        return reply(resultadoExecucao(await agent.confirmStep(ctx.remoteJid, rest, runtime), prefix));
+        const result = await agent.confirmStep(ctx.remoteJid, rest, runtime);
+        return result.silent ? true : reply(resultadoExecucao(result, prefix));
       } catch (e) {
         return reply('❌ ' + String(e.message || e).slice(0, 220));
       }

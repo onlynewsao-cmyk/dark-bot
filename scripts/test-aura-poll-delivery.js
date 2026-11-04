@@ -33,6 +33,8 @@ const agent = require('../src/aura/auraAgent');
   });
 
   assert.strictEqual(result.ok, true, 'executor confirma criação');
+  assert.strictEqual(result.silencioso, true, 'a criação da enquete não gera texto extra');
+  assert.strictEqual(result.delivery, 'whatsapp_poll');
   assert.strictEqual(sent.length, 1, 'envia uma única mensagem');
   assert.strictEqual(sent[0].target, jid);
   assert.strictEqual(sent[0].content.poll.name, 'Qual formato preferes?');

@@ -296,8 +296,10 @@ async function executar(id, arg, { sock, msg, ctx, texto, contextoTexto, isOwner
       const ex = vt.extrairPergunta(corpo || String(texto || ''));
       if (!ex) return { ok: false, msg: 'Dá-me corpo: «enquete \"pizza ou sushi?\" | pizza | sushi». Sem \"|\" eu tento \"pergunta: a, b ou c\".' };
       try {
-        const e = await vt.criarEnquete(sock, jid, { pergunta: ex.pergunta, opcoes: ex.opcoes, max: ex.max, quoted: msg });
-        return { ok: true, msg: `\ud83d\udcca Lançada: *${e.pergunta.slice(0, 60)}* — ${e.opcoes.length} op[çc]es. O WhatsApp conta; eu voto se mandares «voto N».` };
+        await vt.criarEnquete(sock, jid, { pergunta: ex.pergunta, opcoes: ex.opcoes, max: ex.max, quoted: msg });
+        // Entrega é a enquete nativa do WhatsApp. Não acrescenta texto/card
+        // para não poluir o grupo nem parecer que a enquete é uma simulação.
+        return { ok: true, silencioso: true, delivery: 'whatsapp_poll' };
       } catch (er) { return { ok: false, msg: `A enquete n\u00e3o descolou: ${String(er.message||er).slice(0,70)}` }; }
     }
     case 'votar_casa': {

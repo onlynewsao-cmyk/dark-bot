@@ -70,6 +70,13 @@ const advanced = { detectarMulti: () => [] };
   assert.strictEqual(invocations.length, 1);
   assert.strictEqual(invocations[0].opts.confirmado, true, 'executor só recebe acção após gate do agente');
 
+  await agent.createPlan(jid, 'ação segura', { brain, advanced });
+  result = await agent.executeStep(jid, undefined, runtime, {
+    brain,
+    executor: { executar: async () => ({ ok: true, silencioso: true }) },
+  });
+  assert.strictEqual(result.silent, true, 'agente preserva entrega nativa sem texto adicional');
+
   await agent.createPlan(jid, 'apaga o recurso', { brain, advanced });
   result = await agent.executeStep(jid, 1, runtime, services);
   assert.strictEqual(result.confirmationRequired, true, 'destrutiva pede confirmação antes de executar');

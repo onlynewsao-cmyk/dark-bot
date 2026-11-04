@@ -79,6 +79,14 @@ Module.prototype.require = function (id) {
   assert.strictEqual(receivedStep.step, 2, 'case encaminha o número do passo ao executor do agente');
   assert.strictEqual(receivedStep.runtime.isOwner, true, 'case preserva contexto de Dono na execução');
   assert.match(replies[0], /concluído e verificado/, 'case apresenta resultado verificado');
+  agent.executeStep = async () => ({ ok: true, silent: true, step: { index: 1 }, message: 'não deve ser enviado' });
+  replies.length = 0;
+  await registered.fn({
+    args: ['executar'], text: 'executar', prefix: '!', isOwner: true,
+    isAdminFn: async () => true, sock: {}, msg: {}, ctx: { remoteJid: jid },
+    reply: async text => replies.push(text),
+  });
+  assert.strictEqual(replies.length, 0, 'entrega nativa silenciosa não recebe texto extra do agente');
   agent.executeStep = executeStepOriginal;
 
   const recoverTaskOriginal = agent.recoverTask;

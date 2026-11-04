@@ -393,7 +393,7 @@ async function invokeStep(jid, state, task, step, runtime, executor) {
   refreshTaskStatus(task);
   if (task.status === 'concluida') task.endedAt = Date.now();
   await save(jid, state);
-  return { ok: !!result?.ok, task, step, result, message: step.result };
+  return { ok: !!result?.ok, silent: !!result?.silencioso, task, step, result, message: step.result };
 }
 
 /**
