@@ -50,6 +50,18 @@ const advanced = { detectarMulti: () => [] };
   const services = { brain, executor };
 
   await agent.setEnabled(jid, true);
+  const claudePlanner = {
+    isConfigured: () => true,
+    planTask: async () => ({
+      model: 'claude-fable-5-1', summary: 'Plano Claude de teste.',
+      steps: [{ actionId: 'seguro', input: 'argumento que o Dono não escreveu', reason: 'Teste de validação.' }],
+    }),
+  };
+  let planned = await agent.createPlan(jid, 'ação segura', { brain, advanced, planner: claudePlanner });
+  assert.strictEqual(planned.reasoning.provider, 'claude', 'Claude só entra quando configurado');
+  assert.strictEqual(planned.steps[0].source, 'claude');
+  assert.strictEqual(planned.steps[0].input, 'ação segura', 'modelo não pode inventar argumento fora do pedido do Dono');
+
   await agent.createPlan(jid, 'ação segura', { brain, advanced });
   let result = await agent.executeStep(jid, undefined, runtime, services);
   assert.strictEqual(result.ok, true, 'executa passo seguro');

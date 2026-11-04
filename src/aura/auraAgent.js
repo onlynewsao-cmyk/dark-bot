@@ -144,11 +144,66 @@ function buildPlan(request, { brain, advanced } = {}) {
   };
 }
 
+// A proposta do modelo não recebe autoridade sobre argumentos: cada entrada
+// só pode reutilizar uma parte literal do pedido do Dono. Caso contrário,
+// conserva-se o pedido completo, que o Dono verá antes de executar.
+function safeModelInput(candidate, request) {
+  const original = String(request || '').trim().slice(0, 300);
+  const value = String(candidate || '').trim().slice(0, 300);
+  if (!value) return original;
+  const at = original.toLocaleLowerCase('pt-PT').indexOf(value.toLocaleLowerCase('pt-PT'));
+  return at >= 0 ? original.slice(at, at + value.length) : original;
+}
+
+function applyClaudeProposal(plan, proposal, brain) {
+  const proposed = Array.isArray(proposal?.steps) ? proposal.steps : [];
+  const unique = new Set();
+  const steps = [];
+  for (const item of proposed.slice(0, MAX_STEPS)) {
+    const id = String(item?.actionId || '');
+    const cap = brain?.POR_ID?.get(id);
+    if (!cap || unique.has(id)) continue;
+    unique.add(id);
+    const step = plainPlanStep(steps.length + 1, safeModelInput(item?.input, plan.request), {
+      id,
+      cap,
+      via: 'claude',
+    });
+    step.reason = String(item?.reason || '').slice(0, 300);
+    steps.push(step);
+  }
+  if (!steps.length) return plan;
+  plan.steps = steps;
+  plan.reasoning = {
+    provider: 'claude',
+    model: String(proposal?.model || 'claude').slice(0, 100),
+    status: 'validada',
+    summary: String(proposal?.summary || '').slice(0, 500),
+  };
+  addEvent(plan, 'plano_revisado_claude', { steps: steps.length, model: plan.reasoning.model });
+  return plan;
+}
+
+async function enhancePlanWithClaude(plan, request, brain, planner) {
+  if (!planner?.isConfigured?.()) return plan;
+  try {
+    const proposal = await planner.planTask({ request, capabilities: brain.CAPACIDADES || [] });
+    return applyClaudeProposal(plan, proposal, brain);
+  } catch (error) {
+    // Regista só o código seguro; nunca inclui uma resposta remota ou segredo.
+    plan.reasoning = { provider: 'claude', status: 'indisponivel', code: String(error?.code || 'erro').slice(0, 60) };
+    addEvent(plan, 'plano_claude_indisponivel', { code: plan.reasoning.code });
+    return plan;
+  }
+}
+
 async function createPlan(jid, request, deps = {}) {
   const state = await load(jid);
   if (!state.enabled) throw new Error('Modo Agente está desligado neste chat. Usa !auraagent on.');
   if (state.task) archiveTask(state, 'substituida');
-  state.task = buildPlan(request, deps);
+  const brain = deps.brain || require('./auraBrain');
+  const planner = deps.planner || require('./auraClaude');
+  state.task = await enhancePlanWithClaude(buildPlan(request, { ...deps, brain }), request, brain, planner);
   await save(jid, state);
   return state.task;
 }
@@ -356,11 +411,18 @@ function formatPlan(task, prefix = '!') {
     '',
     '*Plano:*',
   ];
+  if (task.reasoning?.provider === 'claude') {
+    const state = task.reasoning.status === 'validada' ? `✅ validado (${task.reasoning.model || 'Claude'})` : `⚠️ indisponível (${task.reasoning.code || 'erro'})`;
+    lines.push(`🧠 Planeamento Claude: ${state}`);
+    if (task.reasoning.summary) lines.push(`   ${task.reasoning.summary}`);
+    lines.push('');
+  }
   for (const step of task.steps || []) {
     const risk = step.confirmationRequired ? ' ⚠️ confirmação obrigatória' : '';
     const action = step.actionId ? `\n   Ferramenta: ${step.actionId}` : '';
+    const reason = step.reason ? `\n   Razão: ${step.reason}` : '';
     const status = `\n   Estado: *${step.status || 'pendente'}*`;
-    lines.push(`${step.index}. ${step.description}${risk}${action}${status}`);
+    lines.push(`${step.index}. ${step.description}${risk}${action}${reason}${status}`);
   }
   lines.push('', `Executa em ordem: \`${prefix}auraagent executar [passo]\`.`);
   return lines.join('\n');

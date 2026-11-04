@@ -38,6 +38,7 @@ module.exports = function registerAuraAgentCases(registerCase) {
       `• \`${prefix}auraagent confirmar <código>\` — confirma uma ação destrutiva`,
       `• \`${prefix}auraagent cancelar\` — cancela e arquiva o plano pendente`,
       `• \`${prefix}auraagent historico\` — vê as últimas tarefas arquivadas`,
+      `• \`${prefix}auraagent modelo\` — vê o estado seguro do cérebro Claude`,
       '',
       'Cada passo é guardado antes de executar. O agente não repete ações sozinho, não inventa ferramentas e exige confirmação para destrutivas.',
     ].join('\n');
@@ -53,6 +54,12 @@ module.exports = function registerAuraAgentCases(registerCase) {
     }
     if (sub === 'status' || sub === 'estado') return reply(agent.formatStatus(await agent.load(ctx.remoteJid), prefix));
     if (sub === 'historico' || sub === 'histórico' || sub === 'auditoria') return reply(agent.formatHistory(await agent.load(ctx.remoteJid)));
+    if (sub === 'modelo' || sub === 'claude') {
+      const claude = require('../../aura/auraClaude').status();
+      return reply(claude.configured
+        ? `🧠 *Claude pronto*\nModelo: \`${claude.model}\`\nPlaneamento por API: activo. A execução continua protegida pelo agente.`
+        : `🧠 *Claude ainda não configurado*\nModelo previsto: \`${claude.model}\`\nMotivo: ${claude.reason}\n\nQuando a chave for configurada no ambiente seguro, os novos planos serão revistos pelo Claude; nenhuma chave é mostrada aqui.`);
+    }
     if (sub === 'plano' || sub === 'planear' || sub === 'planejar') {
       if (!rest) return reply(`❓ Descreve a tarefa. Ex.: \`${prefix}auraagent plano fecha o grupo e cria uma enquete\``);
       try {
