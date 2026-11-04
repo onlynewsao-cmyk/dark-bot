@@ -658,7 +658,7 @@ module.exports = function registerDownloads2(registerCase) {
     const rows = selCmds.slice(0, 24).map(it => ({ title: `${it.emoji || '📥'} ${p}${it.cmd}`, description: (it.desc || '').slice(0, 72), id: `${p}${it.cmd}` }));
     if (rows.length) {
       try {
-        const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+        const { generateWAMessageFromContent, proto } = require('baileys-v6');
         const m = generateWAMessageFromContent(ctx.remoteJid, {
           interactiveMessage: proto.Message.InteractiveMessage.fromObject({
             body: proto.Message.InteractiveMessage.Body.fromObject({ text: textBody }),

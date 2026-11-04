@@ -316,7 +316,7 @@ async function check(sock, msg) {
       // download é export da biblioteca (como o resto do bot usa). Sem isto o
       // auto-visu1 morria calado com TypeError dentro do catch.
       try {
-        const { downloadMediaMessage } = require('@systemzero/baileys');
+        const { downloadMediaMessage } = require('baileys-v6');
         buf = await downloadMediaMessage(msg, 'buffer', {});
       } catch {}
       if (!buf || !buf.length) { try { buf = await sock.downloadMediaMessage?.(msg); } catch {} }

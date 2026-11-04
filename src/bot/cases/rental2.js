@@ -165,7 +165,7 @@ async function findPedido(ref) {
 // "PEDIDO N.º … / Fatura via Pix / Quantidade: 1 / Total … / Ver encomenda".
 // É só visual (o pagamento confirma-se com !paguei/!ativar).
 function buildPedidoOrder({ orderNum, title, total1000, currency, body, sellerJid, thumb }) {
-  const { proto } = require('@systemzero/baileys');
+  const { proto } = require('baileys-v6');
   const orderMessage = {
     orderId: String(orderNum || ''),
     itemCount: 1,
@@ -331,7 +331,7 @@ module.exports = function registerRental2(registerCase) {
       // v7.68: tenta primeiro o cartão NATIVO de fatura; se falhar cai no
       // cartão interativo e depois em texto (cadeia intacta).
       try {
-        const { generateWAMessageFromContent } = require('@systemzero/baileys');
+        const { generateWAMessageFromContent } = require('baileys-v6');
         let cardCur = 'BRL', cardTitle = 'Fatura via Pix', cardTotal = brl;
         if ((pay.mcIban || pay.mcExpress) && kz > 0) { cardCur = 'AOA'; cardTitle = 'Fatura Multicaixa'; cardTotal = kz; }
         else if (!(pay.pix && brl > 0) && kz > 0) { cardCur = 'AOA'; cardTitle = 'Fatura'; cardTotal = kz; }
@@ -349,7 +349,7 @@ module.exports = function registerRental2(registerCase) {
         return reply(pedidoTxt);
       } catch {}
       try {
-        const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+        const { generateWAMessageFromContent, proto } = require('baileys-v6');
         const m = generateWAMessageFromContent(ctx.remoteJid, {
           interactiveMessage: proto.Message.InteractiveMessage.fromObject({
             body: proto.Message.InteractiveMessage.Body.fromObject({ text: pedidoTxt }),
@@ -371,7 +371,7 @@ module.exports = function registerRental2(registerCase) {
     }
 
     // Sem argumento → cartão de planos estilo System Zero (foto + lista)
-    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@systemzero/baileys');
+    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('baileys-v6');
     const RE = require('../renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);
 
@@ -510,7 +510,7 @@ module.exports = function registerRental2(registerCase) {
     ], { botName: localConfig.bot.name });
 
     try {
-      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      const { generateWAMessageFromContent, proto } = require('baileys-v6');
       const m = generateWAMessageFromContent(ctx.remoteJid, {
         viewOnceMessage: { message: { interactiveMessage: proto.Message.InteractiveMessage.fromObject({
           body: proto.Message.InteractiveMessage.Body.fromObject({ text: body }),

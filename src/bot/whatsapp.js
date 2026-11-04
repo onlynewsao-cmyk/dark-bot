@@ -1,6 +1,6 @@
 /**
  * DARK BOT v5 — WhatsApp Engine
- * @systemzero/baileys como motor principal
+ * baileys-v6 como motor principal
  * Reconexão inteligente + keep-alive para Render Free
  */
 'use strict';
@@ -13,7 +13,7 @@ const {
   Browsers,
   makeCacheableSignalKeyStore,
   delay,
-} = require('@systemzero/baileys');
+} = require('baileys-v6');
 
 const pino   = require('pino');
 const fs     = require('fs');
@@ -408,8 +408,8 @@ class WhatsAppBot {
 
         // Patch de compatibilidade de botões
         // v5.1: NÃO re-envolve buttonsMessage com viewOnce:true — essas vêm do
-        // ButtonV2 (MB.cjs) que já usa o mecanismo próprio (additionalNodes
-        // native_flow). Re-envolver quebrava a renderização em clientes novos.
+        // Mensagens InteractiveMessage já usam additionalNodes/native_flow.
+        // Re-envolver quebrava a renderização em clientes novos.
         patchMessageBeforeSending: (msg) => {
           const isMBv2 = msg.buttonsMessage?.viewOnce === true;
           if (isMBv2) return msg;

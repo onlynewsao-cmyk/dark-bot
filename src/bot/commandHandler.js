@@ -1599,7 +1599,7 @@ async function _handleInner(sock, msg, turn) {
     const callHandler = require('./callHandler');
     const _ptt = msg.message?.audioMessage;
     if (_ptt && !ctx.isGroup && callHandler.chamadaActiva(ctx.remoteJid)) {
-      const { downloadMediaMessage } = require('@systemzero/baileys');
+      const { downloadMediaMessage } = require('baileys-v6');
       const _buf = await downloadMediaMessage(msg, 'buffer', {}).catch(() => null);
       if (_buf && _buf.length > 100) {
         const r = await callHandler.continuarConversa(sock, ctx.remoteJid, _buf, {
@@ -1783,7 +1783,7 @@ async function _handleInner(sock, msg, turn) {
   }
   if (!msg.key?.fromMe && _audioEarly && (!ctx.isGroup || isBotMentioned || isReplyToBot || _audioConversationActive)) {
     try {
-      const { downloadMediaMessage } = require('@systemzero/baileys');
+      const { downloadMediaMessage } = require('baileys-v6');
       const _audioBuf = await downloadMediaMessage(msg, 'buffer', {});
       if (_audioBuf && _audioBuf.length > 500) {
         _voiceTranscript = String(await ai.transcribeAudio(_audioBuf, 'pt') || '').trim();
@@ -2800,7 +2800,7 @@ async function _handleInner(sock, msg, turn) {
           let stkBuf = null;
           const alvo = citado ? buildQuotedDownloadMessage(msg) : msg;
           try {
-            const { downloadMediaMessage } = require('@systemzero/baileys');
+            const { downloadMediaMessage } = require('baileys-v6');
             if (alvo) stkBuf = await downloadMediaMessage(alvo, 'buffer', {});
           } catch (e1) {
             console.warn('[Aura Sticker] downloadMediaMessage:', e1.message?.slice(0, 40));
@@ -3121,7 +3121,7 @@ async function _handleInner(sock, msg, turn) {
           let imgBuf = null;
           // Tentativa 1: downloadMediaMessage
           try {
-            const { downloadMediaMessage } = require('@systemzero/baileys');
+            const { downloadMediaMessage } = require('baileys-v6');
             imgBuf = await downloadMediaMessage(msg, 'buffer', {});
           } catch (e1) {
             console.warn('[Aura Vision] downloadMediaMessage falhou:', e1.message?.slice(0, 40));
@@ -4155,7 +4155,7 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
           const _errLine = formatResponse(_theme, commandName, 'error', ctx);
           const warnText = `${_errLine}\n\n${_sugLine}`;
           try {
-            const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+            const { generateWAMessageFromContent, proto } = require('baileys-v6');
             const btnMsg = generateWAMessageFromContent(ctx.remoteJid, {
               interactiveMessage: proto.Message.InteractiveMessage.fromObject({
                 body:   proto.Message.InteractiveMessage.Body.fromObject({ text: warnText }),

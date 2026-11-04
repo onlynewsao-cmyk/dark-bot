@@ -83,7 +83,7 @@ Module.prototype.require = function (id) {
   if (/models[\\/]/.test(id)) return { find: () => w([]), findOne: () => w(null), findOneAndUpdate: async () => null, countDocuments: async () => 0, create: async () => ({}), updateOne: async () => ({}), deleteMany: async () => ({}), deleteOne: async () => ({}) };
   if (id === 'axios') return axiosStub;
   if (id === '../ai' || id.endsWith('/bot/ai')) return { chat: async () => 'CONTEUDO IA PARA TESTE DO PDF' };
-  if (id === '@systemzero/baileys' && global.__STUB_DL__) {
+  if (id === 'baileys-v6' && global.__STUB_DL__) {
     return { downloadMediaMessage: async () => (global.__STUB_DL__ === 'video' ? FAKE_VID : FAKE_IMG) };
   }
   if (id.endsWith('botConfigCache')) return { get: async (k, d) => d, set: async () => {}, clear: () => {}, refresh: async () => {} };

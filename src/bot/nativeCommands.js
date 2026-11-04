@@ -633,7 +633,7 @@ const selCmds = allowed.filter(it => it.sel === true);
   let submenuGifSent = false;
   if (rows.length) {
     try {
-      const { generateWAMessageFromContent, proto } = require('@systemzero/baileys');
+      const { generateWAMessageFromContent, proto } = require('baileys-v6');
       const listParams = {
         title:    `${t.icon} ${title}`,
         sections: [{ title: `${t.icon} COMANDOS`, rows }],
@@ -657,7 +657,7 @@ const selCmds = allowed.filter(it => it.sel === true);
               submenuGifSent = true;
             }
           } else if (_mmBuf?.length) {
-            const { prepareWAMessageMedia } = require('@systemzero/baileys');
+            const { prepareWAMessageMedia } = require('baileys-v6');
             if (_mmType === 'image') {
               const _mm = await prepareWAMessageMedia({ image: _mmBuf }, { upload: sock.waUploadToServer });
               if (_mm?.imageMessage) subMediaHeader = { title: '', hasMediaAttachment: true, imageMessage: _mm.imageMessage };
@@ -1141,7 +1141,7 @@ module.exports = {
 
     // ═══ 1º — CAROUSEL com mídia (vídeo GIF preferido, imagem fallback) ═══
     try {
-      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('baileys-v6');
       const fs2  = require('fs');
       const path = require('path');
       const root = path.join(__dirname, '..', '..');
@@ -1370,7 +1370,7 @@ module.exports = {
   },
 
   // ══════════════════════════════════════════════════════════════════════
-  // !menu — Carousel interactivo com @systemzero/baileys
+  // !menu — Carousel interactivo com baileys-v6
   // Formato idêntico ao código original do repositório:
   //   Carousel com card (vídeo/imagem) + single_select + cta_url canal
   // ══════════════════════════════════════════════════════════════════════
@@ -1648,7 +1648,7 @@ module.exports = {
     const waLink = 'https://wa.me/' + num;
     const channelUrl = localConfig.channelUrl || 'https://whatsapp.com/channel/0029VbDMnJs6buMDAqf2Fq1z';
 
-    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('@systemzero/baileys');
+    const { generateWAMessageFromContent, proto, prepareWAMessageMedia } = require('baileys-v6');
     let headerMedia = null;
     try {
       const fs2 = require('fs');
@@ -3766,7 +3766,7 @@ module.exports = {
 
       if (!items.length) throw new Error('Sem imagens encontradas.');
 
-      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('@systemzero/baileys');
+      const { generateWAMessageFromContent, prepareWAMessageMedia } = require('baileys-v6');
 
       const cards = [];
       for (const item of items) {

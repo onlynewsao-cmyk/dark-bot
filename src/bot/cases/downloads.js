@@ -8,7 +8,7 @@
  * gyt    → vídeo MP4 por URL
  *
  * O resultado #1 privilegia rapidez e entrega o áudio automaticamente;
- * sem ButtonV2, o card degrada para texto mantendo a opção de vídeo.
+ * com interactive oficial e fallback de texto mantendo a opção de vídeo.
  */
 
 'use strict';
@@ -92,32 +92,32 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
   const audioCmd = `${prefix}ytd ${mediaUrl} | ${Q.audio}`;
   const videoCmd = `${prefix}gyt ${mediaUrl} | mp4 | ${Q.video} | ${video.duration || ''}`;
 
-  let ButtonV2 = null;
-  try { ButtonV2 = require('@systemzero/baileys/lib/MB.cjs').ButtonV2; } catch {}
-  if (ButtonV2) {
-    try {
-      const card = new ButtonV2(sock);
-      card.setTitle(String(video.title || 'Música').slice(0, 60));
-      card.setBody(body);
-      const fallbackFooter = options.videoOnly
-        ? 'DARK BOT · áudio automático + vídeo'
-        : 'DARK BOT · escolhe áudio ou vídeo';
-      card.setFooter(String(footer || fallbackFooter).slice(0, 64));
-      if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
-      // !play entrega o áudio automaticamente, mas o card normal também dá
-      // um botão de repetição. Assim, se uma URL expirar ou o WhatsApp falhar
-      // num envio isolado, a pessoa não precisa escrever/copiar outro comando.
-      if (!options.videoOnly || options.showAudioRetry) {
-        card.addButton(options.autoAudio ? `🔁 Repetir áudio ${Q.audio}` : `🎵 Áudio ${Q.audio}`, audioCmd);
-      }
-      card.addButton(`🎬 Vídeo ${Q.video}p`, videoCmd);
-      // Quando o áudio é automático, só ele responde/cita o comando; o card
-      // continua como mensagem normal, agora com repetição de áudio e vídeo.
-      await card.send(m.chat, options.autoAudio ? {} : { quoted: msg });
-      return;
-    } catch (e) {
-      console.warn('[PLAY] ButtonV2 falhou; a enviar opções em texto:', e.message?.slice(0, 80));
-    }
+  // Baileys oficial: InteractiveMessage nativo, sem dependência de MB.cjs.
+  // O fallback do helper é texto apenas se o transporte não aceitar relay.
+  const fallbackFooter = options.videoOnly
+    ? 'DARK BOT · áudio automático + vídeo'
+    : 'DARK BOT · escolhe áudio ou vídeo';
+  const buttons = [];
+  if (!options.videoOnly || options.showAudioRetry) {
+    buttons.push({
+      text: options.autoAudio ? `🔁 Repetir áudio ${Q.audio}` : `🎵 Áudio ${Q.audio}`,
+      id: audioCmd,
+    });
+  }
+  buttons.push({ text: `🎬 Vídeo ${Q.video}p`, id: videoCmd });
+  try {
+    const { sendButtons } = require('../buttonHandler');
+    await sendButtons(
+      sock,
+      m.chat,
+      `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}`,
+      String(footer || fallbackFooter).slice(0, 64),
+      buttons,
+      options.autoAudio ? null : msg,
+    );
+    return;
+  } catch (e) {
+    console.warn('[PLAY] interactive oficial falhou; a enviar opções em texto:', e.message?.slice(0, 80));
   }
 
   // Fallback simples mantém a opção de vídeo mesmo sem a biblioteca de botões.

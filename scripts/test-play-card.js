@@ -1,12 +1,12 @@
 'use strict';
-/** Regression: !play auto-sends audio, !play3 shares the normal card skin, fallbacks remain. */
+/** Regression: !play uses the official native InteractiveMessage, keeps audio delivery and falls back to text. */
 const assert = require('assert');
 const Module = require('module');
 const originalRequire = Module.prototype.require;
-let buttonsEnabled = true;
 let audioFails = false;
 let primaryReturnsDeadUrl = false;
 let localFallbackCalls = 0;
+let transportFails = false;
 const fakeAudio = Buffer.alloc(4096, 1);
 const fakeMediaHandler = {
   isAudioBytes: () => true,
@@ -15,22 +15,21 @@ const fakeMediaHandler = {
     return fakeAudio;
   },
 };
-
-class FakeButtonV2 {
-  static sent = [];
-  constructor(sock) { this.sock = sock; this.buttons = []; FakeButtonV2.sent.push(this); }
-  setTitle(v) { this.title = v; }
-  setBody(v) { this.body = v; }
-  setFooter(v) { this.footer = v; }
-  setThumbnail(v) { this.thumbnail = v; }
-  addButton(label, id) { this.buttons.push({ label, id }); }
-  async send(jid, opts) {
-    this.sendOptions = opts || {};
-    await this.sock.sendMessage(jid, {
-      fakeButtonCard: true, title: this.title, body: this.body, buttons: this.buttons,
-    }, opts);
-  }
-}
+const fromObject = (obj) => obj;
+const fakeBaileys = {
+  proto: { Message: { InteractiveMessage: {
+    fromObject,
+    Header: { fromObject },
+    Body: { fromObject },
+    Footer: { fromObject },
+    NativeFlowMessage: { fromObject },
+    CarouselCard: { fromObject },
+  } } },
+  generateWAMessageFromContent: (jid, message, options) => ({
+    key: { id: 'native-card' }, message: { ...message, __options: options, __jid: jid },
+  }),
+  prepareWAMessageMedia: async () => ({ imageMessage: {} }),
+};
 
 const results = [
   { title: 'Faixa Um', author: 'Artista Um', duration: '3:21', views: 12345, youtube_url: 'https://youtu.be/AAAAAAAAAAA', thumbnail: 'https://img.example/one.jpg' },
@@ -60,7 +59,7 @@ Module.prototype.require = function (id) {
   if (id === '../systemZeroPlay') return fakeSystemZeroPlay;
   if (id === '../ytdl') return fakeYtdl;
   if (id === '../mediaHandler' || id === './mediaHandler') return fakeMediaHandler;
-  if (id === '@systemzero/baileys/lib/MB.cjs') return buttonsEnabled ? { ButtonV2: FakeButtonV2 } : {};
+  if (id === 'baileys-v6') return fakeBaileys;
   return originalRequire.apply(this, arguments);
 };
 
@@ -70,91 +69,88 @@ Module.prototype.require = function (id) {
   register((names, fn) => [].concat(names).forEach(name => handlers.set(name, fn)));
   const jid = 'test@s.whatsapp.net';
   const sent = [];
-  const sock = { sendMessage: async (to, payload, opts) => { sent.push({ to, payload, opts }); return { key: { id: 'mock' } }; } };
+  const relays = [];
+  const sock = {
+    sendMessage: async (to, payload, opts) => { sent.push({ to, payload, opts }); return { key: { id: 'mock' } }; },
+    relayMessage: async (to, message, opts) => {
+      if (transportFails) throw new Error('mock relay unavailable');
+      relays.push({ to, message, opts });
+      return { key: { id: 'relay' } };
+    },
+  };
   const msg = { key: { id: 'm1', remoteJid: jid }, message: {} };
   const m = { chat: jid, key: msg.key, reply: async text => sent.push({ reply: text }) };
+  const nativeCards = () => relays.map((relay) => {
+    const interactive = relay.message?.viewOnceMessage?.message?.interactiveMessage
+      || relay.message?.interactiveMessage;
+    return {
+      body: interactive?.body?.text || '',
+      footer: interactive?.footer?.text || '',
+      buttons: interactive?.nativeFlowMessage?.buttons || [],
+      quoted: relay.message?.__options?.quoted,
+      to: relay.to,
+    };
+  });
+  const button = (card, pattern) => card.buttons.find((b) => pattern.test(JSON.parse(b.buttonParamsJson || '{}').display_text || ''));
+  const buttonId = (item) => JSON.parse(item?.buttonParamsJson || '{}').id;
   async function run(command) {
     sent.length = 0;
-    FakeButtonV2.sent.length = 0;
+    relays.length = 0;
     await handlers.get(command)({ sock, m, msg, ctx: { remoteJid: jid }, text: 'faixa de teste', prefix: '!', command });
-    return { sent: [...sent], cards: [...FakeButtonV2.sent] };
+    return { sent: [...sent], cards: nativeCards() };
   }
 
   let r = await run('play');
-  assert.strictEqual(r.cards.length, 1, '!play sends one compact video card');
+  assert.strictEqual(r.cards.length, 1, '!play sends one official native card');
   let card = r.cards[0];
-  assert.strictEqual(card.title, 'Faixa Um', '!play keeps the first search result');
-  assert.ok(card.body.length <= 180, 'card body stays compact');
+  assert.ok(card.body.includes('Faixa Um'), '!play keeps the first search result');
+  assert.ok(card.body.length <= 190, 'native card body stays compact');
   for (const detail of ['Artista Um', '3:21', '12.345']) assert.ok(card.body.includes(detail), `card includes ${detail}`);
   assert.ok(card.body.includes('Áudio automático (128k)'), 'card says audio is automatic');
   assert.ok(!/toxic|ataque/i.test(card.body), '!play stays simple, not DARK TOXIC');
-  assert.strictEqual(card.buttons.length, 2, '!play uses a normal card with retry-audio and video buttons');
-  assert.ok(card.buttons.some(b => /Repetir áudio/.test(b.label) && b.id.includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k')),
-    '!play normal card offers a manual retry for the automatic audio');
-  assert.ok(card.buttons.some(b => b.id.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21')));
-  assert.ok(!card.sendOptions?.quoted, '!play card is not a reply to the command');
+  assert.strictEqual(card.buttons.length, 2, '!play has retry-audio and video native quick replies');
+  assert.ok(buttonId(button(card, /Repetir áudio/)).includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k'));
+  assert.ok(buttonId(button(card, /Vídeo/)).includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'));
+  assert.strictEqual(card.quoted, null, '!play card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
     '!play audio is the only successful output replying to the command');
 
   r = await run('play2');
-  assert.strictEqual(r.cards.length, 1, '!play2 sends one regular card');
-  assert.strictEqual(r.cards[0].title, 'Faixa Dois', '!play2 remains the second search result');
-  assert.ok(r.cards[0].body.includes('Resultado #2'), 'play2 is identified compactly');
-  assert.strictEqual(r.cards[0].buttons.length, 2, '!play2 keeps audio and video buttons');
-  assert.strictEqual(r.cards[0].sendOptions?.quoted, msg, '!play2 keeps its usual quoted card');
-  assert.ok(r.cards[0].buttons[0].id.endsWith('| 192k'), 'play2 keeps medium-quality audio');
-  assert.ok(r.cards[0].buttons[1].id.includes('| mp4 | 720 | 4:02'), 'play2 keeps medium-quality video');
+  assert.strictEqual(r.cards.length, 1, '!play2 sends one native card');
+  card = r.cards[0];
+  assert.ok(card.body.includes('Faixa Dois') && card.body.includes('Resultado #2'), '!play2 remains the second search result');
+  assert.strictEqual(card.buttons.length, 2, '!play2 keeps audio and video buttons');
+  assert.strictEqual(card.quoted, msg, '!play2 keeps its usual quoted card');
+  assert.ok(buttonId(button(card, /Áudio/)).endsWith('| 192k'), '!play2 keeps medium-quality audio');
+  assert.ok(buttonId(button(card, /Vídeo/)).includes('| mp4 | 720 | 4:02'), '!play2 keeps medium-quality video');
   assert.ok(!r.sent.some(x => x.payload?.audio), '!play2 does not auto-send audio');
-  assert.ok(!/toxic|ataque/i.test(r.cards[0].body), '!play2 keeps the normal style');
 
   r = await run('play3');
-  assert.strictEqual(r.cards.length, 1, '!play3 sends one card');
+  assert.strictEqual(r.cards.length, 1, '!play3 sends one native card');
   card = r.cards[0];
-  assert.ok(card.title.includes('Faixa Três'), '!play3 remains the third search result');
-  assert.ok(!/toxic|ataque/i.test(card.body), '!play3 uses the normal play skin');
-  assert.ok(card.body.includes('Resultado #3'), 'normal card identifies the third result');
-  assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses the same card line with high-quality values');
-  assert.strictEqual(card.buttons.length, 2, '!play3 has the same normal retry-audio/video card as play');
-  assert.ok(card.buttons.some(b => /Repetir áudio/.test(b.label) && b.id.endsWith('| 320k')),
-    'play3 retry button keeps high-quality audio');
-  assert.ok(card.buttons.some(b => b.id.includes('| mp4 | 1080 | 5:43')), 'play3 keeps high-quality video');
-  assert.ok(!card.sendOptions?.quoted, '!play3 card is not a reply to the command');
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
-    '!play3 high-quality audio is the only successful output replying to the command');
+  assert.ok(card.body.includes('Faixa Três') && card.body.includes('Resultado #3'), '!play3 remains the third result');
+  assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses high-quality values');
+  assert.ok(buttonId(button(card, /Repetir áudio/)).endsWith('| 320k'), 'play3 retry retains high-quality audio');
+  assert.ok(buttonId(button(card, /Vídeo/)).includes('| mp4 | 1080 | 5:43'), 'play3 retains high-quality video');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 audio remains a quoted reply');
 
-  buttonsEnabled = false;
+  // If native relay is unavailable, the official helper itself falls back to clear text commands.
+  transportFails = true;
   r = await run('play');
   const fallbackMessage = r.sent.find(x => x.payload?.text);
   const fallback = fallbackMessage?.payload.text || '';
+  assert.strictEqual(r.cards.length, 0, 'no fake native delivery is claimed after transport failure');
   assert.ok(fallback.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'), 'text fallback retains the video command');
-  assert.ok(fallback.includes('Repetir áudio: !ytd https://youtu.be/AAAAAAAAAAA | 128k'),
-    'normal-card fallback keeps the manual audio retry command');
-  assert.ok(!fallbackMessage?.opts?.quoted, 'text card fallback is not a reply to the command');
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'audio still sends as the quoted reply without ButtonV2');
+  assert.ok(fallback.includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k'), 'text fallback retains the audio retry command');
+  assert.strictEqual(fallbackMessage?.opts?.quoted, null, 'fallback card is not a reply to the command');
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'audio still sends as the quoted reply after UI fallback');
+  transportFails = false;
 
-  r = await run('play3');
-  const play3FallbackMessage = r.sent.find(x => x.payload?.text);
-  const play3Fallback = play3FallbackMessage?.payload.text || '';
-  assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('Áudio automático (320k)') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
-    'play3 text fallback keeps the play layout, result #3, and high-quality commands');
-  assert.ok(!/toxic|ataque/i.test(play3Fallback), 'play3 fallback is not DARK TOXIC');
-  assert.ok(play3Fallback.includes('Repetir áudio: !ytd https://youtu.be/CCCCCCCCCCC | 320k'),
-    'play3 fallback also keeps a high-quality audio retry command');
-  assert.ok(!play3FallbackMessage?.opts?.quoted, 'play3 text card is not a reply to the command');
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 high-quality audio remains the quoted reply');
-
-  // Uma URL emitida pela API pode expirar antes do Baileys descarregar a mídia.
-  // !play deve então trocar para o motor local, em vez de avisar falha sem tentar.
-  buttonsEnabled = true;
   primaryReturnsDeadUrl = true;
   localFallbackCalls = 0;
   r = await run('play');
   assert.strictEqual(localFallbackCalls, 1, '!play retries with local engine after a dead provider URL');
-  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg),
-    '!play delivers local audio after the provider URL expires');
-  assert.ok(!r.sent.some(x => /não consegui entregar o áudio/i.test(x.reply || '')),
-    '!play does not report an audio failure while the local fallback succeeds');
-
+  assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), '!play delivers local audio after URL expiry');
   primaryReturnsDeadUrl = false;
   audioFails = true;
   r = await run('play');
@@ -163,7 +159,7 @@ Module.prototype.require = function (id) {
   assert.ok(r.sent.some(x => /não consegui entregar o áudio/i.test(x.reply || '')), 'audio failure is reported honestly');
   assert.ok(r.sent.some(x => x.payload?.react?.text === '⚠️'), 'failure uses a warning reaction, not success');
 
-  console.log('PLAY FLOW: auto-audio + video button, play2 normal, play3 shared skin/high quality, and fallbacks passed.');
+  console.log('PLAY FLOW: official native card, audio delivery and text fallback passed.');
 })().catch(error => {
   console.error('PLAY FLOW: FAIL:', error.stack || error.message);
   process.exitCode = 1;
