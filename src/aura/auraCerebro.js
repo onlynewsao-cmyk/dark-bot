@@ -169,6 +169,10 @@ async function executarAcoes(acoes, { sock, msg, ctx, texto, isOwner, isAdmin, i
   for (const a of acoes.slice(0, 2)) {
     try {
       if (a.id.startsWith('cmd_')) {
+        // Marcadores do modelo não são autorização. Comandos nativos só
+        // correm quando a mensagem actual é uma ordem explícita do utilizador.
+        // Isto impede a AURA de disparar mídia/funções por iniciativa própria.
+        if (!brain.pareceOrdem(texto)) continue;
         const nome = a.id.slice(4);
         if (cmds.estaBloqueado(nome)) continue;
         if (!cmds.podeExecutar(nome, { isOwner, isVip, isAdmin }).pode) continue;

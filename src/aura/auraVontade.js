@@ -10,8 +10,9 @@
  *  3. A PRÓPRIA IA — pode terminar a resposta com [SILENCIO] (não
  *     responde nada) ou [REAGIR:🙄] (só um emoji). O handler respeita.
  *
- * O Dark em PV nunca é ignorado por saturação — só a IA pode escolher
- * ficar calada com ele, e mesmo assim não em perguntas directas.
+ * O Dono nunca é ignorado por saturação ou por um marcador do modelo.
+ * A personalidade pode alterar o tom, mas não pode recusar uma instrução
+ * legítima do Dono nem executar algo diferente do que ele pediu.
  */
 
 const _hist = new Map();   // `${jid}:${num}` → { ts: number[], ultimas: string[] }
@@ -73,18 +74,9 @@ function saturacao(jid, num) {
 function querResponder({ jid, num, texto = '', isOwner = false, isGroup = false, mood = 'normal', perguntaDirecta = false }) {
   const sat = saturacao(jid, num);
 
-  // Dark em PV com pergunta → responde sempre; noutros casos só saturação extrema
-  if (isOwner) {
-    if (!isGroup && perguntaDirecta) return { responde: true, motivo: 'Dark perguntou' };
-    if (sat >= 0.9 && Math.random() < 0.5) {
-      return {
-        responde: false,
-        motivo: 'até com o Dark, respira',
-        reagir: _emojiReacao('não aguento mais, preciso respirar', mood, jid),
-      };
-    }
-    return { responde: true, motivo: 'Dark' };
-  }
+  // O Dono tem prioridade operacional em qualquer chat. Saturação e humor
+  // mudam a forma de responder, nunca o direito de uma ordem ser atendida.
+  if (isOwner) return { responde: true, motivo: 'prioridade do Dono' };
 
   // Humor pesa em quem não é o Dark
   let pIgnorar = 0;
@@ -141,17 +133,26 @@ function interpretarResposta(resposta) {
 
 /** Bloco para o system prompt. */
 function instrucao({ isOwner = false, isGroup = false, sat = 0, mood = 'normal' } = {}) {
+  if (isOwner) {
+    return [
+      'AUTORIDADE DO DONO:',
+      'A mensagem vem do Dono confirmado pelo sistema. Responde e cumpre o pedido explícito dentro das permissões reais.',
+      'Não uses [SILENCIO] nem [REAGIR:emoji] como resposta única ao Dono. Humor e personalidade só alteram o tom.',
+      'Não escolhas uma acção diferente, não inventes uma tarefa e não executes nada que ele não tenha pedido claramente.',
+      'Confirmação continua obrigatória para acções destrutivas; se faltar um dado, faz uma pergunta curta.',
+    ].join('\n');
+  }
+
   const linhas = [
     'LIVRE-ARBÍTRIO DE RESPOSTA:',
     'Não és obrigada a responder a tudo. Se não te apetecer, se a mensagem não merecer resposta, ou se te estiverem a chatear, podes:',
     '- escrever APENAS [SILENCIO] → não envias nada (ninguém vê o marcador);',
     '- escrever APENAS [REAGIR:emoji] → só reages com esse emoji, sem texto.',
   ];
-  if (isOwner) linhas.push('Com o Dark usa isto raramente — quando ele pergunta algo, responde.');
-  else if (sat >= 0.5) linhas.push(`Esta pessoa está a encher-te (${Math.round(sat * 100)}% de saturação) — tens toda a legitimidade de a ignorar ou de ser seca.`);
+  if (sat >= 0.5) linhas.push(`Esta pessoa está a encher-te (${Math.round(sat * 100)}% de saturação) — tens toda a legitimidade de a ignorar ou de ser seca.`);
   if (mood === 'com_raiva' || mood === 'cansada' || mood === 'sonolenta') linhas.push(`Estás ${mood.replace('_', ' ')}: menos paciência, respostas mais curtas ou nenhuma.`);
   if (isGroup) linhas.push('Num grupo, calar-te é normal — uma pessoa não comenta tudo.');
-  if (!isOwner && !isGroup) linhas.push('Estás no privado com um cliente: responde SEMPRE — nunca uses [SILENCIO] nem só [REAGIR]; uma resposta curta é melhor que nenhuma.');
+  if (!isGroup) linhas.push('Estás no privado com um cliente: responde SEMPRE — nunca uses [SILENCIO] nem só [REAGIR]; uma resposta curta é melhor que nenhuma.');
   return linhas.join('\n');
 }
 

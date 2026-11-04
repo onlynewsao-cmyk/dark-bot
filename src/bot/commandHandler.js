@@ -2580,8 +2580,9 @@ async function _handleInner(sock, msg, turn) {
                 mood: require('../aura/auraHuman').getMood(ctx.remoteJid).mood,
                 perguntaDirecta: /\?/.test(text) || isBotMentioned || isReplyToBot,
               });
-              // v7.70: PV de cliente nunca dorme — a vontade só a cala fora do PV comercial (ou em flood extremo).
-              if (!q.responde && !_forcarContextual() && !vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) })) {
+              // A vontade própria nunca ignora o Dono. Para os demais, PV e
+              // conversa explicitamente dirigida também continuam respondíveis.
+              if (!q.responde && !isOwner && !_forcarContextual() && !vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) })) {
                 if (q.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: q.reagir, key: msg.key } }).catch(() => {});
                 _contaMsg(ctx.remoteJid);
                 return false;
@@ -3339,8 +3340,9 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
         const vont = require('../aura/auraVontade');
         const cer = require('../aura/auraCerebro');
         const v = vont.interpretarResposta(finalAnswer);
-        // v7.70: PV de cliente nunca dorme — o [SILENCIO] da IA vira resposta de cortesia (salvo flood extremo).
-        const _pvForca = _forcarContextual() || vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) });
+        // O Dono, um PV de cliente e uma conversa dirigida não podem ser
+        // silenciados por decisão do modelo. Personalidade não sobrepõe ordem.
+        const _pvForca = isOwner || _forcarContextual() || vont.forcarRespostaPV({ isOwner, isGroup: ctx.isGroup, sat: vont.saturacao(ctx.remoteJid, ctx.senderNumber) });
         if (v.silencio && !_pvForca) {
           if (v.reagir) sock.sendMessage(ctx.remoteJid, { react: { text: v.reagir, key: msg.key } }).catch(() => {});
           console.log('[Aura] escolheu não responder');

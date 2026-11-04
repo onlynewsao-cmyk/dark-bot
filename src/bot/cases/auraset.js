@@ -21,9 +21,10 @@ async function painel(ctx, prefix) {
   // Proativa
   try {
     const bcc = require('../botConfigCache');
-    const on = await bcc.get('aura_proactive_enabled', true);
+    const optIn = await bcc.get('aura_proactive_opt_in', false);
+    const on = !!optIn && !!(await bcc.get('aura_proactive_enabled', true));
     const niv = await bcc.get('aura_proactive_nivel', 'viva');
-    linhas.push(`💭 Proativa: ${on ? `ligada · nível *${niv}*` : 'desligada'}`);
+    linhas.push(`💭 Proativa: ${on ? `ligada por ordem do Dono · nível *${niv}*` : 'desligada'}`);
   } catch { linhas.push('💭 Proativa: ?'); }
   // Humor global
   try {
@@ -75,12 +76,21 @@ module.exports = function registerAuraSetCases(registerCase) {
     if (sub === 'proativa' || sub === 'proactiva') {
       const v = resto.toLowerCase();
       const bcc = require('../botConfigCache');
-      if (v === 'on') { await bcc.set('aura_proactive_enabled', true); return reply('💭 Proatividade *ligada*.'); }
-      if (v === 'off') { await bcc.set('aura_proactive_enabled', false); return reply('💭 Proatividade *desligada*. (Ela continua a responder quando chamam.)'); }
+      if (v === 'on') {
+        await bcc.set('aura_proactive_opt_in', true);
+        await bcc.set('aura_proactive_enabled', true);
+        return reply('💭 Proatividade *ligada por tua ordem*.');
+      }
+      if (v === 'off') {
+        await bcc.set('aura_proactive_enabled', false);
+        await bcc.set('aura_proactive_opt_in', false);
+        return reply('💭 Proatividade *desligada*. Ela continua a responder quando chamam.');
+      }
       if (NIVEIS.includes(v)) {
         await bcc.set('aura_proactive_nivel', v);
+        await bcc.set('aura_proactive_opt_in', true);
         await bcc.set('aura_proactive_enabled', true);
-        return reply(`💭 Nível de vida: *${v}*. Ela está solta. ⚡`);
+        return reply(`💭 Proatividade ligada por tua ordem: nível *${v}*.`);
       }
       return reply(`❓ Usa: \`${prefix}auraset proativa <on|off|calma|normal|viva>\``);
     }

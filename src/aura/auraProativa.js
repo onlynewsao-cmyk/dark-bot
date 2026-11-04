@@ -34,7 +34,8 @@
  *     ai_auto_enabled do dashboard.
  *
  * Config (via dashboard → IA, ou /api/settings):
- *   aura_proactive_enabled      (padrão: true)
+ *   aura_proactive_opt_in       (padrão: false; Dono precisa ligar explicitamente)
+ *   aura_proactive_enabled      (interruptor adicional)
  *   aura_proactive_min_minutes  (padrão: o do nível; força manual)
  *   aura_proactive_nivel        (calma|normal|viva — padrão: viva)
  */
@@ -89,8 +90,11 @@ async function _enabled() {
   try {
     const bcc = require('../bot/botConfigCache');
     if (!(await bcc.get('ai_auto_enabled', true))) return false;
+    // Segurança por padrão: mensagens/reacções iniciadas pela própria AURA
+    // só existem depois de o Dono as ligar explicitamente na Central.
+    if (!(await bcc.get('aura_proactive_opt_in', false))) return false;
     return !!(await bcc.get('aura_proactive_enabled', true));
-  } catch { return true; }
+  } catch { return false; }
 }
 
 async function _minMinutos(padrao = MIN_MINUTOS_PADRAO) {

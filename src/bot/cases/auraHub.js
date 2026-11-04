@@ -30,7 +30,8 @@ module.exports = function registerAuraHub(registerCase) {
     // estado actual (tudo tolerante a falhas — hub nunca rebenta)
     const M = brain.modos(ctx.remoteJid);
     const vozOn = M.soAudio === true;
-    const proaOn = await bcc.get('aura_proactive_enabled', true).catch(() => true);
+    const proaOptIn = await bcc.get('aura_proactive_opt_in', false).catch(() => false);
+    const proaOn = !!proaOptIn && !!(await bcc.get('aura_proactive_enabled', true).catch(() => true));
     const proaNivel = await bcc.get('aura_proactive_nivel', 'viva').catch(() => 'viva');
     const humor = hum.getMood().mood || 'normal';
     const acordou = await modes.isAuraAwake(ctx.remoteJid, { isGroup: ctx.isGroup }).catch(() => true);
