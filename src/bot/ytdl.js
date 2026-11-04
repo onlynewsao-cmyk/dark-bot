@@ -343,10 +343,27 @@ async function ytdlpDownload(videoUrl, audioOnly = true, quality = '128k', maxHe
   args.push(videoUrl);
 
   try {
-    try {
-      await execFileAsync(bin, args, { timeout: 120000, stdio: 'pipe', maxBuffer: 8 * 1024 * 1024 });
-    } catch (e) {
-      const detail = String(e.stderr || e.message || '').split('\n').filter(l => /ERROR|error/.test(l)).pop() || String(e.message || '').slice(0, 120);
+    // Mantém primeiro o cliente normal, que pode oferecer mais qualidades.
+    // Se ele for recusado pelo IP de datacenter, o perfil Android é tentado
+    // automaticamente. Este perfil devolveu um MP4 público real no teste de
+    // produção, sem cookies, proxy, chave ou variável adicional.
+    const profiles = [
+      { name: 'web', args },
+      { name: 'android', args: [...args, '--extractor-args', 'youtube:player_client=android'] },
+    ];
+    let lastError;
+    for (const profile of profiles) {
+      try {
+        await execFileAsync(bin, profile.args, { timeout: 120000, stdio: 'pipe', maxBuffer: 8 * 1024 * 1024 });
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        console.warn(`[ytdl] yt-dlp (${profile.name}) falhou; a tentar o próximo perfil`);
+      }
+    }
+    if (lastError) {
+      const detail = String(lastError.stderr || lastError.message || '').split('\n').filter(l => /ERROR|error/.test(l)).pop() || String(lastError.message || '').slice(0, 120);
       maybeUpdateYtdlp(detail);
       throw new Error(detail.replace(/^ERROR:\s*/, '').slice(0, 160));
     }

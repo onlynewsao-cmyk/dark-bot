@@ -34,6 +34,14 @@ async function testPlaySearchRace() {
   console.log('✅ !play usa a primeira busca válida, sem esperar API remota lenta');
 }
 
+function testYtdlpAndroidFallback() {
+  const source = fs.readFileSync(path.join(ROOT, 'src', 'bot', 'ytdl.js'), 'utf8');
+  const web = source.indexOf("{ name: 'web', args }");
+  const android = source.indexOf("{ name: 'android', args: [...args, '--extractor-args', 'youtube:player_client=android'] }");
+  assert(web >= 0 && android > web, 'yt-dlp deve tentar web e depois o perfil Android sem configuração externa');
+  console.log('✅ yt-dlp tem fallback Android automático, sem cookie, proxy ou chave');
+}
+
 async function testPinterestRaceAndRouting() {
   const target = path.join(ROOT, 'src', 'bot', 'pinterestSearch.js');
   delete require.cache[require.resolve(target)];
@@ -66,6 +74,7 @@ async function testPinterestRaceAndRouting() {
 (async () => {
   try {
     await testPlaySearchRace();
+    testYtdlpAndroidFallback();
     await testPinterestRaceAndRouting();
     console.log('MEDIA PROVIDERS: rapidez e fallbacks aprovados.');
   } finally {
