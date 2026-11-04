@@ -392,6 +392,7 @@ function categorize(cmd) {
     setmenu:'owner', definirmenu:'owner', menumedia:'owner', // v7.60
     auraset:'owner', aurapainel:'owner', setaura:'owner', // v7.74
     aurahub:'owner', auractrl:'owner', controlaura:'owner', // v9.5 hub da Aura
+    auraagent:'owner', agenteaura:'owner', agentmode:'owner', // Modo AURA Agente — etapa 1
     tab:'economia', abas:'economia', meurpg:'economia', // v9.5 aba interativa
     // v9.8: CLIENTE ONLINE — divulgação darktoxic (só dono)
     cliente:'owner', clienteonline:'owner', divulgacao:'owner',
