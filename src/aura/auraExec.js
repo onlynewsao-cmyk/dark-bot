@@ -466,6 +466,19 @@ async function executar(id, arg, { sock, msg, ctx, texto, contextoTexto, isOwner
       return await canais.lerRespostasCanal(sock, arg || texto);
     }
 
+    // ══ SORTEIOS, QUIZ E MÉTRICAS DE CANAL ═══════════════
+    // As quatro capacidades já existiam no catálogo, mas não chegavam ao
+    // executor. A ponte dedicada valida o formato antes de qualquer post.
+    case 'canal_sorteio':
+    case 'canal_quiz':
+    case 'canal_enquete_multipla':
+    case 'canal_engajamento': {
+      return await require('./auraChannelAdvanced').executar(id, {
+        sock,
+        text: texto || arg || '',
+      });
+    }
+
     case 'canal_stickers': {
       const canais = require('./auraCanais');
       const raw = (texto || arg || '');
