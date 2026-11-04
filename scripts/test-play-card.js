@@ -88,8 +88,10 @@ Module.prototype.require = function (id) {
   for (const detail of ['Artista Um', '3:21', '12.345']) assert.ok(card.body.includes(detail), `card includes ${detail}`);
   assert.ok(card.body.includes('Áudio automático (128k)'), 'card says audio is automatic');
   assert.ok(!/toxic|ataque/i.test(card.body), '!play stays simple, not DARK TOXIC');
-  assert.strictEqual(card.buttons.length, 1, '!play card only needs the video button');
-  assert.ok(card.buttons[0].id.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'));
+  assert.strictEqual(card.buttons.length, 2, '!play uses a normal card with retry-audio and video buttons');
+  assert.ok(card.buttons.some(b => /Repetir áudio/.test(b.label) && b.id.includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k')),
+    '!play normal card offers a manual retry for the automatic audio');
+  assert.ok(card.buttons.some(b => b.id.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21')));
   assert.ok(!card.sendOptions?.quoted, '!play card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
     '!play audio is the only successful output replying to the command');
@@ -112,8 +114,10 @@ Module.prototype.require = function (id) {
   assert.ok(!/toxic|ataque/i.test(card.body), '!play3 uses the normal play skin');
   assert.ok(card.body.includes('Resultado #3'), 'normal card identifies the third result');
   assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses the same card line with high-quality values');
-  assert.strictEqual(card.buttons.length, 1, '!play3 has the same single video button as play');
-  assert.ok(card.buttons[0].id.includes('| mp4 | 1080 | 5:43'), 'play3 keeps high-quality video');
+  assert.strictEqual(card.buttons.length, 2, '!play3 has the same normal retry-audio/video card as play');
+  assert.ok(card.buttons.some(b => /Repetir áudio/.test(b.label) && b.id.endsWith('| 320k')),
+    'play3 retry button keeps high-quality audio');
+  assert.ok(card.buttons.some(b => b.id.includes('| mp4 | 1080 | 5:43')), 'play3 keeps high-quality video');
   assert.ok(!card.sendOptions?.quoted, '!play3 card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
     '!play3 high-quality audio is the only successful output replying to the command');
@@ -123,7 +127,8 @@ Module.prototype.require = function (id) {
   const fallbackMessage = r.sent.find(x => x.payload?.text);
   const fallback = fallbackMessage?.payload.text || '';
   assert.ok(fallback.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'), 'text fallback retains the video command');
-  assert.ok(!fallback.includes('!ytd '), 'video-only card fallback does not offer redundant audio');
+  assert.ok(fallback.includes('Repetir áudio: !ytd https://youtu.be/AAAAAAAAAAA | 128k'),
+    'normal-card fallback keeps the manual audio retry command');
   assert.ok(!fallbackMessage?.opts?.quoted, 'text card fallback is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'audio still sends as the quoted reply without ButtonV2');
 
@@ -133,7 +138,8 @@ Module.prototype.require = function (id) {
   assert.ok(play3Fallback.includes('Faixa Três') && play3Fallback.includes('Áudio automático (320k)') && play3Fallback.includes('| mp4 | 1080 | 5:43'),
     'play3 text fallback keeps the play layout, result #3, and high-quality commands');
   assert.ok(!/toxic|ataque/i.test(play3Fallback), 'play3 fallback is not DARK TOXIC');
-  assert.ok(!play3Fallback.includes('!ytd '), 'play3 fallback has the same single video button flow as play');
+  assert.ok(play3Fallback.includes('Repetir áudio: !ytd https://youtu.be/CCCCCCCCCCC | 320k'),
+    'play3 fallback also keeps a high-quality audio retry command');
   assert.ok(!play3FallbackMessage?.opts?.quoted, 'play3 text card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 high-quality audio remains the quoted reply');
 

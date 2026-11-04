@@ -114,7 +114,8 @@ Module.prototype.require = function (id) {
   await playCases.get('play')({ sock, msg, m, ctx, text: 'smoke media', prefix: '!', command: 'play' });
   assert.strictEqual(cards.length, 1, '!play must return one compact video card');
   assert(cards[0].buttons.some(button => button.id.startsWith('!gyt ')), 'card must offer video');
-  assert(!cards[0].buttons.some(button => button.id.startsWith('!ytd ')), 'auto-sent audio should not be a redundant button');
+  assert(cards[0].buttons.some(button => button.id.startsWith('!ytd ')),
+    'normal card must offer a manual audio retry even when audio is automatic');
   assert(sent.some(payload => payload.audio?.equals(samples.mp3) && payload.mimetype === 'audio/mpeg'),
     '!play must auto-send the real MP3 bytes');
   passed.push('!play: áudio MP3 real automático + botão de vídeo');

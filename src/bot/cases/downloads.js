@@ -1,7 +1,7 @@
 /**
  * DARK BOT — Cases de Downloads 🎵
  *
- * play   → áudio automático 128k + card compacto com botão de vídeo 480p — resultado #1
+ * play   → áudio automático 128k + card normal com repetir áudio e vídeo 480p — resultado #1
  * play2  → card normal de áudio/vídeo — resultado alternativo #2
  * play3  → mesmo fluxo/botões de play, áudio 320k + vídeo 1080p — resultado #3
  * ytd    → áudio MP3 por URL
@@ -71,7 +71,7 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
 
-// ── Card de resultado; permite card só de vídeo quando o áudio é automático ──
+// ── Card de resultado; áudio automático pode expor botão de repetição ──
 async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, options = {}) {
   const mediaUrl = String(video.youtube_url || video.url || '').trim();
   if (!mediaUrl) throw new Error('resultado sem URL de mídia');
@@ -104,10 +104,15 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
         : 'DARK BOT · escolhe áudio ou vídeo';
       card.setFooter(String(footer || fallbackFooter).slice(0, 64));
       if (video.thumbnail) { try { card.setThumbnail(video.thumbnail); } catch {} }
-      if (!options.videoOnly) card.addButton(`🎵 Áudio ${Q.audio}`, audioCmd);
+      // !play entrega o áudio automaticamente, mas o card normal também dá
+      // um botão de repetição. Assim, se uma URL expirar ou o WhatsApp falhar
+      // num envio isolado, a pessoa não precisa escrever/copiar outro comando.
+      if (!options.videoOnly || options.showAudioRetry) {
+        card.addButton(options.autoAudio ? `🔁 Repetir áudio ${Q.audio}` : `🎵 Áudio ${Q.audio}`, audioCmd);
+      }
       card.addButton(`🎬 Vídeo ${Q.video}p`, videoCmd);
       // Quando o áudio é automático, só ele responde/cita o comando; o card
-      // fica como mensagem simples com o único botão de vídeo.
+      // continua como mensagem normal, agora com repetição de áudio e vídeo.
       await card.send(m.chat, options.autoAudio ? {} : { quoted: msg });
       return;
     } catch (e) {
@@ -117,7 +122,9 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
 
   // Fallback simples mantém a opção de vídeo mesmo sem a biblioteca de botões.
   const actionsText = options.videoOnly
-    ? `Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})\nVídeo: ${videoCmd}`
+    ? (options.showAudioRetry
+      ? `Áudio automático (${Q.audio})\nRepetir áudio: ${audioCmd}\nVídeo: ${videoCmd}`
+      : `Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})\nVídeo: ${videoCmd}`)
     : `Áudio: ${audioCmd}\nVídeo: ${videoCmd}`;
   await sock.sendMessage(m.chat, {
     text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\n${actionsText}`,
@@ -193,7 +200,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     if (quality.autoAudio) {
       // O card de vídeo chega sem esperar pelo provider; o áudio acompanha automaticamente.
       await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, {
-        videoOnly: true, autoAudio: true,
+        videoOnly: true, autoAudio: true, showAudioRetry: true,
       });
       try {
         await enviarAudioResultado(sock, m.chat, msg, video, Q.audio);
