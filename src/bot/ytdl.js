@@ -207,7 +207,7 @@ function selectPipedStream(data, audioOnly, maxHeight = 720) {
   return candidates[candidates.length - 1];
 }
 
-async function fetchPipedBuffer(streamUrl, maxBytes = PIPED_MAX_BYTES, timeoutMs = 120000) {
+async function fetchPipedBuffer(streamUrl, maxBytes = PIPED_MAX_BYTES, timeoutMs = 35000) {
   const url = pipedProxyUrl(streamUrl);
   if (!url) throw new Error('Piped devolveu origem de mídia não autorizada');
   const ctrl = new AbortController();
@@ -240,7 +240,7 @@ async function fetchPipedBuffer(streamUrl, maxBytes = PIPED_MAX_BYTES, timeoutMs
 
 async function pipedDownload(videoId, audioOnly = true, maxHeight = 720) {
   if (!/^[\w-]{11}$/.test(String(videoId || ''))) throw new Error('Piped requer ID YouTube válido');
-  const data = await fetchJson(`${PIPED_API_URL}/streams/${encodeURIComponent(videoId)}`, 20000);
+  const data = await fetchJson(`${PIPED_API_URL}/streams/${encodeURIComponent(videoId)}`, 8000);
   const stream = selectPipedStream(data, audioOnly, maxHeight);
   if (!stream) throw new Error('Piped não disponibilizou MP4 com áudio');
   if (Number(stream.contentLength || 0) > PIPED_MAX_BYTES) throw new Error('Piped mídia excede 50 MB');
@@ -548,7 +548,7 @@ async function getAudio(query, quality = '128k') {
 
   const errors = [];
 
-  // 1. Piped: usa a saída proxy da instância, não o IP do servidor do bot.
+  // 1. Piped: tenta a saída proxy por no máximo 35 s; depois passa ao próximo motor.
   if (meta.videoId) {
     try {
       const r = await pipedDownload(meta.videoId, true);

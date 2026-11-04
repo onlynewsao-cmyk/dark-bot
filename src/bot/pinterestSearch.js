@@ -24,7 +24,11 @@ function isVideoItem(item, url) {
 }
 
 function normalize(item, fallbackType = 'image') {
-  const url = String(pickUrl(item) || '').replace(/\\\//g, '/');
+  let url = String(pickUrl(item) || '').replace(/\\\//g, '/');
+  // O HTML público do Pinterest por vezes cola CSS logo após a URL da imagem.
+  // Conserva apenas a URL de mídia válida antes de a entregar ao Baileys.
+  const pinMedia = url.match(/^(https:\/\/(?:i|v1)\.pinimg\.com\/[^\s"'<>]*?\.(?:jpe?g|png|webp|gif|mp4)(?:\?[^\s"'<>]*)?)/i);
+  if (pinMedia) url = pinMedia[1];
   if (!/^https?:\/\//i.test(url)) return null;
   if (/pinterest\.(com|ca)\/(pin\/)?search|login|signup/i.test(url) && !/pinimg|i\.pinimg|v1\.pinimg/i.test(url)) {
     return null;
@@ -68,26 +72,36 @@ async function fromSystemzoneV3(query, type, limit) {
   return raw.map((x) => normalize(x, type)).filter(Boolean);
 }
 
+async function _firstPublicResult(sources) {
+  if (!sources.length) return [];
+  try {
+    return await Promise.any(sources.map(({ url, ext }) =>
+      tryJson(url, ext, 5000).then((items) => {
+        if (!items.length) throw new Error('sem resultados');
+        return items;
+      })
+    ));
+  } catch {
+    return [];
+  }
+}
+
 async function fromPublicApis(query) {
   const q = encodeURIComponent(query);
-  const sources = [
-    { url: `https://api.siputzx.my.id/api/s/pinterest?query=${q}`, ext: r => r?.data || r?.result },
+  // Três fontes em paralelo: a primeira resposta útil vence. Antes eram sete
+  // tentativas em série de 12 s, o que fazia o comando parecer bloqueado.
+  const primary = [
     { url: `https://systemzone.store/api/v3/pinterest?q=${q}&type=image&limit=10&ia=true`, ext: r => r?.results || r?.data },
+    { url: `https://api.siputzx.my.id/api/s/pinterest?query=${q}`, ext: r => r?.data || r?.result },
     { url: `https://delirius-apiofc.vercel.app/search/pinterest?query=${q}`, ext: r => r?.data || r?.result || r?.results },
+  ];
+  const secondary = [
     { url: `https://api.vreden.my.id/api/pinterest?query=${q}`, ext: r => r?.result || r?.data },
     { url: `https://api.agatz.xyz/api/pinterest?message=${q}`, ext: r => r?.data || r?.result },
     { url: `https://systemzone.store/api/search/pinterest?query=${q}&apikey=freekey`, ext: r => r?.resultados || r?.results || r?.result || r?.data },
-    { url: `https://api.lolhuman.xyz/api/pinterest?query=${q}&apikey=darkbot`, ext: r => r?.result },
   ];
-  const collected = [];
-  for (const src of sources) {
-    try {
-      const items = await tryJson(src.url, src.ext);
-      if (items.length) collected.push(...items);
-      if (collected.length >= 12) break;
-    } catch { /* 502 / timeout — tenta a seguinte */ }
-  }
-  return uniq(collected);
+  const first = await _firstPublicResult(primary);
+  return first.length ? first : _firstPublicResult(secondary);
 }
 
 function unescapePin(s) {
@@ -100,7 +114,7 @@ function unescapePin(s) {
 async function scrapePinterest(query, wantVideo) {
   const path = wantVideo ? 'search/videos' : 'search/pins';
   const url = `https://www.pinterest.com/${path}/?q=${encodeURIComponent(query)}&rs=typed`;
-  const html = await mh().fetchBuffer(url).then(b => b.toString('utf8')).catch(() => '');
+  const html = await mh().fetchBuffer(url, 5, { timeout: 6000 }).then(b => b.toString('utf8')).catch(() => '');
   if (!html || html.length < 400) return [];
 
   const found = [];
@@ -128,7 +142,7 @@ async function resourceSearch(query, wantVideo) {
   const url = 'https://www.pinterest.com/resource/BaseSearchResource/get/'
     + `?source_url=${encodeURIComponent(`/${wantVideo ? 'search/videos' : 'search/pins'}/?q=${query}`)}`
     + `&data=${encodeURIComponent(data)}`;
-  const txt = await mh().fetchBuffer(url).then(b => b.toString('utf8')).catch(() => '');
+  const txt = await mh().fetchBuffer(url, 5, { timeout: 6000 }).then(b => b.toString('utf8')).catch(() => '');
   if (!txt) return [];
   let json;
   try { json = JSON.parse(txt); } catch { return []; }

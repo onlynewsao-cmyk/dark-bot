@@ -74,27 +74,38 @@ async function localYtSearch(query) {
 // API: BUSCA YOUTUBE (array simples)
 // ─────────────────────────────────────────────
 async function ytSearch(query) {
-  let lastErr;
-  // 1º — API systemzone
-  try {
-    const url = `${SYSTEMZONE_API_URL}/api/ytsearch?text=${encodeURIComponent(query)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`;
-    const data = await mediaHandler.fetchJson(url, 20000);
-    if (data?.resultados?.length) return _rememberVideos(data.resultados);
-    lastErr = new Error('API sem resultados');
-  } catch (e) {
-    lastErr = e;
-    console.warn('[ytSearch] API falhou:', e.message?.slice(0, 80));
-  }
-  // 2º — busca local (yt-search) — nunca depende de API externa
-  try {
-    const local = await localYtSearch(query);
-    if (local.length) return _rememberVideos(local);
-  } catch (e) {
-    console.warn('[ytSearch] local falhou:', e.message?.slice(0, 80));
-  }
-  throw lastErr || new Error('Nenhum resultado encontrado para: ' + query);
-}
+  const text = String(query || '').trim();
+  if (!text) throw new Error('Pesquisa vazia');
 
+  // O card não pode ficar refém da API pública. A busca local e a remota
+  // correm em paralelo; a primeira lista válida vence. Assim uma SystemZone
+  // saturada deixa de acrescentar 20 s antes de o card aparecer.
+  const remote = mediaHandler.fetchJson(
+    `${SYSTEMZONE_API_URL}/api/ytsearch?text=${encodeURIComponent(text)}&apikey=${encodeURIComponent(SYSTEMZONE_API_KEY)}`,
+    4500,
+  ).then((data) => {
+    if (Array.isArray(data?.resultados) && data.resultados.length) return data.resultados;
+    throw new Error('SystemZone sem resultados');
+  });
+  const local = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('yt-search demorou demasiado')), 6500);
+    localYtSearch(text).then(
+      (items) => { clearTimeout(timer); resolve(items); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  }).then((items) => {
+    if (Array.isArray(items) && items.length) return items;
+    throw new Error('yt-search sem resultados');
+  });
+
+  try {
+    return _rememberVideos(await Promise.any([local, remote]));
+  } catch (error) {
+    const reasons = error?.errors || [error];
+    console.warn('[ytSearch] todas as buscas falharam:', reasons.map((e) => e?.message || e).join(' | ').slice(0, 180));
+    throw new Error('Nenhum resultado encontrado para: ' + text);
+  }
+}
 /**
  * Formato compatível com o código de referência:
  *   const searchData = await systemZone.ytsearch(text)

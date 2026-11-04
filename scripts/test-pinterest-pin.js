@@ -34,6 +34,9 @@ ok('normalize image', n && n.type === 'image' && n.url.includes('pinimg'));
 const nv = pin.normalize({ url: 'https://v1.pinimg.com/videos/mc/720p/x.mp4', type: 'video' });
 ok('normalize video', nv && nv.type === 'video');
 
+const cssLeak = pin.normalize({ url: 'https://i.pinimg.com/originals/a/b/c/card.png)}.button{color:red' });
+ok('normalize remove CSS colado após URL Pinterest', cssLeak?.url === 'https://i.pinimg.com/originals/a/b/c/card.png', cssLeak?.url);
+
 ok('normalize lixo', pin.normalize({ url: 'not-a-url' }) === null);
 
 if (failed) {

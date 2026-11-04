@@ -3758,11 +3758,11 @@ module.exports = {
     react(sock, msg, '⏳');
 
     try {
-      const SZ = 'https://api.siputzx.my.id/api';
-      const r  = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query)}`, 20000);
-      const items = (r?.data || [])
-        .filter(x => x?.image_url && /^https?/i.test(x.image_url))
-        .slice(0, 8);
+      // A busca partilhada corre fontes em paralelo e tem scraping como
+      // último recurso. Não prende este comando numa única API instável.
+      const { searchPinterest } = require('./pinterestSearch');
+      const items = (await searchPinterest(query, { type: 'image', limit: 8 }))
+        .filter((item) => item?.image_url && /^https?:/i.test(item.image_url));
 
       if (!items.length) throw new Error('Sem imagens encontradas.');
 
@@ -3831,26 +3831,10 @@ module.exports = {
       react(sock, msg, '✅');
 
     } catch (e) {
-      // Fallback: envia individualmente
-      try {
-        const SZ = 'https://api.siputzx.my.id/api';
-        const r2 = await mediaHandler.fetchJson(`${SZ}/s/pinterest?query=${encodeURIComponent(query)}`, 20000);
-        const imgs = (r2?.data || []).filter(x => x?.image_url).slice(0, 5);
-        if (imgs.length) {
-          await reply(sock, msg, ctx, `📌 *Pinterest* — ${query}\n${imgs.length} imagens`);
-          for (let i = 0; i < imgs.length; i++) {
-            await sock.sendMessage(ctx.remoteJid, {
-              image: { url: imgs[i].image_url },
-              caption: `📌 ${i+1}/${imgs.length} — ${(imgs[i].description||query).slice(0,60)}\n\n🎨 *${localConfig.bot.prefix}pinsticker ${imgs[i].image_url}*`,
-            }, { quoted: msg });
-            await new Promise(r => setTimeout(r, 500));
-          }
-          react(sock, msg, '✅');
-          return;
-        }
-      } catch {}
+      // As fontes e os fallbacks já foram tentados pelo motor partilhado.
+      // Não repetimos a mesma API morta por mais 20 s.
       react(sock, msg, '❌');
-      return reply(sock, msg, ctx, '❌ Pinterest falhou. Tente de novo.');
+      return reply(sock, msg, ctx, '❌ Pinterest está indisponível agora. Tenta de novo em instantes.');
     }
   },
 
