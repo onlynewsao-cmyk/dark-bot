@@ -1,21 +1,45 @@
 'use strict';
-/** Controlo owner-only da etapa 1 do Modo AURA Agente. */
+/** Controlo owner-only das etapas 1 e 2 do Modo AURA Agente. */
+
+function resultadoExecucao(result, prefix) {
+  if (result.confirmationRequired) {
+    const expires = new Date(result.expiresAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+    return [
+      '⚠️ *CONFIRMAÇÃO OBRIGATÓRIA*',
+      `Passo ${result.step.index}: ${result.step.description}`,
+      `Ferramenta: ${result.step.actionId}`,
+      '',
+      `Para executar exactamente este passo, envia: \`${prefix}auraagent confirmar ${result.code}\``,
+      `O código expira às ${expires}. Nada foi executado ainda.`,
+    ].join('\n');
+  }
+  const icon = result.ok ? '✅' : '❌';
+  const status = result.ok ? 'concluído e verificado pelo executor' : (result.blocked ? 'bloqueado com segurança' : 'falhou; a tarefa ficou pausada');
+  return `${icon} Passo ${result.step?.index || '?'} ${status}.\n${result.message || 'Sem detalhe devolvido pelo executor.'}`;
+}
 
 module.exports = function registerAuraAgentCases(registerCase) {
-  registerCase(['auraagent', 'agenteaura', 'agentmode'], async ({ ctx, args, text, prefix, isOwner, reply }) => {
+  registerCase(['auraagent', 'agenteaura', 'agentmode'], async ({ sock, msg, ctx, args, text, prefix, isOwner, isAdminFn, reply }) => {
     if (!isOwner) return reply('🚫 O Modo AURA Agente é exclusivo do Dono.');
 
     const agent = require('../../aura/auraAgent');
     const sub = String(args[0] || '').toLowerCase();
     const rest = String(text || '').slice(String(args[0] || '').length).trim();
+    let isAdmin = false;
+    try { isAdmin = isAdminFn ? await isAdminFn() : false; } catch {}
+    const runtime = { sock, msg, ctx, isOwner, isAdmin };
     const help = [
-      '🤖 *MODO AURA AGENTE — etapa 1*',
+      '🤖 *MODO AURA AGENTE — etapas 1 e 2*',
       `• \`${prefix}auraagent on\` — liga o agente neste chat`,
-      `• \`${prefix}auraagent off\` — desliga e limpa a tarefa activa`,
-      `• \`${prefix}auraagent status\` — mostra estado e tarefa`,
+      `• \`${prefix}auraagent off\` — desliga e arquiva a tarefa activa`,
+      `• \`${prefix}auraagent status\` — mostra estado, progresso e próximo passo`,
       `• \`${prefix}auraagent plano <tarefa>\` — cria um plano auditável`,
+      `• \`${prefix}auraagent executar [passo]\` — executa o próximo passo em ordem`,
+      `• \`${prefix}auraagent confirmar <código>\` — confirma uma ação destrutiva`,
+      `• \`${prefix}auraagent cancelar\` — cancela e arquiva o plano pendente`,
+      `• \`${prefix}auraagent historico\` — vê as últimas tarefas arquivadas`,
       '',
-      'O agente só planeia tarefas explícitas do Dono nesta etapa; não executa nada sozinho.',
+      'Cada passo é guardado antes de executar. O agente não repete ações sozinho, não inventa ferramentas e exige confirmação para destrutivas.',
     ].join('\n');
 
     if (!sub || sub === 'ajuda' || sub === 'help') return reply(help);
@@ -25,9 +49,10 @@ module.exports = function registerAuraAgentCases(registerCase) {
     }
     if (sub === 'off' || sub === 'desligar') {
       await agent.setEnabled(ctx.remoteJid, false);
-      return reply('🤖 Modo AURA Agente *desligado*. Tarefa activa removida; a AURA não executará nada por este modo.');
+      return reply('🤖 Modo AURA Agente *desligado*. A tarefa activa foi arquivada; a AURA não executará nada por este modo.');
     }
     if (sub === 'status' || sub === 'estado') return reply(agent.formatStatus(await agent.load(ctx.remoteJid), prefix));
+    if (sub === 'historico' || sub === 'histórico' || sub === 'auditoria') return reply(agent.formatHistory(await agent.load(ctx.remoteJid)));
     if (sub === 'plano' || sub === 'planear' || sub === 'planejar') {
       if (!rest) return reply(`❓ Descreve a tarefa. Ex.: \`${prefix}auraagent plano fecha o grupo e cria uma enquete\``);
       try {
@@ -35,6 +60,30 @@ module.exports = function registerAuraAgentCases(registerCase) {
         return reply(agent.formatPlan(task, prefix));
       } catch (e) {
         return reply('❌ ' + String(e.message || e).slice(0, 180));
+      }
+    }
+    if (sub === 'executar' || sub === 'executa' || sub === 'run') {
+      const step = /^\d+$/.test(rest) ? Number(rest) : undefined;
+      try {
+        return reply(resultadoExecucao(await agent.executeStep(ctx.remoteJid, step, runtime), prefix));
+      } catch (e) {
+        return reply('❌ ' + String(e.message || e).slice(0, 220));
+      }
+    }
+    if (sub === 'confirmar' || sub === 'confirm') {
+      if (!rest) return reply(`❓ Usa o código gerado: \`${prefix}auraagent confirmar CONF-XXXX\`.`);
+      try {
+        return reply(resultadoExecucao(await agent.confirmStep(ctx.remoteJid, rest, runtime), prefix));
+      } catch (e) {
+        return reply('❌ ' + String(e.message || e).slice(0, 220));
+      }
+    }
+    if (sub === 'cancelar' || sub === 'cancela') {
+      try {
+        const task = await agent.cancelTask(ctx.remoteJid, runtime);
+        return reply(`🛑 Tarefa ${task.id} cancelada e arquivada. Nenhum passo pendente será executado.`);
+      } catch (e) {
+        return reply('❌ ' + String(e.message || e).slice(0, 220));
       }
     }
     return reply(help);

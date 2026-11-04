@@ -62,7 +62,24 @@ Module.prototype.require = function (id) {
   assert.match(replies[0], /exclusivo do Dono/, 'case bloqueia não-Dono antes de qualquer acção');
   replies.length = 0;
   await registered.fn({ args: [], text: '', prefix: '!', isOwner: true, reply: async text => replies.push(text) });
-  assert.match(replies[0], /etapa 1/, 'case mostra uso auditável ao Dono');
+  assert.match(replies[0], /etapas 1 e 2/, 'case mostra uso auditável ao Dono');
+
+  const executeStepOriginal = agent.executeStep;
+  let receivedStep = null;
+  agent.executeStep = async (_jid, step, runtime) => {
+    receivedStep = { step, runtime };
+    return { ok: true, step: { index: step, description: 'Teste', actionId: 'criar_enquete' }, message: 'Executor confirmou.' };
+  };
+  replies.length = 0;
+  await registered.fn({
+    args: ['executar', '2'], text: 'executar 2', prefix: '!', isOwner: true,
+    isAdminFn: async () => true, sock: {}, msg: {}, ctx: { remoteJid: jid },
+    reply: async text => replies.push(text),
+  });
+  assert.strictEqual(receivedStep.step, 2, 'case encaminha o número do passo ao executor do agente');
+  assert.strictEqual(receivedStep.runtime.isOwner, true, 'case preserva contexto de Dono na execução');
+  assert.match(replies[0], /concluído e verificado/, 'case apresenta resultado verificado');
+  agent.executeStep = executeStepOriginal;
 
   await agent.setEnabled(jid, false);
   state = await agent.load(jid);
