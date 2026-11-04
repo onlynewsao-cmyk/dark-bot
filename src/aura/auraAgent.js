@@ -278,6 +278,7 @@ async function executeStep(jid, requestedIndex, runtime, services = {}) {
   if (step.status === 'incerta') throw new Error(`O passo ${step.index} tem resultado incerto. Usa !auraagent resolver ${step.index} <concluida|falhou> depois de verificar o efeito.`);
   const brain = services.brain || require('./auraBrain');
   const executor = services.executor || require('./auraExec');
+  const reviewer = services.reviewer || require('./auraClaude');
   const cap = brain.POR_ID?.get(step.actionId);
 
   if (step.status === 'em_execucao') throw new Error('Este passo já está marcado como em execução. Verifica o resultado antes de tentar novamente.');
@@ -331,7 +332,7 @@ async function executeStep(jid, requestedIndex, runtime, services = {}) {
   }
 
   await persistStepStart(jid, state, task, step);
-  return invokeStep(jid, state, task, step, runtime, executor);
+  return invokeStep(jid, state, task, step, runtime, executor, reviewer, brain);
 }
 
 async function confirmStep(jid, code, runtime, services = {}) {
@@ -355,14 +356,41 @@ async function confirmStep(jid, code, runtime, services = {}) {
 
   const brain = services.brain || require('./auraBrain');
   const executor = services.executor || require('./auraExec');
+  const reviewer = services.reviewer || require('./auraClaude');
   const cap = brain.POR_ID?.get(step.actionId);
   if (!cap || cap.risco !== 'destrutivo') throw new Error('O passo pendente deixou de ser uma ação destrutiva válida. Nada foi executado.');
 
   await persistStepStart(jid, state, task, step);
-  return invokeStep(jid, state, task, step, runtime, executor);
+  return invokeStep(jid, state, task, step, runtime, executor, reviewer, brain);
 }
 
-async function invokeStep(jid, state, task, step, runtime, executor) {
+async function assessStepWithClaude(task, step, execution, reviewer, brain) {
+  if (!reviewer?.isConfigured?.() || typeof reviewer.reviewStep !== 'function') return null;
+  try {
+    const assessment = await reviewer.reviewStep({
+      request: task.request,
+      task,
+      step,
+      execution: { ok: !!execution?.ok, message: String(execution?.msg || '').slice(0, 500) },
+      capabilities: brain?.CAPACIDADES || [],
+    });
+    step.assessment = {
+      provider: 'claude', status: 'validada', verdict: assessment.verdict,
+      summary: String(assessment.summary || '').slice(0, 500),
+      recommendedNextActionId: String(assessment.recommendedNextActionId || '').slice(0, 100),
+      reason: String(assessment.reason || '').slice(0, 300),
+      model: String(assessment.model || 'claude').slice(0, 100), at: Date.now(),
+    };
+    addEvent(task, 'passo_supervisionado_claude', { step: step.index, verdict: step.assessment.verdict });
+    return step.assessment;
+  } catch (error) {
+    step.assessment = { provider: 'claude', status: 'indisponivel', code: String(error?.code || 'erro').slice(0, 60), at: Date.now() };
+    addEvent(task, 'supervisao_claude_indisponivel', { step: step.index, code: step.assessment.code });
+    return step.assessment;
+  }
+}
+
+async function invokeStep(jid, state, task, step, runtime, executor, reviewer, brain) {
   let result;
   try {
     // A confirmação e a validação do Dono já foram feitas pelo agente. O
@@ -392,6 +420,9 @@ async function invokeStep(jid, state, task, step, runtime, executor) {
   }
   refreshTaskStatus(task);
   if (task.status === 'concluida') task.endedAt = Date.now();
+  // Claude só supervisiona o resultado já devolvido pelo executor; não muda
+  // status, não chama ferramenta e não dispara o próximo passo.
+  await assessStepWithClaude(task, step, result, reviewer, brain);
   await save(jid, state);
   return { ok: !!result?.ok, silent: !!result?.silencioso, task, step, result, message: step.result };
 }
@@ -518,6 +549,13 @@ function formatDetails(task) {
     lines.push(`${step.index}. ${step.actionId || 'sem ferramenta'} — *${step.status}*`);
     if (step.attempts) lines.push(`   Tentativas: ${step.attempts}`);
     if (step.result) lines.push(`   Resultado: ${String(step.result).slice(0, 300)}`);
+    if (step.assessment?.provider === 'claude') {
+      const label = step.assessment.status === 'validada'
+        ? `Claude: ${step.assessment.verdict || 'revisado'} — ${step.assessment.summary || ''}`
+        : `Claude: indisponível (${step.assessment.code || 'erro'})`;
+      lines.push(`   ${label.slice(0, 550)}`);
+      if (step.assessment.recommendedNextActionId) lines.push(`   Próxima ferramenta recomendada: ${step.assessment.recommendedNextActionId} (não executada automaticamente).`);
+    }
     if (step.verifiedByOwner) lines.push('   Verificado manualmente pelo Dono.');
   }
   const events = (task.events || []).slice(-6);

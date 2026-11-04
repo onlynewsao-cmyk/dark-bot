@@ -47,7 +47,14 @@ const advanced = { detectarMulti: () => [] };
       return { ok: true, msg: `Resultado confirmado de ${id}` };
     },
   };
-  const services = { brain, executor };
+  const reviewer = {
+    isConfigured: () => true,
+    reviewStep: async () => ({
+      model: 'claude-fable-5-1', verdict: 'continue', summary: 'Passo confirmado.',
+      recommendedNextActionId: 'seguro_2', reason: 'Próximo passo já existe no plano.',
+    }),
+  };
+  const services = { brain, executor, reviewer };
 
   await agent.setEnabled(jid, true);
   const claudePlanner = {
@@ -67,6 +74,8 @@ const advanced = { detectarMulti: () => [] };
   assert.strictEqual(result.ok, true, 'executa passo seguro');
   assert.strictEqual(result.step.status, 'concluida');
   assert.strictEqual(result.task.status, 'concluida', 'fecha tarefa só após retorno ok do executor');
+  assert.strictEqual(result.step.assessment.verdict, 'continue', 'Claude supervisiona o resultado sem executar nova ação');
+  assert.strictEqual(result.step.assessment.recommendedNextActionId, 'seguro_2');
   assert.strictEqual(invocations.length, 1);
   assert.strictEqual(invocations[0].opts.confirmado, true, 'executor só recebe acção após gate do agente');
 

@@ -55,6 +55,33 @@ const capabilities = [
   assert.strictEqual(body.tool_choice.name, 'propose_agent_plan');
   assert.deepStrictEqual(body.tools[0].input_schema.properties.steps.items.properties.actionId.enum, ['criar_enquete', 'canal_apagar']);
 
+  let reviewBody = null;
+  const fetchReview = async (_url, options) => {
+    reviewBody = JSON.parse(options.body);
+    return {
+      ok: true,
+      json: async () => ({ model: 'claude-fable-5-1', content: [{
+        type: 'tool_use', name: 'assess_agent_step', id: 'toolu_review',
+        input: {
+          verdict: 'continue', summary: 'A enquete foi criada pelo executor.',
+          recommendedNextActionId: 'criar_enquete', reason: 'Não há bloqueio técnico.',
+        },
+      }] }),
+    };
+  };
+  const assessment = await claude.reviewStep({
+    request: 'cria enquete',
+    task: { request: 'cria enquete', steps: [{ index: 1, actionId: 'criar_enquete', status: 'concluida' }] },
+    step: { index: 1, actionId: 'criar_enquete' }, execution: { ok: true, message: 'Executor confirmou.' },
+    capabilities, env, fetchImpl: fetchReview,
+  });
+  assert.deepStrictEqual(assessment, {
+    model: 'claude-fable-5-1', verdict: 'continue', summary: 'A enquete foi criada pelo executor.',
+    recommendedNextActionId: 'criar_enquete', reason: 'Não há bloqueio técnico.',
+  }, 'supervisão vem em ferramenta estruturada e não executa ação');
+  assert.strictEqual(reviewBody.tool_choice.name, 'assess_agent_step');
+  assert.ok(!JSON.stringify(reviewBody).includes(env.ANTHROPIC_API_KEY), 'chave não entra na supervisão');
+
   const fetchBad = async () => ({ ok: true, json: async () => ({ model: 'x', content: [{ type: 'text', text: 'texto solto' }] }) });
   await assert.rejects(
     () => claude.planTask({ request: 'cria enquete', capabilities, env, fetchImpl: fetchBad }),

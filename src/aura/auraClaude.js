@@ -40,6 +40,8 @@ function settings(env = process.env) {
     model: cleanModel(env.AURA_CLAUDE_MODEL),
     maxTokens: boundedInt(env.AURA_CLAUDE_MAX_TOKENS, 2048, 512, 4096),
     timeoutMs: boundedInt(env.AURA_CLAUDE_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 5000, 120000),
+    // Revisão pós-execução nunca pode prender uma ferramenta já concluída.
+    reviewTimeoutMs: boundedInt(env.AURA_CLAUDE_REVIEW_TIMEOUT_MS, 12000, 3000, 20000),
     apiKey,
   };
 }
@@ -135,6 +137,53 @@ function systemPrompt() {
   ].join(' ');
 }
 
+function assessmentTool(actionIds) {
+  return {
+    name: 'assess_agent_step',
+    description: 'Regista uma recomendação de supervisão para um passo já executado. Isto NÃO executa nem altera a tarefa.',
+    input_schema: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        verdict: { type: 'string', enum: ['continue', 'pause', 'complete', 'replan'] },
+        summary: { type: 'string', maxLength: 500 },
+        recommendedNextActionId: { type: 'string', enum: ['', ...actionIds] },
+        reason: { type: 'string', maxLength: 300 },
+      },
+      required: ['verdict', 'summary'],
+    },
+  };
+}
+
+function extractAssessment(response, actionIds) {
+  const block = (response?.content || []).find(item => item?.type === 'tool_use' && item.name === 'assess_agent_step');
+  const input = block?.input;
+  const allowedVerdicts = new Set(['continue', 'pause', 'complete', 'replan']);
+  if (!input || !allowedVerdicts.has(input.verdict)) {
+    throw new ClaudeAgentError('invalid_assessment', 'Claude não devolveu uma supervisão estruturada válida.');
+  }
+  const actionId = String(input.recommendedNextActionId || '');
+  return {
+    model: String(response?.model || '').slice(0, 100),
+    verdict: input.verdict,
+    summary: String(input.summary || '').trim().slice(0, 500),
+    recommendedNextActionId: actionIds.includes(actionId) ? actionId : '',
+    reason: String(input.reason || '').trim().slice(0, 300),
+  };
+}
+
+function assessmentPrompt() {
+  return [
+    'És o supervisor pós-execução do Modo AURA Agente.',
+    'Lê o resultado de um passo já executado e devolve SOMENTE assess_agent_step.',
+    'Não executas, não aprovas permissões, não alteras estados e não acrescentas passos.',
+    'O Dono e o executor continuam a controlar a execução.',
+    'Recomenda continue apenas quando o resultado permitir seguir para um passo já planeado.',
+    'Recomenda pause perante falha, ambiguidade, resultado incerto ou necessidade de intervenção.',
+    'Nunca recomendes uma ferramenta fora do catálogo autorizado.',
+  ].join(' ');
+}
+
 async function postMessage(body, cfg, fetchImpl = globalThis.fetch) {
   if (typeof fetchImpl !== 'function') throw new ClaudeAgentError('fetch_unavailable', 'Fetch indisponível para contactar a API Claude.');
   const controller = new AbortController();
@@ -193,8 +242,45 @@ async function planTask({ request, capabilities, fetchImpl, env } = {}) {
   return extractProposal(response, actionIds);
 }
 
+/**
+ * Supervisão curta após uma ferramenta terminar. É deliberadamente só uma
+ * recomendação persistida para o Dono: este método não executa, não replaneia
+ * e não altera o estado do agente.
+ */
+async function reviewStep({ request, task, step, execution, capabilities, fetchImpl, env } = {}) {
+  const cfg = settings(env || process.env);
+  if (!cfg.configured) throw new ClaudeAgentError('not_configured', 'Claude API não está configurada para a AURA.');
+  const catalogue = capabilityList(capabilities);
+  if (!catalogue.length) throw new ClaudeAgentError('empty_catalogue', 'Não há capacidades disponíveis para supervisionar.');
+  const actionIds = catalogue.map(cap => cap.id);
+  const requestText = String(request || task?.request || '').trim().slice(0, 700);
+  const executed = {
+    index: Number(step?.index) || 0,
+    actionId: String(step?.actionId || '').slice(0, 100),
+    status: execution?.ok ? 'concluida' : 'falhou',
+    result: String(execution?.message || execution?.result?.msg || '').slice(0, 500),
+  };
+  const remaining = (task?.steps || [])
+    .filter(item => Number(item?.index) > executed.index)
+    .slice(0, 5)
+    .map(item => ({ index: item.index, actionId: item.actionId || '', status: item.status || 'pendente' }));
+  const body = {
+    model: cfg.model,
+    max_tokens: Math.min(cfg.maxTokens, 1024),
+    system: assessmentPrompt(),
+    messages: [{
+      role: 'user',
+      content: `PEDIDO DO DONO:\n${requestText}\n\nPASSO JÁ EXECUTADO:\n${JSON.stringify(executed)}\n\nPRÓXIMOS PASSOS JÁ PLANEADOS:\n${JSON.stringify(remaining)}\n\nCATÁLOGO AUTORIZADO:\n${JSON.stringify(catalogue)}`,
+    }],
+    tools: [assessmentTool(actionIds)],
+    tool_choice: { type: 'tool', name: 'assess_agent_step', disable_parallel_tool_use: true },
+  };
+  const response = await postMessage(body, { ...cfg, timeoutMs: cfg.reviewTimeoutMs }, fetchImpl);
+  return extractAssessment(response, actionIds);
+}
+
 module.exports = {
   DEFAULT_MODEL, ClaudeAgentError, settings, status, isConfigured,
-  capabilityList, extractProposal, planTask,
-  __test: { cleanModel, boundedInt, plannerTool, systemPrompt, postMessage },
+  capabilityList, extractProposal, extractAssessment, planTask, reviewStep,
+  __test: { cleanModel, boundedInt, plannerTool, assessmentTool, systemPrompt, assessmentPrompt, postMessage },
 };
