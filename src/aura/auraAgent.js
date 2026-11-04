@@ -221,6 +221,9 @@ function taskProgress(task) {
 function refreshTaskStatus(task) {
   const progress = taskProgress(task);
   if (progress.total && progress.done === progress.total) task.status = 'concluida';
+  // Um resultado incerto nunca abre caminho para o próximo passo: só o
+  // Dono pode registá-lo como concluído ou falhado depois de verificar fora.
+  else if ((task.steps || []).some(step => step.status === 'incerta')) task.status = 'verificacao_manual';
   else if ((task.steps || []).some(step => ['falhou', 'bloqueada'].includes(step.status))) task.status = 'pausada';
   else if ((task.steps || []).some(step => step.status === 'aguarda_confirmacao')) task.status = 'aguarda_confirmacao';
   else if ((task.steps || []).some(step => step.status === 'em_execucao')) task.status = 'em_execucao';
@@ -269,9 +272,10 @@ async function executeStep(jid, requestedIndex, runtime, services = {}) {
   if (!state.enabled) throw new Error('Modo Agente está desligado neste chat.');
   const task = state.task;
   if (!task) throw new Error('Não há tarefa activa. Cria primeiro um plano.');
-  if (['concluida', 'cancelada', 'pausada'].includes(task.status)) throw new Error(`A tarefa está ${task.status}; nada foi executado.`);
+  if (['concluida', 'cancelada', 'pausada', 'verificacao_manual'].includes(task.status)) throw new Error(`A tarefa está ${task.status}; nada foi executado.`);
 
   const step = selectStep(task, requestedIndex);
+  if (step.status === 'incerta') throw new Error(`O passo ${step.index} tem resultado incerto. Usa !auraagent resolver ${step.index} <concluida|falhou> depois de verificar o efeito.`);
   const brain = services.brain || require('./auraBrain');
   const executor = services.executor || require('./auraExec');
   const cap = brain.POR_ID?.get(step.actionId);
@@ -392,6 +396,53 @@ async function invokeStep(jid, state, task, step, runtime, executor) {
   return { ok: !!result?.ok, task, step, result, message: step.result };
 }
 
+/**
+ * Recuperação segura após queda/time-out: nunca chama a ferramenta outra vez.
+ * O efeito externo pode ter acontecido, então o passo fica incerto até o Dono
+ * o validar manualmente.
+ */
+async function recoverTask(jid, runtime) {
+  executionContext(runtime);
+  const state = await load(jid);
+  if (!state.enabled || !state.task) throw new Error('Não há tarefa activa do Modo Agente neste chat.');
+  const task = state.task;
+  const running = (task.steps || []).filter(step => step.status === 'em_execucao');
+  if (!running.length) throw new Error('Não há passo marcado como em execução para recuperar.');
+  for (const step of running) {
+    step.status = 'incerta';
+    step.recoveredAt = Date.now();
+    step.result = 'Resultado incerto após interrupção; nenhuma repetição automática foi feita.';
+    addEvent(task, 'passo_resultado_incerto', { step: step.index, actionId: step.actionId });
+  }
+  refreshTaskStatus(task);
+  await save(jid, state);
+  return { task, steps: running };
+}
+
+/** Registo manual auditável do Dono depois de verificar o efeito externo. */
+async function resolveUncertainStep(jid, requestedIndex, outcome, runtime) {
+  executionContext(runtime);
+  const state = await load(jid);
+  if (!state.enabled || !state.task) throw new Error('Não há tarefa activa do Modo Agente neste chat.');
+  const task = state.task;
+  const index = Number(requestedIndex);
+  const step = task.steps?.find(item => item.index === index);
+  if (!step || step.status !== 'incerta') throw new Error('Esse passo não está à espera de verificação manual.');
+  const normalized = String(outcome || '').toLocaleLowerCase('pt-PT').replace(/[íi]/g, 'i');
+  if (!['concluida', 'falhou'].includes(normalized)) throw new Error('Indica `concluida` ou `falhou`.');
+  step.status = normalized;
+  step.finishedAt = Date.now();
+  step.verifiedByOwner = true;
+  step.result = normalized === 'concluida'
+    ? 'Efeito confirmado manualmente pelo Dono após interrupção.'
+    : 'Falha confirmada manualmente pelo Dono após interrupção.';
+  addEvent(task, 'passo_verificado_dono', { step: step.index, actionId: step.actionId, outcome: normalized });
+  refreshTaskStatus(task);
+  if (task.status === 'concluida') task.endedAt = Date.now();
+  await save(jid, state);
+  return { ok: normalized === 'concluida', task, step, message: step.result };
+}
+
 async function cancelTask(jid, runtime) {
   executionContext(runtime);
   const state = await load(jid);
@@ -439,6 +490,8 @@ function formatStatus(state, prefix = '!') {
     lines.push(`Tarefa activa: ${state.task.id} — *${state.task.status}* — ${progress.done}/${progress.total} passos concluídos.`);
     const next = nextOpenStep(state.task);
     if (next) lines.push(`Próximo passo: ${next.index} — ${next.actionId || 'sem ferramenta validada'} (${next.status}).`);
+    if (state.task.status === 'em_execucao') lines.push(`Se o processo tiver sido interrompido, usa \`${prefix}auraagent recuperar\`; isso não repete a ação.`);
+    if (state.task.status === 'verificacao_manual' && next) lines.push(`Verifica o efeito fora do bot e regista: \`${prefix}auraagent resolver ${next.index} <concluida|falhou>\`.`);
   } else {
     lines.push(`Cria um plano: \`${prefix}auraagent plano <tarefa>\`.`);
   }
@@ -458,10 +511,30 @@ function formatHistory(state) {
   return lines.join('\n');
 }
 
+function formatDetails(task) {
+  if (!task) return 'Não há tarefa activa para detalhar.';
+  const lines = [`🔎 *DETALHE DA TAREFA ${task.id}*`, `Estado: *${task.status}*`, `Pedido: ${task.request}`, ''];
+  for (const step of task.steps || []) {
+    lines.push(`${step.index}. ${step.actionId || 'sem ferramenta'} — *${step.status}*`);
+    if (step.attempts) lines.push(`   Tentativas: ${step.attempts}`);
+    if (step.result) lines.push(`   Resultado: ${String(step.result).slice(0, 300)}`);
+    if (step.verifiedByOwner) lines.push('   Verificado manualmente pelo Dono.');
+  }
+  const events = (task.events || []).slice(-6);
+  if (events.length) {
+    lines.push('', '*Últimos eventos:*');
+    for (const item of events) {
+      const when = new Date(Number(item.at) || Date.now()).toISOString().replace('T', ' ').slice(0, 19);
+      lines.push(`• ${when} — ${item.type}${item.step ? ` (passo ${item.step})` : ''}`);
+    }
+  }
+  return lines.join('\n');
+}
+
 module.exports = {
   stateKey, defaultState, cleanState, load, save, setEnabled,
-  buildPlan, createPlan, executeStep, confirmStep, cancelTask,
-  formatPlan, formatStatus, formatHistory, taskProgress, nextOpenStep,
+  buildPlan, createPlan, executeStep, confirmStep, recoverTask, resolveUncertainStep, cancelTask,
+  formatPlan, formatStatus, formatHistory, formatDetails, taskProgress, nextOpenStep,
   // Expostos para testes de segurança e auditoria.
   __test: { refreshTaskStatus, selectStep, expiredConfirmation, CONFIRM_TTL_MS },
 };

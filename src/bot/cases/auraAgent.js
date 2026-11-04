@@ -37,6 +37,9 @@ module.exports = function registerAuraAgentCases(registerCase) {
       `• \`${prefix}auraagent executar [passo]\` — executa o próximo passo em ordem`,
       `• \`${prefix}auraagent confirmar <código>\` — confirma uma ação destrutiva`,
       `• \`${prefix}auraagent cancelar\` — cancela e arquiva o plano pendente`,
+      `• \`${prefix}auraagent detalhe\` — mostra passos, resultados e eventos`,
+      `• \`${prefix}auraagent recuperar\` — marca execução interrompida como incerta, sem repetir`,
+      `• \`${prefix}auraagent resolver <passo> <concluida|falhou>\` — regista verificação manual`,
       `• \`${prefix}auraagent historico\` — vê as últimas tarefas arquivadas`,
       `• \`${prefix}auraagent modelo\` — vê o estado seguro do cérebro Claude`,
       '',
@@ -53,6 +56,7 @@ module.exports = function registerAuraAgentCases(registerCase) {
       return reply('🤖 Modo AURA Agente *desligado*. A tarefa activa foi arquivada; a AURA não executará nada por este modo.');
     }
     if (sub === 'status' || sub === 'estado') return reply(agent.formatStatus(await agent.load(ctx.remoteJid), prefix));
+    if (sub === 'detalhe' || sub === 'detalhes' || sub === 'log') return reply(agent.formatDetails((await agent.load(ctx.remoteJid)).task));
     if (sub === 'historico' || sub === 'histórico' || sub === 'auditoria') return reply(agent.formatHistory(await agent.load(ctx.remoteJid)));
     if (sub === 'modelo' || sub === 'claude') {
       const claude = require('../../aura/auraClaude').status();
@@ -81,6 +85,27 @@ module.exports = function registerAuraAgentCases(registerCase) {
       if (!rest) return reply(`❓ Usa o código gerado: \`${prefix}auraagent confirmar CONF-XXXX\`.`);
       try {
         return reply(resultadoExecucao(await agent.confirmStep(ctx.remoteJid, rest, runtime), prefix));
+      } catch (e) {
+        return reply('❌ ' + String(e.message || e).slice(0, 220));
+      }
+    }
+    if (sub === 'recuperar' || sub === 'reconciliar') {
+      try {
+        const result = await agent.recoverTask(ctx.remoteJid, runtime);
+        const passos = result.steps.map(step => step.index).join(', ');
+        return reply(`⚠️ Passo(s) ${passos} marcado(s) como *resultado incerto*. Não repeti nenhuma ação. Verifica o efeito e usa \`${prefix}auraagent resolver <passo> <concluida|falhou>\`.`);
+      } catch (e) {
+        return reply('❌ ' + String(e.message || e).slice(0, 220));
+      }
+    }
+    if (sub === 'resolver' || sub === 'validar') {
+      const parts = rest.split(/\s+/).filter(Boolean);
+      const step = Number(parts[0]);
+      const outcome = parts[1];
+      if (!Number.isInteger(step) || !outcome) return reply(`❓ Usa: \`${prefix}auraagent resolver <passo> <concluida|falhou>\`.`);
+      try {
+        const result = await agent.resolveUncertainStep(ctx.remoteJid, step, outcome, runtime);
+        return reply(`${result.ok ? '✅' : '❌'} Passo ${step} registado como *${result.step.status}* após verificação manual do Dono.\n${result.message}`);
       } catch (e) {
         return reply('❌ ' + String(e.message || e).slice(0, 220));
       }

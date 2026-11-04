@@ -107,6 +107,22 @@ const advanced = { detectarMulti: () => [] };
   assert.strictEqual(result.task.status, 'pausada', 'falha pausa em vez de repetir automaticamente');
   await assert.rejects(() => agent.executeStep(jid, 1, runtime, services), /pausada/);
 
+  // Simula queda depois de persistir “em execução”, antes de receber resposta.
+  await agent.createPlan(jid, 'ação segura', { brain, advanced });
+  let interrupted = await agent.load(jid);
+  interrupted.task.steps[0].status = 'em_execucao';
+  interrupted.task.status = 'em_execucao';
+  await agent.save(jid, interrupted);
+  result = await agent.recoverTask(jid, runtime);
+  assert.strictEqual(result.task.status, 'verificacao_manual', 'recuperação não assume nem repete efeito externo');
+  assert.strictEqual(result.steps[0].status, 'incerta');
+  await assert.rejects(() => agent.executeStep(jid, 1, runtime, services), /verificacao_manual/);
+  result = await agent.resolveUncertainStep(jid, 1, 'concluída', runtime);
+  assert.strictEqual(result.ok, true);
+  assert.strictEqual(result.step.verifiedByOwner, true, 'só o Dono pode encerrar resultado incerto');
+  assert.strictEqual(result.task.status, 'concluida');
+  assert.match(agent.formatDetails(result.task), /Verificado manualmente pelo Dono/);
+
   await agent.setEnabled(jid, false);
   const state = await agent.load(jid);
   assert.strictEqual(state.enabled, false);
