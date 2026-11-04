@@ -45,16 +45,8 @@ module.exports = function registerExtraCases(registerCase) {
     }
   });
 
-  // ═══ ADD META AI AO GRUPO ═══
-  registerCase(['addai', 'addmetaai', 'metaai'], async ({ sock, msg, ctx, reply }) => {
-    if (!ctx.isGroup) return reply('👥 Só em grupos.');
-    try {
-      await sock.groupParticipantsUpdate(ctx.remoteJid, ['867051314767696@bot'], 'add');
-      reply('✅ Meta AI foi adicionada ao grupo com sucesso.');
-    } catch (e) {
-      reply('❌ Não foi possível adicionar a Meta AI ao grupo.');
-    }
-  });
+  // !addai / !metaai ficam centralizados em cases/online.js para validar o
+  // resultado do WhatsApp e nunca anunciar uma adição que não foi confirmada.
 
   // ═══ TIKTOK STALKER ═══
   registerCase(['ttkstalk', 'tiktokstalk', 'ttstalk'], async ({ sock, msg, ctx, text, reply }) => {

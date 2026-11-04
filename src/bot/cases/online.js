@@ -150,18 +150,46 @@ module.exports = function registerOnlineCases(registerCase) {
   });
 
   // ══════════════════════════════════════════════════════════════════
-  // !addai — Adiciona Meta AI ao grupo
+  // !addai — Adiciona Meta AI ao grupo (quando o WhatsApp o permite)
   // ══════════════════════════════════════════════════════════════════
-  registerCase(['addai', 'metaai', 'addmetaai'], async ({ m, sock, ctx, isOwner, isAdminFn, reply }) => {
+  // Este é um bot-JID oficial, não um número normal. A elegibilidade para
+  // grupos é definida pelo WhatsApp para cada conta/região/grupo; por isso
+  // nunca declaramos sucesso só porque a chamada foi enviada ao servidor.
+  const META_AI_JID = '867051314767696@bot';
+  const metaAiIsMember = (meta) => (meta?.participants || []).some((p) => String(p?.id || p?.jid || '') === META_AI_JID);
+  const addStatus = (result) => {
+    const item = Array.isArray(result) ? result.find((x) => String(x?.jid || x?.id || '') === META_AI_JID) || result[0] : result;
+    return String(item?.status || item?.code || '').trim();
+  };
+
+  registerCase(['addai', 'metaai', 'addmetaai'], async ({ m, sock, ctx, isOwner, isAdminFn }) => {
     if (!ctx.isGroup) return m.reply('👥 Só funciona em grupos.');
     const isAdm = isOwner || await isAdminFn();
     if (!isAdm) return m.reply('🚫 Só admins podem usar este comando.');
+
     try {
-      await sock.groupParticipantsUpdate(ctx.remoteJid, ['867051314767696@bot'], 'add');
-      m.reply('✅ *Meta AI* foi adicionada ao grupo com sucesso!\n\nChama-a com @Meta AI nas mensagens.');
+      const before = await sock.groupMetadata(ctx.remoteJid);
+      if (metaAiIsMember(before)) return m.reply('✅ *Meta AI* já está neste grupo. Usa *@Meta AI* para falar com ela.');
+
+      const result = await sock.groupParticipantsUpdate(ctx.remoteJid, [META_AI_JID], 'add');
+      const status = addStatus(result);
+      if (!/^20\d$/.test(status)) {
+        throw new Error(status ? `WhatsApp recusou a adição (status ${status})` : 'WhatsApp não confirmou a adição');
+      }
+
+      // A confirmação por metadata evita o antigo falso positivo: antes o bot
+      // dizia “adicionada” mesmo quando o WhatsApp rejeitava o bot-JID depois.
+      const after = await sock.groupMetadata(ctx.remoteJid);
+      if (!metaAiIsMember(after)) throw new Error('a Meta AI não apareceu nos participantes após a solicitação');
+      return m.reply('✅ *Meta AI* foi adicionada e confirmada neste grupo!\n\nChama-a com *@Meta AI* nas mensagens.');
     } catch (e) {
-      console.error('[ADDAI]', e?.message);
-      m.reply('❌ Não foi possível adicionar a Meta AI ao grupo.\n_Pode ser que já esteja no grupo ou que o grupo não suporte bots externos._');
+      console.warn('[ADDAI]', e?.message);
+      return m.reply(
+        '⚠️ A Meta AI não pôde ser adicionada a este grupo.\n\n' +
+        'Isto depende da elegibilidade que o próprio WhatsApp libera para a conta, região e grupo; não há como o bot forçar essa permissão. ' +
+        'Confirma que o bot e quem executa são admins e tenta também pelo WhatsApp oficial: informações do grupo → adicionar participantes → Meta AI.\n\n' +
+        `Detalhe: ${String(e?.message || 'recusado pelo WhatsApp').slice(0, 120)}`
+      );
     }
   });
 

@@ -337,9 +337,6 @@ module.exports = function registerIA2(registerCase) {
     }
   }, true);
 
-  // ═══ ADMIN: addai / addmetaai ═══
-  registerCase(['addai', 'addmetaai'], async ({ sock, msg, ctx, args, prefix, reply, isOwner }) => {
-    if (!isOwner) return reply('🚫 Só o dono.');
-    return reply(`🤖 *Configurar IA*\n\nDefina as API keys no Render:\n• GROQ_API_KEY\n• GEMINI_API_KEY\n\n> ${config.bot.name}`);
-  }, true);
+  // !addai / !addmetaai pertencem exclusivamente a cases/online.js, onde a
+  // adição da Meta AI é confirmada no metadata do grupo antes da resposta.
 };

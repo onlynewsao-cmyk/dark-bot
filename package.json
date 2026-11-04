@@ -151,7 +151,9 @@
     "test:improvements": "node scripts/test-aura-context.js && node scripts/test-ai-cancellation.js && node scripts/test-conversation-cancellation.js",
     "test:render-startup": "node -r ./scripts/helpers/offline-guard.js scripts/test-render-singleton.js && DARK_TEST_ALLOW_LOCAL=1 node -r ./scripts/helpers/offline-guard.js scripts/test-render-bootstrap.js",
     "test:baileys": "node scripts/test-baileys-v6-contract.js",
-    "test:media-providers": "node scripts/test-media-provider-resilience.js"
+    "test:media-providers": "node scripts/test-media-provider-resilience.js",
+    "test:facebook-video": "node scripts/test-facebook-video-compat.js",
+    "test:meta-ai-add": "node scripts/test-meta-ai-add.js"
   },
   "engines": {
     "node": ">=20.19.0"

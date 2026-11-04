@@ -146,10 +146,15 @@ Module.prototype.require = function (id) {
   ];
   for (const [command, args] of videoRoutes) {
     out = await run(socialCases, command, { args });
-    assert(out.some(payload => payload.video?.equals(samples.mp4)
-      && payload.mimetype === 'video/mp4'), `${command} must build a real MP4 payload`);
+    const sentVideo = out.find(payload => Buffer.isBuffer(payload.video) && payload.mimetype === 'video/mp4');
+    assert(sentVideo && videoCompat.isMp4(sentVideo.video), `${command} must build a real MP4 payload`);
+    if (command !== 'facebook') assert(sentVideo.video.equals(samples.mp4), `${command} preserves the provider bytes`);
     passed.push(`${command}: bytes MP4 reais no payload`);
   }
+
+  const downloads2Source = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'bot', 'cases', 'downloads2.js'), 'utf8');
+  assert(downloads2Source.includes('normalizeForWhatsApp: true, maxHeight: 720'), 'Facebook must normalize MP4 before WhatsApp delivery');
+  passed.push('facebook: normalização H.264/AAC/yuv420p antes do envio');
 
   out = await run(socialCases, 'soundcloud', { args: ['https://soundcloud.com/sample/track'] });
   assert(out.some(payload => payload.audio?.equals(samples.mp3)
