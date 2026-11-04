@@ -81,6 +81,22 @@ Module.prototype.require = function (id) {
   assert.match(replies[0], /concluído e verificado/, 'case apresenta resultado verificado');
   agent.executeStep = executeStepOriginal;
 
+  const recoverTaskOriginal = agent.recoverTask;
+  let recoveredRuntime = null;
+  agent.recoverTask = async (_jid, runtime) => {
+    recoveredRuntime = runtime;
+    return { steps: [{ index: 1 }] };
+  };
+  replies.length = 0;
+  await registered.fn({
+    args: ['recuperar'], text: 'recuperar', prefix: '!', isOwner: true,
+    isAdminFn: async () => true, sock: {}, msg: {}, ctx: { remoteJid: jid },
+    reply: async text => replies.push(text),
+  });
+  assert.strictEqual(recoveredRuntime.isOwner, true, 'case protege a recuperação com contexto de Dono');
+  assert.match(replies[0], /resultado incerto/, 'case explica que recuperação não repete a ação');
+  agent.recoverTask = recoverTaskOriginal;
+
   await agent.setEnabled(jid, false);
   state = await agent.load(jid);
   assert.strictEqual(state.enabled, false);
