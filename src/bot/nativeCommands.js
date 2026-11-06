@@ -4033,11 +4033,13 @@ module.exports = {
     const { stickers, info } = _packCache.get(packId);
     stickerPack.rememberPack(ctx.remoteJid, { ...info, name: info.name, stickers });
     react(sock, msg, '📦');
-    for (let i = 0; i < stickers.length; i++) {
-      await sock.sendMessage(ctx.remoteJid, { sticker: stickers[i], packId: packId, isPremium: false });
-      // Sem delay — WhatsApp agrupa como pack instantaneamente
-    }
-    await stickerPack.sendPackOffer(sock, ctx.remoteJid, info, msg).catch(() => false);
+    // Reenvio segue o mesmo caminho do pack original: cartão nativo com
+    // detalhes do bot e botão Ver pacote. Só manda figurinhas soltas se o
+    // WhatsApp recusar o StickerPackMessage.
+    await stickerPack.sendLastPack(sock, ctx.remoteJid, { quoted: msg }).catch(async () => {
+      for (const sticker of stickers) await sock.sendMessage(ctx.remoteJid, { sticker }, { quoted: msg });
+      await stickerPack.sendPackOffer(sock, ctx.remoteJid, info, msg).catch(() => false);
+    });
     const RE = require('./renderEngine');
     const t = await RE.getTheme(ctx.remoteJid);
     await reply(sock, msg, ctx, RE.renderBlock(t, 'PACK ENVIADO', [`📦 *${info.name}*`, `🎨 ${info.count} stickers`, `👤 ${info.author}`, '', '💡 Guarda qualquer sticker para ver o pack completo!'], { botName: localConfig.bot.name }));

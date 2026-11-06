@@ -8,6 +8,42 @@
 const _lastPackByJid = new Map();
 const LAST_PACK_TTL_MS = 6 * 60 * 60 * 1000;
 
+function cleanLine(value = '', max = 180) {
+  return String(value || '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function sourcePlatformFor(url = '', requested = '') {
+  const explicit = cleanLine(requested, 40);
+  if (explicit) return explicit;
+  try {
+    if (new URL(String(url)).hostname.toLowerCase().endsWith('sticker.ly')) return 'Sticker.ly';
+  } catch {}
+  return '';
+}
+
+function nativeBotIdentity(author = '') {
+  try { return require('./stickerMaker').withBotDetails(author); } catch { return cleanLine(author || 'DARK BOT', 128); }
+}
+
+/** Coloca identidade do bot no cartão, sem perder a fonte original. */
+function nativeDescription(description = '', { brand = '', channelUrl = '', sourcePackUrl = '', sourcePlatform = '' } = {}) {
+  let botName = 'DARK BOT';
+  try { botName = cleanLine(require('../config').bot?.name || botName, 80) || botName; } catch {}
+  const lines = String(description || '').split('\n').map((line) => cleanLine(line, 220)).filter(Boolean);
+  const platform = sourcePlatformFor(sourcePackUrl, sourcePlatform);
+  const additions = [
+    `🤖 Gerado por ${botName}`,
+    brand ? `🏷️ Marca: ${cleanLine(brand, 80)}` : '',
+    channelUrl ? `📣 ${cleanLine(channelUrl, 220)}` : '',
+    sourcePackUrl ? `📦 Fonte${platform ? ` ${platform}` : ''}: ${cleanLine(sourcePackUrl, 220)}` : '',
+  ].filter(Boolean);
+  const unique = [];
+  for (const line of [...lines, ...additions]) {
+    if (!unique.some((seen) => seen.toLowerCase() === line.toLowerCase())) unique.push(line);
+  }
+  return unique.join('\n').slice(0, 900);
+}
+
 function rememberPack(jid, pack) {
   if (!jid || !pack || !Array.isArray(pack.stickers) || !pack.stickers.length) return false;
   _lastPackByJid.set(String(jid), { ...pack, ts: Date.now() });
@@ -39,9 +75,9 @@ async function sendNativeStickerPack(sock, jid, stickers, {
   try {
     const native = require('./nativeStickerPack');
     const result = await native.sendNativeStickerPack(sock, jid, stickers, {
-      name,
-      publisher,
-      description,
+      name: cleanLine(name || 'DARK BOT', 80),
+      publisher: nativeBotIdentity(publisher),
+      description: nativeDescription(description, { channelUrl, sourcePackUrl: packUrl }),
       packId,
       packUrl,
       channelUrl,
@@ -67,8 +103,9 @@ function packLinks(meta = {}) {
     unique.add(value);
     return { label, url: value };
   };
+  const sourcePlatform = sourcePlatformFor(source, meta.sourcePlatform);
   return [
-    add('📦 Ver pacote', source),
+    add(sourcePlatform === 'Sticker.ly' ? '📦 Ver no Sticker.ly' : '📦 Ver pacote', source),
     add('📣 Canal/grupo', channel),
     add('🤖 App Android', meta.androidStoreUrl),
     add(' App iPhone', meta.iosStoreUrl),
@@ -108,19 +145,28 @@ async function sendStickerWithPackLink(sock, jid, sticker, { quoted, includePack
   return true;
 }
 
-async function finishSearchPack(stickers, { query, jid, packId, sourcePackUrl = '', sourcePackName = '' } = {}) {
+async function finishSearchPack(stickers, { query, jid, packId, sourcePackUrl = '', sourcePackName = '', sourcePackId = '', sourcePlatform = '' } = {}) {
   const wm = require('./stickerWm');
   const maker = require('./stickerMaker');
   const saved = jid ? await wm.resolvePack(jid).catch(() => null) : await wm.getGlobalDefault().catch(() => null);
   const meta = wm.composeSearchPack(query, saved);
   const sourceUrl = typeof wm.normalizeHttpsUrl === 'function' ? wm.normalizeHttpsUrl(sourcePackUrl) : String(sourcePackUrl || '');
+  const sourceName = cleanLine(sourcePackName, 80);
+  const source = sourcePlatformFor(sourceUrl, sourcePlatform);
   const publicPackUrl = sourceUrl || meta.channelUrl || '';
+  // O card nativo mostra o nome do pack escolhido no Sticker.ly; a identidade
+  // do bot permanece no publisher e na descrição, inclusive após reenvio.
+  const displayName = sourceName || meta.packName;
+  const publisher = nativeBotIdentity(meta.authorName || meta.brand);
+  const description = nativeDescription(meta.description, {
+    brand: meta.brand, channelUrl: meta.channelUrl, sourcePackUrl: sourceUrl, sourcePlatform: source,
+  });
   const id = packId || meta.packId || (typeof maker.makePackId === 'function' ? maker.makePackId(query) : `com.darkbot.pack.${Date.now().toString(16)}`);
   let out = stickers || [];
   if (typeof maker.stampPack === 'function' && out.length) {
     out = await maker.stampPack(out, {
-      pack: meta.packName,
-      author: meta.authorName,
+      pack: displayName,
+      author: publisher,
       packId: id,
       // Para um pack importado, cada WebP mantém um link de origem verificável.
       // Sem origem externa mantém a configuração de marca/canal já existente.
@@ -129,21 +175,25 @@ async function finishSearchPack(stickers, { query, jid, packId, sourcePackUrl = 
       publisherWebsite: sourceUrl || meta.channelUrl,
       androidStoreUrl: meta.androidStoreUrl,
       iosStoreUrl: meta.iosStoreUrl,
+      sourcePackId: sourcePackId,
+      sourcePlatform: source,
       metadataEnabled: meta.metadataEnabled,
     });
   }
   return {
     stickers: out,
-    name: meta.packName,
-    publisher: meta.publisher,
-    description: meta.description,
-    authorName: meta.authorName,
+    name: displayName,
+    publisher,
+    description,
+    authorName: publisher,
     brand: meta.brand,
     channelName: meta.channelName,
     channelUrl: meta.channelUrl,
     packUrl: publicPackUrl,
     sourcePackUrl: sourceUrl,
-    sourcePackName: String(sourcePackName || '').trim().slice(0, 80),
+    sourcePackName: sourceName,
+    sourcePackId: cleanLine(sourcePackId, 160),
+    sourcePlatform: source,
     androidStoreUrl: meta.androidStoreUrl,
     iosStoreUrl: meta.iosStoreUrl,
     theme: meta.theme,
@@ -157,6 +207,7 @@ async function sendFinishedPack(sock, jid, stickers, opts = {}) {
   const finished = await finishSearchPack(stickers, {
     query: opts.query, jid, packId: opts.packId,
     sourcePackUrl: opts.sourcePackUrl, sourcePackName: opts.sourcePackName,
+    sourcePackId: opts.sourcePackId, sourcePlatform: opts.sourcePlatform,
   });
   rememberPack(jid, finished);
   const sent = await sendNativeStickerPack(sock, jid, finished.stickers, {
@@ -207,6 +258,8 @@ async function sendLastPack(sock, jid, { quoted } = {}) {
 module.exports = {
   rememberPack,
   getLastPack,
+  nativeBotIdentity,
+  nativeDescription,
   sendNativeStickerPack,
   buildPackOffer,
   sendPackOffer,

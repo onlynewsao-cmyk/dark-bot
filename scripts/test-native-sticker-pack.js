@@ -8,6 +8,7 @@ const fs = require('fs/promises');
 const sharp = require('sharp');
 const native = require('../src/bot/nativeStickerPack');
 const packs = require('../src/bot/stickerPack');
+const maker = require('../src/bot/stickerMaker');
 
 function decrypt(encrypted, mediaKey, label) {
   const expanded = Buffer.from(crypto.hkdfSync('sha256', mediaKey, Buffer.alloc(0), Buffer.from(`WhatsApp ${label} Keys`), 112));
@@ -77,10 +78,66 @@ function zipNames(zip) {
   const offer = packs.buildPackOffer({
     sourcePackName: 'Original Sticker.ly',
     sourcePackUrl: 'https://sticker.ly/s/original-pack',
+    sourcePlatform: 'Sticker.ly',
     channelUrl: 'https://whatsapp.com/channel/ABCDE',
   });
-  assert.ok(offer.includes('📦 Ver pacote: https://sticker.ly/s/original-pack'), 'oferta preserva botão/link do pack de origem');
+  assert.ok(offer.includes('📦 Ver no Sticker.ly: https://sticker.ly/s/original-pack'), 'oferta preserva botão/link nativo da origem Sticker.ly');
   assert.ok(offer.includes('📣 Canal/grupo: https://whatsapp.com/channel/ABCDE'), 'oferta mantém o canal configurado');
+  assert.strictEqual(packs.nativeBotIdentity('Marca Dark'), 'DARK BOT • Marca Dark', 'publisher de todos os cards inclui o bot e a marca');
+  const desc = packs.nativeDescription('Pack teste', { brand: 'Marca Dark', sourcePackUrl: 'https://sticker.ly/s/original-pack', sourcePlatform: 'Sticker.ly' });
+  assert.ok(desc.includes('🤖 Gerado por DARK BOT') && desc.includes('Fonte Sticker.ly'), 'descrição nativa traz detalhes do bot e da fonte');
+
+  const tagged = await maker.injectMeta(stickers[0], 'Pack Teste', 'Marca Dark', 'com.darkbot.pack.test', 'https://sticker.ly/s/original-pack', {
+    publisherWebsite: 'https://sticker.ly/s/original-pack', sourcePackId: 'original-pack', sourcePlatform: 'Sticker.ly',
+  });
+  const { Image } = require('node-webpmux');
+  const taggedImage = new Image();
+  await taggedImage.load(tagged);
+  const taggedExif = JSON.parse(Buffer.from(taggedImage.exif).subarray(22).toString('utf8'));
+  assert.strictEqual(taggedExif['sticker-pack-publisher'], 'DARK BOT • Marca Dark', 'EXIF de cada sticker conserva a identidade do bot');
+  assert.strictEqual(taggedExif['darkbot-generated-by'], 'DARK BOT', 'EXIF guarda o gerador');
+  assert.strictEqual(taggedExif['darkbot-source-platform'], 'Sticker.ly', 'EXIF preserva plataforma de origem');
+
+  // O fluxo Sticker.ly usa o título/origem do pack, mas conserva o bot no
+  // publisher, descrição e metadados que serão aplicados aos WebP.
+  const Module = require('module');
+  const originalRequire = Module.prototype.require;
+  let stamped = null;
+  Module.prototype.require = function patchedRequire(id) {
+    if (id === './stickerWm') return {
+      normalizeHttpsUrl: (url) => String(url || '').startsWith('https://') ? String(url) : '',
+      resolvePack: async () => null,
+      getGlobalDefault: async () => null,
+      composeSearchPack: () => ({
+        packName: 'Pesquisa', authorName: 'Marca Dark', publisher: 'Marca Dark', brand: 'Marca Dark',
+        description: 'Pesquisa\nMarca Dark', channelName: '', channelUrl: 'https://whatsapp.com/channel/ABCDE',
+        androidStoreUrl: '', iosStoreUrl: '', theme: 'darktoxic', metadataEnabled: true, packId: 'com.darkbot.search',
+      }),
+    };
+    if (id === './stickerMaker') return {
+      makePackId: maker.makePackId,
+      withBotDetails: maker.withBotDetails,
+      stampPack: async (input, meta) => { stamped = meta; return input; },
+    };
+    return originalRequire.apply(this, arguments);
+  };
+  let finished;
+  try {
+    finished = await packs.finishSearchPack(stickers, {
+      query: 'Pesquisa', jid: '120363000000000000@g.us', packId: 'com.darkbot.stickerly.original',
+      sourcePackUrl: 'https://sticker.ly/s/original-pack', sourcePackName: 'Pack Original',
+      sourcePackId: 'original-pack', sourcePlatform: 'Sticker.ly',
+    });
+  } finally {
+    Module.prototype.require = originalRequire;
+  }
+  assert.strictEqual(finished.name, 'Pack Original', 'cartão nativo preserva o nome real do pack Sticker.ly');
+  assert.strictEqual(finished.publisher, 'DARK BOT • Marca Dark', 'cartão nativo identifica o bot e a marca');
+  assert.strictEqual(finished.sourcePlatform, 'Sticker.ly', 'origem Sticker.ly fica registrada para Ver pacote');
+  assert.ok(finished.description.includes('Fonte Sticker.ly: https://sticker.ly/s/original-pack'), 'descrição nativa informa a origem');
+  assert.strictEqual(stamped.pack, 'Pack Original', 'EXIF preserva o nome da origem');
+  assert.strictEqual(stamped.author, 'DARK BOT • Marca Dark', 'EXIF recebe o publisher do bot');
+  assert.strictEqual(stamped.sourcePackId, 'original-pack', 'EXIF guarda o ID de origem');
 
   await assert.rejects(
     native.buildNativeStickerPack(stickers.slice(0, 2), { name: 'curto' }),

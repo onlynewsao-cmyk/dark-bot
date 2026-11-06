@@ -34,6 +34,21 @@ function makePackId(seed = '') {
 }
 
 /**
+ * O publisher é a identidade visível no WhatsApp. Mantém a marca escolhida
+ * para o pack, mas não deixa que uma figurinha gerada pelo bot circule sem a
+ * assinatura do próprio bot.
+ */
+function withBotDetails(author = '') {
+  let botName = 'DARK BOT';
+  try { botName = String(require('../config').bot?.name || botName).trim() || botName; } catch {}
+  const brand = String(author || '').replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Evita duplicar a marca quando o pack já passou por stamp/reenvio.
+  if (brand && brand.toLowerCase().startsWith(botName.toLowerCase() + ' • ')) return brand.slice(0, 128);
+  const pieces = [botName, brand].filter((value, index, all) => value && all.findIndex((x) => x.toLowerCase() === value.toLowerCase()) === index);
+  return (pieces.join(' • ') || botName).slice(0, 128);
+}
+
+/**
  * EXIF completo do WhatsApp.
  * android/ios-app-store-link = o que o "Ver pacote" abre
  * se a pessoa ainda não tiver o pack guardado.
@@ -64,7 +79,7 @@ function storeUrlFor(value = '', platform = '') {
  * Links de canal/website são metadados de publisher, não links de loja.
  * Só os links de lojas reconhecidas vão para android/ios-app-store-link.
  */
-function buildStickerExifJson({ packId, pack, author, url, channelUrl, publisherWebsite, androidStoreUrl, iosStoreUrl, storeUrl, emojis } = {}) {
+function buildStickerExifJson({ packId, pack, author, url, channelUrl, publisherWebsite, androidStoreUrl, iosStoreUrl, storeUrl, emojis, sourcePackId, sourcePlatform } = {}) {
   const website = safeHttpsUrl(publisherWebsite || channelUrl || url);
   const androidStore = storeUrlFor(androidStoreUrl || storeUrl, 'android');
   const iosStore = storeUrlFor(iosStoreUrl || storeUrl, 'ios');
@@ -79,6 +94,11 @@ function buildStickerExifJson({ packId, pack, author, url, channelUrl, publisher
     'android-play-store-link': androidStore,
     'sticker-pack-publisher-website': website,
     'publisher-website': website,
+    // Campos próprios, ignorados com segurança por clientes antigos, mantêm
+    // rastreável a origem e a autoria do DARK BOT quando o sticker é reenviado.
+    'darkbot-generated-by': withBotDetails(''),
+    'darkbot-source-pack-id': String(sourcePackId || '').slice(0, 180),
+    'darkbot-source-platform': String(sourcePlatform || '').slice(0, 40),
     emojis: Array.isArray(emojis) && emojis.length ? emojis : ['✨'],
   };
 }
@@ -305,18 +325,21 @@ function packStickerOpts(pack, author, packId, type, quality = 100) {
 
 async function injectMeta(webpBuf, pack, author, packId, packUrl = '', extra = {}) {
   const id = packId || makePackId(pack || packUrl || 'Dark Net Ao');
+  const publisher = withBotDetails(author);
   const meta = {
-    packId: id, pack, author,
+    packId: id, pack, author: publisher,
     url: packUrl,
     channelUrl: extra.channelUrl || packUrl,
     publisherWebsite: extra.publisherWebsite || extra.channelUrl || packUrl,
     androidStoreUrl: extra.androidStoreUrl || '',
     iosStoreUrl: extra.iosStoreUrl || '',
+    sourcePackId: extra.sourcePackId || '',
+    sourcePlatform: extra.sourcePlatform || '',
   };
   const written = await writeStickerExif(webpBuf, meta);
   if (written && written !== webpBuf && written.length > 50) return written;
   const { Sticker, StickerTypes } = waSticker();
-  const stk = new Sticker(webpBuf, packStickerOpts(pack, author, id, StickerTypes.FULL, 100));
+  const stk = new Sticker(webpBuf, packStickerOpts(pack, publisher, id, StickerTypes.FULL, 100));
   const fallback = await stk.toBuffer();
   return writeStickerExif(fallback, meta);
 }
@@ -569,10 +592,10 @@ async function createFull(buffer, rawOpts = {}) {
 }
 
 /** Regrava pack/author/id no WebP já pronto (ex: pack + definestickwm). */
-async function stampPack(stickers, { pack, author = 'Dark Net Ao', packId, packUrl = '', channelUrl = '', publisherWebsite = '', androidStoreUrl = '', iosStoreUrl = '', metadataEnabled = true } = {}) {
+async function stampPack(stickers, { pack, author = 'Dark Net Ao', packId, packUrl = '', channelUrl = '', publisherWebsite = '', androidStoreUrl = '', iosStoreUrl = '', sourcePackId = '', sourcePlatform = '', metadataEnabled = true } = {}) {
   const validStickers = (stickers || []).filter(buf => buf && buf.length);
   if (!metadataEnabled) return validStickers;
-  const extra = { channelUrl, publisherWebsite, androidStoreUrl, iosStoreUrl };
+  const extra = { channelUrl, publisherWebsite, androidStoreUrl, iosStoreUrl, sourcePackId, sourcePlatform };
   const out = [];
   for (const buf of stickers || []) {
     if (!buf || !buf.length) continue;
@@ -593,6 +616,7 @@ module.exports = {
   isAnimatedWebp, // v7.77
   FFMPEG_OK,
   makePackId,
+  withBotDetails,
   injectMeta,
   renameMeta,
   stampPack,

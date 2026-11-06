@@ -18,7 +18,7 @@ module.exports = function registerStickerlyCases(registerCase) {
     const stickerPack = require('../stickerPack');
     // O id e o URL de origem são preservados: cada fig do pack aponta para
     // o mesmo pacote real e o card nativo pode exibir a opção Ver pacote.
-    const sourcePackUrl = `https://sticker.ly/s/${encodeURIComponent(detail.id || packId)}`;
+    const sourcePackUrl = detail.url || `https://sticker.ly/s/${encodeURIComponent(detail.id || packId)}`;
     const packIdOut = stickerMaker.makePackId
       ? stickerMaker.makePackId(`stickerly:${detail.id || packId}`)
       : 'stickerly-' + String(detail.id || packId).slice(0, 80);
@@ -39,6 +39,8 @@ module.exports = function registerStickerlyCases(registerCase) {
           packId: packIdOut,
           packUrl: sourcePackUrl,
           publisherWebsite: sourcePackUrl,
+          sourcePackId: detail.id || packId,
+          sourcePlatform: 'Sticker.ly',
           skipGroupWm: true,
         });
         return stk && stk.length > 50 ? { stk, anim: !!s.isAnimated } : null;
@@ -57,12 +59,14 @@ module.exports = function registerStickerlyCases(registerCase) {
     if (!stickers.length) throw new Error('Nenhuma figurinha convertida');
     const finished = await stickerPack.sendFinishedPack(sock, ctx.remoteJid, stickers, {
       query: searchName, packId: packIdOut,
-      sourcePackUrl, sourcePackName: searchName, quoted: msg,
+      sourcePackUrl, sourcePackName: searchName, sourcePackId: detail.id || packId,
+      sourcePlatform: 'Sticker.ly', quoted: msg,
     });
     await sock.sendMessage(ctx.remoteJid, {
       text:
         '✅ Pack *' + searchName + '*\n' +
-        '📦 ' + finished.stickers.length + ' figurinhas (' + animCount + ' animadas)\n\n' +
+        '📦 ' + finished.stickers.length + ' figurinhas (' + animCount + ' animadas)\n' +
+        '🔗 Origem: Sticker.ly • usa o botão *Ver no Sticker.ly*\n\n' +
         finished.description,
     }, { quoted: msg });
   }

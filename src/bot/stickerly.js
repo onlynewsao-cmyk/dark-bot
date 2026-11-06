@@ -86,12 +86,14 @@ async function getPack(packId) {
     const isAnimated = !!(s.isAnimated || s.animated || pack.isAnimated || pack.animated || /\.gif$/i.test(file));
     return { url, isAnimated, emoji: (s.tags && s.tags[0]) || s.emoji || '' };
   }).filter((s) => s.url);
+  const resolvedId = pack.packId || id;
   return {
     title: pack.name || pack.title || 'Pack',
-    author: pack.authorName || pack.owner || 'sticker.ly',
+    author: pack.authorName || pack.user?.userName || pack.owner || 'sticker.ly',
+    url: pack.shareUrl || (resolvedId ? `https://sticker.ly/s/${resolvedId}` : ''),
     isAnimated: !!(pack.isAnimated || pack.animated),
     stickers,
-    id: pack.packId || id,
+    id: resolvedId,
   };
 }
 
