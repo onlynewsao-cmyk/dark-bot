@@ -547,18 +547,24 @@ async function apply(opts = {}) {
   const searchMeta = search ? composeSearchPack(search, { ...pack, brand, channelName }) : null;
   const packName = opts.packName || searchMeta?.packName || pack.packName || DEFAULT_BRAND;
   const authorName = brand;
+  // Um comando que importa um pack pode fornecer uma origem HTTPS própria
+  // (por exemplo, Sticker.ly). Mantemos essa origem no EXIF para que o
+  // cliente tenha um destino real para «Ver pacote», sem trocar a marca ou o
+  // canal configurado pelo administrador.
+  const explicitPackUrl = normalizeHttpsUrl(opts.packUrl || opts.publisherWebsite || '');
+  const channelUrl = opts.channelUrl !== undefined ? normalizeHttpsUrl(opts.channelUrl) : (pack.channelUrl || '');
   return {
     ...opts,
     packName,
     authorName,
     brand,
     channelName,
-    channelUrl: pack.channelUrl || '',
-    publisherWebsite: pack.channelUrl || pack.publisherSite || '',
+    channelUrl,
+    publisherWebsite: normalizeHttpsUrl(opts.publisherWebsite || '') || explicitPackUrl || pack.channelUrl || pack.publisherSite || '',
     androidStoreUrl: pack.androidStoreUrl || '',
     iosStoreUrl: pack.iosStoreUrl || '',
     packId: opts.packId || searchMeta?.packId || pack.packId,
-    packUrl: pack.channelUrl || pack.packUrl || '',
+    packUrl: explicitPackUrl || pack.channelUrl || pack.packUrl || '',
     theme: opts.theme || pack.theme || DEFAULT_THEME,
     slogan,
     watermarkText: opts.watermarkText || pack.watermarkText || brand,

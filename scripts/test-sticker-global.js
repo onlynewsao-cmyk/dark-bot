@@ -43,6 +43,8 @@ Module.prototype.require = function patchedRequire(id) {
   assert(resolved.packName === 'Pacote Global' && resolved.authorName === 'Autor Global', 'getGlobalDefault devolve os metadados escolhidos');
   const appliedWithoutCtx = await wm.apply({});
   assert(appliedWithoutCtx.packName === 'Pacote Global' && appliedWithoutCtx.authorName === 'Autor Global', 'create sem ctx também recebe o default global');
+  const importedPack = await wm.apply({ packUrl: 'https://sticker.ly/s/pack-origem', publisherWebsite: 'https://sticker.ly/s/pack-origem' });
+  assert(importedPack.packUrl === 'https://sticker.ly/s/pack-origem' && importedPack.publisherWebsite === 'https://sticker.ly/s/pack-origem', 'origem HTTPS de pack importado é preservada no EXIF');
 
   Module.prototype.require = original;
   process.exit(process.exitCode || 0);

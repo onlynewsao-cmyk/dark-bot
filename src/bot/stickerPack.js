@@ -32,71 +32,69 @@ async function sendNativeStickerPack(sock, jid, stickers, {
   androidStoreUrl, iosStoreUrl, publisherWebsite, quoted,
 } = {}) {
   if (!sock || !jid || !stickers?.length) return false;
-  const list = stickers.filter((b) => b && b.length > 50 && b.length < 1024 * 1024).slice(0, 60);
-  if (!list.length) return false;
-  const packName = name || 'Dark Net Ao';
-  const packPublisher = publisher || 'Dark Net Ao';
-  const packDesc = description || packPublisher;
-  const channel = channelUrl || packUrl || '';
-  const website = publisherWebsite || channel;
-  const payloadStickers = list.map((data) => ({ data, emojis: ['✨'] }));
-  const attempts = [
-    {
-      cover: list[0],
-      stickers: payloadStickers,
-      name: packName,
-      publisher: packPublisher,
-      description: packDesc,
+  // StickerPackMessage não é um simples payload de sendMessage: é um ZIP
+  // cifrado e hospedado no MMS, seguido de relay protocolar. O helper próprio
+  // usa exclusivamente o Baileys oficial activo e retorna false para o
+  // fallback individual quando não houver 3 stickers ou o cliente recusar.
+  try {
+    const native = require('./nativeStickerPack');
+    const result = await native.sendNativeStickerPack(sock, jid, stickers, {
+      name,
+      publisher,
+      description,
       packId,
-      stickerPackId: packId,
-      publisherWebsite: website,
-      androidAppStoreLink: androidStoreUrl || '',
-      iosAppStoreLink: iosStoreUrl || '',
-    },
-    {
-      cover: list[0],
-      stickers: payloadStickers,
-      name: packName,
-      publisher: packPublisher,
-      description: packDesc,
-    },
-    {
-      stickerPack: {
-        name: packName,
-        publisher: packPublisher,
-        description: packDesc,
-        stickerPackId: packId,
-        cover: list[0],
-        stickers: payloadStickers.map((s) => ({ sticker: s.data, emojis: s.emojis })),
-      },
-    },
-  ];
-  for (const payload of attempts) {
-    try {
-      await sock.sendMessage(jid, payload, { quoted });
-      return true;
-    } catch (e) {
-      console.warn('[stickerPack] nativo:', String(e.message || e).slice(0, 160));
-    }
+      packUrl,
+      channelUrl,
+      androidStoreUrl,
+      iosStoreUrl,
+      publisherWebsite,
+      quoted,
+    });
+    return !!result?.ok;
+  } catch (error) {
+    console.warn('[stickerPack] pack nativo:', String(error?.message || error).slice(0, 180));
+    return false;
   }
-  return false;
+}
+
+function packLinks(meta = {}) {
+  const source = meta.sourcePackUrl || meta.sourceUrl || '';
+  const channel = meta.channelUrl || meta.packUrl || '';
+  const unique = new Set();
+  const add = (label, url) => {
+    const value = String(url || '').trim();
+    if (!/^https:\/\//i.test(value) || unique.has(value)) return null;
+    unique.add(value);
+    return { label, url: value };
+  };
+  return [
+    add('📦 Ver pacote', source),
+    add('📣 Canal/grupo', channel),
+    add('🤖 App Android', meta.androidStoreUrl),
+    add(' App iPhone', meta.iosStoreUrl),
+  ].filter(Boolean);
 }
 
 function buildPackOffer(meta = {}) {
-  const links = [
-    meta.channelUrl || meta.packUrl ? `Canal/grupo: ${meta.channelUrl || meta.packUrl}` : '',
-    meta.androidStoreUrl ? `App Android: ${meta.androidStoreUrl}` : '',
-    meta.iosStoreUrl ? `App iOS: ${meta.iosStoreUrl}` : '',
-  ].filter(Boolean);
+  const links = packLinks(meta);
   if (!links.length) return '';
-  const title = meta.channelName || meta.packName || meta.brand || 'Dark Net Ao';
-  return `📦 *Ver pacote completo — ${title}*\n${links.join('\n')}`;
+  const title = meta.sourcePackName || meta.channelName || meta.packName || meta.brand || 'Dark Net Ao';
+  return `📦 *Ver pacote completo — ${title}*\n` + links.map(({ label, url }) => `${label}: ${url}`).join('\n');
 }
 
 async function sendPackOffer(sock, jid, meta = {}, quoted) {
   const text = buildPackOffer(meta);
-  if (!sock || !jid || !text) return false;
-  await sock.sendMessage(jid, { text }, quoted ? { quoted } : {});
+  const links = packLinks(meta);
+  if (!sock || !jid || !text || !links.length) return false;
+
+  // O botão nativo elimina a dependência de o utilizador copiar o URL. O
+  // helper tem fallback de texto se o cliente/servidor não aceitar native flow.
+  try {
+    const buttons = links.slice(0, 3).map(({ label, url }) => ({ text: label, url }));
+    await require('./buttonHandler').sendUrlButtons(sock, jid, text, 'DARK BOT 🕸️', buttons, quoted || null);
+  } catch {
+    await sock.sendMessage(jid, { text }, quoted ? { quoted } : {});
+  }
   return true;
 }
 
@@ -110,11 +108,13 @@ async function sendStickerWithPackLink(sock, jid, sticker, { quoted, includePack
   return true;
 }
 
-async function finishSearchPack(stickers, { query, jid, packId } = {}) {
+async function finishSearchPack(stickers, { query, jid, packId, sourcePackUrl = '', sourcePackName = '' } = {}) {
   const wm = require('./stickerWm');
   const maker = require('./stickerMaker');
   const saved = jid ? await wm.resolvePack(jid).catch(() => null) : await wm.getGlobalDefault().catch(() => null);
   const meta = wm.composeSearchPack(query, saved);
+  const sourceUrl = typeof wm.normalizeHttpsUrl === 'function' ? wm.normalizeHttpsUrl(sourcePackUrl) : String(sourcePackUrl || '');
+  const publicPackUrl = sourceUrl || meta.channelUrl || '';
   const id = packId || meta.packId || (typeof maker.makePackId === 'function' ? maker.makePackId(query) : `com.darkbot.pack.${Date.now().toString(16)}`);
   let out = stickers || [];
   if (typeof maker.stampPack === 'function' && out.length) {
@@ -122,9 +122,11 @@ async function finishSearchPack(stickers, { query, jid, packId } = {}) {
       pack: meta.packName,
       author: meta.authorName,
       packId: id,
-      packUrl: meta.channelUrl,
+      // Para um pack importado, cada WebP mantém um link de origem verificável.
+      // Sem origem externa mantém a configuração de marca/canal já existente.
+      packUrl: publicPackUrl,
       channelUrl: meta.channelUrl,
-      publisherWebsite: meta.channelUrl,
+      publisherWebsite: sourceUrl || meta.channelUrl,
       androidStoreUrl: meta.androidStoreUrl,
       iosStoreUrl: meta.iosStoreUrl,
       metadataEnabled: meta.metadataEnabled,
@@ -139,7 +141,9 @@ async function finishSearchPack(stickers, { query, jid, packId } = {}) {
     brand: meta.brand,
     channelName: meta.channelName,
     channelUrl: meta.channelUrl,
-    packUrl: meta.channelUrl,
+    packUrl: publicPackUrl,
+    sourcePackUrl: sourceUrl,
+    sourcePackName: String(sourcePackName || '').trim().slice(0, 80),
     androidStoreUrl: meta.androidStoreUrl,
     iosStoreUrl: meta.iosStoreUrl,
     theme: meta.theme,
@@ -150,7 +154,10 @@ async function finishSearchPack(stickers, { query, jid, packId } = {}) {
 }
 
 async function sendFinishedPack(sock, jid, stickers, opts = {}) {
-  const finished = await finishSearchPack(stickers, { query: opts.query, jid, packId: opts.packId });
+  const finished = await finishSearchPack(stickers, {
+    query: opts.query, jid, packId: opts.packId,
+    sourcePackUrl: opts.sourcePackUrl, sourcePackName: opts.sourcePackName,
+  });
   rememberPack(jid, finished);
   const sent = await sendNativeStickerPack(sock, jid, finished.stickers, {
     name: finished.name,
@@ -161,7 +168,7 @@ async function sendFinishedPack(sock, jid, stickers, opts = {}) {
     channelUrl: finished.channelUrl,
     androidStoreUrl: finished.androidStoreUrl,
     iosStoreUrl: finished.iosStoreUrl,
-    publisherWebsite: finished.channelUrl,
+    publisherWebsite: finished.sourcePackUrl || finished.channelUrl,
     quoted: opts.quoted,
   });
   if (!sent) {
@@ -185,7 +192,7 @@ async function sendLastPack(sock, jid, { quoted } = {}) {
     channelUrl: pack.channelUrl,
     androidStoreUrl: pack.androidStoreUrl,
     iosStoreUrl: pack.iosStoreUrl,
-    publisherWebsite: pack.channelUrl,
+    publisherWebsite: pack.sourcePackUrl || pack.channelUrl,
     quoted,
   });
   if (!sentAsPack) {

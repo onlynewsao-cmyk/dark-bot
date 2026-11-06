@@ -156,7 +156,8 @@
     "test:baileys": "node scripts/test-baileys-v6-contract.js",
     "test:media-providers": "node scripts/test-media-provider-resilience.js",
     "test:facebook-video": "node scripts/test-facebook-video-compat.js",
-    "test:meta-ai-add": "node scripts/test-meta-ai-add.js"
+    "test:meta-ai-add": "node scripts/test-meta-ai-add.js",
+    "test:native-sticker-pack": "node scripts/test-native-sticker-pack.js"
   },
   "engines": {
     "node": ">=20.19.0"

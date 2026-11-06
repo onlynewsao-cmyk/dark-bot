@@ -16,9 +16,12 @@ module.exports = function registerStickerlyCases(registerCase) {
     const detail = await sly.getPack(packId);
     if (!detail.stickers?.length) throw new Error('Pack sem stickers');
     const stickerPack = require('../stickerPack');
+    // O id e o URL de origem são preservados: cada fig do pack aponta para
+    // o mesmo pacote real e o card nativo pode exibir a opção Ver pacote.
+    const sourcePackUrl = `https://sticker.ly/s/${encodeURIComponent(detail.id || packId)}`;
     const packIdOut = stickerMaker.makePackId
-      ? stickerMaker.makePackId(nomeBusca || detail.title)
-      : 'sly-' + Date.now().toString(36);
+      ? stickerMaker.makePackId(`stickerly:${detail.id || packId}`)
+      : 'stickerly-' + String(detail.id || packId).slice(0, 80);
     const searchName = String(detail.title || nomeBusca || 'Pack').replace(/\s+/g, ' ').trim().slice(0, 40);
     // v7.77: fetch+conversão em paralelo (6) — 30 sequenciais demoravam ~1min
     const alvos = detail.stickers.slice(0, 30);
@@ -34,6 +37,8 @@ module.exports = function registerStickerlyCases(registerCase) {
           searchQuery: searchName,
           remoteJid: ctx.remoteJid,
           packId: packIdOut,
+          packUrl: sourcePackUrl,
+          publisherWebsite: sourcePackUrl,
           skipGroupWm: true,
         });
         return stk && stk.length > 50 ? { stk, anim: !!s.isAnimated } : null;
@@ -51,7 +56,8 @@ module.exports = function registerStickerlyCases(registerCase) {
     }
     if (!stickers.length) throw new Error('Nenhuma figurinha convertida');
     const finished = await stickerPack.sendFinishedPack(sock, ctx.remoteJid, stickers, {
-      query: searchName, packId: packIdOut, quoted: msg,
+      query: searchName, packId: packIdOut,
+      sourcePackUrl, sourcePackName: searchName, quoted: msg,
     });
     await sock.sendMessage(ctx.remoteJid, {
       text:
