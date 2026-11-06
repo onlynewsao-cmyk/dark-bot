@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { DEFAULT_WELCOME_TEMPLATE, DEFAULT_GOODBYE_TEMPLATE } = require('../groupNoticeDefaults');
 
 const GroupSettingsSchema = new mongoose.Schema({
   groupJid: { type: String, required: true, unique: true, index: true },
@@ -65,8 +66,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   welcome: { type: Boolean, default: true },
   goodbye: { type: Boolean, default: true },
 
-  customWelcome: { type: String, default: '' },
-  customGoodbye: { type: String, default: '' },
+  // Compatibilidade com campos antigos: ambos recebem o mesmo padrão seguro.
+  customWelcome: { type: String, default: DEFAULT_WELCOME_TEMPLATE },
+  customGoodbye: { type: String, default: DEFAULT_GOODBYE_TEMPLATE },
 
   onlyAdmins: { type: Boolean, default: false },
   blockedCommands: [{ type: String }],
@@ -117,9 +119,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   // ── Welcome / Goodbye por grupo ───────────────────────────
   welcomeEnabled: { type: Boolean, default: true },
   goodbyeEnabled: { type: Boolean, default: true },
-  customWelcomeMsg: { type: String, default: '' },  // {user} {grupo} {bot}
-  customGoodbyeMsg: { type: String, default: '' },
-  welcomeWithPhoto: { type: Boolean, default: true },
+  customWelcomeMsg: { type: String, default: DEFAULT_WELCOME_TEMPLATE },  // {user} {nome} {grupo} {membros} {bot}
+  customGoodbyeMsg: { type: String, default: DEFAULT_GOODBYE_TEMPLATE },
+  welcomeWithPhoto: { type: Boolean, default: false },
   welcomeWithMedia: { type: String, default: '' },  // URL de imagem de boas-vindas
   goodbyeWithMedia: { type: String, default: '' },  // URL de imagem de despedida
   welcome2: { type: Boolean, default: false },   // v8.4: foto IA de entrada (PIP)
@@ -221,9 +223,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   slowmode: { type: Number, default: 0 },
 
   // ── v7.47 incoming-cases: anti-fobados / auto-apresentação / abrir-fechar ──
-  antifoba:       { type: Boolean, default: false },   // divulgação oculta + DDI blacklist (ban imediato)
+  antifoba:       { type: Boolean, default: true },   // divulgação oculta + DDI blacklist (ban imediato)
   fobaBlacklist:  [{ type: String }],                  // DDIs bloqueados à entrada (ex: ['63'])
-  autoapresentar: { type: Boolean, default: false },   // novo membro tem 5 min para falar
+  autoapresentar: { type: Boolean, default: true },   // novo membro tem 5 min para falar
   aberturaHora:   { type: String, default: '' },       // 'HH:MM' Africa/Luanda — abrir grupo
   fechamentoHora: { type: String, default: '' },       // 'HH:MM' Africa/Luanda — fechar grupo
   // ── v11.2.2 Admin extra (ex-stubs audioAdmin2) ──────────────
@@ -234,7 +236,7 @@ const GroupSettingsSchema = new mongoose.Schema({
   autoAdmins:      [{ type: String }],   // promovidos a admin WA ao entrar
   autoAdmMedia:    { type: Boolean, default: false }, // auto-adm também em midia/status
   parcerias:       [{ type: String }],   // links/JIDs de grupos parceiros (whitelist antilink)
-  x9:              { type: Boolean, default: false }, // avisa promote/demote/add/remove
+  x9:              { type: Boolean, default: true }, // avisa promote/demote/add/remove
   // v11.2.5: modo adulto POR GRUPO — ADM/dono/subdono liga com !adultmode on
   // Quando true, plaquinhas+18 e cmds 18+ VIP podem enviar no grupo (não só PV).
   adultMode:       { type: Boolean, default: false },

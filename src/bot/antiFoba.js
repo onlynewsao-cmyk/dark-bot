@@ -13,8 +13,8 @@ const participantIdentity = require('./participantIdentity');
  *     botões/cards/bio/footer (qualquer campo de texto da mensagem),
  *     "clique na imagem" ou pagamento disfarçado com link.
  *     Quem apenas CITOU (quotedMessage) uma infração não é punido.
- *  2. onJoin — bane à entrada números com DDI na blacklist do grupo
- *     (fobaBlacklist, ex: ['63']).
+ *  2. onJoin — bane à entrada números com DDI explicitamente configurado
+ *     na blacklist do grupo (fobaBlacklist, ex: ['63']).
  *
  * Imunes: dono do bot, número do bot, admins do grupo.
  * Exige: bot admin do grupo + `antifoba` ligado (GroupSettings).
@@ -227,7 +227,9 @@ async function onJoin(sock, groupJid, participants, meta) {
     if (!groupJid?.endsWith('@g.us')) return removidos;
     const gs = await getSettings(groupJid);
     if (!gs?.antifoba) return removidos;
-    const blacklist = (gs.fobaBlacklist?.length ? gs.fobaBlacklist : ['63'])
+    // Lista vazia é intencional: anti-fobados continua a moderar divulgação
+    // oculta, mas nenhum país é banido por DDI sem configuração explícita.
+    const blacklist = (Array.isArray(gs.fobaBlacklist) ? gs.fobaBlacklist : [])
       .map(d => String(d).replace(/\D/g, '')).filter(Boolean);
     if (!blacklist.length) return removidos;
 

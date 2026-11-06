@@ -13,6 +13,7 @@
 
 const GroupSettings = require('../../database/models/GroupSettings');
 const botConfigCache = require('../botConfigCache');
+const { DEFAULT_WELCOME_TEMPLATE, DEFAULT_GOODBYE_TEMPLATE } = require('../../database/groupNoticeDefaults');
 
 module.exports = function registerGroupCases(registerCase) {
 
@@ -917,13 +918,20 @@ module.exports = function registerGroupCases(registerCase) {
       const t = args.slice(1).join(' ').trim();
       if (!t) {
         return reply(
-          `Variáveis: \`{user}\` \`{nome}\` \`{grupo}\` \`{bot}\` \`{dono}\`\n` +
+          `Variáveis: \`{user}\` \`{nome}\` \`{grupo}\` \`{membros}\` \`{bot}\` \`{dono}\`\n` +
           `Ex: *${prefix}welcome texto* Olá {user}! Bem-vindo a {grupo}`,
         );
       }
       gs.customWelcomeMsg = t.slice(0, 800); saved = true;
     } else if (['reset', 'limpar', 'default'].includes(sub)) {
-      gs.customWelcomeMsg = ''; saved = true;
+      gs.customWelcomeMsg = DEFAULT_WELCOME_TEMPLATE;
+      gs.customWelcome = DEFAULT_WELCOME_TEMPLATE;
+      gs.welcomeEnabled = true;
+      gs.welcome = true;
+      gs.welcomeWithMedia = '';
+      gs.welcome2 = false;
+      gs.welcm3 = false;
+      saved = true;
     } else if (onOff === null && args.length && !['status', 'info', 'ver'].includes(sub)) {
       const t = args.join(' ').trim();
       if (t.length > 2) { gs.customWelcomeMsg = t.slice(0, 800); saved = true; }
@@ -962,7 +970,12 @@ module.exports = function registerGroupCases(registerCase) {
       }
       gs.customGoodbyeMsg = t.slice(0, 800); saved = true;
     } else if (['reset', 'limpar', 'default'].includes(sub)) {
-      gs.customGoodbyeMsg = ''; saved = true;
+      gs.customGoodbyeMsg = DEFAULT_GOODBYE_TEMPLATE;
+      gs.customGoodbye = DEFAULT_GOODBYE_TEMPLATE;
+      gs.goodbyeEnabled = true;
+      gs.goodbye = true;
+      gs.goodbyeWithMedia = '';
+      saved = true;
     } else if (onOff === null && args.length && !['status', 'info', 'ver'].includes(sub)) {
       const t = args.join(' ').trim();
       if (t.length > 2) { gs.customGoodbyeMsg = t.slice(0, 800); saved = true; }
@@ -987,12 +1000,19 @@ module.exports = function registerGroupCases(registerCase) {
       return reply(
         `📜 *LEGENDA BV*\nActual: _${(gs.customWelcomeMsg || 'padrão').slice(0, 120)}_\n\n` +
         `Usa: \`${prefix}legendabv Olá {user}! Bem-vindo a {grupo}\`\n` +
-        `Vars: {user} {nome} {grupo} {bot} {dono}`,
+        `Vars: {user} {nome} {grupo} {membros} {bot} {dono}`,
       );
     }
     if (['reset', 'limpar', 'off', 'default'].includes(t.toLowerCase())) {
-      gs.customWelcomeMsg = ''; await gs.save();
-      return reply('✅ Legenda de boas-vindas reposta ao padrão.');
+      gs.customWelcomeMsg = DEFAULT_WELCOME_TEMPLATE;
+      gs.customWelcome = DEFAULT_WELCOME_TEMPLATE;
+      gs.welcomeEnabled = true;
+      gs.welcome = true;
+      gs.welcomeWithMedia = '';
+      gs.welcome2 = false;
+      gs.welcm3 = false;
+      await gs.save();
+      return reply('✅ Boas-vindas repostas ao padrão e activadas.');
     }
     gs.customWelcomeMsg = t.slice(0, 800);
     gs.welcomeEnabled = true;
@@ -1013,8 +1033,13 @@ module.exports = function registerGroupCases(registerCase) {
       );
     }
     if (['reset', 'limpar', 'off', 'default'].includes(t.toLowerCase())) {
-      gs.customGoodbyeMsg = ''; await gs.save();
-      return reply('✅ Legenda de despedida reposta ao padrão.');
+      gs.customGoodbyeMsg = DEFAULT_GOODBYE_TEMPLATE;
+      gs.customGoodbye = DEFAULT_GOODBYE_TEMPLATE;
+      gs.goodbyeEnabled = true;
+      gs.goodbye = true;
+      gs.goodbyeWithMedia = '';
+      await gs.save();
+      return reply('✅ Despedida reposta ao padrão e activada.');
     }
     gs.customGoodbyeMsg = t.slice(0, 800);
     gs.goodbyeEnabled = true;

@@ -10,14 +10,16 @@ const GroupSettings   = require('../database/models/GroupSettings');
 const changeThemes    = require('./changeThemes');
 const { generateWelcomeImage } = require('./welcomeImage');
 const participantIdentity = require('./participantIdentity');
+const { DEFAULT_WELCOME_TEMPLATE, DEFAULT_GOODBYE_TEMPLATE } = require('../database/groupNoticeDefaults');
 
-function fillVars(text, { userName, groupName, botName, ownerName, number } = {}) {
+function fillVars(text, { userName, groupName, botName, ownerName, number, memberCount } = {}) {
   // Sem PN resolvido, {user} usa o nome legível; nunca `@` + dígitos do LID.
   const safeUser = number ? `@${number}` : (userName || 'Membro');
   return String(text || '')
     .replace(/\{user\}/gi,  safeUser)
     .replace(/\{nome\}/gi,  userName  || number || 'Membro')
     .replace(/\{grupo\}/gi, groupName || '')
+    .replace(/\{membros\}/gi, String(Number(memberCount) || 0))
     .replace(/\{bot\}/gi,   botName   || 'DARK BOT')
     .replace(/\{dono\}/gi,  ownerName || 'Dark Net')
     .trim();
@@ -38,6 +40,12 @@ async function resolveParticipant(sock, p, meta) {
 
 function jidNum(j) {
   return participantIdentity.jidNumber(j);
+}
+
+function safeMentionJids(...jids) {
+  return jids
+    .filter(jid => typeof jid === 'string' && jid && !participantIdentity.isLid(jid))
+    .filter((jid, index, all) => all.indexOf(jid) === index);
 }
 
 /** True se o texto parece só um número de telefone (não um nome). */
@@ -169,7 +177,7 @@ async function _comboDispara(sock, groupJid) {
   _ultimoWel.set(groupJid, Date.now());
   await sock.sendMessage(groupJid, {
     text: texto,
-    mentions: mostrados.map((p) => p.jid),
+    mentions: safeMentionJids(...mostrados.map((p) => p.jid)),
   }).catch(() => {});
 }
 
@@ -349,11 +357,9 @@ async function handle(sock, event) {
             ...author,
             displayName: !author.number && actorName === 'Membro' ? '' : actorName,
           } : null;
-          const mentions = [subject, x9Actor]
+          const mentions = safeMentionJids(...[subject, x9Actor]
             .filter(Boolean)
-            .map(person => person.pnJid || person.jid)
-            .filter(Boolean)
-            .filter((jid, index, all) => all.indexOf(jid) === index);
+            .map(person => person.pnJid || person.jid));
           await sock.sendMessage(groupJid, {
             text: buildX9Text(action, subject, displayName, x9Actor),
             mentions,
@@ -455,21 +461,14 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
   let ppUrl = null;
   try { ppUrl = await sock.profilePictureUrl(participantJid, 'image').catch(() => null); } catch {}
 
-  // Caption limpa (sem molduras/vibe de tema) — custom do grupo mantém-se
-  const memberTag = number ? `@${number}` : `*${memberName || 'Novo membro'}*`;
-  const defaultMsg =
-    `🎉 *Bem-vindo(a)!*\n\n` +
-    `👤 ${memberTag}\n` +
-    (number && memberName && memberName !== String(number) ? `✨ *${memberName}*\n` : '') +
-    `🏠 Entrou em *${groupName}*\n` +
-    `👥 Membro nº *${memberCount}*\n\n` +
-    `— ${config.bot.name}`;
-
-  const template = gs?.customWelcomeMsg || gs?.customWelcome || defaultMsg;
+  // Template universal, limpo e seguro. Se não houver PN resolvido,
+  // {user} torna-se o nome/fallback, nunca os dígitos de um @lid.
+  const template = gs?.customWelcomeMsg || gs?.customWelcome || DEFAULT_WELCOME_TEMPLATE;
   const caption = fillVars(template, {
     userName: memberName, groupName, botName: config.bot.name,
-    ownerName: config.owner.name, number,
+    ownerName: config.owner.name, number, memberCount,
   });
+  const mentions = safeMentionJids(participantJid);
 
   // Media custom do grupo
   const welcomeImg = gs?.welcomeWithMedia;
@@ -480,13 +479,13 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
         const buf = await mediaHandler.fetchBuffer(welcomeImg);
         if (buf?.length > 200) {
           await sock.sendMessage(groupJid, {
-            image: buf, caption, mentions: [participantJid],
+            image: buf, caption, mentions,
           }).catch(() => {});
           return;
         }
       } else {
         await sock.sendMessage(groupJid, {
-          image: { url: welcomeImg }, caption, mentions: [participantJid],
+          image: { url: welcomeImg }, caption, mentions,
         }).catch(() => {});
         return;
       }
@@ -509,7 +508,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
       if (mp4?.length > 2048) {
         await sock.sendMessage(groupJid, {
           video: mp4, gifPlayback: true, mimetype: 'video/mp4',
-          caption, mentions: [participantJid],
+          caption, mentions,
         }).catch(() => {});
         return;
       }
@@ -524,7 +523,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
         kind: 'welcome',
       });
       if (png?.length > 2048) {
-        await sock.sendMessage(groupJid, { image: png, caption, mentions: [participantJid] }).catch(() => {});
+        await sock.sendMessage(groupJid, { image: png, caption, mentions }).catch(() => {});
         return;
       }
     } catch (e) { console.warn('[Welcome GIF]', e.message); }
@@ -544,7 +543,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
       });
       if (png?.length > 2048) {
         await sock.sendMessage(groupJid, {
-          image: png, caption, mentions: [participantJid],
+          image: png, caption, mentions,
         }).catch(() => {});
         return;
       }
@@ -554,7 +553,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
   // Imagem clássica (foto + nome)
   const welcomeImageEnabled = await botConfigCache.get('welcome_image_enabled', true).catch(() => true);
 
-  if (welcomeImageEnabled !== false) {
+  if (gs?.welcomeWithPhoto !== false && welcomeImageEnabled !== false) {
     try {
       const imgBuf = await generateWelcomeImage({
         profilePicUrl: ppUrl,
@@ -566,7 +565,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
       });
       if (imgBuf) {
         await sock.sendMessage(groupJid, {
-          image: imgBuf, caption, mentions: [participantJid],
+          image: imgBuf, caption, mentions,
         });
         return;
       }
@@ -575,7 +574,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
     }
   }
 
-  await sock.sendMessage(groupJid, { text: caption, mentions: [participantJid] }).catch(() => {});
+  await sock.sendMessage(groupJid, { text: caption, mentions }).catch(() => {});
 }
 
 async function onLeave(sock, groupJid, participantJid, number, groupName, gs, displayName) {
@@ -586,16 +585,14 @@ async function onLeave(sock, groupJid, participantJid, number, groupName, gs, di
 
   const memberName = (displayName && !looksLikePhone(displayName)) ? displayName : String(number || 'Membro');
 
-  const defaultMsg = number
-    ? (memberName && memberName !== String(number)
-      ? `👋 *${memberName}* (@${number}) saiu de *${groupName}*. Até à próxima!`
-      : `👋 @${number} saiu de *${groupName}*. Até à próxima!`)
-    : `👋 *${memberName || 'Membro'}* saiu de *${groupName}*. Até à próxima!`;
-  const template = gs?.customGoodbyeMsg || gs?.customGoodbye || defaultMsg;
+  // O template de despedida usa a mesma fonte de identidade segura do
+  // welcome. Isto corrige a marcação com LID/falso telefone.
+  const template = gs?.customGoodbyeMsg || gs?.customGoodbye || DEFAULT_GOODBYE_TEMPLATE;
   const text = fillVars(template, {
     userName: memberName, groupName, botName: config.bot.name,
     ownerName: config.owner.name, number,
   });
+  const mentions = safeMentionJids(participantJid);
 
   const byeImg = gs?.goodbyeWithMedia;
   if (byeImg) {
@@ -605,20 +602,20 @@ async function onLeave(sock, groupJid, participantJid, number, groupName, gs, di
         const buf = await mediaHandler.fetchBuffer(byeImg);
         if (buf?.length > 200) {
           await sock.sendMessage(groupJid, {
-            image: buf, caption: text, mentions: [participantJid],
+            image: buf, caption: text, mentions,
           }).catch(() => {});
           return;
         }
       } else {
         await sock.sendMessage(groupJid, {
-          image: { url: byeImg }, caption: text, mentions: [participantJid],
+          image: { url: byeImg }, caption: text, mentions,
         }).catch(() => {});
         return;
       }
     } catch (e) { console.warn('[Goodbye Image]', e.message); }
   }
 
-  await sock.sendMessage(groupJid, { text, mentions: [participantJid] }).catch(() => {});
+  await sock.sendMessage(groupJid, { text, mentions }).catch(() => {});
 }
 
 module.exports = {

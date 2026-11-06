@@ -191,6 +191,40 @@ const sock = {
   assert.ok(x9SemPn && !/994994994/.test(x9SemPn.text), 'X9 também não revela LID');
   console.log('✔ fallback sem mapeamento não revela LID');
 
+  // 5d) Padrões globais novos: welcome e despedida marcam só o PN real.
+  const originalWelcome = _gs.customWelcomeMsg;
+  const originalGoodbye = _gs.customGoodbyeMsg;
+  _gs.customWelcomeMsg = '';
+  _gs.customGoodbyeMsg = '';
+  sent.length = 0;
+  ge._welDebug._ultimoWel.clear();
+  await ge.handle(sock, {
+    id: '120363TEST@g.us', action: 'add', participants: [{ id: '991991991@lid', lid: '991991991@lid', notify: 'Lia Mapeada' }],
+  });
+  const welcomePadrao = sent.find(s => /BEM-VINDO\(A\)/.test(s.text || s.caption || ''));
+  assert.ok(welcomePadrao && /@244701991991/.test(welcomePadrao.text || welcomePadrao.caption || ''), 'welcome padrão: ' + JSON.stringify(sent));
+  assert.deepStrictEqual(welcomePadrao.mentions, ['244701991991@s.whatsapp.net'], 'welcome marca o PN exacto');
+
+  sent.length = 0;
+  await ge.handle(sock, {
+    id: '120363TEST@g.us', action: 'remove', participants: [{ id: '991991991@lid', lid: '991991991@lid', notify: 'Lia Mapeada' }],
+  });
+  const goodbyePadrao = sent.find(s => /ATÉ BREVE/.test(s.text || s.caption || ''));
+  assert.ok(goodbyePadrao && /@244701991991/.test(goodbyePadrao.text || goodbyePadrao.caption || ''), 'despedida padrão: ' + JSON.stringify(sent));
+  assert.deepStrictEqual(goodbyePadrao.mentions, ['244701991991@s.whatsapp.net'], 'despedida marca o PN exacto, nunca LID');
+
+  sent.length = 0;
+  await ge.handle(sock, {
+    id: '120363TEST@g.us', action: 'remove', participants: [{ id: '994994994@lid', lid: '994994994@lid', notify: 'Pessoa Privada' }],
+  });
+  const goodbyeSemPn = sent.find(s => /ATÉ BREVE/.test(s.text || s.caption || ''));
+  assert.ok(goodbyeSemPn && !/994994994/.test(goodbyeSemPn.text || goodbyeSemPn.caption || ''), 'despedida sem PN não revela LID');
+  assert.deepStrictEqual(goodbyeSemPn.mentions, [], 'sem PN, não envia marcação LID');
+
+  _gs.customWelcomeMsg = originalWelcome;
+  _gs.customGoodbyeMsg = originalGoodbye;
+  console.log('✔ padrões welcome/despedida fazem marcação PN correcta');
+
   // 6) bot add não dispara welcome de membro
   sent.length = 0;
   ge._welDebug._ultimoWel.clear();

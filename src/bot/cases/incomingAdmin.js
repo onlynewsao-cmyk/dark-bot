@@ -53,6 +53,16 @@ async function setGS(groupJid, patch) {
   );
 }
 
+// Vazio é um valor válido: anti-fobados fica ligado para divulgação oculta,
+// mas a blacklist de países só actua quando um admin adiciona DDIs.
+function ddisBlacklist(gs) {
+  return Array.isArray(gs?.fobaBlacklist) ? gs.fobaBlacklist : [];
+}
+function textoDdis(gs) {
+  const list = ddisBlacklist(gs);
+  return list.length ? list.join(', ') : 'nenhum';
+}
+
 module.exports = function registerIncomingAdmin(registerCase) {
 
   // ═══ delstts — apagar status (só com quote; sem lib externa) ═══
@@ -146,7 +156,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
       await setGS(ctx.remoteJid, { antifoba: ligar });
       m.react(ligar ? '✅' : '🚫');
       return m.reply(ligar
-        ? `🟢 *ANTI-FOBADOS ATIVADO*\n\nDivulgação oculta = apaga + bane.\nDDIs na blacklist: ${(gs?.fobaBlacklist?.length ? gs.fobaBlacklist.join(', ') : '63')}`
+        ? `🟢 *ANTI-FOBADOS ATIVADO*\n\nDivulgação oculta = apaga + bane.\nDDIs na blacklist: ${textoDdis(gs)}`
         : '🔴 *ANTI-FOBADOS DESATIVADO*');
     }
     if (['off', 'desativar', 'desligar', '0'].includes(acao)) {
@@ -154,7 +164,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
       m.react('🚫');
       return m.reply('🔴 *ANTI-FOBADOS DESATIVADO*');
     }
-    const lista = gs?.fobaBlacklist?.length ? gs.fobaBlacklist.join(', ') : '63 (padrão)';
+    const lista = textoDdis(gs);
     return m.reply(
       `🛡️ *ANTI-FOBADOS*\n\nEstado: ${ativo ? '🟢 ATIVADO' : '🔴 DESATIVADO'}\n` +
       `DDIs bloqueados: ${lista}\n\nUso: ${prefix}${command} on|off\n${prefix}fobadd 63 55 • ${prefix}fobdel 55 • ${prefix}fobalista`
@@ -169,7 +179,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     const ddis = args.map(a => String(a).replace(/\D/g, '')).filter(d => d.length >= 1 && d.length <= 4);
     if (!ddis.length) return m.reply('❌ Diz o DDI. Exemplo: .fobadd 63 55');
     const gs = await getGS(ctx.remoteJid).catch(() => null);
-    const atual = new Set([...(gs?.fobaBlacklist?.length ? gs.fobaBlacklist : ['63']), ...ddis]);
+    const atual = new Set([...ddisBlacklist(gs), ...ddis]);
     await setGS(ctx.remoteJid, { fobaBlacklist: [...atual] });
     return m.reply(`✅ DDIs bloqueados: *${[...atual].join(', ')}*`);
   });
@@ -182,7 +192,7 @@ module.exports = function registerIncomingAdmin(registerCase) {
     const ddis = new Set(args.map(a => String(a).replace(/\D/g, '')).filter(Boolean));
     if (!ddis.size) return m.reply('❌ Diz o DDI. Exemplo: .fobdel 63');
     const gs = await getGS(ctx.remoteJid).catch(() => null);
-    const atual = (gs?.fobaBlacklist?.length ? gs.fobaBlacklist : ['63']).filter(d => !ddis.has(String(d)));
+    const atual = ddisBlacklist(gs).filter(d => !ddis.has(String(d)));
     await setGS(ctx.remoteJid, { fobaBlacklist: atual });
     return m.reply(`✅ DDIs bloqueados: *${atual.length ? atual.join(', ') : 'nenhum'}*`);
   });
@@ -190,8 +200,8 @@ module.exports = function registerIncomingAdmin(registerCase) {
   registerCase(['fobalista'], async ({ m, ctx }) => {
     if (!ctx.isGroup) return m.reply('❌ Este comando só funciona em grupos.');
     const gs = await getGS(ctx.remoteJid).catch(() => null);
-    const lista = gs?.fobaBlacklist?.length ? gs.fobaBlacklist : ['63 (padrão)'];
-    return m.reply(`🛡️ *DDIs NA BLACKLIST*\n\n${lista.map(d => `• +${d}`).join('\n')}\n\nAnti-fobados: ${gs?.antifoba ? '🟢 ATIVADO' : '🔴 DESATIVADO'}`);
+    const lista = ddisBlacklist(gs);
+    return m.reply(`🛡️ *DDIs NA BLACKLIST*\n\n${lista.length ? lista.map(d => `• +${d}`).join('\n') : '_Nenhum DDI bloqueado._'}\n\nAnti-fobados: ${gs?.antifoba ? '🟢 ATIVADO' : '🔴 DESATIVADO'}`);
   });
 
   // ═══ autoapresentar — toggle ═══

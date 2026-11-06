@@ -113,6 +113,21 @@ async function bootstrap() {
   }
   await seedDefaults(conn);
 
+  // Reposição global expressamente aprovada: aplica os novos avisos uma vez
+  // a todos os grupos existentes e grava um marcador idempotente no Mongo.
+  if (conn) {
+    try {
+      const notices = await require('./database/groupNoticeDefaults').applyApprovedGroupNoticeDefaults();
+      if (notices.applied) {
+        console.log(`✅ Avisos de grupo repostos: ${notices.modified}/${notices.matched} grupos (padrão ${notices.version})`);
+      }
+    } catch (e) {
+      // Sem marcador, tenta outra vez no próximo boot: não esconde uma
+      // reposição global solicitada pelo dono atrás de uma falha transitória.
+      console.error('⚠️ Não foi possível repor avisos de grupo:', e.message?.slice(0, 120));
+    }
+  }
+
   // v12.9.36: Central de Contactos em ESCALA (1M+) — a base vive no MongoDB
   try { require('./bot/centralBase').carregarMongo().catch(() => {}); } catch (_) {}
 
