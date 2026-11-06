@@ -119,7 +119,7 @@ async function bootstrap() {
     try {
       const notices = await require('./database/groupNoticeDefaults').applyApprovedGroupNoticeDefaults();
       if (notices.applied) {
-        console.log(`✅ Avisos de grupo repostos: ${notices.modified}/${notices.matched} grupos (padrão ${notices.version})`);
+        console.log(`✅ Avisos de grupo em OFF: ${notices.modified}/${notices.matched} grupos (padrão ${notices.version})`);
       }
       const stickers = await require('./database/groupNoticeDefaults').applyApprovedStickerModerationDefaults();
       if (stickers.applied) {

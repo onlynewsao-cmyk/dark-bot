@@ -632,8 +632,9 @@ class WhatsAppBot {
         try {
           await require('../aura/auraLinhaTempo').doEventoParticipantes(this.sock, event, eventMeta);
         } catch {}
-        // v7.96: "ela avisa sempre onde entrou" — quando a Aura é
-        // ADICIONADA a um grupo, o Dark recebe o relatório em PV.
+        // A permissão Vigilante `entrada` começa OFF e é a única chave para
+        // estes avisos. Assim, eventos de sincronização não parecem novas
+        // entradas até o Dono optar por `!permitir entrada on`.
         try {
           if (event.action === 'add') {
             const selfs = [this.sock.user?.id, this.sock.user?.lid]

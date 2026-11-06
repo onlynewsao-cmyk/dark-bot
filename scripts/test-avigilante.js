@@ -25,7 +25,7 @@ console.log('=== Aura Vigilante (v7.96) ===');
 // ── 1. Permissões do Dono ─────────────────────────────────────
 vig._reset();
 const p0 = vig.permissoes();
-assert.strictEqual(p0.entrada, true, 'entrada default ON');
+assert.strictEqual(p0.entrada, false, 'entrada default OFF');
 assert.strictEqual(p0.partilharnumero, false, 'partilharnumero default OFF');
 assert.strictEqual(Object.keys(p0).length, 5, '5 toggles');
 vig.definirPerm('partilharnumero', true);
@@ -37,6 +37,18 @@ vig.definirPerm('coisainventada', true) === null && console.log('  ✔ toggle re
 const txt = vig.listaPermissoesTexto().join('\n');
 assert.ok(/partilharnumero/.test(txt) && /✅/.test(txt), 'lista textual mostra estados');
 console.log('✔ permissões provadas (default + toggle + persistência)');
+
+// Uma instalação antiga persistia entrada=ON. A migração deve desligar
+// somente esse ruído e manter as demais permissões como estavam.
+fs3.writeFileSync(process.env.AURA_VIGILANTE_FILE, JSON.stringify({
+  perms: { entrada: true, aluguel: false, interesse: true },
+}));
+vig._st._loaded = false;
+vig._st._dirty = false;
+vig.carregar();
+assert.strictEqual(vig.perm('entrada'), false, 'migração desliga entrada legada');
+assert.strictEqual(vig.perm('aluguel'), false, 'migração não altera aluguel');
+assert.ok(vig._st.entryNoticeDefaultsVersion, 'migração fica marcada');
 
 // ── 2. Interesse & dedupe ─────────────────────────────────────
 vig._reset();
@@ -102,6 +114,8 @@ console.log('✔ AURASEL: envio → toque → despacho → caduca');
 
 // ── 6. Vigilante: cartões enviados (avisos) ───────────────────
 vig._reset();
+// Entrada só é emitida após escolha explícita do Dono.
+vig.definirPerm('entrada', true);
 sent.length = 0;
 const cfgF = { owner: { number: '244945280380' } };
 await av.avisarEntrada(sockF, cfgF, { gname: 'Pombos', autorNumero: '244911', size: 42 });

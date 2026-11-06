@@ -383,14 +383,22 @@ async function onBotAdded(sock, groupJid, groupName, meta) {
       trialExpiresAt:  trialEnd,
       hostedUntil:     null,
       commandsUsedToday: 0,
-      welcomeEnabled:  true,
-      goodbyeEnabled:  true,
+      welcome:         false,
+      goodbye:         false,
+      welcomeEnabled:  false,
+      goodbyeEnabled:  false,
+      x9:              false,
+      botArrivalNotify: false,
     }).catch(() => null);
   } else {
     gs.trialExpiresAt = trialEnd;
     gs.groupName = groupName;
     await gs.save().catch(() => {});
   }
+
+  // Por padrão o bot entra em silêncio. Isso evita que um replay/sincronização
+  // de participantes pareça uma nova entrada em todos os grupos.
+  if (gs?.botArrivalNotify !== true) return;
 
   const p = config.bot.prefix;
   const trialDays = 3;
@@ -435,7 +443,7 @@ async function onBotAdded(sock, groupJid, groupName, meta) {
 
 async function onJoin(sock, groupJid, participantJid, number, groupName, gs, meta, displayName) {
   if (gs?.welcomeEnabled === false) return;
-  const globalOn = await botConfigCache.get('welcome_enabled', true).catch(() => true);
+  const globalOn = await botConfigCache.get('welcome_enabled', false).catch(() => false);
   if (!globalOn) return;
 
   const memberName = (displayName && !looksLikePhone(displayName)) ? displayName : String(number || 'Membro');
@@ -580,7 +588,7 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
 async function onLeave(sock, groupJid, participantJid, number, groupName, gs, displayName) {
   if (gs?.goodbyeEnabled === false) return;
   if (gs?.goodbye === false && gs?.goodbyeEnabled == null) return;
-  const globalOn = await botConfigCache.get('welcome_enabled', true).catch(() => true);
+  const globalOn = await botConfigCache.get('welcome_enabled', false).catch(() => false);
   if (!globalOn) return;
 
   const memberName = (displayName && !looksLikePhone(displayName)) ? displayName : String(number || 'Membro');

@@ -8,7 +8,7 @@
  * um JID/LID cru.
  */
 
-const NOTICE_DEFAULTS_VERSION = '2026-11-06-group-notices-v1';
+const NOTICE_DEFAULTS_VERSION = '2026-11-06-group-notices-off-v2';
 const NOTICE_DEFAULTS_MARKER = `migration:${NOTICE_DEFAULTS_VERSION}`;
 const STICKER_MODERATION_DEFAULTS_VERSION = '2026-11-06-sticker-moderation-v1';
 const STICKER_MODERATION_DEFAULTS_MARKER = `migration:${STICKER_MODERATION_DEFAULTS_VERSION}`;
@@ -33,43 +33,28 @@ const DEFAULT_GOODBYE_TEMPLATE = [
 ].join('\n');
 
 /**
- * Configuração explicitamente aprovada para a reposição global:
- * - welcome, despedida e X9 ficam públicos;
- * - auto-apresentação e anti-fobados ficam activos;
- * - mídias/templates antigos são removidos para que o padrão consistente
- *   apareça em todos os grupos.
- *
- * `fobaBlacklist: []` significa que anti-fobados continua a tratar divulgação
- * oculta, mas não bloqueia nenhum país por DDI até o Dono configurar uma lista.
+ * Default OFF escolhido pelo Dono para avisos de entrada/saída e X9.
+ * Mantém templates e protecções no banco: se um admin voltar a ligar um
+ * aviso, a personalização antiga continua disponível. Não altera Anti-Sticker
+ * nem Anti-Fobados, que são mecanismos de segurança separados.
  */
 function groupNoticeDefaultsPatch() {
   return {
-    welcome: true,
-    goodbye: true,
-    welcomeEnabled: true,
-    goodbyeEnabled: true,
-    customWelcome: DEFAULT_WELCOME_TEMPLATE,
-    customWelcomeMsg: DEFAULT_WELCOME_TEMPLATE,
-    customGoodbye: DEFAULT_GOODBYE_TEMPLATE,
-    customGoodbyeMsg: DEFAULT_GOODBYE_TEMPLATE,
-    welcomeWithPhoto: false,
-    welcomeWithMedia: '',
-    goodbyeWithMedia: '',
+    welcome: false,
+    goodbye: false,
+    welcomeEnabled: false,
+    goodbyeEnabled: false,
     welcome2: false,
     welcm3: false,
-    x9: true,
-    autoapresentar: true,
-    antifoba: true,
-    fobaBlacklist: [],
-    antisticker: true,
-    antistickerNotify: true,
+    x9: false,
+    botArrivalNotify: false,
   };
 }
 
 /**
- * Reposição destrutiva e idempotente dos avisos de TODOS os grupos existentes.
+ * Desactivação idempotente dos avisos de TODOS os grupos existentes.
  * É chamada uma única vez no boot seguinte ao deploy e marcada em BotConfig;
- * um restart não apaga novamente as escolhas feitas pelos admins depois dela.
+ * um restart não volta a desligar escolhas que um admin faça depois.
  */
 async function applyApprovedGroupNoticeDefaults() {
   const GroupSettings = require('./models/GroupSettings');

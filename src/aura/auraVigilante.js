@@ -8,7 +8,7 @@
  *      interesse        — "o contacto X quer alugar/ser VIP/procurou-te"
  *      convite          — links recebidos viram cartão ✅entrar/❌recusar
  *      partilharnumero  — ela pode DAR o número do Dark a quem o procura
- *      (default: todas as AVISADORAS ligadas; partilharnumero DESLIGADO)
+ *      (default: entrada DESLIGADA; demais avisadoras ligadas; partilharnumero DESLIGADO)
  *
  * 2) MEMÓRIA quantitativa: mensagens por grupo/dia e comandos por nome —
  *    o Dono pergunta em conversa ("quantos grupos tenho? comandos mais
@@ -33,8 +33,11 @@ const path = require('path');
 const FILE = process.env.AURA_VIGILANTE_FILE ||
   path.join(__dirname, '..', '..', 'data', 'aura_vigilante.json');
 
+// A entrada do próprio bot gera muito ruído em reconexões; só o Dono liga.
+const ENTRY_NOTICE_DEFAULTS_VERSION = '2026-11-06-entry-off-v2';
+
 const PERMS_DEFAULT = {
-  entrada: true,
+  entrada: false,
   aluguel: true,
   interesse: true,
   convite: true,
@@ -47,6 +50,7 @@ const _st = {
   cmds: {},            // comando → n
   vistoInteresse: {},  // chave → ts (dedupe)
   convitesEmitidos: {},// code+'|'+de → ts (dedupe 24h)
+  entryNoticeDefaultsVersion: '',
   _loaded: false,
   _dirty: false,
 };
@@ -70,10 +74,19 @@ function carregar() {
       _st.cmds = j.cmds || {};
       _st.vistoInteresse = j.vistoInteresse || {};
       _st.convitesEmitidos = j.convitesEmitidos || {};
+      _st.entryNoticeDefaultsVersion = String(j.entryNoticeDefaultsVersion || '');
+      // Migração única pedida pelo Dono: instalações antigas tinham o alerta
+      // de entrada ON e repetiam "entrei" após reconectar/sincronizar grupos.
+      if (_st.entryNoticeDefaultsVersion !== ENTRY_NOTICE_DEFAULTS_VERSION) {
+        _st.perms.entrada = false;
+        _st.entryNoticeDefaultsVersion = ENTRY_NOTICE_DEFAULTS_VERSION;
+        _st._dirty = true;
+      }
       _cortarVelho(_st.msgs);
     }
   } catch {}
   _st._loaded = true;
+  if (_st._dirty) guardar();
 }
 let _flushTimer = null;
 function _marcarSujo() {
@@ -90,6 +103,7 @@ function guardar() {
     fs.writeFileSync(FILE, JSON.stringify({
       perms: _st.perms, msgs: _st.msgs, cmds: _st.cmds,
       vistoInteresse: _st.vistoInteresse, convitesEmitidos: _st.convitesEmitidos,
+      entryNoticeDefaultsVersion: _st.entryNoticeDefaultsVersion || ENTRY_NOTICE_DEFAULTS_VERSION,
     }));
     _st._dirty = false;
   } catch {}
@@ -260,7 +274,7 @@ function detectarPerguntaBalanço(texto) {
 }
 
 module.exports = {
-  carregar, guardar, flush, _st, FILE, PERMS_DEFAULT,
+  carregar, guardar, flush, _st, FILE, PERMS_DEFAULT, ENTRY_NOTICE_DEFAULTS_VERSION,
   permissoes, perm, definirPerm, listaPermissoesTexto,
   contaMensagem, registaComando, topComandos,
   detectarInteresse, deveNotificarInteresse, INTERESSE_TITULO, TTL_INTERESSE,
@@ -271,6 +285,7 @@ module.exports = {
   _reset(file) {
     _st.perms = { ...PERMS_DEFAULT }; _st.msgs = {}; _st.cmds = {};
     _st.vistoInteresse = {}; _st.convitesEmitidos = {};
+    _st.entryNoticeDefaultsVersion = ENTRY_NOTICE_DEFAULTS_VERSION;
     _st._loaded = true; _st._dirty = false;
   },
 };

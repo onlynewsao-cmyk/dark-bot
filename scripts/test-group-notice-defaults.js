@@ -2,6 +2,8 @@
 'use strict';
 
 const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
 const Module = require('module');
 const {
   NOTICE_DEFAULTS_VERSION,
@@ -25,16 +27,17 @@ const {
   assert.ok(!/@lid|@\d{12,}/i.test(DEFAULT_WELCOME_TEMPLATE), 'padrão nunca traz JID/LID estático');
   assert.ok(!/@lid|@\d{12,}/i.test(DEFAULT_GOODBYE_TEMPLATE), 'padrão nunca traz JID/LID estático');
 
-  for (const key of ['welcome', 'goodbye', 'welcomeEnabled', 'goodbyeEnabled', 'x9', 'autoapresentar', 'antifoba', 'antisticker', 'antistickerNotify']) {
-    assert.strictEqual(patch[key], true, `${key} deve iniciar activo`);
+  for (const key of ['welcome', 'goodbye', 'welcomeEnabled', 'goodbyeEnabled', 'x9', 'welcome2', 'welcm3', 'botArrivalNotify']) {
+    assert.strictEqual(patch[key], false, `${key} deve iniciar desligado`);
   }
-  assert.strictEqual(patch.customWelcomeMsg, DEFAULT_WELCOME_TEMPLATE);
-  assert.strictEqual(patch.customGoodbyeMsg, DEFAULT_GOODBYE_TEMPLATE);
-  assert.deepStrictEqual(patch.fobaBlacklist, [], 'nenhum DDI é banido sem lista explícita');
-  assert.strictEqual(patch.welcomeWithMedia, '');
-  assert.strictEqual(patch.goodbyeWithMedia, '');
-  assert.strictEqual(patch.welcome2, false);
-  assert.strictEqual(patch.welcm3, false);
+  // O reset pedido é apenas de avisos/X9: protecções não são removidas.
+  for (const key of ['autoapresentar', 'antifoba', 'antisticker', 'antistickerNotify', 'customWelcomeMsg', 'customGoodbyeMsg', 'fobaBlacklist']) {
+    assert.ok(!(key in patch), `${key} não deve ser alterado pelo reset de avisos`);
+  }
+  const schemaSource = fs.readFileSync(path.join(__dirname, '..', 'src', 'database', 'models', 'GroupSettings.js'), 'utf8');
+  for (const key of ['welcome', 'goodbye', 'welcomeEnabled', 'goodbyeEnabled', 'x9']) {
+    assert.ok(new RegExp(`${key}:\\s*\\{ type: Boolean, default: false \}`).test(schemaSource), `${key} default do schema é OFF`);
+  }
 
   // Sem Mongo real: prova que a reposição é global, destrutiva apenas uma vez
   // e não volta a apagar escolhas dos admins em reinícios posteriores.

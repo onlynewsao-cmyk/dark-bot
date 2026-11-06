@@ -34,7 +34,9 @@ Module.prototype.require = function (id) {
     };
   }
   if (s.endsWith('botConfigCache')) {
-    return { get: async (k, d) => (k === 'welcome_image_enabled' ? false : d), set: async () => {} };
+    // Este suite exercita avisos explicitamente ligados no grupo; o default
+    // real é OFF e é coberto pelo teste de defaults/migração.
+    return { get: async (k, d) => (k === 'welcome_image_enabled' ? false : k === 'welcome_enabled' ? true : d), set: async () => {} };
   }
   if (s.endsWith('changeThemes')) {
     return { getTheme: () => ({ name: 'dark', emoji: '🕸️', icon: '🕸️', vibe: 'x', frame: ['╭','╮','╰','╯','─','│'], bullet: '•' }) };
@@ -233,9 +235,10 @@ const sock = {
     action: 'add',
     participants: [{ id: '999@s.whatsapp.net', phoneNumber: '999@s.whatsapp.net' }],
   });
-  // onBotAdded envia trial text — não OI welcome
-  assert.ok(!sent.some(s => /OI @/.test(s.text || '')), 'bot add não é welcome de membro');
-  console.log('✔ bot adicionado → onBotAdded (não welcome membro)');
+  // Com default OFF, um evento/replay que parece adicionar o bot não faz
+  // anúncio de trial, welcome, despedida nem X9 no grupo.
+  assert.strictEqual(sent.length, 0, 'bot add silencioso: ' + JSON.stringify(sent));
+  console.log('✔ bot adicionado → silencioso por padrão');
 
   // 7) resolveDisplayName + NOME no art (não número)
   const nome = await ge.resolveDisplayName(sock, {

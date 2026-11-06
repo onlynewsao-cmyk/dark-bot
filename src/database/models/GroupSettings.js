@@ -63,8 +63,9 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   maxWarns: { type: Number, default: 3 },
 
-  welcome: { type: Boolean, default: true },
-  goodbye: { type: Boolean, default: true },
+  // Avisos de entrada/saída começam desligados; admin liga por grupo quando quiser.
+  welcome: { type: Boolean, default: false },
+  goodbye: { type: Boolean, default: false },
 
   // Compatibilidade com campos antigos: ambos recebem o mesmo padrão seguro.
   customWelcome: { type: String, default: DEFAULT_WELCOME_TEMPLATE },
@@ -117,8 +118,10 @@ const GroupSettingsSchema = new mongoose.Schema({
   rentedAt: { type: Date, default: null },
 
   // ── Welcome / Goodbye por grupo ───────────────────────────
-  welcomeEnabled: { type: Boolean, default: true },
-  goodbyeEnabled: { type: Boolean, default: true },
+  welcomeEnabled: { type: Boolean, default: false },
+  goodbyeEnabled: { type: Boolean, default: false },
+  // Aviso de chegada do próprio bot/trial: OFF para não parecer que entra de novo.
+  botArrivalNotify: { type: Boolean, default: false },
   customWelcomeMsg: { type: String, default: DEFAULT_WELCOME_TEMPLATE },  // {user} {nome} {grupo} {membros} {bot}
   customGoodbyeMsg: { type: String, default: DEFAULT_GOODBYE_TEMPLATE },
   welcomeWithPhoto: { type: Boolean, default: false },
@@ -236,7 +239,7 @@ const GroupSettingsSchema = new mongoose.Schema({
   autoAdmins:      [{ type: String }],   // promovidos a admin WA ao entrar
   autoAdmMedia:    { type: Boolean, default: false }, // auto-adm também em midia/status
   parcerias:       [{ type: String }],   // links/JIDs de grupos parceiros (whitelist antilink)
-  x9:              { type: Boolean, default: true }, // avisa promote/demote/add/remove
+  x9:              { type: Boolean, default: false }, // avisa promote/demote/add/remove
   // v11.2.5: modo adulto POR GRUPO — ADM/dono/subdono liga com !adultmode on
   // Quando true, plaquinhas+18 e cmds 18+ VIP podem enviar no grupo (não só PV).
   adultMode:       { type: Boolean, default: false },

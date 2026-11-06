@@ -57,7 +57,7 @@
               <div class="muted small">Saúda novos membros</div>
             </div>
             <label class="switch">
-              <input type="checkbox" <%= settings.welcome_enabled !== false ? 'checked' : '' %> onchange="toggleSetting('welcome_enabled', this.checked)" />
+              <input type="checkbox" <%= settings.welcome_enabled === true ? 'checked' : '' %> onchange="toggleSetting('welcome_enabled', this.checked)" />
               <span class="slider"></span>
             </label>
           </div>
