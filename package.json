@@ -124,6 +124,7 @@
     "test:incoming": "node scripts/test-incoming-cases.js",
     "test:group-events": "node scripts/test-group-events-participants.js",
     "test:group-defaults": "node scripts/test-group-notice-defaults.js",
+    "test:anti-sticker": "node scripts/test-anti-sticker-moderation.js",
     "test:rpgcontextos": "node scripts/test-rpg-contextos.js",
     "test:mediacloud": "node scripts/test-mediacloud.js",
     "test:planos": "node scripts/test-planos.js",

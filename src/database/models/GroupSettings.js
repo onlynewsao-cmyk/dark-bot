@@ -48,7 +48,7 @@ const GroupSettingsSchema = new mongoose.Schema({
   // ── Anti-figurinha aprendida (v6.87) ────────────────────────
   // O admin responde a uma figurinha com !bansticker e o bot aprende-a
   // (identidade = fileSha256 da metadata, sem download). Ver antiSticker.js.
-  antisticker: { type: Boolean, default: false },
+  antisticker: { type: Boolean, default: true },
   antistickerNotify: { type: Boolean, default: true },
   antistickerStats: {
     deleted:    { type: Number, default: 0 },

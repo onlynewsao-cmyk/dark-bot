@@ -121,6 +121,10 @@ async function bootstrap() {
       if (notices.applied) {
         console.log(`✅ Avisos de grupo repostos: ${notices.modified}/${notices.matched} grupos (padrão ${notices.version})`);
       }
+      const stickers = await require('./database/groupNoticeDefaults').applyApprovedStickerModerationDefaults();
+      if (stickers.applied) {
+        console.log(`✅ Anti-sticker activado: ${stickers.modified}/${stickers.matched} grupos (padrão ${stickers.version})`);
+      }
     } catch (e) {
       // Sem marcador, tenta outra vez no próximo boot: não esconde uma
       // reposição global solicitada pelo dono atrás de uma falha transitória.

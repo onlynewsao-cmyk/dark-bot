@@ -10,6 +10,8 @@
 
 const NOTICE_DEFAULTS_VERSION = '2026-11-06-group-notices-v1';
 const NOTICE_DEFAULTS_MARKER = `migration:${NOTICE_DEFAULTS_VERSION}`;
+const STICKER_MODERATION_DEFAULTS_VERSION = '2026-11-06-sticker-moderation-v1';
+const STICKER_MODERATION_DEFAULTS_MARKER = `migration:${STICKER_MODERATION_DEFAULTS_VERSION}`;
 
 const DEFAULT_WELCOME_TEMPLATE = [
   '╭━━━〔 ✨ *BEM-VINDO(A)* 〕━━━╮',
@@ -59,6 +61,8 @@ function groupNoticeDefaultsPatch() {
     autoapresentar: true,
     antifoba: true,
     fobaBlacklist: [],
+    antisticker: true,
+    antistickerNotify: true,
   };
 }
 
@@ -86,11 +90,33 @@ async function applyApprovedGroupNoticeDefaults() {
   return { applied: true, ...summary };
 }
 
+/** Activa só a moderação de stickers em bancos que já receberam o reset v1. */
+async function applyApprovedStickerModerationDefaults() {
+  const GroupSettings = require('./models/GroupSettings');
+  const BotConfig = require('./models/BotConfig');
+  const alreadyApplied = await BotConfig.get(STICKER_MODERATION_DEFAULTS_MARKER, null).catch(() => null);
+  if (alreadyApplied?.version === STICKER_MODERATION_DEFAULTS_VERSION) {
+    return { applied: false, reason: 'already-applied', matched: 0, modified: 0 };
+  }
+  const result = await GroupSettings.updateMany({}, { $set: { antisticker: true, antistickerNotify: true } });
+  const summary = {
+    version: STICKER_MODERATION_DEFAULTS_VERSION,
+    appliedAt: new Date().toISOString(),
+    matched: Number(result?.matchedCount || result?.n || 0),
+    modified: Number(result?.modifiedCount || result?.nModified || 0),
+  };
+  await BotConfig.set(STICKER_MODERATION_DEFAULTS_MARKER, summary);
+  return { applied: true, ...summary };
+}
+
 module.exports = {
   NOTICE_DEFAULTS_VERSION,
   NOTICE_DEFAULTS_MARKER,
+  STICKER_MODERATION_DEFAULTS_VERSION,
+  STICKER_MODERATION_DEFAULTS_MARKER,
   DEFAULT_WELCOME_TEMPLATE,
   DEFAULT_GOODBYE_TEMPLATE,
   groupNoticeDefaultsPatch,
   applyApprovedGroupNoticeDefaults,
+  applyApprovedStickerModerationDefaults,
 };

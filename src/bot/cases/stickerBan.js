@@ -59,10 +59,12 @@ module.exports = function registerStickerBan(registerCase) {
     }
 
     const ligado = await antiSticker.estaActivo(ctx.remoteJid);
+    const avisar = await antiSticker.avisa(ctx.remoteJid);
     const lista = await antiSticker.listaDe(ctx.remoteJid);
     return m.reply(
       `🎭 *ANTI-FIGURINHA APRENDIDA*\n\n` +
       `Interruptor: ${ligado ? '✅ ligado' : '❌ desligado'}\n` +
+      `Aviso público: ${avisar ? '📢 ligado' : '🤫 silencioso'}\n` +
       `Figurinhas aprendidas: *${lista.length}*\n\n` +
       `${prefix}antisticker on — ligar\n` +
         `${prefix}antisticker notify off — apagar em silêncio\n` +
@@ -100,15 +102,15 @@ module.exports = function registerStickerBan(registerCase) {
       });
       if (!r.ok) return m.reply(`⚠️ Não consegui aprender: ${r.motivo}`);
 
-      // aprender com o interruptor desligado não serve de nada — avisa
+      // Aprender uma regra precisa protegê-la imediatamente; não deixa uma
+      // figurinha proibida entrar por o interruptor ter ficado desligado.
       const ligado = await antiSticker.estaActivo(ctx.remoteJid);
+      if (!ligado) await antiSticker.setActivo(ctx.remoteJid, true);
       m.react('🎭');
       return m.reply(
         `${r.jaSabia ? '🔁 *Já a conhecia*' : '🎭 *Aprendida*'} — ${id.animated ? 'figurinha animada' : 'figurinha'}.\n\n` +
-        `De cada vez que alguém a mandar aqui, eu apago-a.\n` +
-        (ligado
-          ? `➖ Desaprender: *${prefix}unbansticker* (respondendo-lhe)`
-          : `⚠️ O interruptor está desligado — liga com *${prefix}antisticker on* para eu começar a agir.`)
+        `🛡️ Protecção anti-figurinha: *ACTIVA*. Da próxima vez que alguém a mandar aqui, eu apago-a.\n` +
+        `➖ Desaprender: *${prefix}unbansticker* (respondendo-lhe)`
       );
     }, true);
 
@@ -156,10 +158,13 @@ module.exports = function registerStickerBan(registerCase) {
 
       const linhas = lista.slice(0, 20).map((s, i) => {
         const quando = s.createdAt ? new Date(s.createdAt).toLocaleDateString('pt-PT') : '';
+        const motivo = String(s.reason || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 70);
         return `*${i + 1}.* ${s.animated ? '🎞️ animada' : '🖼️ estática'}` +
           `${s.addedByName ? ` · por ${s.addedByName}` : ''}` +
           `${s.hits ? ` · ${s.hits}× apagada` : ''}` +
-          `${quando ? ` · ${quando}` : ''}\n     \`${String(s.hash).slice(0, 18)}…\``;
+          `${quando ? ` · ${quando}` : ''}` +
+          `${motivo ? `\n     📝 ${motivo}` : ''}` +
+          `\n     \`${String(s.hash).slice(0, 18)}…\``;
       });
 
       return m.reply(
