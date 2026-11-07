@@ -146,7 +146,7 @@ const MSG = { key: { id: 'm1', remoteJid: 'G@g.us' } };
   const cP = CTX('P');
   await cmds['play']({ sock, m: { chat: cP.remoteJid, key: MSG.key }, msg: MSG, ctx: cP, text: 'drake', prefix: '!', command: 'play' });
   const tPlay = store.find(c => c.text)?.text || '';
-  check('play envia card compacto da 1.ª música', tPlay.includes('Musica A') && tPlay.includes('Áudio automático (128k)'), tPlay.slice(0, 80));
+  check('play envia card compacto da 1.ª música', tPlay.includes('Musica A') && tPlay.includes('Áudio automático (128k)') && !tPlay.includes('Repetir áudio'), tPlay.slice(0, 80));
   check('play envia áudio automaticamente', store.some(c => Buffer.isBuffer(c.audio)), String(store.length));
   check('play não abre lista numerada', !/\*3\.\*/.test(tPlay) && !lista._pendentes.has(lista._key(cP)), tPlay.slice(0, 60));
   // video

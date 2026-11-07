@@ -118,7 +118,7 @@ function fetchJsonPost(url, body, headers = {}, timeoutMs = 25000) {
   });
 }
 
-module.exports = { downloadFromMessage, fetchBuffer, fetchJson, fetchJsonPost, isAudioBytes, cleanThumb };
+module.exports = { downloadFromMessage, fetchBuffer, fetchJson, fetchJsonPost, isAudioBytes, audioMimeFromBytes, cleanThumb };
 
 // v7.56: bytes de áudio válidos? (MP3/MP4-M4A/OGG/WAV)
 // Envia-se lixo (HTML de erro, truncado) e alguns clientes não renderizam
@@ -131,6 +131,18 @@ function isAudioBytes(buf) {
   if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return true; // OggS
   if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return true; // RIFF/WAV
   return false;
+}
+
+// O provider pode rotular M4A/OGG como MP3. O WhatsApp aceita o buffer,
+// mas alguns clientes não o reproduzem/mostram se o mimetype não coincidir.
+function audioMimeFromBytes(buf, fallback = 'audio/mpeg') {
+  if (!Buffer.isBuffer(buf)) return fallback;
+  if (buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) return 'audio/mpeg';
+  if (buf[0] === 0xFF && (buf[1] & 0xE0) === 0xE0) return 'audio/mpeg';
+  if (buf.toString('ascii', 4, 8) === 'ftyp') return 'audio/mp4';
+  if (buf[0] === 0x4F && buf[1] === 0x67 && buf[2] === 0x67 && buf[3] === 0x53) return 'audio/ogg; codecs=opus';
+  if (buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46) return 'audio/wav';
+  return fallback;
 }
 
 // v7.56: thumbnails grandes/quebrados no cartão partem a renderização

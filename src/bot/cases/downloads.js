@@ -1,7 +1,7 @@
 /**
  * DARK BOT — Cases de Downloads 🎵
  *
- * play   → áudio automático 128k + card normal com repetir áudio e vídeo 480p — resultado #1
+ * play   → áudio automático 128k + card com capa e vídeo 480p — resultado #1
  * play2  → card normal de áudio/vídeo — resultado alternativo #2
  * play3  → mesmo fluxo/botões de play, áudio 320k + vídeo 1080p — resultado #3
  * ytd    → áudio MP3 por URL
@@ -25,14 +25,10 @@ const config         = require('../../config');
 
 // ── Helper: envia áudio com card de metadados ─────────────────
 async function sendAudioCard(sock, jid, quoted, r) {
-  // v7.59: SEM capa — o externalAdReply+thumbnail quebrava a entrega/
-  // renderização no fluxo do botão (mídia "invisível" p/ membros).
-  // Áudio simples (só buffer + nome) entrega sempre.
-  const title    = r.title    || 'Áudio';
-  const mime     = r.mimetype || 'audio/mpeg';
-  const ext      = mime.includes('mp4') ? 'm4a' : 'mp3';
-  const fileName = `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`;
-
+  // Áudio real primeiro: o mime e a extensão são derivados dos bytes, não da
+  // resposta do provider (que por vezes marca M4A/OGG como MP3).
+  const title = r.title || 'Áudio';
+  const declaredMime = r.mimetype || 'audio/mpeg';
   let audioBuffer = r.buffer && Buffer.isBuffer(r.buffer) ? r.buffer : null;
   // Não delegar uma URL efémera directamente ao WhatsApp. Alguns providers
   // devolvem link que parece válido, mas expira/recusa o fetch do Baileys e a
@@ -40,10 +36,27 @@ async function sendAudioCard(sock, jid, quoted, r) {
   // de obter e validar os bytes; assim o chamador pode trocar de provider.
   if (!audioBuffer) audioBuffer = await mediaHandler.fetchBuffer(r.url, { timeout: 25000 });
   if (!mediaHandler.isAudioBytes(audioBuffer)) throw new Error('áudio vazio ou inválido');
-  console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' nocover');
-  return sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
-}
 
+  const mime = mediaHandler.audioMimeFromBytes?.(audioBuffer, declaredMime) || declaredMime;
+  const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : mime.includes('wav') ? 'wav' : 'mp3';
+  const fileName = `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`;
+  console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' verified');
+
+  try {
+    return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
+  } catch (audioSendError) {
+    // O upload de áudio é recusado ocasionalmente por clientes/servidores que
+    // aceitam o mesmo byte como ficheiro. Entregar como documento é preferível
+    // a mostrar sucesso no card sem nenhuma música chegar ao utilizador.
+    console.warn('[MUSIC-SEND] player recusado; a entregar ficheiro:', audioSendError.message?.slice(0, 90));
+    return sock.sendMessage(jid, {
+      document: audioBuffer,
+      mimetype: mime,
+      fileName,
+      caption: `🎵 ${title}\n📎 Enviado como ficheiro para garantir a entrega.`,
+    }, { quoted });
+  }
+}
 // ── Helper: envia vídeo MP4 reproduzível no WhatsApp ─────────
 async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) {
   if (!buf || buf.length < 4096) throw new Error('vídeo vazio');
@@ -58,11 +71,23 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
   const finalCaption = duration && !/⏱️\s*(?:\?|—)?\s*(?:\||$)/.test(measuredCaption)
     ? measuredCaption
     : (duration ? measuredCaption.replace(/⏱️\s*(?:\?|—)?/, `⏱️ ${duration}`) : measuredCaption);
-  return sock.sendMessage(jid, {
-    video: compatible.buffer,
-    caption: finalCaption,
-    mimetype: 'video/mp4',
-  }, { quoted });
+  try {
+    return await sock.sendMessage(jid, {
+      video: compatible.buffer,
+      caption: finalCaption,
+      mimetype: 'video/mp4',
+    }, { quoted });
+  } catch (videoSendError) {
+    // Tal como no áudio, o documento mantém a entrega quando um cliente
+    // recusa renderizar o vídeo inline depois do upload.
+    console.warn('[VIDEO-SEND] player recusado; a entregar ficheiro:', videoSendError.message?.slice(0, 90));
+    return sock.sendMessage(jid, {
+      document: compatible.buffer,
+      mimetype: 'video/mp4',
+      fileName: `${String(title || 'video').replace(/[/\?%*:|"<>]/g, '-').slice(0, 60)}.mp4`,
+      caption: finalCaption + '\n\n📎 Enviado como ficheiro para garantir a entrega.',
+    }, { quoted });
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -71,7 +96,17 @@ async function sendVideoFile(sock, jid, quoted, buf, caption, title, opts = {}) 
 // adaptada ao contexto do caseHandler + fallbacks robustos.
 // ─────────────────────────────────────────────
 
-// ── Card de resultado; áudio automático pode expor botão de repetição ──
+// ── Thumbnail do card: busca local/API nem sempre devolve uma capa, mas o
+// vídeo YouTube tem uma capa pública determinística pelo seu ID.
+function playThumbnail(video = {}) {
+  const received = String(video.thumbnail || video.image || '').trim();
+  if (/^https:\/\//i.test(received)) return received;
+  const source = String(video.youtube_url || video.url || '');
+  const id = source.match(/[?&]v=([\w-]{11})|youtu\.be\/([\w-]{11})|\/shorts\/([\w-]{11})/)?.slice(1).find(Boolean);
+  return id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : '';
+}
+
+// ── Card de resultado; o áudio automático não cria botão de repetição ──
 async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, options = {}) {
   const mediaUrl = String(video.youtube_url || video.url || '').trim();
   if (!mediaUrl) throw new Error('resultado sem URL de mídia');
@@ -98,12 +133,7 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
     ? 'DARK BOT · áudio automático + vídeo'
     : 'DARK BOT · escolhe áudio ou vídeo';
   const buttons = [];
-  if (!options.videoOnly || options.showAudioRetry) {
-    buttons.push({
-      text: options.autoAudio ? `🔁 Repetir áudio ${Q.audio}` : `🎵 Áudio ${Q.audio}`,
-      id: audioCmd,
-    });
-  }
+  if (!options.videoOnly) buttons.push({ text: `🎵 Áudio ${Q.audio}`, id: audioCmd });
   buttons.push({ text: `🎬 Vídeo ${Q.video}p`, id: videoCmd });
   try {
     const { sendButtons } = require('../buttonHandler');
@@ -114,6 +144,7 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
       String(footer || fallbackFooter).slice(0, 64),
       buttons,
       options.autoAudio ? null : msg,
+      { image: playThumbnail(video) },
     );
     return;
   } catch (e) {
@@ -122,9 +153,7 @@ async function enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer,
 
   // Fallback simples mantém a opção de vídeo mesmo sem a biblioteca de botões.
   const actionsText = options.videoOnly
-    ? (options.showAudioRetry
-      ? `Áudio automático (${Q.audio})\nRepetir áudio: ${audioCmd}\nVídeo: ${videoCmd}`
-      : `Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})\nVídeo: ${videoCmd}`)
+    ? `Áudio ${options.autoAudio ? 'automático' : 'enviado'} (${Q.audio})\nVídeo: ${videoCmd}`
     : `Áudio: ${audioCmd}\nVídeo: ${videoCmd}`;
   await sock.sendMessage(m.chat, {
     text: `🎵 *${String(video.title || 'Música').slice(0, 60)}*\n${body}\n\n${actionsText}`,
@@ -200,7 +229,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
     if (quality.autoAudio) {
       // O card de vídeo chega sem esperar pelo provider; o áudio acompanha automaticamente.
       await enviarCardPlay(sock, m, msg, video, prefix, Q, bodyExtra, footer, {
-        videoOnly: true, autoAudio: true, showAudioRetry: true,
+        videoOnly: true, autoAudio: true,
       });
       try {
         await enviarAudioResultado(sock, m.chat, msg, video, Q.audio);

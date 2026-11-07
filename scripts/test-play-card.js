@@ -7,6 +7,8 @@ let audioFails = false;
 let primaryReturnsDeadUrl = false;
 let localFallbackCalls = 0;
 let transportFails = false;
+let audioTransportFails = false;
+let headerImageUploads = 0;
 const fakeAudio = Buffer.alloc(4096, 1);
 const fakeMediaHandler = {
   isAudioBytes: () => true,
@@ -28,7 +30,10 @@ const fakeBaileys = {
   generateWAMessageFromContent: (jid, message, options) => ({
     key: { id: 'native-card' }, message: { ...message, __options: options, __jid: jid },
   }),
-  prepareWAMessageMedia: async () => ({ imageMessage: {} }),
+  prepareWAMessageMedia: async (payload) => {
+    if (payload?.image) headerImageUploads++;
+    return { imageMessage: {} };
+  },
 };
 
 const results = [
@@ -71,7 +76,10 @@ Module.prototype.require = function (id) {
   const sent = [];
   const relays = [];
   const sock = {
-    sendMessage: async (to, payload, opts) => { sent.push({ to, payload, opts }); return { key: { id: 'mock' } }; },
+    sendMessage: async (to, payload, opts) => {
+      if (audioTransportFails && payload?.audio) throw new Error('mock audio upload rejected');
+      sent.push({ to, payload, opts }); return { key: { id: 'mock' } };
+    },
     relayMessage: async (to, message, opts) => {
       if (transportFails) throw new Error('mock relay unavailable');
       relays.push({ to, message, opts });
@@ -88,6 +96,7 @@ Module.prototype.require = function (id) {
       footer: interactive?.footer?.text || '',
       buttons: interactive?.nativeFlowMessage?.buttons || [],
       quoted: relay.message?.__options?.quoted,
+      header: interactive?.header || {},
       to: relay.to,
     };
   });
@@ -96,8 +105,9 @@ Module.prototype.require = function (id) {
   async function run(command) {
     sent.length = 0;
     relays.length = 0;
+    headerImageUploads = 0;
     await handlers.get(command)({ sock, m, msg, ctx: { remoteJid: jid }, text: 'faixa de teste', prefix: '!', command });
-    return { sent: [...sent], cards: nativeCards() };
+    return { sent: [...sent], cards: nativeCards(), headerImageUploads };
   }
 
   let r = await run('play');
@@ -108,9 +118,10 @@ Module.prototype.require = function (id) {
   for (const detail of ['Artista Um', '3:21', '12.345']) assert.ok(card.body.includes(detail), `card includes ${detail}`);
   assert.ok(card.body.includes('Áudio automático (128k)'), 'card says audio is automatic');
   assert.ok(!/toxic|ataque/i.test(card.body), '!play stays simple, not DARK TOXIC');
-  assert.strictEqual(card.buttons.length, 2, '!play has retry-audio and video native quick replies');
-  assert.ok(buttonId(button(card, /Repetir áudio/)).includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k'));
+  assert.strictEqual(card.buttons.length, 1, '!play mantém apenas o botão de vídeo');
+  assert.ok(!/Repetir áudio/i.test(card.body), '!play não mostra repetir áudio');
   assert.ok(buttonId(button(card, /Vídeo/)).includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'));
+  assert.ok(r.headerImageUploads > 0 && card.header?.imageMessage, '!play anexa thumbnail no card');
   assert.strictEqual(card.quoted, null, '!play card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.payload.mimetype === 'audio/mpeg' && x.payload.ptt === false && x.opts?.quoted === msg),
     '!play audio is the only successful output replying to the command');
@@ -130,7 +141,7 @@ Module.prototype.require = function (id) {
   card = r.cards[0];
   assert.ok(card.body.includes('Faixa Três') && card.body.includes('Resultado #3'), '!play3 remains the third result');
   assert.ok(card.body.includes('Áudio automático (320k)') && card.body.includes('1080p'), 'play3 uses high-quality values');
-  assert.ok(buttonId(button(card, /Repetir áudio/)).endsWith('| 320k'), 'play3 retry retains high-quality audio');
+  assert.strictEqual(card.buttons.length, 1, 'play3 também não tem repetir áudio');
   assert.ok(buttonId(button(card, /Vídeo/)).includes('| mp4 | 1080 | 5:43'), 'play3 retains high-quality video');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'play3 audio remains a quoted reply');
 
@@ -141,7 +152,7 @@ Module.prototype.require = function (id) {
   const fallback = fallbackMessage?.payload.text || '';
   assert.strictEqual(r.cards.length, 0, 'no fake native delivery is claimed after transport failure');
   assert.ok(fallback.includes('!gyt https://youtu.be/AAAAAAAAAAA | mp4 | 480 | 3:21'), 'text fallback retains the video command');
-  assert.ok(fallback.includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k'), 'text fallback retains the audio retry command');
+  assert.ok(!fallback.includes('!ytd https://youtu.be/AAAAAAAAAAA | 128k'), 'text fallback também não oferece repetir áudio');
   assert.strictEqual(fallbackMessage?.opts?.quoted, null, 'fallback card is not a reply to the command');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), 'audio still sends as the quoted reply after UI fallback');
   transportFails = false;
@@ -152,6 +163,12 @@ Module.prototype.require = function (id) {
   assert.strictEqual(localFallbackCalls, 1, '!play retries with local engine after a dead provider URL');
   assert.ok(r.sent.some(x => x.payload?.audio?.equals(fakeAudio) && x.opts?.quoted === msg), '!play delivers local audio after URL expiry');
   primaryReturnsDeadUrl = false;
+  // Caso WhatsApp recuse o player de áudio, o mesmo MP3 chega como ficheiro.
+  audioTransportFails = true;
+  r = await run('play');
+  assert.ok(r.sent.some(x => x.payload?.document?.equals(fakeAudio) && /garantir a entrega/.test(x.payload?.caption || '')),
+    'rejeição do player envia o MP3 como ficheiro');
+  audioTransportFails = false;
   audioFails = true;
   r = await run('play');
   assert.strictEqual(r.cards.length, 1, 'video card survives audio-provider failure');

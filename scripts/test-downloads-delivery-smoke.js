@@ -117,8 +117,8 @@ Module.prototype.require = function (id) {
   const quickReplies = interactive?.nativeFlowMessage?.buttons || [];
   const ids = quickReplies.map(button => JSON.parse(button.buttonParamsJson || '{}').id);
   assert(ids.some(id => String(id).startsWith('!gyt ')), 'card must offer video');
-  assert(ids.some(id => String(id).startsWith('!ytd ')),
-    'normal card must offer a manual audio retry even when audio is automatic');
+  assert(!ids.some(id => String(id).startsWith('!ytd ')),
+    'automatic play card must not expose a repeat-audio button');
   assert(sent.some(payload => payload.audio?.equals(samples.mp3) && payload.mimetype === 'audio/mpeg'),
     '!play must auto-send the real MP3 bytes');
   passed.push('!play: áudio MP3 real automático + botão de vídeo');
