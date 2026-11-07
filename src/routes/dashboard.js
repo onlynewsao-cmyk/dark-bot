@@ -89,6 +89,25 @@ router.get('/control', requireOwner, async (req, res) => {
   let themes = []; try { themes = require('../bot/changeThemes').listThemes().map(t => ({ id: t.name, name: t.label || t.name, icon: t.emoji || '' })); } catch {}
   res.render('dashboard/control', { title: 'Controle', botState, settings, envStatus, themes });
 });
+
+// Hub proprietário: mostra em que grupos cada automação está ligada e permite
+// desligá-la em massa com confirmação no endpoint correspondente.
+router.get('/automation-hub', requireOwner, async (req, res) => {
+  const GroupSettings = require('../database/models/GroupSettings');
+  const automationHub = require('../dashboard/automationHub');
+  const [groups, configs] = await Promise.all([
+    GroupSettings.find().select('groupJid groupName welcome goodbye welcomeEnabled goodbyeEnabled welcomeWithPhoto welcome2 welcm3 x9 botArrivalNotify autoapresentar inactiveEnabled idleNudgeEnabled autorepo antilink antispam antisticker antistickerNotify antifoba antistatus antimencao antipagamento antiinvisivel antiflood antidoc antiloc antifigurinha antifig antibtn antipalavra antitoxic antiporn antitiposNotify antifoto antivideo antiaudio antitexto anticontacto captcha antidemote autoVisu1 autoDl autosticker assistente automsg autoAdmMedia adultMode modorpg modobn modolite modoparceria modoraid modeDownloads modeStickers modeIa modeJogos modeEconomia modeInteracoes modeTexto modeSearch modeAudio modeLogos modeZoeira').lean().catch(() => []),
+    BotConfig.find({ $or: [
+      { key: /^antiraid:/ }, { key: /^autorespostas:/ }, { key: /^capturalink:/ },
+      { key: { $in: ['welcome_enabled', 'antilink_enabled', 'antispam_enabled'] } },
+    ] }).lean().catch(() => []),
+  ]);
+  res.render('dashboard/automation-hub', {
+    title: 'Hub de Automações',
+    hub: automationHub.summarize(groups, configs),
+  });
+});
+
 router.get('/console', requireOwner, async (req, res) => {
   const all = await BotConfig.find().catch(() => []);
   const settings = {};

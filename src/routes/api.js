@@ -422,6 +422,99 @@ module.exports = function (io) {
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
 
+  // ===== HUB DE AUTOMAÇÕES (somente Dono) =====
+  // O hub usa uma lista fechada de campos: nunca aceita do browser uma chave
+  // arbitrária para alterar o banco. Desligamentos em massa pedem frase de
+  // confirmação e entram no Log de auditoria.
+  router.post('/automation-hub/feature/:id/off', requireApiOwner, async (req, res) => {
+    const automationHub = require('../dashboard/automationHub');
+    const feature = automationHub.featureById(req.params.id);
+    if (!feature) return res.status(404).json({ error: 'Função não encontrada no hub' });
+    if (String(req.body?.confirmation || '').trim().toUpperCase() !== 'DESLIGAR') {
+      return res.status(400).json({ error: 'Confirma escrevendo DESLIGAR' });
+    }
+
+    try {
+      const GroupSettings = require('../database/models/GroupSettings');
+      let changedGroups = 0;
+      let changedConfigs = 0;
+
+      if (feature.configPrefix) {
+        const r = await BotConfig.updateMany(
+          { key: { $regex: '^' + feature.configPrefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }, value: { $in: [true, 'true', 1, '1'] } },
+          { $set: { value: false } },
+        );
+        changedConfigs += Number(r.modifiedCount || r.nModified || 0);
+      } else {
+        const patch = automationHub.updateForFeature(feature);
+        const fields = Object.keys(patch);
+        if (fields.length) {
+          const r = await GroupSettings.updateMany(
+            automationHub.groupMatchForFeature(feature),
+            { $set: patch },
+          );
+          changedGroups += Number(r.modifiedCount || r.nModified || 0);
+        }
+        for (const key of feature.globalKeys || []) {
+          const current = await BotConfig.get(key, false).catch(() => false);
+          await BotConfig.set(key, false);
+          if (automationHub.isOn(current)) changedConfigs++;
+        }
+      }
+
+      try { require('../bot/botConfigCache').clear(); } catch {}
+      await Log.create({
+        type: 'command', command: 'dashboard:automation-off',
+        user: req.session.user?.name || req.session.user?.username || 'owner',
+        number: String(req.session.user?.id || ''),
+        content: `Hub desligou ${feature.id}: ${changedGroups} grupo(s), ${changedConfigs} configuração(ões).`,
+        success: true,
+      }).catch(() => {});
+      res.json({ ok: true, feature: feature.id, changedGroups, changedConfigs });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  router.post('/automation-hub/all-off', requireApiOwner, async (req, res) => {
+    const automationHub = require('../dashboard/automationHub');
+    if (String(req.body?.confirmation || '').trim().toUpperCase() !== 'TUDO OFF') {
+      return res.status(400).json({ error: 'Confirma escrevendo TUDO OFF' });
+    }
+
+    try {
+      const GroupSettings = require('../database/models/GroupSettings');
+      const fields = automationHub.GROUP_OFF_FIELDS;
+      const globalsBefore = await BotConfig.find({ key: { $in: automationHub.GLOBAL_OFF_KEYS } }).lean().catch(() => []);
+      const [groupsResult, configsResult] = await Promise.all([
+        GroupSettings.updateMany(
+          automationHub.allOffGroupMatch(),
+          { $set: Object.fromEntries(fields.map(field => [field, false])) },
+        ),
+        BotConfig.updateMany(
+          { key: { $regex: '^(antiraid|autorespostas|capturalink):' }, value: { $in: [true, 'true', 1, '1'] } },
+          { $set: { value: false } },
+        ),
+      ]);
+      for (const key of automationHub.GLOBAL_OFF_KEYS) await BotConfig.set(key, false);
+      try { require('../bot/botConfigCache').clear(); } catch {}
+
+      const changedGroups = Number(groupsResult.modifiedCount || groupsResult.nModified || 0);
+      const changedConfigs = Number(configsResult.modifiedCount || configsResult.nModified || 0)
+        + globalsBefore.filter(config => automationHub.isOn(config.value)).length;
+      await Log.create({
+        type: 'command', command: 'dashboard:automation-all-off',
+        user: req.session.user?.name || req.session.user?.username || 'owner',
+        number: String(req.session.user?.id || ''),
+        content: `Hub TUDO OFF: ${changedGroups} grupo(s), ${changedConfigs} configuração(ões).`,
+        success: true,
+      }).catch(() => {});
+      res.json({ ok: true, changedGroups, changedConfigs, features: automationHub.FEATURES.length });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== IA TEST =====
   router.post('/ia/test', requireApiOwner, async (req, res) => {
     try {

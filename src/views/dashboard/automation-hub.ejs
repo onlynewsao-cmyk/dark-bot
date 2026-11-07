@@ -1,0 +1,190 @@
+<%- include('../partials/head') %>
+<div class="app-shell">
+  <%- include('../partials/sidebar') %>
+  <main class="main automation-hub">
+    <header class="page-header hub-header">
+      <div>
+        <div class="eyebrow">CONTROLO CENTRAL · SOMENTE DONO</div>
+        <h1>🧭 Hub de Automações</h1>
+        <p class="muted">Vê onde cada função está ligada e desativa-a em todos os grupos afetados.</p>
+      </div>
+      <button class="btn btn-danger hub-all-off" onclick="openAllOffConfirm()">⏻ TUDO OFF</button>
+    </header>
+
+    <section class="hub-intro card">
+      <div class="hub-intro-icon">🛡️</div>
+      <div>
+        <strong>Desligamento controlado e auditável</strong>
+        <p>As ações alteram apenas automações e proteções opcionais dos grupos. O bot continua acessível no Dashboard e não sai de nenhum grupo.</p>
+      </div>
+      <div class="hub-intro-note">Cada operação pede confirmação e fica registada no log.</div>
+    </section>
+
+    <section class="hub-metrics" aria-label="Resumo">
+      <article class="metric-card">
+        <span class="metric-icon">👥</span>
+        <div><strong><%= hub.totalGroups %></strong><span>grupos registados</span></div>
+      </article>
+      <article class="metric-card <%= hub.activeFeatures ? 'metric-active' : '' %>">
+        <span class="metric-icon">⚙️</span>
+        <div><strong><%= hub.activeFeatures %></strong><span>funções com atividade</span></div>
+      </article>
+      <article class="metric-card <%= hub.activeGroupAssignments ? 'metric-active' : '' %>">
+        <span class="metric-icon">📍</span>
+        <div><strong><%= hub.activeGroupAssignments %></strong><span>ativações encontradas</span></div>
+      </article>
+    </section>
+
+    <% if (!hub.totalGroups) { %>
+      <div class="alert alert-info"><span>ℹ️</span><span>Ainda não há grupos registados com configurações para analisar.</span></div>
+    <% } %>
+
+    <% hub.categories.forEach(category => { %>
+      <section class="hub-category">
+        <div class="hub-category-title">
+          <h2><%= category.name %></h2>
+          <span><%= category.features.filter(f => f.isActive).length %>/<%= category.features.length %> ativas</span>
+        </div>
+        <div class="hub-grid">
+          <% category.features.forEach(feature => { %>
+            <article class="hub-feature <%= feature.isActive ? 'is-active' : 'is-off' %>">
+              <div class="hub-feature-top">
+                <div class="hub-feature-icon"><%= feature.icon %></div>
+                <div class="hub-feature-state" title="<%= feature.isActive ? 'Há grupos ou padrão global com esta função ligada' : 'Desligada nos grupos registados' %>">
+                  <span></span><%= feature.isActive ? 'ATIVA' : 'OFF' %>
+                </div>
+              </div>
+              <h3><%= feature.name %></h3>
+              <p><%= feature.description %></p>
+              <div class="hub-count"><strong><%= feature.activeCount %></strong> <%= feature.activeCount === 1 ? 'ativação' : 'ativações' %></div>
+
+              <% if (feature.isActive) { %>
+                <details class="hub-groups">
+                  <summary>Ver onde está ativa</summary>
+                  <div class="hub-chips">
+                    <% feature.activeGlobals.forEach(key => { %>
+                      <span class="hub-chip hub-chip-global">🌐 <%= key %></span>
+                    <% }) %>
+                    <% feature.activeGroups.forEach(group => { %>
+                      <span class="hub-chip" title="<%= group.jid %>"><%= group.name %></span>
+                    <% }) %>
+                  </div>
+                </details>
+                <button class="btn btn-danger btn-sm hub-off-feature" data-id="<%= feature.id %>" data-name="<%= feature.name %>" onclick="openFeatureConfirm(this.dataset.id, this.dataset.name)">
+                  ⏻ Desativar em todos
+                </button>
+              <% } else { %>
+                <div class="hub-off-label">✓ Sem ativação encontrada</div>
+              <% } %>
+            </article>
+          <% }) %>
+        </div>
+      </section>
+    <% }) %>
+
+    <section class="card hub-footnote">
+      <strong>O que o “Tudo OFF” faz?</strong>
+      <p>Desliga as funções listadas acima em todos os grupos registados: avisos, proteções, automações, modos e categorias de comandos. Também desliga os padrões globais de boas-vindas, anti-link e anti-spam, além de anti-raid, respostas automáticas e captura de links configurados por grupo.</p>
+      <p>Não remove grupos, não apaga mensagens, não cancela hospedagens e não altera dados de membros, permissões humanas ou o acesso ao Dashboard.</p>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="hubConfirmModal" role="dialog" aria-modal="true" aria-labelledby="hubConfirmTitle">
+  <div class="modal-content hub-modal">
+    <div class="hub-modal-icon" id="hubModalIcon">⚠️</div>
+    <div class="eyebrow" id="hubConfirmEyebrow">CONFIRMAÇÃO EXIGIDA</div>
+    <h2 id="hubConfirmTitle">Desativar função</h2>
+    <p id="hubConfirmText" class="muted"></p>
+    <label class="hub-confirm-label" for="hubConfirmation">Escreve <code id="hubRequiredWord">DESLIGAR</code> para confirmar</label>
+    <input id="hubConfirmation" autocomplete="off" spellcheck="false" placeholder="Escreve a confirmação" />
+    <div class="button-row hub-modal-actions">
+      <button class="btn btn-danger" id="hubConfirmButton" onclick="confirmHubAction()">Confirmar desligamento</button>
+      <button class="btn btn-ghost" onclick="closeHubModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .hub-header { align-items:center; gap:1rem; }
+  .eyebrow { color:var(--neon-cyan); font-size:.72rem; font-weight:800; letter-spacing:.11em; margin-bottom:.35rem; }
+  .hub-all-off { font-weight:900; white-space:nowrap; box-shadow:0 0 22px rgba(255,71,87,.2); }
+  .hub-intro { display:flex; align-items:center; gap:1rem; padding:1.1rem 1.25rem; border-left:4px solid var(--neon-cyan); }
+  .hub-intro-icon { font-size:2.2rem; width:3.2rem; height:3.2rem; display:grid; place-items:center; border-radius:14px; background:rgba(0,229,255,.1); }
+  .hub-intro strong { font-size:1rem; }.hub-intro p { margin:.25rem 0 0; color:var(--text-muted); font-size:.87rem; }
+  .hub-intro-note { margin-left:auto; max-width:210px; font-size:.78rem; color:var(--text-muted); text-align:right; }
+  .hub-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:1.1rem 0 2rem; }
+  .metric-card { background:linear-gradient(145deg,rgba(22,29,42,.97),rgba(12,17,27,.97)); border:1px solid var(--border); border-radius:14px; padding:1rem; display:flex; gap:.8rem; align-items:center; }
+  .metric-card.metric-active { border-color:rgba(0,229,255,.35); }.metric-icon { font-size:1.4rem; }
+  .metric-card strong { display:block; color:var(--text-primary); font-size:1.3rem; line-height:1.1; }.metric-card span:last-child { color:var(--text-muted); font-size:.78rem; }
+  .hub-category { margin:0 0 2.15rem; }.hub-category-title { display:flex; align-items:baseline; justify-content:space-between; margin:0 0 .7rem; }
+  .hub-category-title h2 { margin:0; font-size:1.08rem; }.hub-category-title span { font-size:.75rem; color:var(--text-muted); }
+  .hub-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:.9rem; }
+  .hub-feature { background:var(--bg-card); border:1px solid var(--border); border-radius:14px; padding:1rem; display:flex; flex-direction:column; min-height:240px; transition:transform .2s,border-color .2s,box-shadow .2s; }
+  .hub-feature:hover { transform:translateY(-2px); border-color:rgba(0,229,255,.42); }.hub-feature.is-active { border-color:rgba(0,229,255,.24); }.hub-feature.is-off { opacity:.77; }
+  .hub-feature-top { display:flex; justify-content:space-between; align-items:center; }.hub-feature-icon { font-size:1.45rem; }.hub-feature-state { font-size:.67rem; font-weight:800; letter-spacing:.08em; color:var(--text-muted); display:flex; align-items:center; gap:.35rem; }.hub-feature-state span { width:7px;height:7px;border-radius:50%;background:#68707a; }.is-active .hub-feature-state { color:var(--neon-green); }.is-active .hub-feature-state span { background:var(--neon-green); box-shadow:0 0 8px var(--neon-green); }
+  .hub-feature h3 { margin:.9rem 0 .35rem; font-size:.97rem; }.hub-feature p { margin:0; color:var(--text-muted); line-height:1.45; font-size:.79rem; min-height:3.45em; }.hub-count { margin:.85rem 0 .55rem; color:var(--text-muted); font-size:.76rem; }.hub-count strong { color:var(--neon-cyan); font-size:1rem; }
+  .hub-groups { margin:0 0 .7rem; font-size:.78rem; }.hub-groups summary { cursor:pointer; color:var(--neon-cyan); user-select:none; }.hub-chips { display:flex; flex-wrap:wrap; gap:.35rem; margin-top:.5rem; max-height:118px; overflow:auto; padding-right:.2rem; }.hub-chip { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; background:rgba(255,255,255,.055); padding:.22rem .42rem; border-radius:999px; color:var(--text-muted); }.hub-chip-global { color:var(--neon-cyan); }
+  .hub-off-feature { margin-top:auto; width:100%; }.hub-off-label { margin-top:auto; font-size:.78rem; color:var(--neon-green); }.hub-footnote { border-left:4px solid var(--neon-yellow); }.hub-footnote p { color:var(--text-muted); font-size:.85rem; margin:.55rem 0 0; line-height:1.45; }
+  .hub-modal { max-width:455px; text-align:center; }.hub-modal-icon { width:54px;height:54px;display:grid;place-items:center;margin:0 auto .75rem;border-radius:50%;font-size:1.6rem;background:rgba(255,71,87,.13); }.hub-modal h2 { margin:.1rem 0 .45rem; }.hub-confirm-label { display:block;text-align:left;font-size:.82rem;margin:1.1rem 0 .35rem;color:var(--text-muted); }.hub-confirm-label code { color:var(--neon-red);font-weight:800; }.hub-modal input { width:100%; }.hub-modal-actions { justify-content:center;margin-top:1rem; }
+  @media (max-width:720px) { .hub-header { align-items:flex-start; flex-direction:column; }.hub-intro { align-items:flex-start; flex-wrap:wrap; }.hub-intro-note { margin-left:4.2rem; text-align:left; max-width:none; }.hub-metrics { grid-template-columns:1fr; }.hub-grid { grid-template-columns:1fr; }.hub-feature { min-height:0; }.hub-all-off { width:100%; }.hub-modal-actions { flex-direction:column; }.hub-modal-actions .btn { width:100%; } }
+</style>
+
+<script>
+  let hubAction = null;
+  function closeHubModal() {
+    document.getElementById('hubConfirmModal').classList.remove('open');
+    hubAction = null;
+  }
+  function openFeatureConfirm(id, name) {
+    hubAction = { type: 'feature', id, name, confirmation: 'DESLIGAR' };
+    document.getElementById('hubModalIcon').textContent = '⚠️';
+    document.getElementById('hubConfirmEyebrow').textContent = 'DESLIGAMENTO EM MASSA';
+    document.getElementById('hubConfirmTitle').textContent = 'Desativar ' + name + '?';
+    document.getElementById('hubConfirmText').textContent = 'A função será desligada em todos os grupos em que está ativa. Esta ação não remove os grupos nem apaga dados.';
+    document.getElementById('hubRequiredWord').textContent = hubAction.confirmation;
+    document.getElementById('hubConfirmButton').textContent = 'Desativar em todos';
+    document.getElementById('hubConfirmation').value = '';
+    document.getElementById('hubConfirmModal').classList.add('open');
+    setTimeout(() => document.getElementById('hubConfirmation').focus(), 50);
+  }
+  function openAllOffConfirm() {
+    hubAction = { type: 'all', confirmation: 'TUDO OFF' };
+    document.getElementById('hubModalIcon').textContent = '⏻';
+    document.getElementById('hubConfirmEyebrow').textContent = 'AÇÃO DE IMPACTO GLOBAL';
+    document.getElementById('hubConfirmTitle').textContent = 'Desligar todas as automações?';
+    document.getElementById('hubConfirmText').textContent = 'Isto desativa todas as funções listadas neste hub nos grupos registados, incluindo proteções e categorias de comandos. A ação fica registada no log.';
+    document.getElementById('hubRequiredWord').textContent = hubAction.confirmation;
+    document.getElementById('hubConfirmButton').textContent = '⏻ Aplicar TUDO OFF';
+    document.getElementById('hubConfirmation').value = '';
+    document.getElementById('hubConfirmModal').classList.add('open');
+    setTimeout(() => document.getElementById('hubConfirmation').focus(), 50);
+  }
+  async function confirmHubAction() {
+    if (!hubAction) return;
+    const confirmation = document.getElementById('hubConfirmation').value.trim().toUpperCase();
+    if (confirmation !== hubAction.confirmation) {
+      toast('Escreve exatamente: ' + hubAction.confirmation, 'warn');
+      return;
+    }
+    const button = document.getElementById('hubConfirmButton');
+    button.disabled = true;
+    const oldText = button.textContent;
+    button.textContent = 'A aplicar…';
+    const path = hubAction.type === 'all' ? '/api/automation-hub/all-off' : '/api/automation-hub/feature/' + encodeURIComponent(hubAction.id) + '/off';
+    try {
+      const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation }) });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Não foi possível aplicar a alteração');
+      closeHubModal();
+      toast('Alteração aplicada: ' + (data.changedGroups || 0) + ' grupo(s) e ' + (data.changedConfigs || 0) + ' configuração(ões).', 'success', 4200);
+      setTimeout(() => location.reload(), 700);
+    } catch (error) {
+      toast(error.message || 'Erro ao aplicar alteração', 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = oldText;
+    }
+  }
+</script>
+<%- include('../partials/footer') %>
