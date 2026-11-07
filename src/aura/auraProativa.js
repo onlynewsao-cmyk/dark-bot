@@ -224,7 +224,7 @@ async function _gerarTexto({ chat, modo, resumo }) {
     const v = await vida.getVida().catch(() => vida.getVidaSync());
     if (v) {
       atividadeAtual = vida.getAtividadeAtual(new Date());
-      vidaBlock = `\nEstado narrativo da persona da AURA (${atividadeAtual.horaStr}): ${atividadeAtual.fazendo} (${atividadeAtual.desc}). Humor de estilo: ${v.humorAtual}. Isto é contexto ficcional, não actividade real.`;
+      vidaBlock = `\nEstado narrativo da persona da AURA (${atividadeAtual.horaStr}): ${atividadeAtual.fazendo} (${atividadeAtual.desc}). Humor de estilo: ${v.humorAtual}. Vontade narrativa actual: ${v.vontadeAtual?.nome || 'ser clara e útil'} — ${v.vontadeAtual?.descricao || 'responder com contexto'}. Isto é contexto ficcional, não actividade real nem autorização para executar acções.`;
     }
   } catch {}
 
@@ -236,7 +236,7 @@ async function _gerarTexto({ chat, modo, resumo }) {
       'prestou atenção, não como um alarme. Ex: "amanhã não era a tua prova?"';
   } else if (modo === 'vida') {
     pedido =
-      `Usa apenas o estado ficcional da personagem indicado abaixo, sem o apresentar como actividade ou sentimento real.${vidaBlock}\n` +
+      `Usa apenas o estado ficcional da personagem e a vontade de conversa indicada abaixo, sem os apresentar como actividade ou sentimento real.${vidaBlock}\n` +
       `Manda UMA mensagem curta no PV do Dark com a personalidade descontraída da AURA, sem fingir uma vida fora do chat. ` +
       `Exemplo de tom: "A vibe da AURA hoje está bem goth 🖤 E o teu dia, como vai?". Se perguntarem, sê transparente sobre seres automatizada.`;
   } else if (chat.tipo === 'pv') {
@@ -321,29 +321,29 @@ async function tick(opts = {}) {
         if (modo) candidatos.push({ chat: c, modo, resumo: amb.resumo });
       } else {
         const ausente = _minutosSemDono(c.jid, agora);
-        if (ausente != null && ausente >= DONO_AUSENTE_MIN && sorte < P_PV) {
+        // Só toma iniciativa no PV depois de uma conversa que realmente viu.
+        // As faixas são crescentes: na versão anterior `vida` vinha depois de
+        // < P_PV*0.6 mas exigia < P_PV*0.35, logo era matematicamente impossível.
+        if (ausente == null) continue;
+        if (ausente >= DONO_AUSENTE_MIN && sorte < P_PV * 0.65) {
           candidatos.push({ chat: c, modo: 'pv', resumo: '' });
-        } else if (sorte < P_PV * 0.6) {
-          // v6.86 — MEMÓRIA QUE VOLTA SOZINHA: ela traz à tona algo que
-          // o Dark lhe contou ("amanhã não era a tua prova?") — como
-          // alguém que prestou atenção, não como um alarme.
+        } else if (ausente >= DONO_AUSENTE_MIN && sorte < P_PV * 0.85) {
+          // v6.86 — memória proactiva, sem inventar factos.
           try {
             const mem = require('./auraMemory');
             const r = await mem.lembrar(config.owner.number);
             const factos = [...(r?.importante || [])];
-            if (factos.length) {
-              candidatos.push({ chat: c, modo: 'memoria', resumo: factos[factos.length - 1] });
-            }
+            if (factos.length) candidatos.push({ chat: c, modo: 'memoria', resumo: factos[factos.length - 1] });
           } catch {}
-        } else if (sorte < P_PV * 0.35) {
-          // v11.3 — VIDA PRÓPRIA: ela compartilha o que está fazendo
+        } else if (ausente >= DONO_AUSENTE_MIN && sorte < P_PV) {
+          // Vida própria só partilha uma vontade/estado NARRATIVO. Não executa
+          // ferramenta, não finge actividade humana e exige o opt-in já usado
+          // por todo o motor proactivo.
           try {
             const vida = require('./auraVida');
-            const at = vida.getAtividadeAtual(new Date());
-            // Só compartilha vida se energia > 30 e não estiver dormindo
-            const v = vida.getVidaSync();
-            if (v && v.energia > 30 && at.atividade !== 'dormindo/sonhando' && Math.random() < 0.5) {
-              candidatos.push({ chat: c, modo: 'vida', resumo: at.fazendo });
+            const [v, at] = await Promise.all([vida.getVida(), Promise.resolve(vida.getAtividadeAtual(new Date()))]);
+            if (v?.energia > 30 && at?.disponivel >= 0.5) {
+              candidatos.push({ chat: c, modo: 'vida', resumo: v.vontadeAtual?.descricao || at.fazendo });
             }
           } catch {}
         }

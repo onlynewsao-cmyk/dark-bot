@@ -75,7 +75,7 @@ function norm(s) {
  */
 const VERBO_ORDEM = new RegExp(
   '\\b(' +
-  'faz|fazer|cria|criar|manda|mandar|envia|enviar|poe|poem|por|coloca|mete|' +
+  'faz|fazer|cria|criar|toca|tocar|toque|manda|mandar|envia|enviar|poe|poem|por|coloca|mete|' +
   'muda|mudar|troca|trocar|altera|alterar|define|definir|configura|' +
   'liga|ligar|desliga|desligar|ativa|activa|ativar|activar|desativa|desactiva|' +
   'abre|abrir|fecha|fechar|tranca|destranca|' +

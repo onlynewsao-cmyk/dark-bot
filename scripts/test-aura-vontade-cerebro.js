@@ -57,13 +57,16 @@ check('interpreta APRENDI_GRUPO', i3.factosGrupo[0] === 'aqui só se fala de fut
   // executarAcoes: permissões e caseHandler mock
   let corrido = null;
   const caseHandler = { runCase: async (nome, c) => { corrido = { nome, args: c.args }; return true; } };
-  const base = { sock: {}, msg: {}, ctx: { remoteJid: 'g@g.us', isGroup: true, prefix: '!' }, texto: '', caseHandler, config: { bot: { prefix: '!' } } };
+  const base = { sock: {}, msg: {}, ctx: { remoteJid: 'g@g.us', isGroup: true, prefix: '!' }, texto: 'toca shakira', caseHandler, config: { bot: { prefix: '!' } } };
   let r = await cer.executarAcoes([{ id: 'cmd_ban', arg: '' }], { ...base, isOwner: false, isAdmin: false, isVip: false });
   check('free NÃO consegue cmd_ban', r.executadas === 0 && corrido === null);
   r = await cer.executarAcoes([{ id: 'cmd_play', arg: 'shakira' }], { ...base, isOwner: false, isAdmin: false, isVip: false });
   check('free NÃO consegue cmd_play (VIP)', r.executadas === 0);
   r = await cer.executarAcoes([{ id: 'cmd_play', arg: 'shakira' }], { ...base, isOwner: false, isAdmin: false, isVip: true });
   check('VIP consegue cmd_play (via caseHandler)', r.executadas === 1 && corrido?.nome === 'play' && corrido.args[0] === 'shakira');
+  corrido = null;
+  r = await cer.executarAcoes([{ id: 'cmd_play', arg: 'shakira' }], { ...base, texto: 'A AURA disse que tocaria shakira', isOwner: false, isAdmin: false, isVip: true });
+  check('marcador da IA sem ordem explícita não executa', r.executadas === 0 && corrido === null);
   r = await cer.executarAcoes([{ id: 'cmd_eval', arg: '1+1' }], { ...base, isOwner: true });
   check('cmd fora da lista (eval) nunca corre', r.executadas === 0);
   r = await cer.executarAcoes([{ id: 'inexistente_xyz', arg: '' }], { ...base, isOwner: true });

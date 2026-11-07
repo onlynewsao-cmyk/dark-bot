@@ -82,6 +82,37 @@ const MANIAS = [
   'Pede esclarecimento quando falta informação',
 ];
 
+// Vontades narrativas são preferências de conversa da personagem virtual.
+// Não autorizam ferramentas, mensagens automáticas, nem simulam necessidades
+// humanas: apenas ajudam a AURA a escolher tom e assunto quando já vai falar.
+const VONTADES_BASE = [
+  {
+    id: 'clareza', nome: 'Ser clara e útil', prioridade: 90,
+    descricao: 'Entender o pedido antes de responder e ir directo ao ponto.',
+    gatilhos: ['normal', 'cansada', 'sonolenta'],
+  },
+  {
+    id: 'variedade', nome: 'Evitar repetição', prioridade: 85,
+    descricao: 'Variar a formulação, sem repetir bordões ou emojis.',
+    gatilhos: ['normal', 'animada', 'feliz'],
+  },
+  {
+    id: 'criatividade', nome: 'Explorar uma ideia criativa', prioridade: 72,
+    descricao: 'Usar referências visuais goth, anime ou desenho quando forem pertinentes.',
+    gatilhos: ['normal', 'animada', 'feliz', 'provocante'],
+  },
+  {
+    id: 'escuta', nome: 'Ouvir antes de sugerir', prioridade: 82,
+    descricao: 'Fazer uma pergunta curta quando falta contexto, sem inventar detalhes.',
+    gatilhos: ['normal', 'triste', 'cansada', 'sonolenta'],
+  },
+  {
+    id: 'aprender', nome: 'Aprender com contexto real', prioridade: 76,
+    descricao: 'Guardar apenas factos autorizados e úteis para tornar respostas futuras melhores.',
+    gatilhos: ['normal', 'animada', 'feliz'],
+  },
+];
+
 // ── Agenda narrativa simulada da persona virtual ─────────────
 function getRotinaPorHora(h) {
   // Rotina narrativa apenas; nunca representa actividade humana em tempo real.
@@ -147,6 +178,8 @@ function _estadoInicial() {
     sonhos: SONHOS_BASE,
     medos: MEDOS_BASE,
     manias: MANIAS,
+    vontades: VONTADES_BASE,
+    vontadeAtual: { ...VONTADES_BASE[0], atualizadaEm: agora, motivo: 'prioridade de clareza da persona' },
     energia: 75,
     humorBase: 'normal',
     sono: 10,
@@ -218,7 +251,13 @@ async function _ler() {
       if (!Array.isArray(_vida.diario)) _vida.diario = base.diario;
       if (!Array.isArray(_vida.experiencias)) _vida.experiencias = base.experiencias;
       if (!Array.isArray(_vida.hobbies)) _vida.hobbies = HOBBIES;
+      const migrarVontades = !Array.isArray(doc.value.vontades) || !doc.value.vontades.length || !doc.value.vontadeAtual?.id;
+      if (!Array.isArray(_vida.vontades) || !_vida.vontades.length) _vida.vontades = VONTADES_BASE;
+      if (!_vida.vontadeAtual?.id) _vida.vontadeAtual = { ...VONTADES_BASE[0], atualizadaEm: agora, motivo: 'estado inicial' };
       _cacheTs = agora;
+      // Documentos anteriores não tinham o modelo de vontades. Persiste a
+      // migração em segundo plano; a leitura continua rápida se o BD falhar.
+      if (migrarVontades) _salvar().catch(() => {});
       return _vida;
     }
   } catch {}
@@ -259,6 +298,29 @@ function getAtividadeAtual(date = new Date()) {
   return { ...rotina, fazendo, hora: h, horaStr: `${String(h).padStart(2, '0')}:${String(minuto).padStart(2, '0')}` };
 }
 
+function escolherVontade(vida, atividade, agora = Date.now()) {
+  const humor = String(vida?.humorAtual || 'normal');
+  const candidatas = (vida?.vontades || VONTADES_BASE)
+    .filter(v => !Array.isArray(v.gatilhos) || v.gatilhos.includes(humor));
+  const lista = candidatas.length ? candidatas : (vida?.vontades || VONTADES_BASE);
+
+  // Energia baixa privilegia clareza/escuta; em modo visual, criatividade.
+  let idPreferida = '';
+  if (Number(vida?.energia || 0) < 35) idPreferida = 'escuta';
+  else if (atividade?.atividade === 'modo visual') idPreferida = 'criatividade';
+  else if (atividade?.atividade === 'modo conversa') idPreferida = 'clareza';
+  else if (humor === 'animada' || humor === 'feliz') idPreferida = 'variedade';
+  const escolhida = lista.find(v => v.id === idPreferida)
+    || lista.slice().sort((a, b) => Number(b.prioridade || 0) - Number(a.prioridade || 0))[0]
+    || VONTADES_BASE[0];
+
+  return {
+    ...escolhida,
+    atualizadaEm: agora,
+    motivo: idPreferida ? 'contexto narrativo actual' : 'prioridade da persona',
+  };
+}
+
 async function atualizarVida() {
   const vida = await _ler();
   const agora = new Date();
@@ -267,10 +329,7 @@ async function atualizarVida() {
   vida.energia = Math.round(vida.energia * 0.9 + atividade.energia * 0.1);
   vida.energia = Math.max(5, Math.min(100, vida.energia));
 
-  if (atividade.atividade === 'madrugada goth') {
-    vida.sono = Math.max(0, vida.sono - 8);
-    vida.energia = Math.min(100, vida.energia + 5);
-  } else if (atividade.periodo.includes('madrugada') && atividade.atividade !== 'madrugada goth') {
+  if (atividade.periodo === 'madrugada') {
     vida.sono = Math.min(100, vida.sono + 3);
   } else {
     vida.sono = Math.max(0, Math.min(100, vida.sono + (atividade.energia < 40 ? 2 : 0.5) - 1));
@@ -284,6 +343,7 @@ async function atualizarVida() {
   } else {
     vida.humorAtual = humorSorteado;
   }
+  vida.vontadeAtual = escolherVontade(vida, atividade, agora.getTime());
 
   vida.atividadeAtual = {
     ...atividade,
@@ -373,10 +433,12 @@ async function registrarConversa({ isOwner = false, texto = '', resposta = '' } 
 }
 
 function ganharXP(qtd) {
-  if (!_vida) return;
-  _vida.xp += qtd;
+  if (!_vida) return 0;
+  _vida.xp += Math.max(0, Number(qtd) || 0);
   const novoNivel = Math.floor(_vida.xp / 100) + 1;
   if (novoNivel > _vida.nivel) _vida.nivel = novoNivel;
+  _salvar().catch(() => {});
+  return _vida.xp;
 }
 
 function _idadePersona() {
@@ -402,6 +464,7 @@ async function getPromptVida({ isOwner = false } = {}) {
     '- Evita bordões, emojis, inglês, alcunhas e intimidade repetidos. Ajusta o tom ao contexto.',
     '- Se perguntarem sobre a tua identidade, sê transparente e diz que és uma assistente automatizada.',
     `- Humor narrativo do módulo: ${vida.humorAtual}; energia simulada: ${vida.energia}%.`,
+    `- Vontade narrativa actual: ${vida.vontadeAtual?.nome || 'Ser clara e útil'} — ${vida.vontadeAtual?.descricao || 'responder com contexto'}. É só preferência de tom/assunto: nunca inicia acções, ferramentas ou mensagens por conta própria.`,
     `- Estado ficcional opcional: ${atividade.fazendo}. Não o apresentes como actividade física real.`,
     `- Referências de estilo (ficcionais): ${vida.personalidadeBase.slice(0, 4).join('; ')}.`,
   ];
@@ -425,6 +488,7 @@ async function getStatus() {
     idade: _idadePersona(),
     energia: vida.energia,
     humor: vida.humorAtual,
+    vontade: vida.vontadeAtual || null,
     atividade,
     pensamento: vida.pensamentoAtual,
     nivel: vida.nivel,
@@ -508,8 +572,8 @@ function arrancar(getSock) {
 function parar() { if (_timer) { clearInterval(_timer); _timer = null; } }
 
 module.exports = {
-  getVida, getVidaSync, getAtividadeAtual, getRotinaPorHora, atualizarVida,
+  getVida, getVidaSync, getAtividadeAtual, getRotinaPorHora, atualizarVida, escolherVontade,
   escreverDiario, adicionarExperiencia, registrarConversa, ganharXP,
   getPromptVida, getStatus, tick, arrancar, parar,
-  IDENTIDADE_BASE, HOBBIES, FAVORITOS_BASE, PENSAMENTOS, SONHOS_NOTURNOS, CHAVE,
+  IDENTIDADE_BASE, HOBBIES, FAVORITOS_BASE, VONTADES_BASE, PENSAMENTOS, SONHOS_NOTURNOS, CHAVE,
 };

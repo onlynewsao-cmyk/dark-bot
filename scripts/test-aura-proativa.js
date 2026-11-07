@@ -59,6 +59,11 @@ const DIA = new Date(); DIA.setHours(15, 0, 0, 0);      // 15h — dia
 const NOITE = new Date(); NOITE.setHours(23, 30, 0, 0);  // 23h30 — noite
 
 (async () => {
+  // A produção exige opt-in explícito para qualquer iniciativa da AURA.
+  // Esta suite exercita esse modo, portanto liga-o deliberadamente.
+  await bcc.set('ai_auto_enabled', true);
+  await bcc.set('aura_proactive_opt_in', true);
+  await bcc.set('aura_proactive_enabled', true);
   console.log('\n═══ 1. RITMO HUMANO (decisão) ═══');
   ok('23h é noite', proativa._eNoite(NOITE.getTime()) === true);
   ok('15h não é noite', proativa._eNoite(DIA.getTime()) === false);
@@ -127,6 +132,15 @@ const NOITE = new Date(); NOITE.setHours(23, 30, 0, 0);  // 23h30 — noite
   r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.1, texto: 'Meu Dark... sumiste. Tô aqui se precisares. 🖤' });
   ok('Dono ausente 4h → check-in no PV', r.ok === true && r.modo === 'pv', JSON.stringify(r));
   ok('mensagem foi para o PV do Dono', enviados.length === 1 && enviados[0].jid === PV_DONO, JSON.stringify(enviados));
+
+  // A faixa final de sorte é a vida/vontade narrativa. Antes de v11.4
+  // era inalcançável porque aparecia depois de uma faixa maior.
+  proativa.limparLimites();
+  enviados.length = 0;
+  messageCache.clear();
+  messageCache.set('p-vida', _msg('p-vida', PV_DONO, 'como corre o teu dia?', DIA.getTime() - 4 * 60 * 60000, '244945280380@s.whatsapp.net', 'Dark'));
+  r = await proativa.tick({ sock, agora: DIA.getTime(), sorte: 0.24, sorte2: 0, texto: 'estado narrativo seguro' });
+  ok('faixa de vida narrativa é alcançável após 3h', r.ok === true && r.modo === 'vida' && enviados[0]?.jid === PV_DONO, JSON.stringify(r));
 
   messageCache.clear();
   proativa.limparLimites();

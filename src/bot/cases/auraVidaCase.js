@@ -18,6 +18,7 @@ module.exports = function registerAuraVida(registerCase) {
       txt += `🕐 Estado simulado (${at.horaStr}, hora de Luanda): ${at.fazendo}\n`;
       txt += `   _${at.desc}_\n\n`;
       txt += `💭 Pensamento ficcional: "${v.pensamentoAtual}"\n`;
+      txt += `🧭 Vontade narrativa: ${v.vontadeAtual?.nome || 'Ser clara e útil'} — ${v.vontadeAtual?.descricao || 'responder com contexto'}\n`;
       txt += `🎧 Contexto de personagem: ${v.status?.ouvindo || 'nada registado'}\n`;
       txt += `📺 Referência de personagem: ${v.status?.assistindo || 'nada registado'}\n`;
       txt += `🎨 Ideia criativa: ${v.status?.desenhando || 'nada registado'}\n\n`;
@@ -106,8 +107,28 @@ module.exports = function registerAuraVida(registerCase) {
         `⚡ Energia narrativa: ${s.energia}% | Humor de personagem: ${s.humor} (chat: ${hum.mood})\n` +
         `🕐 Estado simulado ${s.atividade.horaStr}: ${s.atividade.fazendo}\n` +
         `💭 "${s.pensamento}"\n` +
+        `🧭 Vontade narrativa: ${s.vontade?.nome || 'Ser clara e útil'}\n` +
         `📈 Nível narrativo ${s.nivel} | XP ${s.xp}\n` +
         `📝 Diário ficcional: ${s.diario.length} entradas recentes | Exp: ${s.experiencias.length}`
+      );
+    } catch (e) {
+      return reply('❌ ' + e.message.slice(0, 80));
+    }
+  });
+
+  registerCase(['vontades', 'auravontades', 'vontadeaura'], async ({ reply }) => {
+    try {
+      const vida = require('../../aura/auraVida');
+      const v = await vida.getVida();
+      const atual = v.vontadeAtual || {};
+      const lista = (v.vontades || []).slice(0, 8)
+        .map(item => `${item.id === atual.id ? '🟣' : '•'} *${item.nome}* — ${item.descricao}`)
+        .join('\n');
+      return reply(
+        `🧭 *VONTADES NARRATIVAS DA AURA*\n\n` +
+        `Agora: *${atual.nome || 'Ser clara e útil'}*\n${atual.descricao || 'Responder com contexto.'}\n\n` +
+        `${lista}\n\n` +
+        `_São preferências ficcionais de tom e conversa; não dão autonomia para executar ferramentas ou agir fora de um pedido._`
       );
     } catch (e) {
       return reply('❌ ' + e.message.slice(0, 80));

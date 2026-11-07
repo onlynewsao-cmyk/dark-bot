@@ -125,7 +125,7 @@ const run = (texto, extra = {}) => {
   const fs = require('fs'); const handler = fs.readFileSync('src/bot/commandHandler.js', 'utf8');
   ok('hook de leitura antes de executor IA', handler.indexOf('auraContextual\').tratar') >= 0 && handler.indexOf('auraContextual\').tratar') < handler.indexOf('brain.rotearComIA(cleanText'));
   ok('integra convite no gate de entrada e decisão', handler.includes('|| _interacaoConvidada;') && handler.includes('interacaoConvidada: _interacaoConvidada'));
-  ok('bypass de silêncio ligado à saída', handler.includes('const _pvForca = _forcarContextual() ||'));
+  ok('bypass de silêncio ligado à saída', handler.includes('const _pvForca = isOwner || _forcarContextual() ||'));
   console.log(`\nAURA CONTEXTUAL: ${checks} OK / 0 falhas`);
   process.exit(0);
 })().catch(e => { console.error(e); process.exit(1); });
