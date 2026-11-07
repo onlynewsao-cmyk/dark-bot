@@ -1,0 +1,42 @@
+<%- include('../partials/head') %>
+<div class="app-shell"><%- include('../partials/sidebar') %><main class="main">
+  <header class="page-header"><div><h1>📣 Marketing &amp; Captação</h1><p class="muted">Kit profissional para atrair interessados, conduzir o trial e converter em plano — sem spam.</p></div></header>
+  <div class="alert alert-info"><span>🛡️</span><span>Use estes textos em canais próprios, anúncios e conversas iniciadas pelo interessado. Não dispare para contactos capturados nem envie DM não solicitada.</span></div>
+  <section class="card"><h2>🔗 Links de campanha</h2><p class="muted small">Copia o link certo para Status, Instagram, Facebook, canal ou conversa de venda.</p><div class="marketing-grid"><div class="copy-box"><b>Landing pública</b><code id="landingLink"><%= landingUrl || 'Configure APP_URL para um link fixo' %></code><button class="btn btn-secondary btn-sm" onclick="copyId('landingLink')">Copiar landing</button></div><div class="copy-box"><b>WhatsApp · Trial</b><code id="trialLink"><%= waLink || 'Configure OWNER_NUMBER' %></code><button class="btn btn-secondary btn-sm" onclick="copyId('trialLink')">Copiar link de trial</button></div></div></section>
+  <section class="card"><h2>🧭 Funil recomendado</h2><div class="marketing-steps"><div><i>1</i><b>Publica</b><span>Status, canal, Reels ou post com a landing.</span></div><div><i>2</i><b>Qualifica</b><span>Pergunta se é grupo, negócio ou comunidade.</span></div><div><i>3</i><b>Ativa trial</b><span>Configura o essencial no grupo do interessado.</span></div><div><i>4</i><b>Converte</b><span>Oferece plano ou instalação após a demonstração.</span></div></div></section>
+  <section class="card"><h2>📱 Textos prontos para WhatsApp</h2><div class="templates">
+    <article><b>Status — convite curto</b><textarea readonly id="statusText">O teu grupo está cheio de spam, links e trabalho manual? 🕸️
+
+Conhece o DARK BOT: moderação, automação, mídia, IA e dashboard num só lugar.
+
+✨ Trial de 7 dias para conhecer no teu próprio grupo.
+
+Fala comigo: <%= waLink || 'link de WhatsApp do Dono' %></textarea><button class="btn btn-ghost btn-sm" onclick="copyId('statusText')">Copiar</button></article>
+    <article><b>Resposta para quem demonstrou interesse</b><textarea readonly id="interestText">Perfeito! Para eu indicar a melhor configuração, diz-me:
+1. É grupo, negócio ou comunidade?
+2. Quantas pessoas participam mais ou menos?
+3. O que mais queres resolver: organização, moderação, atendimento ou conteúdo?
+
+Com isso explico o trial e o plano que faz sentido para ti.</textarea><button class="btn btn-ghost btn-sm" onclick="copyId('interestText')">Copiar</button></article>
+    <article><b>Convite para trial</b><textarea readonly id="trialText">Podemos ativar um trial de 7 dias para veres o DARK BOT no teu grupo de verdade.
+
+Durante o teste configuramos o essencial, e tu decides depois se queres continuar. Sem promessa escondida.
+
+Quando estiveres pronto(a), adiciona o bot ao grupo e manda o link/convite por aqui.</textarea><button class="btn btn-ghost btn-sm" onclick="copyId('trialText')">Copiar</button></article>
+  </div></section>
+  <section class="card"><h2>🌐 Posts para Instagram e Facebook</h2><div class="templates"><article><b>Admin de grupo</b><textarea readonly id="adminPost">Administrar grupo não precisa ser apagar incêndio todos os dias.
+
+O DARK BOT ajuda a organizar regras, proteger contra spam, receber membros com estilo e deixar as ferramentas prontas para a comunidade.
+
+Quer ver no teu próprio grupo? Pede o trial de 7 dias. 🕸️</textarea><button class="btn btn-ghost btn-sm" onclick="copyId('adminPost')">Copiar</button></article><article><b>Negócio ou criador</b><textarea readonly id="businessPost">Mais organização no WhatsApp. Menos tarefas repetidas.
+
+O DARK BOT pode apoiar comunidades, criadores e pequenos negócios com automação configurável, recursos de conteúdo e um painel para o Dono acompanhar tudo.
+
+Fala connosco para trial ou instalação personalizada.</textarea><button class="btn btn-ghost btn-sm" onclick="copyId('businessPost')">Copiar</button></article></div></section>
+  <section class="card card-neon"><h2>✅ Fecho ético</h2><p class="muted">No fim do trial, mostra o que ficou configurado, o que melhorou e o plano indicado. Não prometa funções que ainda dependem de configuração, plataforma ou aprovação do WhatsApp.</p><div class="button-row" style="margin-top:1rem"><a class="btn btn-primary" href="/dashboard/payments">Ver pedidos e pagamentos</a><a class="btn btn-secondary" href="/dashboard/groups">Ver grupos activos</a></div></section>
+</main></div>
+<style>
+.marketing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1rem}.copy-box{padding:1rem;border:1px solid var(--border);border-radius:12px;background:var(--bg-1);display:grid;gap:.65rem}.copy-box code{word-break:break-all;color:var(--neon-cyan);font-size:.8rem}.marketing-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-top:1rem}.marketing-steps>div{background:var(--bg-1);border-radius:12px;padding:1rem;border:1px solid var(--border)}.marketing-steps i{display:grid;place-items:center;background:var(--neon-purple);color:#fff;border-radius:50%;font-style:normal;font-weight:900;width:26px;height:26px}.marketing-steps b{display:block;margin:.65rem 0 .25rem}.marketing-steps span{font-size:.85rem;color:var(--text-muted)}.templates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1rem}.templates article{padding:1rem;border:1px solid var(--border);border-radius:12px;background:var(--bg-1)}.templates article:first-child{grid-column:span 2}.templates b{display:block;margin-bottom:.65rem}.templates textarea{width:100%;min-height:165px;resize:vertical;color:var(--text);background:#080812;border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:.7rem;font:500 .86rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;margin-bottom:.65rem}@media(max-width:760px){.marketing-grid,.templates{grid-template-columns:1fr}.templates article:first-child{grid-column:auto}.marketing-steps{grid-template-columns:1fr 1fr}}@media(max-width:450px){.marketing-steps{grid-template-columns:1fr}}
+</style>
+<script>async function copyId(id){const el=document.getElementById(id);const text=('value'in el?el.value:el.textContent).trim();try{await navigator.clipboard.writeText(text);toast('✅ Copiado','success')}catch{const t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();document.execCommand('copy');t.remove();toast('✅ Copiado','success')}}</script>
+<%- include('../partials/footer') %>

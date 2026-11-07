@@ -45,10 +45,29 @@ function isDatabaseReady() {
   return mongoose.connection.readyState === 1;
 }
 
-// Landing page
-router.get('/', (req, res) => {
+// Landing pública de captação: apresenta trial, planos e instalação sem
+// expor o dashboard. Preços vêm do mesmo catálogo usado pelo funil WhatsApp.
+router.get('/', async (req, res) => {
   if (req.session.user) return res.redirect('/dashboard');
-  res.render('landing', { title: 'Bem-vindo' });
+  let plans = [];
+  try {
+    const rental = require('../bot/cases/rental2');
+    const prices = await rental.getPrices();
+    plans = rental.RENTAL_PLANS.map(plan => {
+      const p = prices[plan.id] || {};
+      const valor = plan.id === 'trial' ? '' : [p.kz > 0 ? `${Number(p.kz).toLocaleString('pt-PT')} Kz` : '', p.brl > 0 ? `R$ ${Number(p.brl).toLocaleString('pt-BR')}` : ''].filter(Boolean).join(' · ');
+      return { id: plan.id, nome: plan.nome.replace(/^\S+\s*/, ''), emoji: plan.emoji, dias: plan.dias, preco: valor };
+    });
+  } catch {}
+  if (!plans.length) {
+    plans = [
+      { id: 'trial', nome: 'Trial', emoji: '🆓', dias: 7, preco: '' },
+      { id: 'semanal', nome: 'Semanal', emoji: '⭐', dias: 7, preco: 'A partir de 1.500 Kz' },
+      { id: 'mensal', nome: 'Mensal', emoji: '💎', dias: 30, preco: 'A partir de 5.000 Kz' },
+      { id: 'trimestral', nome: 'Trimestral', emoji: '🏆', dias: 90, preco: 'A partir de 12.000 Kz' },
+    ];
+  }
+  res.render('landing', { title: 'Automação para WhatsApp', plans });
 });
 
 // ===== LOGIN =====

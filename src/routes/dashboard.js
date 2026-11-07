@@ -115,6 +115,17 @@ router.get('/console', requireOwner, async (req, res) => {
   res.render('dashboard/console', { title: 'Console Live', botState: getBot().getStatus(), settings });
 });
 
+// Kit de marketing interno: conteúdo copiável e links de captação. Não envia
+// mensagens em massa; o contacto parte de CTA público ou de interessados.
+router.get('/marketing', requireOwner, async (req, res) => {
+  const proto = req.get('x-forwarded-proto') || req.protocol || 'https';
+  const host = req.get('host') || '';
+  const landingUrl = String(config.appUrl || (host ? `${proto}://${host}` : '')).replace(/\/$/, '');
+  const ownerNumber = String(config.owner.number || '').replace(/\D/g, '');
+  const waLink = ownerNumber ? `https://wa.me/${ownerNumber}?text=${encodeURIComponent(`Olá! Quero testar o ${config.bot.name} no meu grupo.`)}` : '';
+  res.render('dashboard/marketing', { title: 'Marketing & Captação', landingUrl, waLink });
+});
+
 router.get('/broadcast', requireOwner, async (req, res) => {
   const medias = await Media.find().sort({ createdAt: -1 }).limit(100).catch(() => []);
   res.render('dashboard/broadcast', { title: 'Broadcast', medias });
