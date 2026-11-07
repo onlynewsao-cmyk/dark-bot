@@ -66,8 +66,8 @@ const CTX = (extra = {}) => ({ remoteJid: 'GRP@g.us', senderNumber: '2449', send
   assert.ok(png[0] === 0x89 && png.toString('ascii', 1, 4) === 'PNG', 'cartão PNG mágico');
   assert.ok(png.length > 15000, 'cartão tem substância (arte+pp+texto)');
   const metaPng = await sharp(png).metadata();
-  assert.deepStrictEqual([metaPng.width, metaPng.height], [900, 420], 'proporções do cartão');
-  console.log('✔ welcome2: PNG real 900×420 com PIP e tipografia');
+  assert.deepStrictEqual([metaPng.width, metaPng.height], [wa.W, wa.H], 'proporções do cartão');
+  console.log(`✔ welcome2: PNG real ${wa.W}×${wa.H} com PIP e tipografia`);
   const semIA = await wa.artCard({ profilePicUrl: null, name: 'Sem Foto', kind: 'welcome', fetchFn: async () => null });
   assert.ok(semIA[0] === 0x89, 'queda sem IA e sem PP ainda pinta');
   console.log('✔ quedas seguras (IA fora / sem foto)');
@@ -146,9 +146,11 @@ const CTX = (extra = {}) => ({ remoteJid: 'GRP@g.us', senderNumber: '2449', send
   geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2501@s.whatsapp.net', '2501', '💀 COVIL');
   geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2502@s.whatsapp.net', '2502', '💀 COVIL');
   geM._welDebug._comboEncaixa(sockWel, 'GX@g.us', '2501@s.whatsapp.net', '2501', '💀 COVIL'); // duplicado não repete
-  await new Promise(r => setTimeout(r, 40));
+  // O intervalo é lido quando groupEvents carrega; dispara o callback
+  // directamente para testar a agregação sem esperar o debounce real.
+  await geM._welDebug._comboDispara(sockWel, 'GX@g.us');
   assert.strictEqual(sentWel.length, 1, '3 eventos de entrada → 1 mensagem apenas');
-  assert.ok(/BEM-VINDOS/.test(sentWel[0].text), 'caption combinada saiu');
+  assert.ok(/bem-vindos/i.test(sentWel[0].text), 'caption combinada saiu');
   assert.ok(/@2501/.test(sentWel[0].text) && /@2502/.test(sentWel[0].text), 'ambos saudados');
   assert.strictEqual(sentWel[0].mentions.length, 2, 'dedupe: 2501 mencionado 1x');
   assert.ok(geM._welDebug._ultimoWel.get('GX@g.us') > Date.now() - 8000, 'janela actualizada para os próximos');

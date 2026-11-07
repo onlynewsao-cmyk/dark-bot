@@ -465,9 +465,12 @@ async function onJoin(sock, groupJid, participantJid, number, groupName, gs, met
     themeName = t?.name || tn || 'dark';
   } catch {}
 
-  // Foto de perfil
+  // Foto de perfil: só a URL temporária que o WhatsApp já expõe; se a
+  // privacidade do membro negar acesso, o cartão usa o avatar com inicial.
   let ppUrl = null;
-  try { ppUrl = await sock.profilePictureUrl(participantJid, 'image').catch(() => null); } catch {}
+  try {
+    ppUrl = (await require('./visualIdentity').resolveVisualProfile(sock, participantJid, { metadata })).url || null;
+  } catch {}
 
   // Template universal, limpo e seguro. Se não houver PN resolvido,
   // {user} torna-se o nome/fallback, nunca os dígitos de um @lid.
