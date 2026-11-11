@@ -11,6 +11,9 @@ const _orig = Module.prototype.require;
 
 let _gs = {
   groupJid: '120363TEST@g.us',
+  // Este suite exercita avisos ligados; a licença activa torna-os elegíveis.
+  isHosted: true,
+  hostedUntil: new Date(Date.now() + 60_000),
   welcomeEnabled: true,
   goodbyeEnabled: true,
   welcome2: false,
@@ -338,6 +341,20 @@ const sock = {
   const cap = sent.find(s => s.image)?.caption || '';
   assert.ok(!/╭━━|╰━━|> sombra|> x\b/.test(cap), 'caption sem frame/vibe: ' + cap);
   console.log('✔ welcome2 artCard recebe NOME + caption limpa');
+
+  // Regressão do incidente: mesmo que flags antigas continuem ON, um grupo
+  // sem trial/aluguel não recebe welcome/X9 nem acções automáticas.
+  _gs.isHosted = false;
+  _gs.hostedUntil = null;
+  _gs.trialExpiresAt = null;
+  sent.length = 0;
+  ge._welDebug._ultimoWel.clear();
+  await ge.handle(sock, {
+    id: '120363TEST@g.us', action: 'add',
+    participants: [{ id: '244800800800@s.whatsapp.net', notify: 'Grupo Livre' }],
+  });
+  assert.strictEqual(sent.length, 0, 'grupo sem serviço permanece silencioso: ' + JSON.stringify(sent));
+  console.log('✔ grupo sem serviço: eventos opcionais ficam silenciosos');
 
   console.log('\n✅ group-events participants OK\n');
 })().catch((e) => { console.error(e); process.exit(1); });

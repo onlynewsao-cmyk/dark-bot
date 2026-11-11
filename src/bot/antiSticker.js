@@ -29,6 +29,7 @@
 
 const { mongoose } = require('../database/connection');
 const participantIdentity = require('./participantIdentity');
+const { hasActiveEntitlement } = require('./groupEntitlement');
 
 let _Model = null;
 function Model() {
@@ -154,23 +155,26 @@ const TTL_INTERRUPTOR = 60000;
 
 async function _definissoes(groupJid) {
   const jid = String(groupJid || '');
-  if (!jid.endsWith('@g.us')) return { on: false, notify: true };
+  if (!jid.endsWith('@g.us')) return { on: false, notify: true, settings: null };
   const c = interruptor.get(jid);
   if (c && Date.now() - c.ts < TTL_INTERRUPTOR) return c;
-  if (!_dbUp()) return c ? { on: c.on, notify: c.notify } : { on: false, notify: true };
+  if (!_dbUp()) return c ? { on: c.on, notify: c.notify, settings: c.settings || null } : { on: false, notify: true, settings: null };
   try {
     const GroupSettings = require('../database/models/GroupSettings');
     const gs = await GroupSettings.findOne({ groupJid: jid }).lean();
-    const def = { on: gs?.antisticker !== false, notify: gs?.antistickerNotify !== false, ts: Date.now() };
+    // Um grupo tem de activar esta protecção conscientemente E ter serviço
+    // activo. Configurações antigas nunca podem apagar mensagens fora disso.
+    const def = { on: gs?.antisticker === true && hasActiveEntitlement(gs), notify: gs?.antistickerNotify !== false, settings: gs || null, ts: Date.now() };
     interruptor.set(jid, def);
     return def;
   } catch {
-    return c ? { on: c.on, notify: c.notify } : { on: false, notify: true };
+    return c ? { on: c.on, notify: c.notify, settings: c.settings || null } : { on: false, notify: true, settings: null };
   }
 }
 
 async function estaActivo(groupJid) {
-  return (await _definissoes(groupJid)).on;
+  const def = await _definissoes(groupJid);
+  return !!def.on && hasActiveEntitlement(def.settings);
 }
 
 /** O bot avisa o grupo quando apaga? (!antisticker notify on/off) */
@@ -182,7 +186,7 @@ async function setActivo(groupJid, on) {
   const jid = String(groupJid || '');
   const valor = !!on;
   const anterior = interruptor.get(jid);
-  interruptor.set(jid, { on: valor, notify: anterior?.notify !== false, ts: Date.now() });
+  interruptor.set(jid, { on: valor, notify: anterior?.notify !== false, settings: anterior?.settings || null, ts: Date.now() });
   if (!_dbUp()) return valor;
   try {
     const GroupSettings = require('../database/models/GroupSettings');
@@ -191,6 +195,8 @@ async function setActivo(groupJid, on) {
       { $set: { groupJid: jid, antisticker: valor } },
       { upsert: true, setDefaultsOnInsert: true }
     );
+    // A próxima mensagem relê também a elegibilidade (trial/aluguel).
+    interruptor.delete(jid);
   } catch {}
   return valor;
 }
@@ -199,7 +205,7 @@ async function setAviso(groupJid, on) {
   const jid = String(groupJid || '');
   const valor = !!on;
   const anterior = interruptor.get(jid);
-  interruptor.set(jid, { on: anterior?.on ?? true, notify: valor, ts: Date.now() });
+  interruptor.set(jid, { on: anterior?.on ?? false, notify: valor, settings: anterior?.settings || null, ts: Date.now() });
   if (!_dbUp()) return valor;
   try {
     const GroupSettings = require('../database/models/GroupSettings');
@@ -208,6 +214,7 @@ async function setAviso(groupJid, on) {
       { $set: { groupJid: jid, antistickerNotify: valor } },
       { upsert: true, setDefaultsOnInsert: true }
     );
+    interruptor.delete(jid);
   } catch {}
   return valor;
 }
@@ -385,7 +392,9 @@ async function filtrar(sock, msg, opts = {}) {
     if (!id) return { apagada: false };
 
     const def = await _definissoes(jid);
-    if (!def.on) return { apagada: false };
+    // Revalida a data até quando vem do cache de 45s: trial expirado nunca
+    // ganha uma última janela para apagar mensagens.
+    if (!def.on || !hasActiveEntitlement(def.settings)) return { apagada: false };
     if (!(await estaBanido(jid, id))) return { apagada: false };
 
     const chave = chaveProcessada(jid, msg);

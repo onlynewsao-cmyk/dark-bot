@@ -44,6 +44,7 @@
 
 const config = require('../config');
 const GroupSettings = require('../database/models/GroupSettings');
+const { hasActiveEntitlement } = require('./groupEntitlement');
 
 const MAX_WARNS_PADRAO = 3;
 const WARN_TTL_MS = 30 * 60 * 1000;
@@ -284,7 +285,7 @@ async function check(sock, msg) {
     if (ownerNum && senderNum === ownerNum) return false;
 
     const gs = await require('./hotCache').getGroupSettings(msg, remoteJid); // v7.52: 1 query/msg partilhada
-    if (!gs) return false;
+    if (!gs || !hasActiveEntitlement(gs)) return false;
     const algumaFlag = ['antistatus', 'antimencao', 'antipagamento', 'antiinvisivel', 'antiflood', 'antidoc', 'antiloc', 'antifigurinha', 'antifig', 'antibtn', 'antipalavra', 'antitoxic', 'antiporn', 'antifoto', 'antivideo', 'antiaudio', 'anticontacto', 'antitexto'].some(f => gs[f]) || Number(gs.slowmode) > 0;
     if (!algumaFlag) return false;
 

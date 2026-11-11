@@ -564,6 +564,33 @@ async function _avisoSemAluguel(sock, msg, ctx) {
   } catch (_) {}
 }
 
+/**
+ * Bloqueia ANTES da AURA, botões pendentes e fluxos conversacionais. O gate
+ * antigo ficava demasiado abaixo no handler: Dono/VIP e algumas automações
+ * textuais ainda conseguiam falar num grupo já sem serviço.
+ *
+ * Só o funil de contratação e a preferência local !onlyadm/!adm1 permanecem
+ * disponíveis. Não inferimos comandos de texto livre, para a AURA não voltar
+ * a responder a conversa casual num grupo inactivo.
+ */
+async function _allowInactiveGroupInput(msg, ctx, text) {
+  if (!ctx?.isGroup) return true;
+  let settings = null;
+  try { settings = await require('./hotCache').getGroupSettings(msg, ctx.remoteJid); } catch {}
+  if (require('./groupEntitlement').hasActiveEntitlement(settings)) return true;
+  // IDs de botão do próprio funil Premium não levam prefixo, mas só abrem o
+  // pedido de plano; devem continuar a funcionar num grupo ainda inactivo.
+  if (/^PREMIUM_(?:7|30|90)_\d+$/i.test(String(text || '').trim())) return true;
+
+  let detected = null;
+  try { detected = await prefixEngine.detect(text, ctx.remoteJid); } catch {}
+  const prefix = detected?.prefix || config.bot.prefix || '!';
+  let rental = false;
+  try { rental = !!detected && require('./cases/rental2').gateAllows(text, prefix); } catch {}
+  const localAdminControl = !!detected && /^\s*(?:onlyadm|adm1)(?:\s|$)/i.test(detected.rest || '');
+  return rental || localAdminControl;
+}
+
 async function _handleInner(sock, msg, turn) {
   let text = extractText(msg).trim();
   const hasIncomingMedia = hasMediaPayload(msg.message);
@@ -579,6 +606,17 @@ async function _handleInner(sock, msg, turn) {
   // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
   // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
+  // Grupo sem serviço não é uma versão reduzida para Dono/VIP: é inactivo.
+  // Isto barra a AURA e fluxos antigos antes de poderem responder; apenas o
+  // funil de trial/aluguel e !onlyadm/!adm1 chegam ao resto do handler.
+  if (ctx.isGroup && !(await _allowInactiveGroupInput(msg, ctx, text))) {
+    if (pareceComando(text)) {
+      const detected = await prefixEngine.detect(text, ctx.remoteJid).catch(() => null);
+      ctx.prefix = detected?.prefix || config.bot.prefix || '!';
+      await _avisoSemAluguel(sock, msg, ctx);
+    }
+    return false;
+  }
   const conversation = require('../aura/auraConversation');
   try {
     const control = conversation.process(text, ctx);
@@ -1286,8 +1324,11 @@ async function _handleInner(sock, msg, turn) {
         // leva o aviso e fica bloqueado.
         let _gateOpen = false;
         try { _gateOpen = require('./cases/rental2').gateAllows(text, prefix); } catch {}
-        if (_gateOpen) {
-          // passa — o case do funil trata do resto
+        // !onlyadm/!adm1 é uma escolha local do admin. Não activa serviços
+        // nem automações; por isso continua acessível para um grupo livre.
+        const _onlyAdminsToggle = /^\s*(?:onlyadm|adm1)(?:\s|$)/i.test(prefixInfo?.rest || '');
+        if (_gateOpen || _onlyAdminsToggle) {
+          // passa — o case do funil ou a configuração local trata do resto
         } else {
           // v7.36: o aviso só faz sentido quando a pessoa TENTOU um comando.
           // Antes disparava em qualquer mensagem (conversa normal) de cada
@@ -3917,6 +3958,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
     advertir: 'warn',
     apagar: 'del', deletar: 'del',
     mute: 'silenciar', unmute: 'silenciar',
+    // Restrição de uso de comandos — !adm1 mantém compatibilidade curta.
+    adm1: 'onlyadm',
     adicionar: 'add',
     
     // ── INTERAÇÕES ──
@@ -3978,11 +4021,47 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
   if (ctx.isGroup && groupConfig) {
     const blocked = (groupConfig.blockedCommands || []).map(x => String(x).toLowerCase());
     const blockedSubs = (groupConfig.blockedSubmenus || []).map(x => String(x).toLowerCase());
-    const adminControlCmds = ['bloquearcmd','desbloquearcmd','cmdsgrupo','blockcmd','unblockcmd','setnomebot','inatividade','inativos','warn','unwarn','warnings','resetwarn','regras','setregras','motivacao','tagadmins','admins','setdesc','setnomegrupo','del','add','tempban','silenciar','limpar'];
+    const adminControlCmds = ['bloquearcmd','desbloquearcmd','cmdsgrupo','blockcmd','unblockcmd','setnomebot','inatividade','inativos','warn','unwarn','warnings','resetwarn','regras','setregras','motivacao','tagadmins','admins','setdesc','setnomegrupo','del','add','tempban','silenciar','limpar','onlyadm'];
     if (!isOwner && !adminControlCmds.includes(canonicalCommand) &&
         (blocked.includes(commandName) || blocked.includes(canonicalCommand) || blockedSubs.includes(commandName) || blockedSubs.includes(canonicalCommand))) {
       return false;
     }
+
+    // !onlyadm / !adm1: configura apenas quem pode chamar comandos. Isto
+    // NÃO é !soadm (que fecha o chat do WhatsApp para não-admins).
+    if (canonicalCommand === 'onlyadm') {
+      const ehAdmin = isOwner || await isGroupAdminForHandler(sock, ctx);
+      if (!ehAdmin) {
+        await sock.sendMessage(ctx.remoteJid, {
+          text: '🛡️ Só administradores do grupo ou o Dono podem mudar esta opção.',
+        }, { quoted: msg });
+        return true;
+      }
+      const escolha = String(args[0] || '').trim().toLowerCase();
+      let proximo;
+      if (!escolha || ['toggle', 'alternar'].includes(escolha)) proximo = !groupConfig.onlyAdmins;
+      else if (['on', 'ligar', 'ativo', 'activar', 'ativar', '1'].includes(escolha)) proximo = true;
+      else if (['off', 'desligar', 'inativo', 'desactivar', 'desativar', '0'].includes(escolha)) proximo = false;
+      else if (['status', 'estado'].includes(escolha)) proximo = !!groupConfig.onlyAdmins;
+      else {
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `Uso: *${prefix}onlyadm on* ou *${prefix}onlyadm off*\nTambém podes usar *${prefix}adm1* para alternar.`,
+        }, { quoted: msg });
+        return true;
+      }
+      if (!['status', 'estado'].includes(escolha)) {
+        groupConfig.onlyAdmins = proximo;
+        await groupConfig.save();
+        require('./hotCache').forgetGroup(ctx.remoteJid);
+      }
+      await sock.sendMessage(ctx.remoteJid, {
+        text: proximo
+          ? '🔒 *COMANDOS SÓ PARA ADMINS: ON*\n\nA partir de agora, apenas admins do grupo e o Dono usam os comandos do DARK BOT.\n\nPara liberar todos: *' + prefix + 'onlyadm off*'
+          : '🔓 *COMANDOS SÓ PARA ADMINS: OFF*\n\nOs membros voltam a poder usar os comandos permitidos neste grupo.\n\nPara restringir: *' + prefix + 'onlyadm on*',
+      }, { quoted: msg });
+      return true;
+    }
+
     if (groupConfig.onlyAdmins && !isOwner && !(await isGroupAdminForHandler(sock, ctx))) return false;
   }
 

@@ -227,8 +227,10 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   // ── v7.47 incoming-cases: anti-fobados / auto-apresentação / abrir-fechar ──
   antifoba:       { type: Boolean, default: true },   // divulgação oculta + DDI blacklist (ban imediato)
-  fobaBlacklist:  [{ type: String }],                  // DDIs bloqueados à entrada (ex: ['63'])
-  autoapresentar: { type: Boolean, default: true },   // novo membro tem 5 min para falar
+  fobaBlacklist:  [{ type: String }],                 // DDIs bloqueados à entrada (ex: ['63'])
+  // É a única automação que cria um prazo pessoal e pode remover alguém:
+  // começa desligada e só um admin de grupo com serviço activo a liga.
+  autoapresentar: { type: Boolean, default: false },  // novo membro tem 5 min para falar
   aberturaHora:   { type: String, default: '' },       // 'HH:MM' Africa/Luanda — abrir grupo
   fechamentoHora: { type: String, default: '' },       // 'HH:MM' Africa/Luanda — fechar grupo
   // ── v11.2.2 Admin extra (ex-stubs audioAdmin2) ──────────────

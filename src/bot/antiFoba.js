@@ -1,6 +1,7 @@
 'use strict';
 
 const participantIdentity = require('./participantIdentity');
+const { hasActiveEntitlement } = require('./groupEntitlement');
 
 /**
  * ╔══════════════════════════════════════════════════════════════╗
@@ -182,7 +183,8 @@ async function check(sock, msg) {
     if (!sender) return false;
 
     const gs = await getSettings(grupoId, msg);
-    if (!gs?.antifoba) return false;
+    // Sem trial/aluguel, o bot não apaga nem remove pessoas por automação.
+    if (!gs?.antifoba || !hasActiveEntitlement(gs)) return false;
 
     const violacao = analisarMensagem(msg.message);
     if (!violacao) return false;
@@ -226,7 +228,7 @@ async function onJoin(sock, groupJid, participants, meta) {
   try {
     if (!groupJid?.endsWith('@g.us')) return removidos;
     const gs = await getSettings(groupJid);
-    if (!gs?.antifoba) return removidos;
+    if (!gs?.antifoba || !hasActiveEntitlement(gs)) return removidos;
     // Lista vazia é intencional: anti-fobados continua a moderar divulgação
     // oculta, mas nenhum país é banido por DDI sem configuração explícita.
     const blacklist = (Array.isArray(gs.fobaBlacklist) ? gs.fobaBlacklist : [])

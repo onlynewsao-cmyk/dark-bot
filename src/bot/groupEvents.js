@@ -11,6 +11,7 @@ const changeThemes    = require('./changeThemes');
 const { generateWelcomeImage } = require('./welcomeImage');
 const participantIdentity = require('./participantIdentity');
 const { DEFAULT_WELCOME_TEMPLATE, DEFAULT_GOODBYE_TEMPLATE } = require('../database/groupNoticeDefaults');
+const { hasActiveEntitlement } = require('./groupEntitlement');
 
 function fillVars(text, { userName, groupName, botName, ownerName, number, memberCount } = {}) {
   // Sem PN resolvido, {user} usa o nome legível; nunca `@` + dígitos do LID.
@@ -160,6 +161,9 @@ async function _comboDispara(sock, groupJid) {
   const combo = _comboWel.get(groupJid);
   _comboWel.delete(groupJid);
   if (!combo || !combo.pessoas.length) return;
+  // A janela anti-rajada é assíncrona; revalida o serviço antes de falar.
+  const gs = await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
+  if (!hasActiveEntitlement(gs)) return;
   const mostrados = combo.pessoas.slice(0, WEL_COMBO_MAX_NOMES);
   const resto = combo.pessoas.length - mostrados.length;
   const nomes = mostrados.map((p) => {
@@ -299,6 +303,15 @@ async function handle(sock, event) {
     }
 
     const gs = await GroupSettings.findOne({ groupJid }).lean().catch(() => null);
+
+    // Eventos chegam mesmo em grupos onde o bot foi apenas adicionado. Sem
+    // trial/aluguel não há welcome, X9, promoção automática, avisos ou
+    // punições. A única chamada mantida é a limpeza da auto-apresentação,
+    // para cancelar qualquer timer velho caso o serviço tenha acabado.
+    if (!hasActiveEntitlement(gs)) {
+      try { await require('./autoApresentar').onParticipantsUpdate(sock, groupJid, parts, action, meta); } catch {}
+      return;
+    }
 
     // anti-fobados / auto-apresentação (aceitam string OU objecto)
     let banidosFoba = [];

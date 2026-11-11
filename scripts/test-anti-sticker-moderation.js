@@ -2,6 +2,24 @@
 'use strict';
 
 const assert = require('assert');
+const { mongoose } = require('../src/database/connection');
+const GroupSettings = require('../src/database/models/GroupSettings');
+const BannedSticker = require('../src/database/models/BannedSticker');
+
+// Simula o estado que vem da base: o filtro só deve actuar quando a
+// configuração E o serviço do grupo estão activos.
+const stickerSettings = {
+  groupJid: '120363TEST@g.us', antisticker: true, antistickerNotify: true,
+  isHosted: true, hostedUntil: new Date(Date.now() + 60_000),
+};
+mongoose.connection.readyState = 1;
+GroupSettings.findOne = () => ({ lean: async () => stickerSettings });
+GroupSettings.findOneAndUpdate = async () => stickerSettings;
+GroupSettings.updateOne = async () => ({});
+BannedSticker.find = () => ({ sort: () => ({ lean: async () => [] }) });
+BannedSticker.findOneAndUpdate = async () => ({});
+BannedSticker.deleteMany = async () => ({});
+
 const antiSticker = require('../src/bot/antiSticker');
 
 const GROUP = '120363TEST@g.us';
