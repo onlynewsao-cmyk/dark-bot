@@ -124,6 +124,7 @@
     "test:incoming": "node scripts/test-incoming-cases.js",
     "test:group-entitlement": "node scripts/test-group-entitlement.js",
     "test:group-events": "node scripts/test-group-events-participants.js",
+    "test:group-trial": "node scripts/test-group-trial-lifecycle.js",
     "test:group-defaults": "node scripts/test-group-notice-defaults.js",
     "test:automation-hub": "node scripts/test-automation-hub.js",
     "test:anti-sticker": "node scripts/test-anti-sticker-moderation.js",

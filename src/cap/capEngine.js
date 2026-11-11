@@ -348,6 +348,12 @@ async function addSessao(sid, { validar = true, cookies = '' } = {}) {
     const nc = normalizarCookies(String(sid).trim().startsWith('[') || String(sid).trim().startsWith('{') ? sid : (cookies || sid));
     if (nc.sid) { sid = nc.sid; cookies = nc.jar; }
   }
+  sid = String(sid || '').trim();
+  // Nunca guardar um valor obviamente incompleto como sessão
+  // "por-confirmar": esse modo só é seguro para cookies com formato válido
+  // que falharam temporariamente na rede, não para entradas como "abc".
+  if (sid.length < 20) return { ok: false, erro: 'sessionid demasiado curto' };
+
   let info = { ok: true, user: '', id: '' };
   if (validar) {
     info = await validarSessaoDuplo(sid);
