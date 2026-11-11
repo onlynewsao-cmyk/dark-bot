@@ -728,17 +728,25 @@ async function runCase(command, rawCtx) {
     console.error('[RPG-GATE] fallback aberto:', e.message?.slice(0, 120));
   }
 
-  // isAdmin lazy
+  // isAdmin lazy. Compara todos os identificadores entregues pelo WhatsApp:
+  // grupos recentes podem ter remetente/participante em LID, sem inventar PN.
   const isAdminFn = async () => {
     if (ctx.isOwner) return true;
     if (!ctx.isGroup) return false;
     try {
       const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const snum = ctx.senderNumber;
-      return meta.participants?.some(p =>
-        p.id.split('@')[0].replace(/\D/g, '') === snum &&
-        (p.admin === 'admin' || p.admin === 'superadmin')
-      ) || false;
+      const ids = (value) => {
+        const raw = String(value || '').split(':')[0].trim().toLowerCase();
+        return raw ? [raw, raw.split('@')[0]] : [];
+      };
+      const senderIds = new Set([
+        ...ids(ctx.senderJid), ...ids(ctx.senderLid), ...ids(ctx.senderNumber),
+      ]);
+      return !!meta?.participants?.some((p) => {
+        const participantIds = [p?.id, p?.jid, p?.lid, p?.pn, p?.phoneNumber].flatMap(ids);
+        const isAdmin = p?.admin === 'admin' || p?.admin === 'superadmin' || p?.isAdmin === true;
+        return isAdmin && participantIds.some(id => senderIds.has(id));
+      });
     } catch { return false; }
   };
 

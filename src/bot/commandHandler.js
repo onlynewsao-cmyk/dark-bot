@@ -591,6 +591,39 @@ async function _allowInactiveGroupInput(msg, ctx, text) {
   return rental || localAdminControl;
 }
 
+/**
+ * !soadm fecha o chat pelo WhatsApp e, enquanto estiver ligado, não deixa o
+ * bot/AURA atender membros comuns. Dono e admins continuam com acesso.
+ * O estado é separado de `onlyAdmins`: desligar !soadm não desfaz uma regra
+ * !onlyadm que o admin tenha escolhido conscientemente.
+ */
+async function _soadmBlocksSender(sock, msg, ctx) {
+  if (!ctx?.isGroup) return false;
+  let gs = null;
+  try { gs = await require('./hotCache').getGroupSettings(msg, ctx.remoteJid); } catch {}
+  if (gs?.soadmBotOnly !== true) return false;
+
+  try {
+    const [ownerLid, extraOwners, ownerNumDB] = await Promise.all([
+      botConfigCache.get('owner_lid', ''),
+      botConfigCache.get('owner_numbers', []),
+      botConfigCache.get('owner_number', ''),
+    ]);
+    const ownerNumbers = Array.isArray(extraOwners)
+      ? extraOwners.map(userManager.normalizeNumber).filter(Boolean)
+      : String(extraOwners || '').split(/[\s,]+/).map(userManager.normalizeNumber).filter(Boolean);
+    const flags = require('./ownerIdentity').resolveOwnerFlags({
+      ctx, msg, sock, config,
+      dbOwnerNum: userManager.normalizeNumber(String(ownerNumDB || '')),
+      ownerLid,
+      ownerNumbers,
+    });
+    if (flags.isOwner) return false;
+  } catch {}
+
+  return !(await isGroupAdminForHandler(sock, ctx));
+}
+
 async function _handleInner(sock, msg, turn) {
   let text = extractText(msg).trim();
   const hasIncomingMedia = hasMediaPayload(msg.message);
@@ -606,6 +639,9 @@ async function _handleInner(sock, msg, turn) {
   // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
   // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
+  // !soadm não é só um aviso visual do WhatsApp: enquanto o chat estiver
+  // fechado, o próprio bot/AURA também fica reservado a admins e Dono.
+  if (await _soadmBlocksSender(sock, msg, ctx)) return false;
   // Grupo sem serviço não é uma versão reduzida para Dono/VIP: é inactivo.
   // Isto barra a AURA e fluxos antigos antes de poderem responder; apenas o
   // funil de trial/aluguel e !onlyadm/!adm1 chegam ao resto do handler.
@@ -4597,6 +4633,10 @@ async function handleConversationControl(sock, raw) {
   const text = extractText(msg).trim();
   if (!conversation.controlIntent(text)) return false;
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return true;
+  // Este caminho prioritário passa antes do handler normal; aplica a mesma
+  // política de !soadm para um membro não poder receber resposta por !pausar,
+  // !retomar ou outro controlo conversacional enquanto o chat está fechado.
+  if (await _soadmBlocksSender(sock, msg, ctx)) return true;
   const turn = conversation.begin(ctx);
   try {
     const result = conversation.process(text, ctx);

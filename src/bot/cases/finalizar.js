@@ -437,12 +437,28 @@ const adminHandlers = {
     await botConfigCache.set('capturalink:' + ctx.remoteJid, on);
     return reply(sock, msg, ctx, `🔗 *CAPTURA DE LINKS* ${on ? 'ACTIVA ✅' : 'DESACTIVADA ❌'}`);
   },
-  async soadm({ sock, msg, ctx, args }) {
+  async soadm({ sock, msg, ctx, args, isOwner, isAdminFn }) {
     if (!ctx.isGroup) return reply(sock, msg, ctx, '👥 Só em grupos.');
+    // O bot é admin e poderia fechar o chat a pedido de qualquer pessoa;
+    // portanto valida QUEM pediu antes de chamar a API do WhatsApp.
+    const ehAdmin = !!isOwner || !!ctx.isAdmin || await isAdminFn?.();
+    if (!ehAdmin) return reply(sock, msg, ctx, '🛡️ Só administradores do grupo ou o Dono podem usar *soadm*.');
+
     const on = args[0]?.toLowerCase() !== 'off';
     try {
       await sock.groupSettingUpdate(ctx.remoteJid, on ? 'announcement' : 'not_announcement');
-      return reply(sock, msg, ctx, `🔒 *SÓ ADMINS FALAM* ${on ? 'ACTIVO ✅' : 'DESACTIVADO ❌'}`);
+      const GroupSettings = require('../../database/models/GroupSettings');
+      await GroupSettings.findOneAndUpdate(
+        { groupJid: ctx.remoteJid },
+        { $set: { groupJid: ctx.remoteJid, soadmBotOnly: on } },
+        { upsert: true, setDefaultsOnInsert: true },
+      );
+      // Evita que o TTL de leituras continue a atender membros por alguns s.
+      try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {}
+      return reply(sock, msg, ctx,
+        on
+          ? '🔒 *SÓ ADMINS FALAM E USAM O BOT: ACTIVO ✅*\n\nO grupo foi fechado para membros comuns e o DARK BOT/AURA só responde a admins e ao Dono.'
+          : '🔓 *SÓ ADMINS FALAM: DESACTIVADO ❌*\n\nO grupo foi aberto e o bot volta ao acesso normal deste grupo.');
     } catch (e) { return reply(sock, msg, ctx, '❌ ' + (e.message || e)); }
   },
   async grupo({ sock, msg, ctx }) {
