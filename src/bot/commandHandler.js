@@ -569,8 +569,8 @@ async function _avisoSemAluguel(sock, msg, ctx) {
  * antigo ficava demasiado abaixo no handler: Dono/VIP e algumas automações
  * textuais ainda conseguiam falar num grupo já sem serviço.
  *
- * Só o funil de contratação e a preferência local !onlyadm/!adm1 permanecem
- * disponíveis. Não inferimos comandos de texto livre, para a AURA não voltar
+ * Só o funil de contratação e a preferência local !onlyadm/!adm1/!soadm
+ * permanecem disponíveis. Não inferimos comandos de texto livre, para a AURA não voltar
  * a responder a conversa casual num grupo inactivo.
  */
 async function _allowInactiveGroupInput(msg, ctx, text) {
@@ -587,21 +587,24 @@ async function _allowInactiveGroupInput(msg, ctx, text) {
   const prefix = detected?.prefix || config.bot.prefix || '!';
   let rental = false;
   try { rental = !!detected && require('./cases/rental2').gateAllows(text, prefix); } catch {}
-  const localAdminControl = !!detected && /^\s*(?:onlyadm|adm1)(?:\s|$)/i.test(detected.rest || '');
+  // !soadm é compatível com !onlyadm/!adm1: ambos mudam a mesma política
+  // local do bot, sem fechar o chat nativo do WhatsApp.
+  const localAdminControl = !!detected && /^\s*(?:onlyadm|adm1|soadm)(?:\s|$)/i.test(detected.rest || '');
   return rental || localAdminControl;
 }
 
 /**
- * !soadm fecha o chat pelo WhatsApp e, enquanto estiver ligado, não deixa o
- * bot/AURA atender membros comuns. Dono e admins continuam com acesso.
- * O estado é separado de `onlyAdmins`: desligar !soadm não desfaz uma regra
- * !onlyadm que o admin tenha escolhido conscientemente.
+ * Política única de “bot só para admins”. !onlyadm/!adm1 e !soadm são duas
+ * formas de configurar a mesma opção `onlyAdmins`; o comando !fechar continua
+ * a ser a acção explícita para fechar o chat do WhatsApp. O gate fica antes
+ * da AURA, menus, comandos e fluxos conversacionais para um membro comum não
+ * receber resposta por um caminho secundário.
  */
-async function _soadmBlocksSender(sock, msg, ctx) {
+async function _adminsOnlyBlocksSender(sock, msg, ctx) {
   if (!ctx?.isGroup) return false;
   let gs = null;
   try { gs = await require('./hotCache').getGroupSettings(msg, ctx.remoteJid); } catch {}
-  if (gs?.soadmBotOnly !== true) return false;
+  if (gs?.onlyAdmins !== true) return false;
 
   try {
     const [ownerLid, extraOwners, ownerNumDB] = await Promise.all([
@@ -639,9 +642,9 @@ async function _handleInner(sock, msg, turn) {
   // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
   // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
-  // !soadm não é só um aviso visual do WhatsApp: enquanto o chat estiver
-  // fechado, o próprio bot/AURA também fica reservado a admins e Dono.
-  if (await _soadmBlocksSender(sock, msg, ctx)) return false;
+  // Modo só-admin: AURA, menus e comandos ficam reservados a admins,
+  // subdonos e Dono — sem depender de fechar o chat no WhatsApp.
+  if (await _adminsOnlyBlocksSender(sock, msg, ctx)) return false;
   // Grupo sem serviço não é uma versão reduzida para Dono/VIP: é inactivo.
   // Isto barra a AURA e fluxos antigos antes de poderem responder; apenas o
   // funil de trial/aluguel e !onlyadm/!adm1 chegam ao resto do handler.
@@ -1360,9 +1363,9 @@ async function _handleInner(sock, msg, turn) {
         // leva o aviso e fica bloqueado.
         let _gateOpen = false;
         try { _gateOpen = require('./cases/rental2').gateAllows(text, prefix); } catch {}
-        // !onlyadm/!adm1 é uma escolha local do admin. Não activa serviços
-        // nem automações; por isso continua acessível para um grupo livre.
-        const _onlyAdminsToggle = /^\s*(?:onlyadm|adm1)(?:\s|$)/i.test(prefixInfo?.rest || '');
+        // !onlyadm/!adm1/!soadm é uma escolha local do admin. Não activa
+        // serviços nem automações; por isso continua acessível num grupo livre.
+        const _onlyAdminsToggle = /^\s*(?:onlyadm|adm1|soadm)(?:\s|$)/i.test(prefixInfo?.rest || '');
         if (_gateOpen || _onlyAdminsToggle) {
           // passa — o case do funil ou a configuração local trata do resto
         } else {
@@ -4057,14 +4060,15 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
   if (ctx.isGroup && groupConfig) {
     const blocked = (groupConfig.blockedCommands || []).map(x => String(x).toLowerCase());
     const blockedSubs = (groupConfig.blockedSubmenus || []).map(x => String(x).toLowerCase());
-    const adminControlCmds = ['bloquearcmd','desbloquearcmd','cmdsgrupo','blockcmd','unblockcmd','setnomebot','inatividade','inativos','warn','unwarn','warnings','resetwarn','regras','setregras','motivacao','tagadmins','admins','setdesc','setnomegrupo','del','add','tempban','silenciar','limpar','onlyadm'];
+    const adminControlCmds = ['bloquearcmd','desbloquearcmd','cmdsgrupo','blockcmd','unblockcmd','setnomebot','inatividade','inativos','warn','unwarn','warnings','resetwarn','regras','setregras','motivacao','tagadmins','admins','setdesc','setnomegrupo','del','add','tempban','silenciar','limpar','onlyadm','soadm'];
     if (!isOwner && !adminControlCmds.includes(canonicalCommand) &&
         (blocked.includes(commandName) || blocked.includes(canonicalCommand) || blockedSubs.includes(commandName) || blockedSubs.includes(canonicalCommand))) {
       return false;
     }
 
-    // !onlyadm / !adm1: configura apenas quem pode chamar comandos. Isto
-    // NÃO é !soadm (que fecha o chat do WhatsApp para não-admins).
+    // !onlyadm / !adm1 configura quem pode usar o bot inteiro no grupo.
+    // !soadm é o alias compatível da mesma política; !fechar controla apenas
+    // o chat nativo do WhatsApp.
     if (canonicalCommand === 'onlyadm') {
       const ehAdmin = isOwner || await isGroupAdminForHandler(sock, ctx);
       if (!ehAdmin) {
@@ -4092,8 +4096,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       }
       await sock.sendMessage(ctx.remoteJid, {
         text: proximo
-          ? '🔒 *COMANDOS SÓ PARA ADMINS: ON*\n\nA partir de agora, apenas admins do grupo e o Dono usam os comandos do DARK BOT.\n\nPara liberar todos: *' + prefix + 'onlyadm off*'
-          : '🔓 *COMANDOS SÓ PARA ADMINS: OFF*\n\nOs membros voltam a poder usar os comandos permitidos neste grupo.\n\nPara restringir: *' + prefix + 'onlyadm on*',
+          ? '🛡️ *BOT SÓ PARA ADMINS: ON*\n\nA partir de agora, o DARK BOT e a AURA só respondem a admins do grupo, subdonos e ao Dono. Membros normais ficam sem resposta.\n\nPara liberar todos: *' + prefix + 'onlyadm off*\nAlias: *' + prefix + 'soadm*'
+          : '🛡️ *BOT SÓ PARA ADMINS: OFF*\n\nOs membros voltam a poder usar o bot conforme as permissões do grupo.\n\nPara restringir: *' + prefix + 'onlyadm on*',
       }, { quoted: msg });
       return true;
     }
@@ -4634,9 +4638,9 @@ async function handleConversationControl(sock, raw) {
   if (!conversation.controlIntent(text)) return false;
   if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return true;
   // Este caminho prioritário passa antes do handler normal; aplica a mesma
-  // política de !soadm para um membro não poder receber resposta por !pausar,
-  // !retomar ou outro controlo conversacional enquanto o chat está fechado.
-  if (await _soadmBlocksSender(sock, msg, ctx)) return true;
+  // política só-admin para um membro não receber resposta por !pausar,
+  // !retomar ou outro controlo conversacional.
+  if (await _adminsOnlyBlocksSender(sock, msg, ctx)) return true;
   const turn = conversation.begin(ctx);
   try {
     const result = conversation.process(text, ctx);

@@ -71,9 +71,9 @@ const GroupSettingsSchema = new mongoose.Schema({
   customWelcome: { type: String, default: DEFAULT_WELCOME_TEMPLATE },
   customGoodbye: { type: String, default: DEFAULT_GOODBYE_TEMPLATE },
 
-  // !onlyadm limita comandos; !soadm também pode silenciar respostas do bot.
+  // !onlyadm/!adm1/!soadm: restringe TODAS as respostas do bot a admins,
+  // subdonos e Dono. Não altera o estado nativo do chat do WhatsApp.
   onlyAdmins: { type: Boolean, default: false },
-  soadmBotOnly: { type: Boolean, default: false },
   blockedCommands: [{ type: String }],
   blockedSubmenus: [{ type: String }],
   // ── Prefixo por grupo (v5.2) ─────────────────────────────────

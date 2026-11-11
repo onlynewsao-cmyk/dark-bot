@@ -437,28 +437,37 @@ const adminHandlers = {
     await botConfigCache.set('capturalink:' + ctx.remoteJid, on);
     return reply(sock, msg, ctx, `🔗 *CAPTURA DE LINKS* ${on ? 'ACTIVA ✅' : 'DESACTIVADA ❌'}`);
   },
-  async soadm({ sock, msg, ctx, args, isOwner, isAdminFn }) {
+  async soadm({ sock, msg, ctx, args, prefix, isOwner, isAdminFn }) {
     if (!ctx.isGroup) return reply(sock, msg, ctx, '👥 Só em grupos.');
-    // O bot é admin e poderia fechar o chat a pedido de qualquer pessoa;
-    // portanto valida QUEM pediu antes de chamar a API do WhatsApp.
+    // !soadm não fecha o chat: isso é responsabilidade explícita de !fechar.
+    // É o alias histórico de !onlyadm/!adm1 para o acesso do próprio bot.
     const ehAdmin = !!isOwner || !!ctx.isAdmin || await isAdminFn?.();
     if (!ehAdmin) return reply(sock, msg, ctx, '🛡️ Só administradores do grupo ou o Dono podem usar *soadm*.');
 
-    const on = args[0]?.toLowerCase() !== 'off';
+    const escolha = String(args[0] || '').trim().toLowerCase();
     try {
-      await sock.groupSettingUpdate(ctx.remoteJid, on ? 'announcement' : 'not_announcement');
       const GroupSettings = require('../../database/models/GroupSettings');
-      await GroupSettings.findOneAndUpdate(
-        { groupJid: ctx.remoteJid },
-        { $set: { groupJid: ctx.remoteJid, soadmBotOnly: on } },
-        { upsert: true, setDefaultsOnInsert: true },
-      );
-      // Evita que o TTL de leituras continue a atender membros por alguns s.
-      try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {}
+      const atual = await GroupSettings.findOne({ groupJid: ctx.remoteJid }).select('onlyAdmins').lean().catch(() => null);
+      let proximo;
+      if (!escolha || ['toggle', 'alternar'].includes(escolha)) proximo = !atual?.onlyAdmins;
+      else if (['on', 'ligar', 'ativo', 'activar', 'ativar', '1'].includes(escolha)) proximo = true;
+      else if (['off', 'desligar', 'inativo', 'desactivar', 'desativar', '0'].includes(escolha)) proximo = false;
+      else if (['status', 'estado'].includes(escolha)) proximo = !!atual?.onlyAdmins;
+      else return reply(sock, msg, ctx, `Uso: *${prefix}soadm on* ou *${prefix}soadm off*\n\nIsto equivale a *${prefix}onlyadm* e não fecha o chat. Para fechar o grupo, usa *${prefix}fechar*.`);
+
+      if (!['status', 'estado'].includes(escolha)) {
+        await GroupSettings.findOneAndUpdate(
+          { groupJid: ctx.remoteJid },
+          { $set: { groupJid: ctx.remoteJid, onlyAdmins: proximo } },
+          { upsert: true, setDefaultsOnInsert: true },
+        );
+        // Evita que uma leitura com TTL continue a atender membros por alguns s.
+        try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {}
+      }
       return reply(sock, msg, ctx,
-        on
-          ? '🔒 *SÓ ADMINS FALAM E USAM O BOT: ACTIVO ✅*\n\nO grupo foi fechado para membros comuns e o DARK BOT/AURA só responde a admins e ao Dono.'
-          : '🔓 *SÓ ADMINS FALAM: DESACTIVADO ❌*\n\nO grupo foi aberto e o bot volta ao acesso normal deste grupo.');
+        proximo
+          ? `🛡️ *BOT SÓ PARA ADMINS: ACTIVO ✅*\n\nO DARK BOT e a AURA só respondem a admins, subdonos e ao Dono. O chat do grupo não foi fechado.\n\nPara permitir todos: *${prefix}soadm off* ou *${prefix}onlyadm off*.*\nPara fechar o chat: *${prefix}fechar*.`
+          : `🛡️ *BOT SÓ PARA ADMINS: DESACTIVADO ❌*\n\nOs membros voltam a poder usar o DARK BOT conforme as permissões do grupo. O chat do WhatsApp não foi alterado.`);
     } catch (e) { return reply(sock, msg, ctx, '❌ ' + (e.message || e)); }
   },
   async grupo({ sock, msg, ctx }) {
