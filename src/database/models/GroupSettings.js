@@ -110,7 +110,10 @@ const GroupSettingsSchema = new mongoose.Schema({
 
   // ── Hospedagem / Aluguel ──────────────────────────────────
   isHosted: { type: Boolean, default: false },
-  trialExpiresAt: { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }, // v7.67: 7 dias trial
+  // Trial é concedido uma única vez quando o bot entra ou via !trial — criar
+  // uma configuração administrativa não pode iniciar/renovar acesso grátis.
+  trialExpiresAt: { type: Date, default: null },
+  trialUsedAt: { type: Date, default: null },
   hostedUntil: { type: Date, default: null },
   commandsUsedToday: { type: Number, default: 0 },
   lastResetDate: { type: String, default: () => new Date().toISOString().split('T')[0] },

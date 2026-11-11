@@ -386,7 +386,8 @@ async function handle(sock, event) {
 }
 
 async function onBotAdded(sock, groupJid, groupName, meta) {
-  const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+  const trialDays = 7;
+  const trialEnd = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
   let gs = await GroupSettings.findOne({ groupJid }).catch(() => null);
   if (!gs) {
     gs = await GroupSettings.create({
@@ -394,6 +395,7 @@ async function onBotAdded(sock, groupJid, groupName, meta) {
       groupName,
       isHosted:        false,
       trialExpiresAt:  trialEnd,
+      trialUsedAt:     new Date(),
       hostedUntil:     null,
       commandsUsedToday: 0,
       welcome:         false,
@@ -404,7 +406,14 @@ async function onBotAdded(sock, groupJid, groupName, meta) {
       botArrivalNotify: false,
     }).catch(() => null);
   } else {
-    gs.trialExpiresAt = trialEnd;
+    // Re-adicionar o bot não pode renovar um trial expirado nem criar tempo
+    // grátis depois de um aluguel. Só documentos antigos sem qualquer registo
+    // de trial recebem a primeira activação.
+    const hasTrialHistory = !!gs.trialUsedAt || !!gs.trialExpiresAt;
+    if (!gs.isHosted && !hasTrialHistory) {
+      gs.trialExpiresAt = trialEnd;
+      gs.trialUsedAt = new Date();
+    }
     gs.groupName = groupName;
     await gs.save().catch(() => {});
   }
@@ -412,9 +421,11 @@ async function onBotAdded(sock, groupJid, groupName, meta) {
   // Por padrão o bot entra em silêncio. Isso evita que um replay/sincronização
   // de participantes pareça uma nova entrada em todos os grupos.
   if (gs?.botArrivalNotify !== true) return;
+  const trialActive = !gs.isHosted && gs.trialExpiresAt && new Date(gs.trialExpiresAt) > new Date();
+  // Num re-add sem trial novo não anunciamos uma oferta que já não existe.
+  if (!trialActive) return;
 
   const p = config.bot.prefix;
-  const trialDays = 3;
 
   const arrival =
     `🕸️ *${config.bot.name}* chegou!\n\n` +

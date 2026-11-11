@@ -1258,7 +1258,15 @@ async function _handleInner(sock, msg, turn) {
         try {
           const GS = require('../database/models/GroupSettings');
           const agora = new Date();
-          const hs = await GS.find({ isHosted: true, hostedUntil: { $gt: agora } }).lean().catch(() => []);
+          const hs = await GS.find({
+            isHosted: true,
+            $or: [
+              { hostedUntil: null },
+              { hostedUntil: { $exists: false } },
+              { hostedUntil: '' },
+              { hostedUntil: { $gt: agora } },
+            ],
+          }).lean().catch(() => []);
           comAluguel = (hs || []).map(g => g.groupJid).filter(Boolean);
           const tr = await GS.find({ isHosted: false, trialExpiresAt: { $gt: agora } }).lean().catch(() => []);
           comTrial = (tr || []).map(g => g.groupJid).filter(Boolean);

@@ -127,6 +127,7 @@ const said = (r, re) => r.out.some(item => re.test(item.text || ''));
 (async () => {
   const entitlement = require('../src/bot/groupEntitlement');
   test('aluguel permanente é elegível', entitlement.hasActiveEntitlement({ isHosted: true }) === true);
+  test('data inválida não vira aluguel permanente por acidente', entitlement.hasActiveEntitlement({ isHosted: true, hostedUntil: 'data-inválida' }) === false);
   test('aluguel expirado não é elegível', entitlement.hasActiveEntitlement({ isHosted: true, hostedUntil: new Date(Date.now() - 1) }) === false);
   test('trial válido é elegível', entitlement.hasActiveEntitlement({ trialExpiresAt: new Date(Date.now() + 60_000) }) === true);
 

@@ -17,10 +17,13 @@ function toMs(value) {
 function hasActiveEntitlement(settings, now = Date.now()) {
   if (!settings) return false;
   const hosted = settings.isHosted === true;
-  const hostedUntil = toMs(settings.hostedUntil);
+  const hostedRaw = settings.hostedUntil;
+  const hostedUntil = toMs(hostedRaw);
   const trialUntil = toMs(settings.trialExpiresAt);
-  // Alguns alugueis legados são permanentes e não têm hostedUntil.
-  if (hosted && (!hostedUntil || hostedUntil > now)) return true;
+  // Alguns alugueis legados são permanentes e não têm hostedUntil. Um valor
+  // inválido, por outro lado, nunca pode transformar um grupo em activo.
+  const permanentHosted = hostedRaw == null || hostedRaw === '';
+  if (hosted && (permanentHosted || hostedUntil > now)) return true;
   return trialUntil > now;
 }
 

@@ -388,7 +388,8 @@ async function check(sock, msg) {
     if (gs.antilinkVipImmune) {
       try {
         const u = await require('./hotCache').getUser(msg, senderNum); // v7.52: memo partilhado
-        const isPrem = u && (u.role === 'premium' || (u.premiumUntil && new Date(u.premiumUntil) > new Date()));
+        const isPrem = u && (u.role === 'owner' ||
+          (u.role === 'premium' && (!u.premiumUntil || new Date(u.premiumUntil) > new Date())));
         if (isPrem) return false;
       } catch {}
     }
