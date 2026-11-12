@@ -9,12 +9,11 @@
  *  • Detecta se baixou ou não (tamanho, mimetype, erro) e regista log
  *  • Destinos: grupos/PV/canal do WhatsApp + galeria em disco
  *  • "Capture all": baixa tudo o que está disponível do perfil
- *  • Conteúdo público (contas, links e stories) via SnapInsta; sessão IG só para
- *    conteúdo privado, histórico completo e fallbacks autenticados
+ *  • Conteúdo público via SnapInsta, páginas/GraphQL públicas, yt-dlp e embed
+ *  • Não recebe, guarda nem usa conta, senha, cookie ou sessão do Instagram
  *
  * Estado persistido em data/cap/cap.json (+ espelho em BotConfig quando
- * a BD está ligada).  Nenhum segredo vai para ficheiros versionados —
- * data/ está no .gitignore.
+ * a BD está ligada). Só contém alvos, resultados e métricas públicas.
  */
 'use strict';
 
@@ -25,7 +24,6 @@ const https = require('https');
 const DATA_DIR = path.join(__dirname, '../../data/cap');
 const STATE_FILE = path.join(DATA_DIR, 'cap.json');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
-const IG_APP_ID = '936619743392459';
 const DEFAULT_INTERVAL_MIN = 30;
 const MAX_LOG = 200;
 const MAX_SEEN_PER_TARGET = 2000;
@@ -37,7 +35,6 @@ const state = {
   targets: {},      // key "ig:veigh" → { platform, username, destinos:[jid], guardar, auto, intervaloMin, lastCheck, addedBy, addedAt, userId, stats }
   seen: {},         // key → { [itemId]: ts }
   log: [],          // { ts, target, item, tipo, status:'baixado'|'falhou'|'enviado'|'erro', detalhe }
-  session: { ig: '' },
 };
 let _loaded = false;
 
@@ -49,7 +46,14 @@ function load() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
-      Object.assign(state, { targets: {}, seen: {}, log: [], session: { ig: '' } }, raw);
+      // Migração única: descarta qualquer estado de credenciais legado antes
+      // de o estado voltar a ser usado ou salvo pelo modo público.
+      const source = raw && typeof raw === 'object' ? raw : {};
+      const hadLegacySession = Object.hasOwn(source, 'session');
+      const { session: _legacySession, ...publicState } = source;
+      Object.assign(state, { targets: {}, seen: {}, log: [] }, publicState);
+      delete state.session;
+      if (hadLegacySession) save();
     }
   } catch (e) { console.warn('[CAP] estado corrompido, a recomeçar:', e.message); }
   return state;
@@ -65,7 +69,7 @@ function save() {
   _saveTimer = setTimeout(() => {
     try {
       const BotConfig = require('../database/models/BotConfig');
-      BotConfig.set('cap_state', { targets: state.targets, session: state.session }).catch(() => {});
+      BotConfig.set('cap_state', { targets: state.targets, UpdatedAt: state.UpdatedAt }).catch(() => {});
     } catch {}
   }, 500);
 }
@@ -73,7 +77,9 @@ function save() {
 async function arrancar() {
   load();
   await sincronizar(true);
-  carregarEnv();
+  // Persiste a limpeza de campos de credenciais de instalações antigas.
+  delete state.session;
+  save();
   return state;
 }
 
@@ -90,9 +96,10 @@ async function sincronizar(forcar = false) {
     if (!mirror) return state;
     const tsM = Number(mirror.UpdatedAt || 0);
     const tsD = Number(state.UpdatedAt || 0);
-    if (tsM > tsD && (mirror.targets || mirror.session)) {
+    if (tsM > tsD && mirror.targets) {
       state.targets = mirror.targets || state.targets;
-      state.session = mirror.session || state.session;
+      // O espelho público só sincroniza os alvos, nunca credenciais legadas.
+      delete state.session;
       state.UpdatedAt = tsM;
       try { fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 1)); } catch {}
       console.log('[CAP] sync: adoptado estado mais novo da BD (', new Date(tsM).toISOString(), ')');
@@ -102,7 +109,8 @@ async function sincronizar(forcar = false) {
 }
 
 function _reset() {
-  state.targets = {}; state.seen = {}; state.log = []; state.session = { ig: '', igPool: [] };
+  state.targets = {}; state.seen = {}; state.log = [];
+  delete state.session;
   _loaded = true;
 }
 
@@ -146,285 +154,13 @@ function httpReq(method, url, { headers = {}, timeout = 25000, redirects = 5, pr
 }
 function httpGet(url, opts = {}) { return httpReq('GET', url, opts); }
 
-// ── Sessões IG: pool (state.session.igPool = [{sid, user, ok, addedAt, lastErr}]) + compat state.session.ig ──
-const UA_APP = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 311.0.0.109.115';
-
-// v12.9.16 — CANAL DA APP: UA + headers da aplicação oficial (iPhone).
-// PROVADO: reels_media e users/search passam SEMPRE; feed/user deu 200 mesmo
-// com IP queimado quando usa estes headers (com UA web → 401 "wait a few minutes").
-function igGetApp(pathAndQuery, sess) {
-  const s = sess === undefined ? pickSession() : sess;
-  const sid = String(s?.sid || '').trim();
-  let cookie = String(s?.cookies || '').trim();
-  if (cookie && !/sessionid=/i.test(cookie)) cookie = `sessionid=${sid}; ` + cookie;
-  const h = {
-    'User-Agent': UA_APP, 'Accept': '*/*', 'Accept-Language': 'pt-BR, pt;q=0.9',
-    'X-IG-Capabilities': '3w==', 'X-IG-App-ID': '1217981644879628',
-    'X-Requested-With': 'XMLHttpRequest',
-  };
-  if (sid) h.Cookie = cookie || `sessionid=${sid}; ds_user_id=${sid.split('%3A')[0].split(':')[0]}`;
-  return httpGet(`https://i.instagram.com${pathAndQuery}`, { headers: h, timeout: 20000 });
-}
-
-// feed de posts via CANAL DA APP (o mesmo endpoint da app oficial com a tua sessão)
-// → devolve { items, hasMore, nextMaxId }
-async function feedViaApp(userId, username, count = 33, maxId = '') {
-  const r = await igGetApp(`/api/v1/feed/user/${userId}/?count=${count}${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ''}`);
-  if (r.status !== 200) throw new Error('app HTTP ' + r.status);
-  const j = JSON.parse(r.body.toString('utf8'));
-  const raw = (j.items || []).length ? j.items : (j.profile_grid_items || []).map(g => g.media || g).filter(Boolean);
-  const items = raw.map(it => { try { return nodeToItem(it, username); } catch { return null; } }).filter(x => x?.medias?.length && x.medias[0].url);
-  return { items, hasMore: !!j.more_available, nextMaxId: j.next_max_id || '' };
-}
-const UAS = [
-  UA_APP,  // v12.9.9: UA de app primeiro — endpoints /api/v1 tratam app-UA melhor
-  UA,
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
-];
-let _rr = 0;
-function sessionsAtivas() {
-  const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
-  const list = pool.filter(s => s && s.sid && s.ok !== false);
-  if (!list.length && state.session?.ig) list.push({ sid: state.session.ig, user: '' });
-  return list;
-}
-// v12.9.12 ANTI-DETECÇÃO: escolha ALEATÓRIA (ciclo fixo delata bot)
-// + sessões em cooldown (429) evitadas durante 3-8 min
-function _rand(a, b) { return a + Math.random() * (b - a); }
-function pickSession() {
-  const boas = sessionsAtivas().filter(s => !(s.coolAte > Date.now()));
-  const list = boas.length ? boas : sessionsAtivas();
-  if (!list.length) return null;
-  return list[Math.floor(Math.random() * list.length)];
-}
-// ── v12.9.9: JAR COMPLETO de cookies (não só sessionid) ──────────────
-// Aceita: export JSON do EditThisCookie/Cookie-Editor, header "k=v; k=v",
-// ou "sessionid=xxx". Devolve { sid, jar } — jar é header canónico.
-function normalizarCookies(entrada) {
-  let raw = String(entrada || '').trim();
-  if (!raw) return { sid: '', jar: '' };
-  // JSON (EditThisCookie / Cookie-Editor)
-  if (raw.startsWith('[') || raw.startsWith('{')) {
-    try {
-      const arr = JSON.parse(raw);
-      const list = Array.isArray(arr) ? arr : [arr];
-      const pairs = list.filter(x => x && x.name && x.value != null).map(x => `${x.name}=${x.value}`);
-      if (pairs.length) raw = pairs.join('; ');
-    } catch {}
-  }
-  const pairs = raw.split(';').map(s => s.trim()).filter(s => s.includes('='));
-  const jar = [];
-  let sid = '';
-  for (const p of pairs) {
-    const eq = p.indexOf('=');
-    const k = p.slice(0, eq).trim();
-    let v = p.slice(eq + 1).trim().replace(/^"|"$/g, '');
-    if (!k || !v) continue;
-    if (k.toLowerCase() === 'sessionid') {
-      // canónico: %3A único (mesma regra do carregarEnv v12.9.5)
-      let s = v;
-      while (/%253A/i.test(s)) s = s.replace(/%253A/gi, '%3A');
-      if (/:/.test(s) && !/%3A/i.test(s)) s = s.replace(/:/g, '%3A');
-      if (/^\d{5,}%3A/.test(s)) { sid = s; jar.push(`sessionid=${s}`); }
-      continue;
-    }
-    if (/^(domain|path|expires|max-age|httponly|secure|samesite)$/i.test(k)) continue;
-    jar.push(`${k}=${v}`);
-  }
-  // sessionid seco (só o valor, sem k=) — ex: ".cap login 65803996170%3A…"
-  if (!sid) {
-    let s = String(entrada || '').trim().replace(/^sessionid=/i, '');
-    while (/%253A/i.test(s)) s = s.replace(/%253A/gi, '%3A');
-    if (/:/.test(s) && !/%3A/i.test(s)) s = s.replace(/:/g, '%3A');
-    if (/^\d{5,}%3A[A-Za-z0-9_-]+%3A\d+%3A[A-Za-z0-9_-]+$/.test(s)) { sid = s; if (!jar.some(x => x.startsWith('sessionid='))) jar.unshift(`sessionid=${s}`); }
-  }
-  if (false && !sid && pairs.length === 1 && !/^[A-Za-z_]+\s*=/.test(raw)) {
-    let s = raw;
-    while (/%253A/i.test(s)) s = s.replace(/%253A/gi, '%3A');
-    if (/:/.test(s) && !/%3A/i.test(s)) s = s.replace(/:/g, '%3A');
-    if (/^\d{5,}%3A/.test(s)) { sid = s; jar.unshift(`sessionid=${s}`); }
-  }
-  return { sid, jar: jar.join('; ') };
-}
-
-function igHeaders(sess) {
-  const h = { 'x-ig-app-id': IG_APP_ID, 'Accept': '*/*', 'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8', 'Referer': 'https://www.instagram.com/', 'User-Agent': UAS[_rr % UAS.length], 'X-Requested-With': 'XMLHttpRequest' };
-  const s = sess === undefined ? pickSession() : sess;
-  const sid = String(s?.sid || '').trim();
-  if (sid) {
-    // v12.9.9: jar completo quando existe (parece navegador real — menos 429)
-    let cookie = String(s?.cookies || '').trim();
-    if (cookie && !/sessionid=/i.test(cookie)) cookie = `sessionid=${sid}; ` + cookie;
-    h.Cookie = cookie || `sessionid=${sid}; ds_user_id=${sid.split('%3A')[0].split(':')[0]}`;
-  }
-  return h;
-}
-// v12.9.11c: completar o @user de uma sessão por-confirmar (best-effort, async)
-async function inferirUsername(sid) {
-  const uid = String(sid || '').split('%3A')[0].split(':')[0].replace(/\D/g, '');
-  if (!uid) return '';
-  // 1. search pelo uid (alguns IPs deixam)
-  try {
-    const r = await httpGet(`https://i.instagram.com/api/v1/users/search/?q=${uid}`, { headers: igHeaders(pickSession()), timeout: 12000 });
-    if (r.status === 200) {
-      const j = JSON.parse(r.body.toString('utf8'));
-      const hit = (j.users || []).find(x => String(x.pk) === uid);
-      if (hit?.username) return hit.username;
-    }
-  } catch {}
-  // 2. se o uid for um username numérico raro — nada mais a fazer sem rede
-  return '';
-}
-
-function marcarSessaoInvalida(sid, motivo) {
-  const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
-  const s = pool.find(x => x.sid === sid);
-  if (s) { s.ok = false; s.lastErr = motivo; s.errAt = Date.now(); }
-  if (state.session.ig === sid) state.session.ig = '';
-  registar({ target: '-', item: '-', tipo: 'sessao', status: 'erro', detalhe: `sessão ${s?.user || sid.slice(0, 8)} inválida: ${motivo}` });
-  save();
-}
-// Valida um sessionid: devolve { ok, user, id } ou { ok:false, erro }
-async function validarSessao(sid) {
-  const sess = { sid: String(sid || '').trim() };
-  if (!sess.sid || sess.sid.length < 20) return { ok: false, erro: 'sessionid demasiado curto' };
-  try {
-    const r = await httpGet('https://www.instagram.com/api/v1/accounts/current_user/?edit=true', { headers: igHeaders(sess), timeout: 20000 });
-    if (r.status === 200) {
-      let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { ok: false, erro: 'resposta não-JSON (challenge/HTML?) — adiada', temporario: true }; }
-      const u = j?.user; if (u?.username) return { ok: true, user: u.username, id: String(u.pk || u.id || '') };
-      return { ok: false, erro: 'sem utilizador na resposta' };
-    }
-    if (r.status === 401 || r.status === 403) {
-      // v12.9.5: distinguir sid morto de IP bloqueado — o corpo diz qual
-      const corpo = r.body.toString('utf8').slice(0, 200);
-      if (/login_required|Sorry|erro|Try again/i.test(corpo) && !/bad_sessionid|invalid/i.test(corpo)) {
-        // 403 com "Ocorreu um erro" = IG a bloquear o IP do servidor, não a sessão
-        return { ok: false, erro: 'IP do servidor bloqueado pelo IG (' + r.status + ') — sessão provavelmente BOA; valida por outro caminho', temporario: true };
-      }
-      return { ok: false, erro: 'sessionid inválido ou expirado (' + r.status + ')' };
-    }
-    if (r.status === 429) return { ok: false, erro: 'rate-limit 429 ao validar — tenta daqui a uns minutos', temporario: true };
-    if (r.status === 400 || r.status === 404) return { ok: false, erro: 'HTTP ' + r.status + ' — endpoint bloqueado neste IP (sessão não testada)', temporario: true };
-    return { ok: false, erro: 'HTTP ' + r.status };
-  } catch (e) { return { ok: false, erro: e.message, temporario: true }; }
-}
-/**
- * v12.9.5: validação em DOIS caminhos — se o current_user falhar por
- * bloqueio de IP, tenta o endpoint das DMs (raremente bloqueado).
- * Sessão boa + IP bravo ≠ sessão inválida!
- */
-async function validarSessaoDuplo(sid) {
-  const primeira = await validarSessao(sid);
-  if (primeira.ok) return primeira;
-  if (!primeira.temporario) return primeira;
-  const sess = { sid: String(sid || '').trim() };
-  try {
-    const r = await httpGet('https://i.instagram.com/api/v1/direct_v2/presence/?max_users=1', { headers: igHeaders(sess), timeout: 15000 });
-    if (r.status === 200) {
-      // chegou ao IG com a sessão — boa, só não conseguimos o username por este IP
-      let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { j = {}; }
-      const u = j?.presence_events?.user_presence_list?.[0]?.user_id;
-      return { ok: true, user: '', id: '', viaFallback: true };
-    }
-  } catch {}
-  // 3ª perna: users/search com UA de app (a que provou 200 mesmo em IP castigado)
-  try {
-    const uid = sid.split('%3A')[0].split(':')[0];
-    const rs = await httpGet(`https://i.instagram.com/api/v1/users/search/?q=${uid}`, {
-      headers: { ...igHeaders(sess), 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 311.0.0.109.115' }, timeout: 15000,
-    });
-    if (rs.status === 200) return { ok: true, user: '', id: uid, viaSearch: true };
-  } catch {}
-  return primeira;
-}
-async function addSessao(sid, { validar = true, cookies = '' } = {}) {
-  load();
-  state.session.igPool = Array.isArray(state.session.igPool) ? state.session.igPool : [];
-  // v12.9.9: pode vir o JAR todo (JSON/header); extrai sid + cookies
-  if (!sid || /csrftoken|ds_user_id|mid=/i.test(String(cookies || '')) || /^[\[{"]/.test(String(sid).trim())) {
-    const nc = normalizarCookies(String(sid).trim().startsWith('[') || String(sid).trim().startsWith('{') ? sid : (cookies || sid));
-    if (nc.sid) { sid = nc.sid; cookies = nc.jar; }
-  }
-  sid = String(sid || '').trim();
-  // Nunca guardar um valor obviamente incompleto como sessão
-  // "por-confirmar": esse modo só é seguro para cookies com formato válido
-  // que falharam temporariamente na rede, não para entradas como "abc".
-  if (sid.length < 20) return { ok: false, erro: 'sessionid demasiado curto' };
-
-  let info = { ok: true, user: '', id: '' };
-  if (validar) {
-    info = await validarSessaoDuplo(sid);
-    if (!info.ok && !info.temporario) {
-      // v12.9.11c: endpoint disse "inválido" MAS o IG anda a bloquear endpoints
-      // por IP inteiro — guardar como POR-CONFIRMAR em vez de recusar. O uso
-      // real (download) é quem prova; se estiver morto, .cap testar marca.
-      info = { ok: true, user: '', id: sid.split('%3A')[0].split(':')[0] || '', porConfirmar: true, avisoValidacao: info.erro };
-    }
-  }
-  const ex = state.session.igPool.find(x => x.sid === sid);
-  if (ex) Object.assign(ex, { ok: true, user: info.user || ex.user, lastErr: '', porConfirmar: !!info.porConfirmar, ...(info.id ? { id: info.id } : {}), ...(cookies ? { cookies } : {}) });
-  else state.session.igPool.push({ sid: String(sid).trim(), user: info.user || '', id: info.id || (sid.split('%3A')[0].split(':')[0] || ''), ok: true, addedAt: Date.now(), porConfirmar: !!info.porConfirmar, ...(info.avisoValidacao ? { lastErr: info.avisoValidacao } : {}), ...(cookies ? { cookies } : {}) });
-  state.session.ig = String(sid).trim();
-  state.UpdatedAt = Date.now();
-  save();
-  return { ok: true, user: info.user, id: info.id || sid.split('%3A')[0].split(':')[0] || '', validado: !info.temporario && !info.porConfirmar, aviso: info.temporario ? info.erro : (info.avisoValidacao || '') };
-}
-function delSessao(qual) {
-  load();
-  const pool = Array.isArray(state.session.igPool) ? state.session.igPool : [];
-  const before = pool.length;
-  state.session.igPool = qual && qual !== 'all' && qual !== 'tudo' ? pool.filter(x => x.user !== String(qual).replace(/^@/, '') && x.sid !== qual) : [];
-  if (!state.session.igPool.some(x => x.sid === state.session.ig)) state.session.ig = state.session.igPool[0]?.sid || '';
-  save();
-  return before - state.session.igPool.length;
-}
-function listSessoes() { load(); return (Array.isArray(state.session.igPool) ? state.session.igPool : []).map(s => ({ user: s.user, ok: s.ok !== false, lastErr: s.lastErr || '', addedAt: s.addedAt, id: s.id || String(s.sid || '').split('%3A')[0] || '', porConfirmar: !!s.porConfirmar, cool: !!(s.coolAte > Date.now()) })); }
-// arranque: carregar IG_SESSIONID do .env se não houver nenhuma
-// v12.9: valida em fundo (sem bloquear arranque) e preenche o @user da conta;
-// se o .env tiver sessão mas o pool já tiver outra, mantém as DUAS (pool roda entre elas)
-function carregarEnv() {
-  // v12.9.4: aceita o valor em qualquer formato vindo da hospedagem
-  // (Northflank/Render): com aspas, "sessionid=...", cookie inteiro,
-  // espaços ou nova linha — normaliza antes de usar.
-  const bruto = String(process.env.IG_SESSIONID || process.env.ig_sessionid || '').trim();
-  let env = bruto.replace(/^["']|["']$/g, '').trim();
-  const mCookie = /sessionid\s*=\s*([^;\s"']+)/i.exec(env);
-  if (mCookie) env = mCookie[1];
-  env = env.replace(/;.*$/, '').trim();
-  if (env && /%253A|%25253A/i.test(env)) {
-    // duplo/triplo-encode → descodifica até ficar com um único %3A
-    let vezes = 0;
-    while (/%25/i.test(env) && vezes < 3) { env = decodeURIComponent(env); vezes++; }
-  }
-  if (env && env.includes(':')) {
-    // sid cru com ':' literal → codifica
-    env = encodeURIComponent(env);
-  }
-  if (!env || env.length < 30) {
-    if (bruto) console.warn('[CAP] IG_SESSIONID definido mas inválido (curto demais) — ignorado');
-    return;
-  }
-  state.session.igPool = Array.isArray(state.session.igPool) ? state.session.igPool : [];
-  const jaEsta = state.session.igPool.some((x) => x.sid === env);
-  if (!jaEsta) {
-    state.session.igPool.push({ sid: env, user: '', ok: true, addedAt: Date.now(), fonte: 'env' });
-    if (!state.session.ig) state.session.ig = env;
-    save();
-    // valida em fundo: preenche user/id ou marca inválida
-    validarSessaoDuplo(env).then((info) => {
-      const s = state.session.igPool.find((x) => x.sid === env);
-      if (!s) return;
-      if (info.ok) { s.user = info.user; s.id = info.id; s.ok = true; console.log(`[CAP] sessão do .env validada: @${info.user}`); }
-      else if (!info.temporario) { s.ok = false; s.lastErr = info.erro; console.warn('[CAP] sessão do .env inválida:', info.erro); }
-      else { console.warn('[CAP] sessão do .env: validação adiada —', info.erro); }
-      save();
-    }).catch(() => {});
-    console.log('[CAP] sessão IG do .env adicionada ao pool (validação em curso)');
-  }
-}
+// Pedidos web públicos: não levam credenciais nem identificação de app.
+const PUBLIC_IG_HEADERS = {
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+  'Referer': 'https://www.instagram.com/',
+};
+function _rand(min, max) { return Math.floor(min + Math.random() * (max - min + 1)); }
 
 // ─────────────────────────────────────────────────────────────
 // INSTAGRAM PROVIDER
@@ -457,23 +193,18 @@ function nodeToItem(n, username) {
   };
 }
 
-const IG_HOSTS = ['https://i.instagram.com', 'https://www.instagram.com']; // v12.9.8: app host primeiro
-let _hostIdx = 0;
-// GET com rotação de host/UA/sessão e retry em 429 (backoff curto). Marca sessão inválida em login_required.
-async function igGet(pathAndQuery, { tentativas = 3 } = {}) {
-  sincronizar().catch(() => {}); // v12.9.9: sessionid novo via dashboard chega aqui sem restart
+// Pedido de recurso exposto na web pública, com retry curto apenas para
+// indisponibilidade/rate-limit. Não alterna para endpoints de app ou sessão.
+async function igGet(pathAndQuery, { tentativas = 2 } = {}) {
   let last = null;
   for (let i = 0; i < tentativas; i++) {
-    const sess = pickSession();
-    const host = IG_HOSTS[(_hostIdx++) % IG_HOSTS.length];
-    const r = await httpGet(host + pathAndQuery, { headers: igHeaders(sess) });
+    const r = await httpGet(`https://www.instagram.com${pathAndQuery}`, {
+      headers: { ...PUBLIC_IG_HEADERS, 'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest' },
+    });
     last = r;
     if (r.status === 200) return r;
-    const body = r.body?.toString('utf8').slice(0, 300) || '';
-    if (sess && (r.status === 401 || r.status === 403) && /login_required|logged out|checkpoint/i.test(body)) { marcarSessaoInvalida(sess.sid, 'login_required'); continue; }
-    if (r.status === 429 || (r.status === 401 && /wait a few minutes/i.test(body))) {
-      if (sess) sess.coolAte = Date.now() + _rand(180e3, 480e3); // v12.9.12: sessão descansa 3-8 min
-      await new Promise(res => setTimeout(res, _rand(1200, 3200)));
+    if (r.status === 429 && i + 1 < tentativas) {
+      await new Promise(resolve => setTimeout(resolve, _rand(900, 1800)));
       continue;
     }
     return r;
@@ -481,33 +212,7 @@ async function igGet(pathAndQuery, { tentativas = 3 } = {}) {
   return last;
 }
 
-// ── v12.9.8: fallback yt-dlp (o mesmo caminho do .cap link) quando a API privada está 429 ──
-// O .cap link sempre funcionou porque yt-dlp usa outro rate-bucket (página web + graphql).
-// Agora ver/ultimo/check/all também caem nesse caminho quando o IG limita o IP do servidor.
-let _cookieFile = ''; let _cookieAt = 0; let _cookieSid = '';
-function ytdlpCookieFile() {
-  const sess = pickSession();
-  const sid = String(sess?.sid || '').trim();
-  if (!sid) return '';
-  if (_cookieFile && Date.now() - _cookieAt < 3600e3 && _cookieSid === sid) return _cookieFile;
-  try {
-    const fs = require('fs'), path = require('path');
-    const f = path.join(__dirname, '..', '..', 'data', 'cap', '.ig-cookies.txt');
-    const uid = sid.split('%3A')[0].split(':')[0] || '';
-    let out = '# Netscape HTTP Cookie File\n';
-    // v12.9.9: TODOS os cookies do jar (parece navegador real)
-    const extra = String(sess?.cookies || '').split(';').map(x => x.trim()).filter(x => x.includes('=') && !/^sessionid=/i.test(x));
-    for (const par of extra) {
-      const eq = par.indexOf('=');
-      out += `.instagram.com\tTRUE\t/\tTRUE\t0\t${par.slice(0, eq).trim()}\t${par.slice(eq + 1).trim()}\n`;
-    }
-    out += `.instagram.com\tTRUE\t/\tTRUE\t0\tsessionid\t${sid}\n`;
-    if (uid) out += `.instagram.com\tTRUE\t/\tTRUE\t0\tds_user_id\t${uid}\n`;
-    fs.writeFileSync(f, out);
-    _cookieFile = f; _cookieAt = Date.now(); _cookieSid = sid;
-    return f;
-  } catch { return ''; }
-}
+// yt-dlp também é executado sem arquivo de cookies: só conteúdo público.
 // ── v12.9.9: fallback EMBED (público, sem login) para .cap link ──
 // https://www.instagram.com/p/<code>/embed/captioned/ traz a foto/vídeo
 // mesmo quando a API e o yt-dlp estão bloqueados.
@@ -765,30 +470,12 @@ async function itemDeLink(link) {
       const it = await snapInstaItem(info.url, info);
       if (it?.medias?.[0]?.url) return [it];
     } catch {}
-    // sessão: reels_media highlight:<rid>
-    const sess = pickSession();
-    if (sess) {
-      const r = await igGet(`/api/v1/feed/reels_media/?reel_ids=highlight%3A${info.id}`).catch(() => null);
-      if (r?.status === 200) {
-        try {
-          const j = JSON.parse(r.body.toString('utf8'));
-          const items = [];
-          for (const rid of Object.keys(j.reels || {})) {
-            for (const cru of (j.reels[rid].items || [])) {
-              const it = nodeToItem(cru, '');
-              if (it?.medias?.length) items.push(it);
-            }
-          }
-          if (items.length) return items;
-        } catch {}
-      }
-    }
     // yt-dlp no URL do highlight
     try {
       const it = await ytdlpUrl(info.url);
       if (it?.medias?.[0]?.url) return [it];
     } catch {}
-    throw new Error('Highlight indisponível (sessão precisa de estar válida — .cap login <cookies>)');
+    throw new Error('Highlight indisponível publicamente ou o provider externo falhou.');
   }
   // post / reel / tv: padrão público e sem cookies primeiro.
   const erros = [];
@@ -805,22 +492,6 @@ async function itemDeLink(link) {
     const it = await embedItem(info.shortcode);
     if (it?.medias?.[0]?.url) return [it];
   } catch (e) { erros.push('embed: ' + e.message.slice(0, 60)); }
-  // sessão: shortcode → media info via oEmbed (dá o pk) → /media/{pk}/info/
-  try {
-    const oe = await httpGet(`https://api.instagram.com/oembed/?url=${encodeURIComponent(info.url)}`, { headers: { 'User-Agent': UA }, timeout: 15000 });
-    if (oe.status === 200) {
-      const j = JSON.parse(oe.body.toString('utf8'));
-      const mid = String(j.media_id || '').split('_')[0];
-      if (mid) {
-        const r = await igGet(`/api/v1/media/${mid}/info/`).catch(() => null);
-        if (r?.status === 200) {
-          const jm = JSON.parse(r.body.toString('utf8'));
-          const cru = jm.items?.[0];
-          if (cru) { const it = nodeToItem(cru, ''); if (it?.medias?.length) return [it]; }
-        }
-      }
-    }
-  } catch {}
   throw new Error(`Não consegui baixar o link (${erros.join(' · ')})`);
 }
 
@@ -868,8 +539,6 @@ async function ytdlpProfile(username, maxPosts = 12) {
   const { execFile } = require('child_process');
   const run = (bin, args) => new Promise((res, rej) => execFile(bin, args, { timeout: 45000, maxBuffer: 30 * 1024 * 1024 }, (e, out, err) => e ? rej(new Error((err || e.message).split('\n')[0].slice(0, 140))) : res(out)));
   const args = ['-j', '--flat-playlist', '--no-warnings', '--playlist-items', `1-${Math.max(2, maxPosts)}`];
-  const cf = ytdlpCookieFile();
-  if (cf) args.push('--cookies', cf);
   let out;
   try { out = await run('yt-dlp', [...args, `https://www.instagram.com/${u}/`]); }
   catch (e1) { try { out = await run('python3', ['-m', 'yt_dlp', ...args, `https://www.instagram.com/${u}/`]); } catch { return null; } }
@@ -896,10 +565,9 @@ async function ytdlpProfile(username, maxPosts = 12) {
 
 // cache de perfil (3 min) — o bot tinha-se auto-429 com spam de .cap ver
 const _profCache = new Map();
-// ── v12.9.12: FEED via graphql/query web (doc_id 9310670392322965) ──
-// A /api/v1 está bloqueada por IP em datacenters; o graphql da WEB
-// (com cookies de sessão) continua a servir o timeline — o mesmo canal
-// dos stories do yt-dlp. Resposta: data.xdt_api__v1__feed__user_timeline_graphql_connection
+// ── Feed por GraphQL web público ────────────────────────────────
+// Usa apenas a página/GraphQL que o navegador visitante consegue abrir.
+// Se a fonte limitar a consulta, a cadeia cai em yt-dlp e SnapInsta públicos.
 async function feedViaGraphql(username, first = 12, after = '') {
   const u = normUser(username);
   const vars = { username: u, first };
@@ -917,12 +585,9 @@ async function feedViaGraphql(username, first = 12, after = '') {
     }
     return { items: items.sort((a, b) => a.ts - b.ts), hasMore: !!conn?.page_info?.has_next_page, endCursor: conn?.page_info?.end_cursor || '' };
   };
-  const hG = igHeaders(pickSession());
   const base = {
-    'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', Accept: '*/*',
+    ...PUBLIC_IG_HEADERS, 'User-Agent': UA, 'X-Requested-With': 'XMLHttpRequest', Accept: '*/*',
     Referer: `https://www.instagram.com/${u}/`,
-    ...(hG.Cookie ? { Cookie: hG.Cookie } : {}),
-    ...(hG['X-IG-App-ID'] ? { 'X-IG-App-ID': hG['X-IG-App-ID'] } : {}),
   };
   // 1) GET — canal documentado (scrapfly Set/2026)
   try {
@@ -930,20 +595,19 @@ async function feedViaGraphql(username, first = 12, after = '') {
     const r = await httpGet(q, { headers: base, timeout: 20000 });
     if (r.status === 200 && r.body && String(r.body.slice(0, 1)) !== '<') return _parse(r.body);
   } catch {}
-  // 2) POST /api/graphql — EXACTAMENTE como o XHR do navegador: LSD da página + csrftoken do jar
+  // 2) POST com o token LSD que a página pública expõe, sem jar de cookies.
   try {
     await new Promise(r2 => setTimeout(r2, _rand(700, 1600)));
     const hp = await htmlPayload(u);
-    const csrf = (String(hG.Cookie || '').match(/csrftoken=([^;]+)/) || [])[1] || '';
-    const lsd = hp.lsd || csrf;
-    if (!lsd) throw new Error('sem LSD');
+    const lsd = hp.lsd;
+    if (!lsd) throw new Error('sem LSD público');
     const body = new URLSearchParams({
       lsd, fb_api_caller_class: 'RelayModern',
       fb_api_req_friendly_name: 'PolarisProfilePostsTabContentQuery_connection',
       variables: JSON.stringify(vars), doc_id: '9310670392322965', server_timestamps: 'true',
     }).toString();
     const r2 = await httpReq('POST', 'https://www.instagram.com/api/graphql', {
-      headers: { ...base, 'X-FB-LSD': lsd, 'X-FB-Friendly-Name': 'PolarisProfilePostsTabContentQuery_connection', ...(csrf ? { 'X-CSRFToken': csrf } : {}) },
+      headers: { ...base, 'X-FB-LSD': lsd, 'X-FB-Friendly-Name': 'PolarisProfilePostsTabContentQuery_connection' },
       timeout: 20000, body,
     });
     if (r2.status === 200 && r2.body && String(r2.body.slice(0, 1)) !== '<') return _parse(r2.body);
@@ -1045,35 +709,20 @@ async function htmlPayload(username) {
     return o;
   };
   const out = { user: null, og: null, lsd: '', posts: [], status: 0 };
-  const _try = async (comCookie) => {
-    try {
-      const h = comCookie ? igHeaders(pickSession()) : {};
-      const r = await httpGet(`https://www.instagram.com/${u}/`, {
-        headers: {
-          'User-Agent': UA, 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8', 'Upgrade-Insecure-Requests': '1',
-          ...(h.Cookie ? { Cookie: h.Cookie } : {}), ...(h['X-IG-App-ID'] ? { 'X-IG-App-ID': h['X-IG-App-ID'] } : {}),
-        }, timeout: 20000,
-      });
-      out.status = r.status;
-      if (r.status === 200 && r.body) {
-        const p = _parse(r.body.toString('utf8'));
-        out.user = out.user || p.user;
-        out.og = out.og || p.og;
-        out.lsd = out.lsd || p.lsd;
-        if (!out.posts.length) out.posts = p.posts;
-      }
-    } catch {}
-  };
-  // 1ª tentativa LOGADO (a vista de utilizador)
-  const tinhaSessao = !!igHeaders(pickSession()).Cookie;
-  await _try(true);
-  // 2ª tentativa COMO VISITANTE (sem cookies) — é AQUI que o IG serve os números
-  // (og:description + xig_user_by_username completos). A vista logada vem em modo app-shell.
-  if (!out.user && !out.og && tinhaSessao) {
-    await new Promise(r2 => setTimeout(r2, _rand(400, 1000)));
-    await _try(false);
-  }
+  try {
+    const r = await httpGet(`https://www.instagram.com/${u}/`, {
+      headers: { ...PUBLIC_IG_HEADERS, 'User-Agent': UA, 'Upgrade-Insecure-Requests': '1' },
+      timeout: 20000,
+    });
+    out.status = r.status;
+    if (r.status === 200 && r.body) {
+      const parsed = _parse(r.body.toString('utf8'));
+      out.user = parsed.user;
+      out.og = parsed.og;
+      out.lsd = parsed.lsd;
+      out.posts = parsed.posts;
+    }
+  } catch {}
   _htmlCache.set(ck, { at: Date.now(), v: out });
   return out;
 }
@@ -1124,76 +773,32 @@ async function perfilStats(username) {
   const hit = _statsCache.get(ck);
   if (hit && Date.now() - hit.at < 300e3) return hit.v;
   const out = { username: u, nome: '', bio: '', seguidores: 0, seguindo: 0, posts: 0, privado: false, verificado: false, foto: '', id: '', fontes: [] };
-  // FONTE 1: web_profile_info (APP-UA primeiro — v12.9.21)
-  try {
-    let r = await igGetApp(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
-    if (r.status !== 200) r = await igGet(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
-    if (r.status === 200) {
-      const d = JSON.parse(r.body.toString('utf8'))?.data?.user;
-      if (d) {
-        out.id = String(d.id || ''); out.nome = d.full_name || ''; out.bio = d.biography || '';
-        out.seguidores = d.edge_followed_by?.count || 0; out.seguindo = d.edge_follow?.count || 0;
-        out.posts = d.edge_owner_to_timeline_media?.count || 0;
-        out.privado = !!d.is_private; out.verificado = !!d.is_verified;
-        out.foto = out.foto || fotoHD(d.profile_pic_url_hd || d.profile_pic_url || '');
-        out.fontes.push('web_profile');
-      }
-    }
-  } catch {}
-  // FONTE 2: A PRÓPRIA PÁGINA (payload embutido xig_user_by_username + og:description)
+  // FONTE 1: a página pública do próprio perfil (HTML/metadata).
   try {
     const hp = await htmlPayload(u);
     if (hp.user) {
       const ju = hp.user;
-      out.id = out.id || String(ju.pk || ju.id || '');
-      out.nome = out.nome || ju.full_name || '';
-      out.bio = out.bio || ju.biography || '';
-      out.seguidores = out.seguidores || ju.follower_count || ju.edge_followed_by?.count || 0;
-      out.seguindo = out.seguindo || ju.following_count || ju.edge_follow?.count || 0;
-      out.posts = out.posts || ju.media_count || ju.edge_owner_to_timeline_media?.count || 0;
-      out.privado = out.privado || !!ju.is_private;
-      out.verificado = out.verificado || !!ju.is_verified;
-      out.foto = out.foto || fotoHD(ju.profile_pic_url_hd || ju.profile_pic_url || '');
-      out.fontes.push('html-payload');
+      out.id = String(ju.pk || ju.id || '');
+      out.nome = ju.full_name || '';
+      out.bio = ju.biography || '';
+      out.seguidores = ju.follower_count || ju.edge_followed_by?.count || 0;
+      out.seguindo = ju.following_count || ju.edge_follow?.count || 0;
+      out.posts = ju.media_count || ju.edge_owner_to_timeline_media?.count || 0;
+      out.privado = !!ju.is_private;
+      out.verificado = !!ju.is_verified;
+      out.foto = fotoHD(ju.profile_pic_url_hd || ju.profile_pic_url || '');
+      out.fontes.push('html-publico');
     }
     if (hp.og) {
       const og = hp.og;
-      if (og.followers) { out.seguidores = out.seguidores || og.followers; out.fontes.push('og-html'); }
+      if (og.followers) { out.seguidores = out.seguidores || og.followers; out.fontes.push('og-publico'); }
       if (og.following) out.seguindo = out.seguindo || og.following;
       if (og.posts) out.posts = out.posts || og.posts;
       if (!out.nome && og.nome) out.nome = og.nome;
-      if (!out.username && og.user) out.username = og.user;
     }
   } catch {}
-  // FONTE 3: usernameinfo app (se temos id) — bio completa
-  if (!out.id) {
-    try {
-      const r3 = await igGetApp(`/api/v1/users/search/?q=${encodeURIComponent(u)}`).catch(() => null);
-      if (r3.status === 200) {
-        const us = (JSON.parse(r3.body.toString('utf8'))?.users || []).find(x => String(x.username).toLowerCase() === u);
-        if (us) { out.id = String(us.pk); out.nome = out.nome || us.full_name || ''; out.seguidores = out.seguidores || us.follower_count || 0; out.privado = out.privado || !!us.is_private; out.foto = out.foto || fotoHD(us.profile_pic_url || ''); out.fontes.push('search'); }
-      }
-    } catch {}
-  }
-  if (out.id) {
-    try {
-      const r4 = await igGetApp(`/api/v1/users/${out.id}/usernameinfo/`).catch(() => null);
-      if (r4.status === 200) {
-        const ju = JSON.parse(r4.body.toString('utf8'))?.user;
-        if (ju) {
-          out.seguidores = out.seguidores || ju.follower_count || 0;
-          out.seguindo = out.seguindo || ju.following_count || 0;
-          out.posts = out.posts || ju.media_count || 0;
-          out.bio = out.bio || ju.biography || '';
-          out.verificado = out.verificado || !!ju.is_verified;
-          out.foto = out.foto || fotoHD(ju.hd_profile_pic_url_info?.url || ju.profile_pic_url || '');
-          out.fontes.push('usernameinfo');
-        }
-      }
-    } catch {}
-  }
-  // FONTE 5: consulta pública por @ no IQSaved. Só entra quando os canais
-  // oficiais não devolveram números; evita depender dela em operação normal.
+  // FONTE 2: página pública complementar por @ quando a página do IG não
+  // expõe as métricas naquele momento. Nunca consulta endpoints de conta/app.
   if (!out.seguidores && !out.posts) {
     try {
       const pub = await perfilPublicoIqSaved(u);
@@ -1235,10 +840,9 @@ function crescimento(username, dias = 30) {
   return { username: normUser(username), serie, delta, mediaDia: Math.round(delta / d1), desde: primeiro.d, ate: ultimo.d };
 }
 
-// v12.9.17 — RESGATE TOTAL: se TODA a API falhar (web_profile 429, search 401,
-// feed/user bloqueado), monta o perfil pelos canais web por USERNAME:
-// graphql (GET→POST) + página embutida (visitante) + stats (og/search).
-// O bot funciona DE QUALQUER FORMA ou falha com a verdade.
+// Resgate público: se uma fonte limitar o pedido, monta o perfil por
+// username com GraphQL web, página embutida de visitante e métricas públicas.
+// Se nenhuma fonte expuser mídia, devolve a limitação real.
 async function rescueProfile(u) {
   const un = normUser(u);
   let items = [];
@@ -1266,213 +870,59 @@ async function rescueProfile(u) {
 
 async function igProfile(username) {
   const u = normUser(username);
-  const _ck = 'p:' + u;
-  const _hit = _profCache.get(_ck);
-  if (_hit && Date.now() - _hit.at < 180e3) return _hit.v;
-  // Conta pública sem login: SnapInsta já devolve as mídias do perfil e evita
-  // a cadeia Instagram que recebe 429 neste IP. Sessões continuam prioritárias
-  // para privado, feed completo e qualquer fallback autenticado.
-  if (!sessionsAtivas().length) {
-    try {
-      const pub = await snapInstaProfile(u);
-      _profCache.set(_ck, { at: Date.now(), v: pub });
-      return pub;
-    } catch {}
+  const cacheKey = 'p:' + u;
+  const cached = _profCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 180e3) return cached.v;
+
+  // Cadeia sem credenciais: SnapInsta → página/GraphQL pública → yt-dlp.
+  // Só perfis e mídias que o próprio Instagram deixa públicos são capturáveis.
+  let profile = null;
+  try { profile = await snapInstaProfile(u); } catch {}
+  if (!profile) profile = await rescueProfile(u).catch(() => null);
+  if (!profile) profile = await ytdlpProfile(u, 120).catch(() => null);
+  if (!profile?.items?.length) {
+    throw new Error(`Não consegui obter mídia pública de @${u} agora. Perfis privados, stories expirados e conteúdo removido não são acessíveis sem autorização.`);
   }
-  // v12.9.21: CANAL DA APP PRIMEIRO — web_profile_info (web-UA) é o mais
-  // bloqueado de todos; users/search e feed/user com UA da APP provaram passar.
-  let r = await igGetApp(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
-  if (r.status !== 200) r = await igGet(`/api/v1/users/web_profile_info/?username=${encodeURIComponent(u)}`);
-  // v12.9.9: web_profile_info é o endpoint mais bloqueado; users/search
-  // (endpoint app) provou responder 200 mesmo em IP castigado — dá pk,
-  // nome, follower_count, foto e privado.
-  if (r.status !== 200) {
-    const rs = await igGetApp(`/api/v1/users/search/?q=${encodeURIComponent(u)}`).catch(() => null);
-    const us = (() => { try { return JSON.parse(rs?.body?.toString('utf8') || '{}')?.users || []; } catch { return []; } })()
-      .find(x => String(x.username || '').toLowerCase() === u);
-    if (us?.pk) {
-      // enriquece (seguidores/posts/bio) via usernameinfo app-UA — best-effort
-      let _extra = {};
-      try {
-        const ri = await igGetApp(`/api/v1/users/${us.pk}/usernameinfo/`).catch(() => null);
-        const ji = JSON.parse(ri.body.toString('utf8'));
-        if (ji?.user) _extra = { seguidores: ji.user.follower_count || 0, seguindo: ji.user.following_count || 0, posts: ji.user.media_count || 0, bio: ji.user.biography || '', privado: !!ji.user.is_private };
-      } catch {}
-      // tenta feed app directo; se falhar, yt-dlp
-      const rf = await igGet(`/api/v1/feed/user/${us.pk}/?count=12`).catch(() => null);
-      const itensFeed = (() => { try { return JSON.parse(rf?.body?.toString('utf8') || '{}')?.items || []; } catch { return []; } })();
-      const items = itensFeed.map(it => nodeToItem(it, u)).filter(x => x.medias?.length).sort((a, b) => a.ts - b.ts);
-      if (!items.length) {
-        // v12.9.16: CANAL DA APP — o mesmo request da app oficial c/ a tua sessão
-        try {
-          const a = await feedViaApp(String(us.pk), u, 12);
-          if (a.items?.length) { items.push(...a.items); items.sort((x, y) => x.ts - y.ts); }
-        } catch {}
-      }
-      if (!items.length) {
-        // v12.9.12: graphql web (canal vivo) → posts reais
-        try {
-          const g = await feedViaGraphql(u, 12);
-          if (g.items?.length) { items.push(...g.items); items.sort((a, b) => a.ts - b.ts); }
-        } catch {}
-        // v12.9.14: posts EMBUTIDOS na própria página do perfil (SSR)
-        if (!items.length) {
-          try {
-            const hp = await htmlPayload(u);
-            const its = (hp.posts || []).map(n => { try { return nodeToItem(n, u); } catch { return null; } }).filter(x => x?.medias?.length && x.medias[0].url);
-            if (its.length) { items.push(...its); items.sort((a, b) => a.ts - b.ts); }
-          } catch {}
-        }
-      }
-      // v12.9.13: ESTATÍSTICAS VERDADEIRAS via perfilStats (og-html + usernameinfo + search)
-      let _stats = {};
-      try { _stats = await perfilStats(u); } catch {}
-      const _ret = {
-        id: String(us.pk), username: u, nome: us.full_name || _stats.nome || '@' + u, bio: _extra.bio || _stats.bio || '',
-        privado: _extra.privado != null ? _extra.privado : !!us.is_private,
-        seguidores: _stats.seguidores || _extra.seguidores || us.follower_count || 0,
-        seguindo: _stats.seguindo || _extra.seguindo || 0,
-        posts: _stats.posts || _extra.posts || items.length,
-        highlights: 0, temReels: items.some(i => i.tipo === 'reel'),
-        foto: fotoHD(us.profile_pic_url || _stats.foto || ''),
-        verificado: _stats.verificado || false,
-        items, hasMore: false, endCursor: '', via: items.length ? 'app-search' : 'search',
-      };
-      _profCache.set(_ck, { at: Date.now(), v: _ret });
-      return _ret;
-    }
-  }
-  if (r.status === 404) throw new Error(`Perfil @${u} não existe`);
-  if (r.status !== 200) {
-    // v12.9.17: RESGATE pelos canais web ANTES de desistir
-    const res = await rescueProfile(u).catch(() => null);
-    if (res) { _profCache.set(_ck, { at: Date.now(), v: res }); return res; }
-    // v12.9.8: API limitada → yt-dlp (mesmo caminho do .cap link, comprovado no servidor)
-    const alt = await ytdlpProfile(u, 12).catch(() => null);
-    if (alt) { _profCache.set(_ck, { at: Date.now(), v: alt }); return alt; }
-    if (r.status === 429) throw new Error(`Instagram respondeu HTTP 429 — IP limitado, canais web e yt-dlp falharam (define CAP_PROXY no .env ou espera 30-60 min)`);
-    throw new Error(`Instagram respondeu HTTP ${r.status}${r.status === 401 || r.status === 403 ? ' (rate-limit/login)' : ''} — todos os canais falharam`);
-  }
-  let j; try { j = JSON.parse(r.body.toString('utf8')); } catch {
-    const res = await rescueProfile(u).catch(() => null);
-    if (res) { _profCache.set(_ck, { at: Date.now(), v: res }); return res; }
-    const alt = await ytdlpProfile(u, 12).catch(() => null);
-    if (alt) { _profCache.set(_ck, { at: Date.now(), v: alt }); return alt; }
-    throw new Error('Resposta do Instagram não é JSON (bloqueio temporário?) — todos os canais falharam');
-  }
-  const d = j?.data?.user;
-  if (!d) {
-    const res = await rescueProfile(u).catch(() => null);
-    if (res) { _profCache.set(_ck, { at: Date.now(), v: res }); return res; }
-    const alt = await ytdlpProfile(u, 12).catch(() => null);
-    if (alt) { _profCache.set(_ck, { at: Date.now(), v: alt }); return alt; }
-    throw new Error(`Perfil @${u} indisponível`);
-  }
-  const edges = d.edge_owner_to_timeline_media?.edges || [];
-  const ret = {
-    id: d.id, username: u, nome: d.full_name, bio: d.biography || '', privado: !!d.is_private,
-    seguidores: d.edge_followed_by?.count || 0, seguindo: d.edge_follow?.count || 0, posts: d.edge_owner_to_timeline_media?.count || 0,
-    highlights: d.highlight_reel_count || 0, temReels: !!d.has_clips,
-    foto: fotoHD(d.profile_pic_url_hd || d.profile_pic_url || ''),
-    items: edges.map(e => nodeToItem(e.node, u)).sort((a, b) => a.ts - b.ts),
-    hasMore: !!d.edge_owner_to_timeline_media?.page_info?.has_next_page,
-    endCursor: d.edge_owner_to_timeline_media?.page_info?.end_cursor || '',
-  };
-  _profCache.set(_ck, { at: Date.now(), v: ret });
-  return ret;
+  _profCache.set(cacheKey, { at: Date.now(), v: profile });
+  return profile;
 }
 
-// Paginação completa — só funciona com sessão; sem sessão devolve [] silenciosamente.
-async function igFeedAll(userId, username, maxPages = 15) {
-  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
-  const out = []; let maxId = '';
-  for (let i = 0; i < maxPages; i++) {
-    // v12.9.21: CANAL DA APP PRIMEIRO (o web-UA leva 401 à primeira)
-    let r = await igGetApp(`/api/v1/feed/user/${userId}/?count=33${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ''}`);
-    if (r.status !== 200) r = await igGet(`/api/v1/feed/user/${userId}/?count=33${maxId ? `&max_id=${encodeURIComponent(maxId)}` : ''}`);
-    if (r.status !== 200 && i === 0) {
-      // graphql web → yt-dlp (o canal da APP já foi tentado acima)
-      try {
-        let a = await feedViaApp(userId, username, 33);
-        const all = [...a.items];
-        let pgs = 0;
-        while (a.hasMore && a.nextMaxId && pgs < 4) { await new Promise(r2 => setTimeout(r2, _rand(1200, 2600))); a = await feedViaApp(userId, username, 33, a.nextMaxId); all.push(...a.items); pgs++; }
-        if (all.length) return { items: all.sort((x, y) => x.ts - y.ts), needsLogin: false };
-      } catch {}
-      try {
-        let g = await feedViaGraphql(username, 33);
-        const all = [...g.items];
-        let pages = 0;
-        while (g.hasMore && g.endCursor && pages < 4) { await new Promise(r2 => setTimeout(r2, _rand(1200, 2600))); g = await feedViaGraphql(username, 33, g.endCursor); all.push(...g.items); pages++; }
-        if (all.length) return { items: all.sort((a, b) => a.ts - b.ts), needsLogin: false };
-      } catch {}
-      const alt = await ytdlpProfile(username, 33).catch(() => null);
-      if (alt?.items?.length) return { items: alt.items, needsLogin: false };
-      break;
+// Paginação pública: usa somente a janela que GraphQL/yt-dlp/SnapInsta expõem.
+async function igFeedAll(_userId, username, maxPages = 15) {
+  const u = normUser(username);
+  // GraphQL público pode paginar; se não responder, yt-dlp e SnapInsta ainda
+  // entregam toda a janela de mídia que estiver publicamente disponível.
+  try {
+    let page = await feedViaGraphql(u, 33);
+    const items = [...(page.items || [])];
+    let pages = 0;
+    while (page.hasMore && page.endCursor && pages++ < Math.min(14, maxPages - 1)) {
+      await new Promise(resolve => setTimeout(resolve, _rand(800, 1800)));
+      page = await feedViaGraphql(u, 33, page.endCursor);
+      items.push(...(page.items || []));
     }
-    if (r.status !== 200) break;
-    let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { break; }
-    const items = j.items || [];
-    if (!items.length) break;
-    for (const it of items) out.push(nodeToItem(it, username));
-    if (!j.more_available || !j.next_max_id) break;
-    maxId = j.next_max_id;
-    await new Promise(r => setTimeout(r, _rand(900, 2200)));  // v12.9.12 humano
-  }
-  if (!out.length) {
-    // v12.9.12: graphql web → yt-dlp
-    try {
-      const g = await feedViaGraphql(username, 33);
-      if (g.items?.length) return { items: g.items, needsLogin: false };
-    } catch {}
-    const alt = await ytdlpProfile(username, 33).catch(() => null);
-    if (alt?.items?.length) return { items: alt.items, needsLogin: false };
-  }
-  return { items: out.sort((a, b) => a.ts - b.ts), needsLogin: false };
+    if (items.length) return { items: items.sort((a, b) => a.ts - b.ts), needsLogin: false };
+  } catch {}
+  const ytdlp = await ytdlpProfile(u, Math.min(120, Math.max(33, maxPages * 8))).catch(() => null);
+  if (ytdlp?.items?.length) return { items: ytdlp.items, needsLogin: false };
+  const snap = await snapInstaProfile(u).catch(() => null);
+  return { items: snap?.items || [], needsLogin: false };
 }
 
-async function igStories(userId, username) {
-  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
-  // v12.9.21: reels_media é o canal QUE FUNCIONA (200 até com IP queimado) —
-  // mas ia com UA web! Agora primeiro com os headers DA APP (o estilo vencedor).
-  let r = await igGetApp(`/api/v1/feed/reels_media/?reel_ids=${userId}`);
-  if (r.status !== 200) r = await igGet(`/api/v1/feed/reels_media/?reel_ids=${userId}`);
-  if (r.status !== 200) {
-    // v12.9.9: yt-dlp saca stories activos com cookies (https://www.instagram.com/stories/<user>/)
-    const alt = await ytdlpProfile(`stories/${normUser(username)}`, 20).catch(() => null)
-      || await (async () => { try { return await ytdlpUrl(`https://www.instagram.com/stories/${normUser(username)}/`); } catch { return null; } })();
-    if (alt?.items?.length) return { items: alt.items, needsLogin: false };
-    return { items: [], needsLogin: r.status === 401 || r.status === 403, error: `HTTP ${r.status}` };
+async function igStories(_userId, username) {
+  try {
+    return { items: await storiesPublicItems(username), needsLogin: false };
+  } catch (error) {
+    // Stories apenas existem enquanto públicos e activos; não há fallback de
+    // autenticação ou conta de terceiros.
+    return { items: [], needsLogin: false, error: String(error?.message || 'stories públicos indisponíveis') };
   }
-  let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { items: [], error: 'JSON' }; }
-  const reel = j.reels?.[userId] || j.reels_media?.[0];
-  const items = (reel?.items || []).map(s => {
-    const v = s.video_versions?.[0]?.url; const i = s.image_versions2?.candidates?.[0]?.url;
-    return { id: `s_${s.pk || s.id}`, shortcode: String(s.pk || s.id), tipo: 'story', ts: (s.taken_at || 0) * 1000, caption: s.caption?.text || '', link: `https://www.instagram.com/stories/${username}/${s.pk || s.id}/`, medias: [{ url: v || i, isVideo: !!v }], username, expira: (s.expiring_at || 0) * 1000 };
-  }).filter(s => s.medias[0].url);
-  return { items, needsLogin: false };
 }
 
-async function igHighlights(userId, username) {
-  if (!sessionsAtivas().length) return { items: [], needsLogin: true };
-  const r = await igGet(`/api/v1/highlights/${userId}/highlights_tray/`);
-  if (r.status !== 200) return { items: [], needsLogin: r.status === 401 || r.status === 403 || r.status === 302, error: `HTTP ${r.status}` };
-  let j; try { j = JSON.parse(r.body.toString('utf8')); } catch { return { items: [], error: 'JSON' }; }
-  const trays = j.tray || [];
-  const items = [];
-  for (const tr of trays.slice(0, 20)) {
-    const rid = String(tr.id || '').replace('highlight:', '');
-    const rr = await igGet(`/api/v1/feed/reels_media/?reel_ids=highlight%3A${rid}`).catch(() => null);
-    if (!rr || rr.status !== 200) continue;
-    let jj; try { jj = JSON.parse(rr.body.toString('utf8')); } catch { continue; }
-    const reel = jj.reels?.[`highlight:${rid}`] || jj.reels_media?.[0];
-    for (const s of reel?.items || []) {
-      const v = s.video_versions?.[0]?.url; const i = s.image_versions2?.candidates?.[0]?.url;
-      if (v || i) items.push({ id: `h_${s.pk || s.id}`, shortcode: String(s.pk || s.id), tipo: 'highlight', ts: (s.taken_at || 0) * 1000, caption: tr.title || '', link: `https://www.instagram.com/stories/highlights/${rid}/`, medias: [{ url: v || i, isVideo: !!v }], username });
-    }
-    await new Promise(r => setTimeout(r, 600));
-  }
-  return { items, needsLogin: false, albuns: trays.map(t => t.title) };
+async function igHighlights(_userId, _username) {
+  // A listagem de highlights não é exposta de modo público estável. Um link
+  // directo de highlight continua a ser tratado por itemDeLink/SnapInsta.
+  return { items: [], needsLogin: false, error: 'Use um link público directo do highlight.' };
 }
 
 const PROVIDERS = {
@@ -1590,8 +1040,6 @@ function addTarget(arg, { destino, addedBy } = {}) {
 function delTarget(arg) { load(); const { platform, username } = parseTargetArg(arg); const key = keyOf(platform, username); const had = !!state.targets[key]; delete state.targets[key]; save(); return had; }
 function listTargets() { load(); return Object.values(state.targets); }
 function setTargetOpt(arg, patch) { const t = getTarget(arg); if (!t) throw new Error('Alvo não encontrado'); Object.assign(t, patch); save(); return t; }
-function setSession(platform, value) { load(); if (!value) { state.session.ig = ''; state.session.igPool = []; } else { state.session.igPool = [{ sid: String(value).trim(), user: '', ok: true, addedAt: Date.now() }]; state.session.ig = String(value).trim(); } save(); }
-function hasSession(platform = 'ig') { load(); return sessionsAtivas().length > 0; }
 
 // ─────────────────────────────────────────────────────────────
 // ENVIO PARA WHATSAPP
@@ -1763,12 +1211,12 @@ async function processarItem(sock, t, item, { destinos, guardar = t.guardar, for
 async function verificarAlvo(sock, t, { forcar = false, incluirStories = t.stories !== false } = {}) {
   const prov = PROVIDERS[t.platform];
   if (!prov) throw new Error('provider inexistente');
-  const res = { alvo: t.key, novos: 0, baixados: 0, falhados: 0, enviados: 0, stories: 0, storiesNeedLogin: false, erro: null, perfil: null };
+  const res = { alvo: t.key, novos: 0, baixados: 0, falhados: 0, enviados: 0, stories: 0, erro: null, perfil: null };
   try {
     const perfil = await prov.profile(t.username);
     t.userId = perfil.id; t.nome = perfil.nome; t.privado = perfil.privado; t.totalPosts = perfil.posts;
     res.perfil = perfil;
-    if (perfil.privado && !sessionsAtivas().length) { res.erro = 'perfil privado — requer login'; t.lastCheck = Date.now(); save(); return res; }
+    if (perfil.privado) { res.erro = 'perfil privado — conteúdo público indisponível'; t.lastCheck = Date.now(); save(); return res; }
 
     let items = perfil.items;
     if (incluirStories) {
@@ -1778,7 +1226,6 @@ async function verificarAlvo(sock, t, { forcar = false, incluirStories = t.stori
       if (publicStories.length) items = items.concat(publicStories);
       else {
         const st = await prov.stories(perfil.id, t.username).catch(e => ({ items: [], error: e.message }));
-        res.storiesNeedLogin = !!st.needsLogin;
         items = items.concat(st.items || []);
       }
     }
@@ -1814,7 +1261,7 @@ async function verificarAlvo(sock, t, { forcar = false, incluirStories = t.stori
   return res;
 }
 
-// "Capture all": baixa tudo o que estiver acessível (12 sem login; tudo com sessão) e envia para destinos.
+// "Capture all": baixa toda a janela de mídia pública que os provedores externos disponibilizarem.
 async function capturarTudo(sock, t, { destinos, limite = 200, onProgress } = {}) {
   const prov = PROVIDERS[t.platform];
   const perfil = await prov.profile(t.username);
@@ -1823,7 +1270,7 @@ async function capturarTudo(sock, t, { destinos, limite = 200, onProgress } = {}
   // A lista pública SnapInsta é útil sem login, mas não oferece paginação
   // verificável; só marcamos completo quando o provider confirma o fim.
   let completo = !perfil.hasMore && perfil.via !== 'snapinsta-profile';
-  const full = await prov.feedAll(perfil.id, t.username).catch(() => ({ items: [], needsLogin: true }));
+  const full = await prov.feedAll(perfil.id, t.username).catch(() => ({ items: [] }));
   if (full.items?.length > items.length) { items = full.items; completo = true; }
   // Stories públicos entram pelo mesmo provider do comando/link; a sessão é
   // preservada apenas se o provider não enxergar conteúdo privado/expirado.
@@ -1834,7 +1281,7 @@ async function capturarTudo(sock, t, { destinos, limite = 200, onProgress } = {}
     items = items.concat(st.items || []);
   }
   items = items.slice(-limite);
-  const res = { total: items.length, baixados: 0, falhados: 0, enviados: 0, bytes: 0, completo, needsLogin: !!full.needsLogin, perfil };
+  const res = { total: items.length, baixados: 0, falhados: 0, enviados: 0, bytes: 0, completo, perfil };
   for (let i = 0; i < items.length; i++) {
     const r = await processarItem(sock, t, items[i], { destinos, forcar: true });
     if (r.baixou || r.parcial) res.baixados++; else res.falhados++;
@@ -1864,15 +1311,6 @@ async function tick() {
     const sock = typeof _getSock === 'function' ? _getSock() : null;
     if (!sock) return;
     const now = Date.now();
-    // aviso ao dono quando uma sessão ficou inválida (1x por sessão)
-    const pool = Array.isArray(state.session?.igPool) ? state.session.igPool : [];
-    for (const sx of pool) {
-      if (sx.ok === false && !sx.avisado) {
-        sx.avisado = true; save();
-        const owner = String(process.env.OWNER_NUMBER || '').replace(/\D/g, '');
-        if (owner) sock.sendMessage(`${owner}@s.whatsapp.net`, { text: `🔐 C∆P: a sessão Instagram${sx.user ? ' @' + sx.user : ''} expirou (${sx.lastErr || 'login_required'}).\nRefaz: cap login <sessionid>` }).catch(() => {});
-      }
-    }
     // v12.9.12: ordem aleatória (nunca a mesma sequência) + jitter ±35%
     const alvos = Object.values(state.targets).sort(() => Math.random() - 0.5);
     for (const t of alvos) {
@@ -1891,9 +1329,9 @@ async function tick() {
 module.exports = {
   PROVIDERS, DATA_DIR, DEFAULT_INTERVAL_MIN,
   load, save, arrancar, _reset, state,
-  parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt, setSession, hasSession,
-  validarSessao, validarSessaoDuplo, addSessao, delSessao, listSessoes, sessionsAtivas, marcarSessaoInvalida, igGet, carregarEnv, sincronizar, inferirUsername, feedViaGraphql, feedViaApp, perfilStats, perfilPublicoIqSaved, rescueProfile, addWebhook, delWebhook, listWebhooks, limparCache, crescimento, htmlPayload, fotoHD, igGetApp,
-  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, snapInstaItem, snapInstaPublicMedias, snapInstaProfile, storiesPublicas, storiesPublicItems, storyPublicItem, itemDeLink, normalizarCookies, sniffMime, baixarMedia,
+  parseTargetArg, keyOf, addTarget, delTarget, getTarget, listTargets, setTargetOpt,
+  igGet, sincronizar, feedViaGraphql, perfilStats, perfilPublicoIqSaved, rescueProfile, addWebhook, delWebhook, listWebhooks, limparCache, crescimento, htmlPayload, fotoHD,
+  igProfile, igFeedAll, igStories, igHighlights, nodeToItem, ytdlpItem, ytdlpProfile, ytdlpUrl, embedItem, resolverLink, snapInstaItem, snapInstaPublicMedias, snapInstaProfile, storiesPublicas, storiesPublicItems, storyPublicItem, itemDeLink, sniffMime, baixarMedia,
   processarItem, verificarAlvo, capturarTudo, listarGaleria, legenda,
   registar, jaVisto, marcarVisto,
   start, stop, tick,

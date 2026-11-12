@@ -1380,94 +1380,12 @@ module.exports = function (io) {
   router.get('/cap/state', requireApiOwner, async (req, res) => {
     const c = capE(); await c.sincronizar(true).catch(() => {});
     res.json({
-      sessoes: (c.state.session.igPool || []).map(s => ({ user: s.user, ok: s.ok !== false, lastErr: s.lastErr || '', addedAt: s.addedAt, id: s.id || '', porConfirmar: !!s.porConfirmar, temJar: !!(s.cookies && s.cookies.length > 40), sid: s.sid.slice(0, 14) + '…' })),
-      activa: (c.state.session.ig || '').slice(0, 14) + '…',
+      modo: 'publico-sem-login',
+      provedores: ['SnapInsta', 'Instagram público', 'yt-dlp', 'embed'],
       alvos: c.listTargets(), log: c.state.log.slice(0, 50),
     });
   });
-  router.post('/cap/login', requireApiOwner, async (req, res) => {
-    const c = capE();
-    try {
-      let sid = String(req.body.sessionid || '').trim();
-      let _jar = '';
-      if (/^[\[{]/.test(sid) || /csrftoken=|ds_user_id=|ig_did=/i.test(sid)) {
-        const nc = c.normalizarCookies(sid);
-        if (nc.sid) { sid = nc.sid; _jar = nc.jar; }
-      } else { const mm = sid.match(/sessionid=([^;\s]+)/i); if (mm) sid = mm[1]; }
-      if (!sid && req.body.username && req.body.password) {
-        const lg = await require('../cap/igLogin').loginComSenha(req.body.username, req.body.password);
-        // ── v12.8: Instagram pediu código → painel pede ao dono ──
-        if (!lg.ok && lg.precisaCodigo) {
-          return res.json({ ok: false, precisaCodigo: true, tipo: lg.tipo, user: lg.user, dica: lg.dica || '', aviso: lg.aviso || '' });
-        }
-        if (!lg.ok) return res.status(400).json({ error: lg.erro, aviso: lg.aviso || '', checkpoint: !!lg.checkpoint, twoFactor: !!lg.twoFactor });
-        if (lg.aviso) req.body._aviso = lg.aviso;
-        sid = lg.sid;
-      }
-      if (!sid) return res.status(400).json({ error: 'Envia sessionid ou username+password' });
-      const r = await c.addSessao(sid, { cookies: _jar });
-      if (!r.ok) return res.status(400).json({ error: r.erro });
-      res.json({ ok: true, user: r.user, validado: r.validado, aviso: r.aviso || req.body._aviso || '', sessoes: c.listSessoes() });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  });
-
-  // ── v12.8: confirmar o código de verificação (checkpoint/2FA) ──
-  router.post('/cap/codigo', requireApiOwner, async (req, res) => {
-    try {
-      const lg = require('../cap/igLogin');
-      const pend = lg.estadoPendente();
-      const alvo = String(req.body.username || '').trim() || (Array.isArray(pend) && pend.length ? pend[0].user : '');
-      if (!alvo) return res.status(400).json({ error: 'Nenhum login à espera de código. Faz login primeiro.' });
-      const r = await lg.confirmarCodigo(alvo, req.body.code);
-      if (!r.ok) return res.status(400).json({ error: r.erro });
-      const c = capE();
-      const rAdd = await c.addSessao(r.sid);
-      if (!rAdd.ok) return res.status(400).json({ error: 'Login OK mas validação falhou: ' + rAdd.erro });
-      res.json({ ok: true, user: r.user || rAdd.user, aviso: rAdd.aviso || '', sessoes: c.listSessoes() });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-  });
-
-  // ── v12.8: logins pendentes de código ──
-  router.get('/cap/pendentes', requireApiOwner, (req, res) => {
-    res.json({ pendentes: require('../cap/igLogin').estadoPendente() || [] });
-  });
-  router.post('/cap/logout', requireApiOwner, (req, res) => { const c = capE(); res.json({ removidas: c.delSessao(req.body.user || 'all'), sessoes: c.listSessoes() }); });
-  // v12.9.11c: remover por uid (id da sessão) — multi-contas
-  router.post('/cap/sessao/remover', requireApiOwner, (req, res) => {
-    const c = capE(); c.load();
-    const uid = String(req.body.id || '').replace(/\D/g, '');
-    const antes = (c.state.session.igPool || []).length;
-    c.state.session.igPool = (c.state.session.igPool || []).filter(s => String(s.id || '') !== uid && String(s.sid || '').split('%3A')[0] !== uid);
-    if (!c.state.session.igPool.some(x => x.sid === c.state.session.ig)) c.state.session.ig = c.state.session.igPool[0]?.sid || '';
-    c.save();
-    res.json({ ok: true, removidas: antes - c.state.session.igPool.length, sessoes: c.listSessoes() });
-  });
-  // activar uma sessão do pool (trocar a activa)
-  router.post('/cap/sessao/activar', requireApiOwner, (req, res) => {
-    const c = capE(); c.load();
-    const uid = String(req.body.id || '').replace(/\D/g, '');
-    const alvo = (c.state.session.igPool || []).find(s => String(s.id || '') === uid || String(s.sid || '').split('%3A')[0] === uid);
-    if (!alvo) return res.status(404).json({ error: 'sessão não encontrada' });
-    c.state.session.ig = alvo.sid; c.save();
-    res.json({ ok: true, activa: alvo.user || uid });
-  });
-  // inferir usernames em falta (botão "resolver @users")
-  router.post('/cap/sessao/inferir', requireApiOwner, async (req, res) => {
-    const c = capE(); c.load();
-    const out = [];
-    for (const s of (c.state.session.igPool || [])) {
-      if (s.user) continue;
-      const u = await c.inferirUsername(s.sid).catch(() => '');
-      if (u) { s.user = u; out.push({ id: s.id || '', user: u }); }
-    }
-    c.save();
-    res.json({ ok: true, resolvidos: out, sessoes: c.listSessoes() });
-  });
-  router.post('/cap/testar', requireApiOwner, async (req, res) => {
-    const c = capE(); const out = [];
-    for (const x of c.sessionsAtivas()) { const v = await c.validarSessao(x.sid); out.push({ user: x.user || v.user, ok: v.ok, erro: v.erro || '' }); if (!v.ok && !v.temporario) c.marcarSessaoInvalida(x.sid, v.erro); }
-    res.json({ resultados: out });
-  });
+  // C∆P público: não recebe, armazena nem valida logins/cookies do Instagram.
   router.post('/cap/alvo', requireApiOwner, async (req, res) => {
     const c = capE();
     try {
@@ -1558,7 +1476,7 @@ module.exports = function (io) {
     try {
       const c = igE(); const p = await c.PROVIDERS.ig.profile(req.params.username);
       const st = await c.PROVIDERS.ig.stories(p.id, req.params.username);
-      res.json({ ok: st.items.length > 0, total: st.items.length, stories: st.items.map(_iFmt), exige_login: !!st.needsLogin, erro: st.items.length ? undefined : 'Sem stories activos agora' });
+      res.json({ ok: st.items.length > 0, total: st.items.length, stories: st.items.map(_iFmt), modo: 'publico-sem-login', erro: st.items.length ? undefined : (st.error || 'Sem stories públicos activos agora') });
     } catch (e) { res.json({ ok: false, erro: e.message }); }
   });
 
@@ -1566,7 +1484,7 @@ module.exports = function (io) {
     try {
       const c = igE(); const p = await c.PROVIDERS.ig.profile(req.params.username);
       const h = await c.PROVIDERS.ig.highlights(p.id, req.params.username);
-      res.json({ ok: h.items.length > 0, total: h.items.length, albuns: h.albuns || [], highlights: h.items.map(_iFmt), exige_login: !!h.needsLogin });
+      res.json({ ok: h.items.length > 0, total: h.items.length, albuns: h.albuns || [], highlights: h.items.map(_iFmt), modo: 'publico-sem-login', erro: h.error || undefined });
     } catch (e) { res.json({ ok: false, erro: e.message }); }
   });
 
@@ -1589,22 +1507,22 @@ module.exports = function (io) {
     } catch (e) { res.json({ ok: false, erro: e.message }); }
   });
 
+  // Sem sessão não há busca geral legítima no Instagram. Aceita somente um
+  // @ exato e consulta as fontes públicas usadas pelo restante do C∆P.
   router.get('/ig/buscar/:q', _ig, async (req, res) => {
     try {
       const c = igE();
-      const r = await c.igGetApp(`/api/v1/users/search/?q=${encodeURIComponent(req.params.q)}`);
-      let jj = {}; try { jj = JSON.parse(r.body.toString('utf8')); } catch {}
-      const us = (jj?.users || []).slice(0, 10).map(u => ({
-        username: u.username, pk: String(u.pk), nome: u.full_name, verificado: !!u.is_verified, privado: !!u.is_private,
-        seguidores: u.follower_count || 0, foto_hd: _hd(u.profile_pic_url),
-      }));
-      res.json({ ok: us.length > 0, total: us.length, resultados: us, erro: us.length ? undefined : `IG HTTP ${r.status} — busca indisponível agora` });
+      const username = String(req.params.q || '').replace(/^@/, '').trim().toLowerCase();
+      if (!/^[a-z0-9._]{1,30}$/.test(username)) return res.status(400).json({ ok: false, erro: 'Use um @username exato do Instagram.' });
+      const u = await c.perfilStats(username);
+      const achou = !!(u.nome || u.seguidores || u.posts || u.foto);
+      const resultado = { username: u.username, pk: u.id || null, nome: u.nome, verificado: !!u.verificado, privado: !!u.privado, seguidores: u.seguidores || 0, foto_hd: _hd(u.foto) };
+      res.json({ ok: achou, modo: 'publico-sem-login', total: achou ? 1 : 0, resultados: achou ? [resultado] : [], erro: achou ? undefined : 'Perfil não exposto pelas fontes públicas agora' });
     } catch (e) { res.json({ ok: false, erro: e.message }); }
   });
 
-  router.get('/ig/sessoes', _ig, (req, res) => {
-    const c = igE();
-    res.json({ ok: true, total: c.sessionsAtivas().length, sessoes: c.listSessoes() });
+  router.get('/ig/sessoes', _ig, (_req, res) => {
+    res.json({ ok: true, modo: 'publico-sem-login', total: 0, sessoes: [] });
   });
 
   router.get('/ig/media', _ig, async (req, res) => {
@@ -1669,18 +1587,13 @@ module.exports = function (io) {
     res.json({ ok: c.delTarget(String(req.body.user || '')) });
   });
 
-  router.get('/ig/canal/:user', _ig, async (req, res) => {
-    try {
-      const c = igE();
-      const p = await c.PROVIDERS.ig.profile(req.params.user);
-      for (const rota of [`/api/v1/channels/discovery/?pk=${p.id}`, `/api/v1/text_feed/${p.id}/`]) {
-        const r = await c.igGetApp(rota).catch(() => null);
-        let j = {}; try { j = JSON.parse(r?.body?.toString('utf8') || '{}'); } catch {}
-        const items = (j.items || []).slice(0, 12).map(x => ({ texto: (x.text || '').slice(0, 200), ts: x.created_at ? new Date(x.created_at * 1000).toISOString() : null, midia: x.media?.image_versions2?.candidates?.[0]?.url || x.clip?.video_versions?.[0]?.url || null }));
-        if (items.length) return res.json({ ok: true, canal: j.channel?.channel_title || null, total: items.length, itens: items });
-      }
-      res.json({ ok: false, erro: `@${p.username} não expõe canal de difusão por API (só pela app)` });
-    } catch (e) { res.json({ ok: false, erro: e.message }); }
+  router.get('/ig/canal/:user', _ig, (req, res) => {
+    res.status(501).json({
+      ok: false,
+      modo: 'publico-sem-login',
+      erro: 'Canais de difusão não expõem uma fonte pública estável. O C∆P não usa endpoints privados de app nem credenciais para acessá-los.',
+      alternativa: `Use /api/ig/tudo/${encodeURIComponent(String(req.params.user || '').replace(/^@/, ''))} para o conteúdo público do perfil.`,
+    });
   });
 
   router.get('/ig/webhooks', _ig, (req, res) => {
@@ -1759,7 +1672,7 @@ module.exports = function (io) {
       node: process.version, uptime_seg: Math.floor(process.uptime()),
       memoria_mb: Math.round(process.memoryUsage().rss / 1048576),
       whatsapp: { status: st.status, mensagens: st.messageCount },
-      ig: { sessoes: c.sessionsAtivas().length, alvos: c.listTargets().length, webhooks: (c.state.webhooks || []).length },
+      ig: { modo: 'publico-sem-login', alvos: c.listTargets().length, webhooks: (c.state.webhooks || []).length },
     });
   });
 

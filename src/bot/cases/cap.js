@@ -53,21 +53,18 @@ const AJUDA = (p) => [
   `▸ ${p}cap ver @veigh — perfil + últimos posts`,
   `▸ ${p}cap stats @veigh — estatísticas verdadeiras (seguidores/posts)`,
   `▸ ${p}cap link <link> — QUALQUER link: post, reel, story, highlight, share/ig.me`,
-  `▸ ${p}cap canal @user — posts do canal de difusão (melhor esforço)`,
   `▸ ${p}cap check [@veigh] — verificar agora (só novos)`,
   `▸ ${p}cap all @veigh [aqui|jid] [limite] — *capture all*: baixa tudo e manda no grupo`,
   `▸ ${p}cap ultimo @veigh — baixa e envia o post mais recente`,
   `▸ ${p}cap link <url> — baixa um post/reel pelo link (funciona mesmo com 429 no perfil)`,
   `▸ ${p}cap story @veigh — baixa os stories ACTIVOS agora · reels|storys @veigh [n] — separador`,
-  `▸ ${p}cap resolver — descobrir os @users das sessões`,
   `▸ ${p}cap destino @veigh aqui|<jid>|remover — para onde enviar`,
   `▸ ${p}cap guardar @veigh on|off — guardar na galeria do servidor`,
   `▸ ${p}cap auto @veigh on|off · ${p}cap intervalo @veigh <min>`,
   `▸ ${p}cap galeria @veigh [n] — reenvia os últimos n ficheiros guardados`,
   `▸ ${p}cap log — últimas capturas (baixou / falhou / enviou)`,
-  `▸ ${p}cap login <sessionid> — sessão IG (stories, highlights, feed completo) · ${p}cap login <user> <senha> (PV) · ${p}cap codigo 123456 (verificação) · ${p}cap sessoes · ${p}cap testar · ${p}cap logout [@conta|all]`,
   '',
-  `> Stories públicos activos também funcionam sem sessão por @ ou link; conteúdo privado, highlights e feed completo exigem sessão.`,
+  `> Funciona sem login com mídia que esteja publicamente acessível. Contas privadas, stories expirados e conteúdo apagado não podem ser capturados.`,
 ];
 
 module.exports = function registerCap(registerCase) {
@@ -80,151 +77,12 @@ module.exports = function registerCap(registerCase) {
 
     if (!sub || sub === 'help' || sub === 'ajuda' || sub === 'menu') return tReply(sock, msg, ctx, '📡 C∆P', AJUDA(p));
 
-    // ── login/logout ──
-    if (sub === 'login') {
-      let sid = args.slice(1).join(' ').trim();
-      // aceita "sessionid=xxx", cookie inteiro colado, JSON do EditThisCookie
-      let _jarCookies = '';
-      if (/^[\[{]/.test(sid) || /csrftoken=|ds_user_id=|ig_did=/i.test(sid)) {
-        const nc = cap.normalizarCookies(sid);
-        if (nc.sid) { sid = nc.sid; _jarCookies = nc.jar; }
-      }
-      if (!_jarCookies) { const mm = sid.match(/sessionid=([^;\s]+)/i); if (mm) sid = mm[1]; }
-      if (!sid) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
-        `Uso: ${p}cap login <sessionid | cookies | JSON>`,
-        `Ou:  ${p}cap login <utilizador> <senha>  (só no PV; a senha não é guardada)`,
-        `Ou pelo painel web: /dashboard/cap`,
-        '',
-        '*Como obter o sessionid:*',
-        '1️⃣ Cria uma conta Instagram secundária (não a principal).',
-        '2️⃣ No Chrome do PC: instagram.com → login → F12 → Application → Cookies → instagram.com → copia o valor de *sessionid*.',
-        '3️⃣ No telemóvel: Kiwi Browser / Firefox + extensão "Cookie Editor".',
-        '',
-        '> 💡 MELHOR: cola TODOS os cookies (EditThisCookie → export) — parece navegador real e o IG limita MUITO menos. JSON colado funciona directo.',
-'> Podes adicionar várias contas (pool com rotação — menos 429).',
-        '> Alternativa: variável IG_SESSIONID no .env do servidor.',
-        '> Fica guardado só na base de dados do bot; a mensagem é apagada.',
-      ]);
-      try { await sock.sendMessage(ctx.remoteJid, { delete: msg.key }); } catch {}
-      // "cap login utilizador senha" → login real; senão trata como sessionid
-      if (args.length >= 3 && !/%3A|:/.test(args[1]) && args[1].length < 31) {
-        if (ctx.isGroup) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', ['❌ Login com senha só no PV do bot (a mensagem foi apagada).']);
-        await sock.sendMessage(ctx.remoteJid, { text: `🔐 A entrar como @${args[1]}…\n\n📱 Se chegar *\“Foi você?\”* ao telemóvel dessa conta, toca em *FUI EU* — eu continuo a tentar sozinho e apanho a destrava (8 tentativas, ~3 min).` }).catch(() => {});
-        const lg = await require('../../cap/igLogin').loginComRetry(args[1], args.slice(2).join(' '), {
-          onTentativa: (nT, rT) => {
-            if (nT > 1 && !rT.ok && !rT.precisaCodigo) {
-              sock.sendMessage(ctx.remoteJid, { text: `⏳ tentativa ${nT}/${8}… confirma *FUI EU* no telemóvel 📲` }).catch(() => {});
-            }
-          },
-        });
-        // ── v12.8: o Instagram pediu código → o bot pede ao dono ──
-        if (lg.ok === false && lg.precisaCodigo) {
-          return tReply(sock, msg, ctx, '🔐 C∆P LOGIN — CÓDIGO', [
-            `📲 O Instagram pediu verificação para *@${lg.user}*`,
-            lg.dica ? `📨 ${lg.dica}` : '',
-            '',
-            `Manda o código assim: *${p}cap codigo 123456*`,
-            `> Tens 15 minutos. ${lg.aviso ? '\n> ⚠️ ' + lg.aviso : ''}`,
-          ].filter(Boolean));
-        }
-        if (lg.ok === false) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`❌ ${lg.erro}`, lg.aviso ? `⚠️ ${lg.aviso}` : '', `> Alternativa segura: ${p}cap login <sessionid> (guia: ${p}cap login)`].filter(Boolean));
-        sid = lg.sid;
-        if (lg.aviso) await sock.sendMessage(ctx.remoteJid, { text: `⚠️ ${lg.aviso}` }).catch(() => {});
-      }
-      // ── v12.8: .cap codigo 123456 — confirma verificação 2FA/checkpoint ──
-      if (sub === 'codigo' || sub === 'código' || sub === 'code') {
-        const code = (args.slice(1).join('') || '').replace(/\D/g, '');
-        if (!code) return tReply(sock, msg, ctx, '🔐 C∆P CÓDIGO', [`Uso: *${p}cap codigo 123456*`, '> Depois do `.cap login user senha`, quando o Instagram pedir verificação.']);
-        try { await sock.sendMessage(ctx.remoteJid, { delete: msg.key }); } catch {}
-        await sock.sendMessage(ctx.remoteJid, { text: '🔐 A confirmar o código…' }).catch(() => {});
-        const pend = require('../../cap/igLogin').estadoPendente();
-        const alvo = Array.isArray(pend) && pend.length ? pend[0].user : '';
-        if (!alvo) return tReply(sock, msg, ctx, '🔐 C∆P CÓDIGO', ['❌ Não há login à espera de código.', `> Faz primeiro *${p}cap login <user> <senha>*`]);
-        const rC = await require('../../cap/igLogin').confirmarCodigo(alvo, code);
-        if (!rC.ok) return tReply(sock, msg, ctx, '🔐 C∆P CÓDIGO', [`❌ ${rC.erro}`, rC.erro?.includes('errado') ? `> Tenta outra vez: *${p}cap codigo 123456*` : '']);
-        const rAdd = await cap.addSessao(rC.sid);
-        if (!rAdd.ok) return tReply(sock, msg, ctx, '🔐 C∆P CÓDIGO', [`⚠️ Login OK mas a sessão falhou a validação: ${rAdd.erro}`]);
-        const n = cap.listSessoes().length;
-        return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
-          `✅ *Verificado e logado como @${rC.user || rAdd.user}*`,
-          `🔑 Sessões no pool: ${n}`,
-          '⏳ Stories, highlights, feed completo e perfis privados activos.',
-          '🗑️ A tua mensagem com o código foi apagada.',
-        ]);
-      }
-      // ── v12.8: .cap login pendente — ver o que está à espera de código ──
-      if (sub === 'pendente' || sub === 'pendentes') {
-        const pend = require('../../cap/igLogin').estadoPendente();
-        if (!Array.isArray(pend) || !pend.length) return tReply(sock, msg, ctx, '🔐 C∆P', ['Nenhum login à espera de código.']);
-        return tReply(sock, msg, ctx, '🔐 C∆P PENDENTES', pend.map(x => `⏳ @${x.user} — ${x.tipo} · ${x.dica || ''} · ${Math.round((Date.now() - x.ts) / 60000)}min atrás`).concat(['', `> Confirma com *${p}cap codigo 123456*`]));
-      }
-      await sock.sendMessage(ctx.remoteJid, { text: '🔐 A validar sessão…' }).catch(() => {});
-      const r = await cap.addSessao(sid, { cookies: _jarCookies });
-      if (!r.ok) return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [`❌ ${r.erro}`, '> Copia o cookie de novo (sem espaços) e tenta outra vez.']);
-      const n = cap.listSessoes().length;
-      if (r.ok && !r.user) {
-        // v12.9.11c: username em falta → inferir em background (não bloqueia a resposta)
-        const _sidGuardado = cap.state.session.ig;
-        cap.inferirUsername(_sidGuardado).then(u => {
-          if (!u) return;
-          const s = (cap.state.session.igPool || []).find(x => x.sid === _sidGuardado);
-          if (s && !s.user) { s.user = u; cap.save(); }
-        }).catch(() => {});
-      }
-      return tReply(sock, msg, ctx, '🔐 C∆P LOGIN', [
-        r.user ? `✅ Logado como *@${r.user}*` : r.validado ? `✅ Sessão activa (id ${r.id || '?'})` : `🟡 Sessão guardada${r.aviso ? ` (${r.aviso})` : ' — vou confirmar o @user em segundo plano'}`,
-        `🔑 Sessões no pool: ${n}${n > 1 ? ' (rotação automática entre todas)' : ''}`,
-        '⏳ Stories, ⭐ highlights, feed completo e perfis privados (que a conta siga) activos.',
-        '> Confirma a qualquer momento: ' + p + 'cap testar · ' + p + 'cap sessoes',
-        '🗑️ A tua mensagem com o cookie foi apagada.',
-      ]);
-    }
-    if (sub === 'logout') {
-      const n = cap.delSessao(args[1] || 'all');
-      return tReply(sock, msg, ctx, '🔐 C∆P', [n ? `✅ ${n} sessão(ões) removida(s).` : '❌ Nenhuma sessão para remover.', cap.hasSession('ig') ? `🔑 Restam ${cap.listSessoes().length}` : '⏳ Stories desactivados.']);
-    }
-    if (sub === 'sessoes' || sub === 'sessões' || sub === 'sessions' || sub === 'contas') {
-      const ss = cap.listSessoes();
-      if (!ss.length) return tReply(sock, msg, ctx, '🔐 C∆P SESSÕES', ['Nenhuma sessão.', `> ${p}cap login <sessionid>`]);
-      return tReply(sock, msg, ctx, '🔐 C∆P SESSÕES', ss.map((x, i) => `${x.ok ? (x.porConfirmar ? '🟡' : '🟢') : '🔴'} ${i + 1}. @${x.user || 'a-resolver…'}${x.id ? ` · id ${x.id}` : ''}${x.cool ? ' · 😴 cooldown' : ''}${x.porConfirmar ? ' · por-confirmar' : (!x.ok ? ' — ' + x.lastErr : '')} · ${x.addedAt ? new Date(x.addedAt).toLocaleDateString('pt-PT') : '—'}`).concat([
-        '',
-        `🔑 ${ss.length} sessão(ões) — rotação automática entre todas`,
-        `> ${p}cap resolver — descobrir os @users em falta`,
-        `> ${p}cap login <outro sessionid> adiciona mais conta (anti-429)`,
-        `> ${p}cap logout @conta · ${p}cap logout all`,
-      ]));
-    }
-    // v12.9.12: resolver @users em falta
-    if (sub === 'resolver' || sub === 'users') {
-      const ss = cap.state.session.igPool || [];
-      const faltam = ss.filter(x => !x.user);
-      if (!faltam.length) return tReply(sock, msg, ctx, '🔐 C∆P', ['Todos os @users estão resolvidos ✅', ss.map((x, i) => `${i + 1}. @${x.user} (id ${x.id || '?'})`).join('\n')]);
-      await tReply(sock, msg, ctx, '🔐 C∆P', [`🔎 A resolver ${faltam.length} @user(s)…`]);
-      const achados = [];
-      for (const s of faltam) {
-        const u = await cap.inferirUsername(s.sid).catch(() => '');
-        if (u) { s.user = u; achados.push(`@${u} (id ${s.id || '?'})`); }
-        await new Promise(r => setTimeout(r, 1200 + Math.random() * 1200));
-      }
-      cap.save();
-      return tReply(sock, msg, ctx, '🔐 C∆P', achados.length
-        ? [`✅ Resolvidos: ${achados.join(' · ')}`, ...ss.map((x, i) => `${i + 1}. @${x.user || '?'}${x.porConfirmar ? ' 🟡' : ''}`)]
-        : ['❌ Não consegui agora (IG a limitar). Tenta daqui a pouco ou usa o dashboard → C∆P (botão Resolver @users).']);
-    }
-    if (sub === 'testar' || sub === 'test') {
-      const ss = cap.sessionsAtivas();
-      if (!ss.length) return tReply(sock, msg, ctx, '🔐 C∆P', ['❌ Sem sessões para testar.']);
-      const out = [];
-      for (const x of ss) { const v = await cap.validarSessao(x.sid); out.push(`${v.ok ? '🟢' : '🔴'} @${x.user || v.user || '?'} — ${v.ok ? 'OK' : v.erro}`); if (!v.ok && !v.temporario) cap.marcarSessaoInvalida(x.sid, v.erro); }
-      return tReply(sock, msg, ctx, '🔐 C∆P TESTE', out);
-    }
-
     // ── lista ──
     if (sub === 'lista' || sub === 'list' || sub === 'alvos') {
       const ts = cap.listTargets();
       if (!ts.length) return tReply(sock, msg, ctx, '📡 C∆P — ALVOS', ['Nenhum alvo.', `> ${p}cap add @veigh`]);
       const lines = ts.flatMap(t => [...fmtAlvo(t, p), '']);
-      lines.push(`🔐 Sessões IG: ${cap.hasSession('ig') ? '✅ ' + cap.listSessoes().filter(x => x.ok).map(x => '@' + (x.user || '?')).join(', ') : '❌ sem login (stories off, limite 429 baixo)'}`);
+      lines.push('🌐 Provedores públicos: SnapInsta, página/GraphQL pública, yt-dlp e embed.');
       return tReply(sock, msg, ctx, `📡 C∆P — ${ts.length} ALVO(S)`, lines);
     }
 
@@ -263,7 +121,7 @@ module.exports = function registerCap(registerCase) {
         ...perfilInfo,
         `📤 Destino: ${destino === ctx.remoteJid ? 'este chat' : destino}`,
         `⏱️ Verifica a cada ${t.intervaloMin} min · galeria ${t.guardar ? 'ON' : 'OFF'}`,
-        cap.hasSession('ig') ? '⏳ Stories: ON (inclui sessão)' : `⏳ Stories públicos: ON · privados/highlights: ${p}cap login <sessionid>`,
+        '⏳ Stories públicos: só enquanto estiverem activos e acessíveis.',
         '',
         `> Novidades a partir de agora chegam aqui. Para puxar o histórico: ${p}cap all @${t.username}`,
       ]);
@@ -321,8 +179,7 @@ module.exports = function registerCap(registerCase) {
         const reels = perfil.items.filter(i => i.tipo === 'reel');
         const posts = perfil.items.filter(i => i.tipo !== 'reel');
         const fmtN = (n) => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(n);
-        const sess = cap.hasSession('ig');
-        // v12.9.13: stats VERDADEIRAS ou honestidade total
+          // v12.9.13: stats VERDADEIRAS ou honestidade total
         const temStats = perfil.seguidores || perfil.posts || perfil.seguindo;
         const statsLine = temStats
           ? `📊 *${perfil.posts} posts* · 👥 *${fmtN(perfil.seguidores)}* seguidores${perfil.seguindo ? ` · ➡️ ${fmtN(perfil.seguindo)} following` : ''}`
@@ -332,7 +189,7 @@ module.exports = function registerCap(registerCase) {
           statsLine,
           perfil.bio ? `📝 ${perfil.bio.slice(0, 160).replace(/\n+/g, ' ')}` : null,
           '',
-          `📸 POSTS (${posts.length}) · 🎬 REELS (${reels.length}) · ⏳ STORIES (${sess ? 'on' : 'login'}) · ⭐ HIGHLIGHTS (${perfil.highlights || 0}${sess ? '' : ' · login'})`,
+          `📸 POSTS (${posts.length}) · 🎬 REELS (${reels.length}) · ⏳ STORIES públicos · ⭐ HIGHLIGHTS por link público`,
           '',
           `🕒 *Últimos ${ult.length}:*`,
           ...ult.map(it => `• ${new Date(it.ts).toLocaleDateString('pt-PT')} ${{ reel: '🎬', video: '🎬', carrossel: '🖼️', post: '📸' }[it.tipo]} ${it.tipo}${it.medias.length > 1 ? ` (${it.medias.length})` : ''} — ${it.caption.slice(0, 40).replace(/\n+/g, ' ') || it.link}`),
@@ -355,7 +212,7 @@ module.exports = function registerCap(registerCase) {
         const r = await cap.verificarAlvo(sock, t, { forcar: false });
         if (r.erro) out.push(`⚠️ @${t.username}: ${r.erro}`);
         else if (r.primed) out.push(`📌 @${t.username}: primeira verificação — ${r.marcados} itens marcados como vistos (usa ${p}cap all para puxar).`);
-        else out.push(`${r.novos ? '🆕' : '✅'} @${t.username}: ${r.novos} novo(s) · ✅ ${r.baixados} baixado(s) · ❌ ${r.falhados} falhado(s) · 📤 ${r.enviados} enviado(s)${r.stories ? ` · ⏳ ${r.stories} story` : ''}${r.storiesNeedLogin ? ' · stories: sem login' : ''}`);
+        else out.push(`${r.novos ? '🆕' : '✅'} @${t.username}: ${r.novos} novo(s) · ✅ ${r.baixados} baixado(s) · ❌ ${r.falhados} falhado(s) · 📤 ${r.enviados} enviado(s)${r.stories ? ` · ⏳ ${r.stories} story` : ''}`);
       }
       return tReply(sock, msg, ctx, '🔎 C∆P — VERIFICAÇÃO', out);
     }
@@ -367,7 +224,7 @@ module.exports = function registerCap(registerCase) {
       const infoL = await cap.resolverLink(url).catch(() => null);
       if (!infoL) return tReply(sock, msg, ctx, '📡 C∆P', [`Uso: ${p}cap link <link do Instagram>`, 'Aceita: posts, reels, IGTV, stories, highlights e links de partilha (share/ig.me).']);
       await sock.sendMessage(ctx.remoteJid, { react: { text: '⬇️', key: msg.key } }).catch(() => {});
-      // stories/highlights têm caminho próprio (sessão vê dentro do IG)
+      // Stories/highlights têm caminho público próprio, quando ainda expostos.
       if (infoL.tipo === 'story' || infoL.tipo === 'highlight') {
         try {
           const items = await cap.itemDeLink(infoL.url);
@@ -380,7 +237,7 @@ module.exports = function registerCap(registerCase) {
       }
       const shortcode = infoL.shortcode;
       try {
-        // v12.9.10: cadeia completa num sítio só — yt-dlp → embed → oEmbed+sessão
+        // Cadeia pública de link: yt-dlp → embed → SnapInsta.
         const items = await cap.itemDeLink(infoL.url);
         const t = { key: 'ig:_links', platform: 'ig', username: items[0].username || 'instagram', destinos: [], guardar: false, stats: {} };
         let okN = 0;
@@ -416,7 +273,7 @@ module.exports = function registerCap(registerCase) {
       const { platform, username } = cap.parseTargetArg(alvoArg);
       if (!cap.PROVIDERS[platform]) return tReply(sock, msg, ctx, '📡 C∆P', ['❌ Plataforma não suportada.']);
       const t = cap.getTarget(alvoArg) || cap.addTarget(alvoArg, { addedBy: ctx.senderNumber }).target;
-      await tReply(sock, msg, ctx, '📥 C∆P — CAPTURE ALL', [`🎯 @${username} → ${destino === ctx.remoteJid ? 'este chat' : destino}`, `📦 Limite: ${limite} itens`, cap.hasSession('ig') ? '🔐 Sessão IG: feed completo' : '🌐 Sem sessão: mídia pública disponível pelo SnapInsta', '', '⏳ A baixar… envio progresso a cada 5 itens.']);
+      await tReply(sock, msg, ctx, '📥 C∆P — CAPTURE ALL', [`🎯 @${username} → ${destino === ctx.remoteJid ? 'este chat' : destino}`, `📦 Limite: ${limite} itens`, '🌐 Provedores públicos: SnapInsta, página/GraphQL pública, yt-dlp e embed', '', '⏳ A baixar… envio progresso a cada 5 itens.']);
       let lastMsg = 0;
       const r = await cap.capturarTudo(sock, t, {
         destinos: [destino], limite,
@@ -427,7 +284,7 @@ module.exports = function registerCap(registerCase) {
         `🎯 @${username} · ${r.total} itens processados`,
         `✅ Baixados: ${r.baixados} · ❌ Falhados: ${r.falhados} · 📤 Enviados: ${r.enviados}`,
         `💾 ${(r.bytes / 1048576).toFixed(1)} MB${t.guardar ? ` · guardado em galeria` : ''}`,
-        r.completo ? '📚 Perfil completo capturado.' : `⚠️ Só os posts visíveis sem login (${r.total}). Para tudo: ${p}cap login <sessionid>`,
+        r.completo ? '📚 Janela pública disponível capturada.' : `🌐 Capturados ${r.total} itens públicos disponíveis agora.`,
         `> Falhas detalhadas em ${p}cap log`,
       ]);
     }
@@ -461,14 +318,14 @@ module.exports = function registerCap(registerCase) {
         }
         let items = []; let aviso = '';
         if (sub === 'reels') items = perfil.items.filter(i => i.tipo === 'reel');
-        else if (sub === 'highlights' || sub === 'destaques') { const h = await prov.highlights(perfil.id, username); items = h.items; if (h.needsLogin) aviso = `⭐ Highlights exigem sessão: ${p}cap login <sessionid>`; }
+        else if (sub === 'highlights' || sub === 'destaques') { const h = await prov.highlights(perfil.id, username); items = h.items; if (h.error) aviso = `⭐ ${h.error}`; }
         else if (publicStoryItems.length) items = publicStoryItems;
         else {
-          // Privado/expirado ou provider temporariamente indisponível: mantém
-          // o caminho autenticado existente como recuperação.
+          // Stories só usam o provider público; privados ou expirados ficam
+          // indisponíveis sem qualquer tentativa de autenticação.
           const st = await prov.stories(perfil.id, username);
           items = st.items;
-          if (!items.length && st.needsLogin) aviso = `⏳ Stories exigem sessão ou precisam estar públicos/activos: ${p}cap login <sessionid>`;
+          if (!items.length && st.error) aviso = `⏳ ${st.error}`;
         }
         if (aviso) return tReply(sock, msg, ctx, '📡 C∆P', [aviso]);
         if (!items.length) return tReply(sock, msg, ctx, '📡 C∆P', [
@@ -485,51 +342,13 @@ module.exports = function registerCap(registerCase) {
       } catch (e) { return tReply(sock, msg, ctx, '📡 C∆P', [`❌ ${e.message}`]); }
     }
 
-    // ── canal (broadcast channels do IG) — v12.9.9 melhor esforço honesto ──
+    // Canais de difusão não têm fonte pública de mídia estável. Não
+    // fingimos acesso via APIs privadas de app ou por autenticação.
     if (sub === 'canal' || sub === 'canais' || sub === 'channel') {
-      if (!alvoArg) return tReply(sock, msg, ctx, '📡 C∆P', [`Uso: ${p}cap canal @user — baixa os posts recentes do canal de difusão`]);
-      const { platform, username } = cap.parseTargetArg(alvoArg);
-      if (!cap.PROVIDERS[platform]) return tReply(sock, msg, ctx, '📡 C∆P', ['❌ Plataforma não suportada (fase 1: Instagram).']);
-      await sock.sendMessage(ctx.remoteJid, { react: { text: '⬇️', key: msg.key } }).catch(() => {});
-      try {
-        // descobrir o canal do criador: endpoint de discovery (não documentado — tenta e falha com honestidade)
-        const perf = await cap.PROVIDERS[platform].profile(username);
-        const rotas = [
-          `/api/v1/channels/discovery/?pk=${perf.id}`,
-          `/api/v1/text_feed/${perf.id}/`,
-        ];
-        let achou = null;
-        for (const rota of rotas) {
-          const r = await cap.igGet(rota).catch(() => null);
-          if (r?.status === 200) {
-            try { const j = JSON.parse(r.body.toString('utf8')); if (j && (j.items?.length || j.media_items?.length)) { achou = j; break; } } catch {}
-          }
-        }
-        if (!achou) {
-          // fallback honesto: manda os últimos posts/reels do criador (o conteúdo público que existe)
-          const items = (perf.items || []).slice(-6).reverse();
-          if (!items.length) return tReply(sock, msg, ctx, '📡 C∆P', [
-            `❌ Canal de @${username}: o Instagram não expõe canais de difusão por API pública (só pela app).`,
-            '> Tentei os 2 endpoints conhecidos — sem resultado.',
-            `> Alternativa: ${p}cap all @${username} 5  (baixa os últimos posts reais)`,
-          ]);
-          const t = { key: 'ig:_canal', platform, username, destinos: [], guardar: false, stats: {} };
-          let okN = 0;
-          for (const it of items) { const r = await cap.processarItem(sock, t, it, { destinos: [ctx.remoteJid], forcar: true, guardar: false }); if (r.files) okN++; }
-          return tReply(sock, msg, ctx, '📡 C∆P — CANAL', [
-            `⚠️ Canal de difusão fechado para API — enviei os ${okN} posts públicos mais recentes de @${username}.`,
-          ]);
-        }
-        const j = achou;
-        const itemsCrus = j.items || j.media_items || [];
-        const t = { key: 'ig:_canal', platform, username, destinos: [], guardar: false, stats: {} };
-        let okN = 0;
-        for (const cru of itemsCrus.slice(0, 12)) {
-          const it = cap.nodeToItem(cru.media || cru, username);
-          if (it?.medias?.length) { const r = await cap.processarItem(sock, t, it, { destinos: [ctx.remoteJid], forcar: true, guardar: false }); if (r.files) okN++; }
-        }
-        return tReply(sock, msg, ctx, '📡 C∆P — CANAL', [`✅ ${okN} item(ns) do canal de @${username} baixados.`]);
-      } catch (e) { return tReply(sock, msg, ctx, '📡 C∆P', [`❌ ${e.message}`]); }
+      return tReply(sock, msg, ctx, '📡 C∆P — CANAL', [
+        '⚠️ Canais de difusão do Instagram não são disponibilizados por uma fonte pública estável.',
+        `Use *${p}cap all @user 5* para baixar posts/reels públicos do perfil, quando existirem.`,
+      ]);
     }
 
     // ── destino ──

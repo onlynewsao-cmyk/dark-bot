@@ -5,96 +5,15 @@
     <header class="page-header">
       <div>
         <h1>📡 C∆P Capture</h1>
-        <p class="muted">Monitoriza perfis do Instagram e captura posts, reels, stories e highlights → WhatsApp + galeria</p>
+        <p class="muted">Monitoriza perfis públicos do Instagram e captura posts, reels e stories acessíveis → WhatsApp + galeria</p>
       </div>
     </header>
 
     <div class="card">
-      <h2>🔐 Contas Instagram (sessões)</h2>
-      <p class="muted">Usa contas <b>secundárias</b>. Podes adicionar várias — o bot roda entre elas (menos bloqueios 429). A senha nunca é guardada; só o <code>sessionid</code>.</p>
-      <div class="form-grid">
-        <form id="capLoginPw" class="card" style="margin:0">
-          <h3>Entrar com utilizador e senha</h3>
-          <div class="form-group"><label>Utilizador</label><input type="text" id="igUser" placeholder="conta_secundaria" autocomplete="off" /></div>
-          <div class="form-group"><label>Senha</label><input type="password" id="igPass" autocomplete="new-password" /></div>
-          <div class="form-group" id="codigoBox" style="display:none">
-            <label>📲 Código de verificação <small class="muted" id="codigoDica"></small></label>
-            <div style="display:flex;gap:0.5rem">
-              <input type="text" id="igCodigo" placeholder="123456" inputmode="numeric" style="flex:1" />
-              <button type="button" class="btn btn-primary" onclick="capConfirmarCodigo()">Confirmar</button>
-            </div>
-            <small class="muted">O Instagram pediu verificação — manda o código que chegou por SMS/email/app. Tens 15 minutos.</small>
-          </div>
-          <button type="submit" class="btn btn-primary">🔐 Entrar</button>
-          <small class="muted">Se a conta tiver 2FA ou o Instagram pedir verificação, usa o sessionid ao lado.</small>
-        </form>
-        <form id="capLoginSid" class="card" style="margin:0">
-          <h3>Ou colar o sessionid / cookies completos</h3>
-          <div class="form-group"><label>sessionid ou JSON de cookies (EditThisCookie)</label><input type="text" id="igSid" placeholder="12345678%3AabcDEF...%3A28%3A...  ou  [ {...}, {...} ]" autocomplete="off" /></div>
-          <button type="submit" class="btn btn-primary">➕ Adicionar sessão</button>
-          <small class="muted">💡 Adiciona VÁRIAS contas — o bot roda entre todas (rotação = menos 429). Melhor: cola o JSON completo do EditThisCookie (parece navegador real). Chrome PC: F12 → Application → Cookies. Telemóvel: Kiwi/Firefox + "Cookie Editor". Também aceita <code>IG_SESSIONID</code> no .env.</small>
-        </form>
-      </div>
-      <div id="capLoginMsg" class="muted" style="margin-top:8px"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button class="btn" onclick="capTestar()">🧪 Testar todas</button>
-        <button class="btn" onclick="capInferir()">🔎 Resolver @users</button>
-        <button class="btn btn-danger" onclick="capLogout('all')">🗑️ Remover TODAS</button>
-      </div>
-      <table class="table" style="margin-top:10px">
-        <thead><tr><th>Conta</th><th>ID</th><th>Estado</th><th>Cookies</th><th>Adicionada</th><th></th></tr></thead>
-        <tbody id="sessTbody">
-          <% sessoes.forEach(s => { %>
-            <tr data-uid="<%= s.id || '' %>">
-              <td>@<%= s.user || '<i class=muted>a resolver…</i>' %></td>
-              <td><code><%= s.id || '—' %></code></td>
-              <td><%= s.ok ? (s.porConfirmar ? '🟡 por-confirmar' : '🟢 OK') : '🔴 ' + (s.lastErr || 'erro') %></td>
-              <td><%= s.temJar !== undefined ? (s.temJar ? '🍪 jar completo' : '—') : '—' %></td>
-              <td><%= s.addedAt ? new Date(s.addedAt).toLocaleString('pt-PT') : '' %></td>
-              <td style="white-space:nowrap">
-                <button class="btn btn-sm" onclick="capActivar('<%= s.id %>')" title="tornar a sessão activa">⭐ Activar</button>
-                <button class="btn btn-sm" onclick="capRemoverSessao('<%= s.id %>')">Remover</button>
-              </td>
-            </tr>
-          <% }) %>
-          <% if (!sessoes.length) { %><tr><td colspan="6" class="muted">Nenhuma sessão — sem login só há 12 posts públicos por perfil e o limite 429 é baixo. Podes adicionar VÁRIAS contas (rotação automática = menos 429).</td></tr><% } %>
-        </tbody>
-      </table>
-      <small class="muted" id="capSessInfo"></small>
-      <script>
-        async function capRefreshState() {
-          try {
-            const r = await fetch('/api/cap/state').then(x => x.json());
-            const tb = document.getElementById('sessTbody');
-            if (!r?.sessoes?.length) { tb.innerHTML = '<tr><td colspan="6" class="muted">Nenhuma sessão.</td></tr>'; return; }
-            tb.innerHTML = r.sessoes.map(s => `<tr data-uid="${s.id || ''}">
-              <td>@${s.user || '<i class=muted>a resolver…</i>'}</td><td><code>${s.id || '—'}</code></td>
-              <td>${s.ok ? (s.porConfirmar ? '🟡 por-confirmar' : '🟢 OK') : '🔴 ' + (s.lastErr || 'erro')}</td>
-              <td>${s.temJar ? '🍪 jar completo' : '—'}</td>
-              <td>${s.addedAt ? new Date(s.addedAt).toLocaleString('pt-PT') : ''}</td>
-              <td style="white-space:nowrap"><button class="btn btn-sm" onclick="capActivar('${s.id}')">⭐</button> <button class="btn btn-sm" onclick="capRemoverSessao('${s.id}')">Remover</button></td></tr>`).join('');
-            const pc = r.sessoes.filter(s => s.porConfirmar).length;
-            document.getElementById('capSessInfo').textContent = `${r.sessoes.length} sessão(ões) · activa: ${r.activa || '—'}${pc ? ` · ${pc} por-confirmar (usa Testar todas)` : ''}`;
-          } catch {}
-        }
-        async function capRemoverSessao(id) {
-          if (!confirm('Remover a sessão ' + id + '?')) return;
-          await fetch('/api/cap/sessao/remover', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-          capRefreshState();
-        }
-        async function capActivar(id) {
-          await fetch('/api/cap/sessao/activar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-          capRefreshState();
-        }
-        async function capInferir() {
-          const btn = event?.target; if (btn) { btn.disabled = true; btn.textContent = '⏳ a resolver…'; }
-          await fetch('/api/cap/sessao/inferir', { method: 'POST' });
-          if (btn) { btn.disabled = false; btn.textContent = '🔎 Resolver @users'; }
-          capRefreshState();
-        }
-        capRefreshState();
-        setInterval(capRefreshState, 30000);
-      </script>
+      <h2>🌐 C∆P público — sem login</h2>
+      <p class="muted">O C∆P não guarda contas, senhas, cookies nem <code>sessionid</code>. Para mídia pública, combina SnapInsta, páginas/GraphQL públicos do Instagram, yt-dlp e embed.</p>
+      <p class="muted">Posts, Reels e Stories só são baixados quando ainda estão <b>publicamente acessíveis</b>. Perfis privados, Stories expirados e conteúdo apagado não são contornados; Highlights dependem de um link público direto disponível.</p>
+      <div class="notice info">✅ Adiciona um perfil público abaixo e usa <code>Verificar</code>. O C∆P envia ficheiros reais para os destinos configurados e mantém o log de cada download.</div>
     </div>
 
     <div class="card">
@@ -139,51 +58,7 @@
 </div>
 
 <script>
-  const msgEl = document.getElementById('capLoginMsg');
   const post = async (url, body) => { const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; };
-  const done = (t, ok = true) => { msgEl.textContent = t; msgEl.style.color = ok ? '#3ddc84' : '#ff6b6b'; if (ok) setTimeout(() => location.reload(), 1200); };
-  let _userPendente = '';
-  document.getElementById('capLoginPw').addEventListener('submit', async (e) => {
-    e.preventDefault(); msgEl.textContent = '🔐 A entrar…';
-    try {
-      const j = await post('/api/cap/login', { username: igUser.value.trim(), password: igPass.value });
-      igPass.value = '';
-      // ── v12.8: Instagram pediu código → mostra o campo e pede ──
-      if (j.precisaCodigo) {
-        _userPendente = j.user || igUser.value.trim();
-        document.getElementById('codigoBox').style.display = 'block';
-        document.getElementById('codigoDica').textContent = j.dica ? `(${j.dica})` : '';
-        msgEl.textContent = '📲 O Instagram pediu verificação para @' + _userPendente + ' — digita o código abaixo';
-        msgEl.style.color = '#ffd166';
-        document.getElementById('igCodigo').focus();
-        return;
-      }
-      done('✅ Logado como @' + (j.user || igUser.value) + (j.aviso ? ' ⚠️ ' + j.aviso : ''));
-    }
-    catch (err) { done('❌ ' + err.message, false); }
-  });
-  async function capConfirmarCodigo() {
-    const code = document.getElementById('igCodigo').value.replace(/\D/g, '');
-    if (!code) return;
-    msgEl.textContent = '🔐 A confirmar o código…';
-    try {
-      const j = await post('/api/cap/codigo', { username: _userPendente, code });
-      document.getElementById('codigoBox').style.display = 'none';
-      done('✅ Verificado e logado como @' + (j.user || _userPendente));
-    } catch (err) {
-      msgEl.textContent = '❌ ' + err.message + ' — tenta outro código';
-      msgEl.style.color = '#ff6b6b';
-      document.getElementById('igCodigo').value = '';
-      document.getElementById('igCodigo').focus();
-    }
-  }
-  document.getElementById('capLoginSid').addEventListener('submit', async (e) => {
-    e.preventDefault(); msgEl.textContent = '🔐 A validar…';
-    try { const j = await post('/api/cap/login', { sessionid: igSid.value.trim() }); igSid.value = ''; done(j.validado ? '✅ Logado como @' + j.user : '🟡 Guardada sem validar: ' + j.aviso); }
-    catch (err) { done('❌ ' + err.message, false); }
-  });
-  async function capLogout(user) { try { await post('/api/cap/logout', { user }); location.reload(); } catch (e) { alert(e.message); } }
-  async function capTestar() { msgEl.textContent = '🧪 A testar…'; try { const j = await post('/api/cap/testar', {}); msgEl.textContent = j.resultados.map(r => (r.ok ? '🟢 @' : '🔴 @') + r.user + (r.erro ? ' — ' + r.erro : '')).join(' · ') || 'Sem sessões'; setTimeout(() => location.reload(), 2500); } catch (e) { done('❌ ' + e.message, false); } }
   document.getElementById('capAddAlvo').addEventListener('submit', async (e) => {
     e.preventDefault();
     let d = alvoDest.value.trim(); if (/^\d{8,14}$/.test(d)) d += '@s.whatsapp.net'; else if (/^\d{15,}$/.test(d)) d += '@g.us';

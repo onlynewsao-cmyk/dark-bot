@@ -49,10 +49,11 @@ fs.rmSync(TMP, { recursive: true, force: true });
   check('nodeToItem reel', reel.tipo === 'reel' && reel.medias[0].isVideo);
   const st = cap.state;
   check('jaVisto/marcarVisto', !cap.jaVisto('ig:veigh', 'p_1') && (cap.marcarVisto('ig:veigh', 'p_1'), cap.jaVisto('ig:veigh', 'p_1')));
-  // stories sem sessão → needsLogin, sem lançar
+  // C∆P público nunca pede credenciais; providers externos podem devolver
+  // mídia, ou lista vazia honesta quando o conteúdo não está público.
   const s0 = await cap.igStories('1', 'veigh');
-  check('stories sem sessão → needsLogin', s0.needsLogin === true && s0.items.length === 0);
-  check('feedAll sem sessão → needsLogin', (await cap.igFeedAll('1', 'veigh')).needsLogin === true);
+  check('stories públicos não pedem login', s0.needsLogin === false);
+  check('feedAll público não pede login', (await cap.igFeedAll('1', 'veigh')).needsLogin === false);
   // download: verificação de falha (URL inválida)
   let errMsg = ''; try { await cap.baixarMedia({ url: 'https://www.instagram.com/nao-existe-404.jpg', isVideo: false }); } catch (e) { errMsg = e.message; }
   check('baixarMedia detecta falha', /HTTP|tipo inválido|timeout|ENOTFOUND|vazio/i.test(errMsg), errMsg);
@@ -93,25 +94,16 @@ fs.rmSync(TMP, { recursive: true, force: true });
     fs.rmSync(path.join(cap.DATA_DIR, 'ig_cap-test'), { recursive: true, force: true });
   } else { console.log('  (testes de rede saltados)'); }
 
-  // ═══ SESSÕES (pool) ═══
-  console.log('\n═══ SESSÕES IG (pool) ═══');
-  const _targetsBk = JSON.parse(JSON.stringify(cap.state.targets)); cap._reset();
-  check('sem sessão', !cap.hasSession('ig') && cap.sessionsAtivas().length === 0);
-  check('validarSessao curta → erro', (await cap.validarSessao('abc')).ok === false);
-  // adiciona sem validar (offline) e testa pool/rotação
-  await cap.addSessao('11111111%3AAAAAAAAAAAAAAAAAAAAAAAAAAAAA', { validar: false });
-  await cap.addSessao('22222222%3ABBBBBBBBBBBBBBBBBBBBBBBBBBBB', { validar: false });
-  check('pool com 2 sessões', cap.listSessoes().length === 2 && cap.hasSession('ig'));
-  check('cookie inclui ds_user_id da sessão', /ds_user_id=(11111111|22222222)/.test(cap.igHeaders ? '' : 'x') || true);
-  const a = cap.sessionsAtivas(); check('rotação percorre as duas', a.length === 2);
-  cap.marcarSessaoInvalida('11111111%3AAAAAAAAAAAAAAAAAAAAAAAAAAAAA', 'login_required');
-  check('sessão inválida sai do pool activo + log', cap.sessionsAtivas().length === 1 && cap.listSessoes().find(x => !x.ok)?.lastErr === 'login_required' && cap.state.log[0].tipo === 'sessao');
-  check('delSessao all', cap.delSessao('all') === 2 && !cap.hasSession('ig'));
-  process.env.IG_SESSIONID = '33333333%3ACCCCCCCCCCCCCCCCCCCCCCCCCC'; cap.carregarEnv();
-  check('carrega IG_SESSIONID do env quando vazio', cap.sessionsAtivas().length === 1 && cap.state.session.ig.startsWith('33333333'));
-  delete process.env.IG_SESSIONID; cap.delSessao('all');
-  check('login_required com sessão falsa não crasha (stories)', (await cap.igStories('1', 'x')).items.length === 0);
-  cap.state.targets = _targetsBk; cap.save();
+  // ═══ MODO PÚBLICO (sem login IG) ═══
+  console.log('\n═══ C∆P PÚBLICO (sem login) ═══');
+  const targetsBk = JSON.parse(JSON.stringify(cap.state.targets));
+  cap._reset();
+  const capSource = fs.readFileSync(path.join(__dirname, '../src/cap/capEngine.js'), 'utf8');
+  check('estado público não mantém nem exporta sessões', !Object.hasOwn(cap.state, 'session') && !('hasSession' in cap) && !('addSessao' in cap));
+  check('engine não lê IG_SESSIONID nem inclui cookies', !/IG_SESSIONID|sessionid|Cookie\s*:|--cookies/i.test(capSource));
+  const publicStories = await cap.igStories('1', 'veigh');
+  check('stories públicos nunca pedem login', publicStories.needsLogin === false);
+  cap.state.targets = targetsBk; cap.save();
 
   // ═══ CASE cap ═══
   console.log('\n═══ COMANDO cap ═══');
@@ -125,7 +117,8 @@ fs.rmSync(TMP, { recursive: true, force: true });
   const run = async (c, args, ctx = ctxO) => { out.length = 0; await ch.runCase(c, { sock: sock2, msg: mk('!' + c), ctx, args, text: args.join(' '), prefix: '!', isOwner: !!ctx.isOwner, reply: (t) => sock2.sendMessage(ctx.remoteJid, { text: t }), config: require('../src/config') }); return out.join('\n'); };
   check('cap sem args → ajuda', /Capture de redes sociais/.test(await run('cap', [])));
   check('cap bloqueado a não-dono', /Só Dono/.test(await run('cap', ['lista'], ctxF)));
-  check('cap lista mostra alvo', /@veigh/.test(await run('cap', ['lista'])));
+  const listaPublica = await run('cap', ['lista']);
+  check('cap lista mostra alvo e provedores públicos', /@veigh/.test(listaPublica) && /Provedores públicos/.test(listaPublica));
   check('cap intervalo', /a cada 45 min/.test(await run('cap', ['intervalo', '@veigh', '45'])) && cap.getTarget('veigh').intervaloMin === 45);
   check('cap guardar off', /Galeria.*OFF/.test(await run('cap', ['guardar', '@veigh', 'off'])) && cap.getTarget('veigh').guardar === false);
   check('cap destino remover', /limpos/.test(await run('cap', ['destino', '@veigh', 'remover'])) && cap.getTarget('veigh').destinos.length === 0);
@@ -134,10 +127,7 @@ fs.rmSync(TMP, { recursive: true, force: true });
   check('cap plataforma não suportada', /não suportada/.test(await run('cap', ['add', 'tiktok:veigh'])));
   check('cap link sem url → uso', /Uso:.*cap link/.test(await run('cap', ['link'])));
   check('ytdlpItem exportado', typeof cap.ytdlpItem === 'function');
-  check('cap login sem args → guia', /Como obter o sessionid/.test(await run('cap', ['login'])));
-  check('cap login curto → erro', /demasiado curto/.test(await run('cap', ['login', 'abc'])));
-  check('cap sessoes vazio', /Nenhuma sessão/.test(await run('cap', ['sessoes'])));
-  check('cap logout sem sessões', /Nenhuma sessão/.test(await run('cap', ['logout'])));
+  check('cap ajuda não expõe comando de login nem sessionid', !/cap login|sessionid|cookies/i.test(await run('cap', [])));
 
   // ═══ PLANOS + ALUGUEL ═══
   console.log('\n═══ SUBMENU PLANOS + ALUGUEL AVANÇADO ═══');

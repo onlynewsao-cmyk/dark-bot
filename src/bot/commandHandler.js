@@ -509,33 +509,58 @@ async function userIsPremiumOrOwner(number, isOwner, msg) {
   return checkIsPremium(u);
 }
 
-// Quando ligado pelo Dono (!pvfree on), este gate vem ANTES de qualquer
-// automação/Aura/botão. Assim utilizadores Free em PV não recebem texto,
-// reação, convite ou resposta acidental; Premium e Dono permanecem normais.
-async function deveSilenciarFreeNoPv(ctx, msg, sock) {
+// No privado, a conta Free fica limitada à conversão normal de foto/vídeo
+// em sticker. O gate vem antes de AURA, listas e fluxos conversacionais para
+// não deixar uma rota lateral transformar o PV gratuito numa conta completa.
+const PV_FREE_STICKER_COMMANDS = new Set(['sticker', 's', 'fig', 'f', 'figurinha']);
+async function bloquearPvFreeForaSticker(sock, msg, ctx, text) {
   if (ctx?.isGroup || msg?.key?.fromMe) return false;
-  const ativo = await botConfigCache.get('free_pv_silent', false).catch(() => false);
-  if (!(ativo === true || ativo === 'true' || ativo === 'on' || ativo === 1 || ativo === '1')) return false;
+  try {
+    const normalize = userManager.normalizeNumber;
+    const sender = normalize(ctx?.senderNumber);
+    const [extraOwners, ownerNumDB, ownerLid] = await Promise.all([
+      botConfigCache.get('owner_numbers', []).catch(() => []),
+      botConfigCache.get('owner_number', '').catch(() => ''),
+      botConfigCache.get('owner_lid', '').catch(() => ''),
+    ]);
+    const ownerNumbers = [config.owner?.number, ownerNumDB]
+      .concat(Array.isArray(extraOwners) ? extraOwners : String(extraOwners || '').split(/[\s,]+/))
+      .map(normalize)
+      .filter(Boolean);
+    const botNumber = normalize(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
+    if (ownerNumbers.includes(sender) ||
+        require('./ownerIdentity').matchesOwnerLid(ctx, msg || {}, ownerLid) ||
+        (botNumber && sender === botNumber)) return false;
 
-  const [extraOwners, ownerNumDB, ownerLid] = await Promise.all([
-    botConfigCache.get('owner_numbers', []).catch(() => []),
-    botConfigCache.get('owner_number', '').catch(() => ''),
-    botConfigCache.get('owner_lid', '').catch(() => ''),
-  ]);
-  const normalize = userManager.normalizeNumber;
-  const sender = normalize(ctx?.senderNumber);
-  const ownerNumbers = [config.owner?.number, ownerNumDB]
-    .concat(Array.isArray(extraOwners) ? extraOwners : String(extraOwners || '').split(/[\s,]+/))
-    .map(normalize)
-    .filter(Boolean);
-  const senderJid = String(msg?.key?.participant || msg?.key?.remoteJid || '');
-  const botNumber = normalize(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
-  if (ownerNumbers.includes(sender) ||
-      require('./ownerIdentity').matchesOwnerLid(ctx, msg || {}, ownerLid) ||
-      (botNumber && sender === botNumber)) return false;
+    const user = await require('./hotCache').getUser(msg, sender).catch(() => null);
+    if (checkIsPremium(user)) return false;
 
-  const user = await require('./hotCache').getUser(msg, sender).catch(() => null);
-  return !checkIsPremium(user);
+    const detected = await prefixEngine.detect(text, ctx.remoteJid).catch(() => null);
+    const command = String(detected?.rest || '').trim().split(/\s+/)[0].toLowerCase();
+    if (command && PV_FREE_STICKER_COMMANDS.has(command)) return false;
+
+    // Texto livre também não libera AURA, listas ou IA no PV Free. Cada
+    // tentativa recebe a orientação comercial, em vez de um silêncio ambíguo.
+    const owner = String(config.owner?.number || '').replace(/\D/g, '');
+    await sock.sendMessage(ctx.remoteJid, {
+      text:
+        `🆓 *ACESSO FREE NO PRIVADO*\n\n` +
+        `No PV, contas Free usam apenas o criador de stickers. Responde a uma foto ou vídeo com *${detected?.prefix || config.bot.prefix || '!'}sticker*.\n\n` +
+        `⭐ Para usar todos os comandos, compra o *VIP*.\n` +
+        `🏠 Para activar o bot no teu grupo, adiciona-o e usa o *trial de 7 dias* ou contrata o aluguel.\n` +
+        (owner ? `📲 Contratação: wa.me/${owner}` : ''),
+    }, { quoted: msg }).catch(() => {});
+    return true;
+  } catch {
+    // Falha fechada para Free no PV: nunca abrir AURA/comandos por uma falha
+    // temporária na leitura do perfil; ainda tenta entregar o aviso útil.
+    try {
+      await sock.sendMessage(ctx?.remoteJid, {
+        text: '🆓 *ACESSO FREE NO PRIVADO*\n\nNo PV, contas Free usam apenas a criação de stickers. Para todos os comandos, compra VIP ou aluga o bot para um grupo.',
+      }, { quoted: msg });
+    } catch {}
+    return true;
+  }
 }
 
 // ── v6.94: aviso de grupo sem aluguel (a assistente ajuda, não se cala) ──
@@ -639,9 +664,9 @@ async function _handleInner(sock, msg, turn) {
   const ctx = getSenderInfo(msg, sock);
   // v12.9.50: Canais (@newsletter) e feeds de status nunca são processados como mensagens de chat/PV/comandos
   if (ctx.isChannel || ctx.isStatus) return false;
-  // Gate absoluto: deve acontecer antes de listas, regras, Aura, convites
-  // ou qualquer sendMessage. O Dono liga/desliga pelo comando !pvfree.
-  if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return false;
+  // Política comercial do PV: Free não usa AURA/listas/comandos, excepto a
+  // conversão normal para sticker; Premium e Dono mantêm acesso completo.
+  if (await bloquearPvFreeForaSticker(sock, msg, ctx, text)) return true;
   // Modo só-admin: AURA, menus e comandos ficam reservados a admins,
   // subdonos e Dono — sem depender de fechar o chat no WhatsApp.
   if (await _adminsOnlyBlocksSender(sock, msg, ctx)) return false;
@@ -4124,33 +4149,8 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
     }
   }
 
-  // ── Limite free PV (50 cmds/dia — mais generoso para não frustrar) ──
-  // Comandos de info/ajuda não contam para o limite
-  const PV_EXEMPT = new Set(['menu','start','ping','info','dono','criador','aiapis','donos','help','cmds','comandos','vip','prefixos']);
-  if (!ctx.isGroup && !isOwner && !PV_EXEMPT.has(canonicalCommand || '')) {
-    try {
-      const FREE_PV_LIMIT = 50;
-      const todayStr = new Date().toISOString().slice(0, 10);
-      const pvUser = await require('./hotCache').getUser(msg, ctx.senderNumber); // v7.52: memo partilhado
-      if (!pvUser || !checkIsPremium(pvUser)) {
-        const sameDayCount = (pvUser?.pvCommandsDate === todayStr) ? (pvUser?.pvCommandsToday || 0) : 0;
-        if (sameDayCount >= FREE_PV_LIMIT) {
-          await sock.sendMessage(ctx.remoteJid, {
-            text:
-              `⏳ *Limite diário atingido*\n\n` +
-              `Utilizadores Free têm *${FREE_PV_LIMIT} comandos/dia* no chat privado.\n\n` +
-              `⭐ Upgrade para *Premium* e usa sem limites: *${prefix}vip*`,
-          }, { quoted: msg });
-          return true;
-        }
-        // Incrementa (não bloqueia se falhar)
-        User.findOneAndUpdate(
-          { whatsappNumber: ctx.senderNumber },
-          { pvCommandsToday: sameDayCount + 1, pvCommandsDate: todayStr }
-        ).catch(() => {});
-      }
-    } catch {}
-  }
+  // O antigo limite de 50 comandos/dia no PV foi substituído pelo acesso
+  // Free somente para !sticker, aplicado antes de AURA e dos cases.
 
   // ── Case Handler (switch/case engine) ─────────────────────────────
   // Executa antes dos pacotes — tem prioridade
@@ -4644,7 +4644,7 @@ async function handleConversationControl(sock, raw) {
   const conversation = require('../aura/auraConversation');
   const text = extractText(msg).trim();
   if (!conversation.controlIntent(text)) return false;
-  if (await deveSilenciarFreeNoPv(ctx, msg, sock)) return true;
+  if (await bloquearPvFreeForaSticker(sock, msg, ctx, text)) return true;
   // Este caminho prioritário passa antes do handler normal; aplica a mesma
   // política só-admin para um membro não receber resposta por !pausar,
   // !retomar ou outro controlo conversacional.
@@ -4680,4 +4680,4 @@ async function handle(sock, msg) {
   });
 }
 
-module.exports = { handle, noteIncomingConversation, handleConversationControl, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, deveSilenciarFreeNoPv, fotosPedidas: _fotosPedidas };
+module.exports = { handle, noteIncomingConversation, handleConversationControl, extractText, getSenderInfo, fillVars, unwrapWhatsAppMessage, normalizeIncomingMsg, pareceComando, bloquearPvFreeForaSticker, fotosPedidas: _fotosPedidas };

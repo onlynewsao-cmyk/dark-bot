@@ -137,7 +137,7 @@ router.get('/schedule', requireOwner, async (req, res) => {
   res.render('dashboard/schedule', { title: 'Agendamentos', schedules, medias });
 });
 
-// v7.34: C∆P — capturas de redes sociais (sessões IG + alvos)
+// v7.34: C∆P — capturas públicas de redes sociais (sem login IG)
 // v12.9.11: Central de Contactos (captura de grupos)
 router.get('/central', requireOwner, async (req, res) => {
   const cb = require('../bot/centralBase'); cb.carregar();
@@ -147,7 +147,7 @@ router.get('/central', requireOwner, async (req, res) => {
 
 router.get('/cap', requireOwner, async (req, res) => {
   const cap = require('../cap/capEngine'); cap.load();
-  res.render('dashboard/cap', { title: 'C∆P Capture', sessoes: cap.listSessoes(), alvos: cap.listTargets(), log: cap.state.log.slice(0, 30) });
+  res.render('dashboard/cap', { title: 'C∆P Capture', alvos: cap.listTargets(), log: cap.state.log.slice(0, 30) });
 });
 
 router.get('/igapi', requireOwner, (req, res) => {
