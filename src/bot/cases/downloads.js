@@ -23,6 +23,19 @@ const ytdl           = new Proxy({}, { get: (_, k) => (_ytdl ||= require('../ytd
 const mediaHandler   = new Proxy({}, { get: (_, k) => (_mh   ||= require('../mediaHandler'))[k] });
 const config         = require('../../config');
 
+// Eventos de música também chegam ao Console Live do Dashboard da instância
+// conectada. Em testes/mocks, o log continua no stdout sem depender do bot.
+function logMusic(sock, level, message) {
+  try {
+    if (typeof sock?.__darkBotLog === 'function') {
+      sock.__darkBotLog(level, message);
+      return;
+    }
+  } catch {}
+  const fn = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  fn(`[${level.toUpperCase()}] ${message}`);
+}
+
 // ── Helper: envia áudio com card de metadados ─────────────────
 async function sendAudioCard(sock, jid, quoted, r) {
   // Áudio real primeiro: o mime e a extensão são derivados dos bytes, não da
@@ -40,21 +53,31 @@ async function sendAudioCard(sock, jid, quoted, r) {
   const mime = mediaHandler.audioMimeFromBytes?.(audioBuffer, declaredMime) || declaredMime;
   const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : mime.includes('wav') ? 'wav' : 'mp3';
   const fileName = `${title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 60)}.${ext}`;
-  console.log('[MUSIC-SEND]', jid, Math.round(audioBuffer.length / 1024) + 'KB', mime, (r.source || r.quality || '') + ' verified');
+  const details = `jid=${jid} bytes=${audioBuffer.length} mime=${mime} source=${r.source || r.quality || 'desconhecida'}`;
+  logMusic(sock, 'info', `[MUSIC-SEND] pronto ${details}`);
 
   try {
-    return await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
+    const result = await sock.sendMessage(jid, { audio: audioBuffer, mimetype: mime, fileName, ptt: false }, { quoted });
+    logMusic(sock, 'success', `[MUSIC-SEND] entregue como áudio ${details}`);
+    return result;
   } catch (audioSendError) {
     // O upload de áudio é recusado ocasionalmente por clientes/servidores que
     // aceitam o mesmo byte como ficheiro. Entregar como documento é preferível
     // a mostrar sucesso no card sem nenhuma música chegar ao utilizador.
-    console.warn('[MUSIC-SEND] player recusado; a entregar ficheiro:', audioSendError.message?.slice(0, 90));
-    return sock.sendMessage(jid, {
-      document: audioBuffer,
-      mimetype: mime,
-      fileName,
-      caption: `🎵 ${title}\n📎 Enviado como ficheiro para garantir a entrega.`,
-    }, { quoted });
+    logMusic(sock, 'warn', `[MUSIC-SEND] áudio recusado; fallback documento jid=${jid} erro=${String(audioSendError.message || '').slice(0, 90)}`);
+    try {
+      const result = await sock.sendMessage(jid, {
+        document: audioBuffer,
+        mimetype: mime,
+        fileName,
+        caption: `🎵 ${title}\n📎 Enviado como ficheiro para garantir a entrega.`,
+      }, { quoted });
+      logMusic(sock, 'success', `[MUSIC-SEND] entregue como documento ${details}`);
+      return result;
+    } catch (documentSendError) {
+      logMusic(sock, 'error', `[MUSIC-SEND] documento também falhou jid=${jid} erro=${String(documentSendError.message || '').slice(0, 90)}`);
+      throw documentSendError;
+    }
   }
 }
 // ── Helper: envia vídeo MP4 reproduzível no WhatsApp ─────────
@@ -182,7 +205,7 @@ async function enviarAudioResultado(sock, jid, msg, video, quality) {
     return;
   } catch (error) {
     primaryError = error;
-    console.warn('[PLAY AUDIO] provider primário não entregou; a tentar motor local:', error.message?.slice(0, 100));
+    logMusic(sock, 'warn', `[PLAY AUDIO] primário não entregou jid=${jid}; a tentar motor local: ${String(error.message || '').slice(0, 100)}`);
   }
 
   try {
@@ -235,7 +258,7 @@ async function runPlaySearch({ sock, m, msg, ctx, text, prefix, command }, resul
         await enviarAudioResultado(sock, m.chat, msg, video, Q.audio);
       } catch (audioError) {
         audioFailed = true;
-        console.warn('[PLAY AUDIO]', audioError.message?.slice(0, 100));
+        logMusic(sock, 'error', `[PLAY AUDIO] falha final jid=${m.chat}: ${String(audioError.message || '').slice(0, 100)}`);
         await m.reply('⚠️ O card de vídeo foi enviado, mas não consegui entregar o áudio desta vez.');
       }
     } else {

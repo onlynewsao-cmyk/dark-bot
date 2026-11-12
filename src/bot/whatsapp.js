@@ -431,6 +431,14 @@ class WhatsAppBot {
         },
       });
 
+      // Canal não enumerável para telemetria dos handlers. Desta forma,
+      // falhas/entregas de !play aparecem no Console Live sem expor uma rota
+      // pública de logs nem alterar o payload do socket Baileys.
+      try {
+        Object.defineProperty(this.sock, '__darkBotLog', {
+          value: (level, message) => this.log(level, message), enumerable: false,
+        });
+      } catch {}
       this.setStatus('connecting', { mode: cleanMode });
       this._armConnectionTimeout(this.sock, cleanMode === 'pair' ? 90000 : 60000);
       // v7.45 — comportamento humano: lido + 'a escrever…/a gravar…' + atraso proporcional antes de cada envio

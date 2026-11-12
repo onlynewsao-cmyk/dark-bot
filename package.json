@@ -64,6 +64,7 @@
     "test:rankativos": "node scripts/test-rankativos.js",
     "test:downloads-audit": "node scripts/test-downloads-audit.js",
     "test:downloads-real": "node scripts/test-downloads-real.js",
+    "test:youtube-live": "node scripts/test-youtube-live.js",
     "test:downloads-smoke": "node scripts/test-downloads-delivery-smoke.js",
     "test:downloads-menu": "node scripts/test-downloads-menu.js",
     "test:play-card": "node scripts/test-play-card.js",
