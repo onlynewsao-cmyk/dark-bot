@@ -513,52 +513,186 @@ async function userIsPremiumOrOwner(number, isOwner, msg) {
 // em sticker. O gate vem antes de AURA, listas e fluxos conversacionais para
 // não deixar uma rota lateral transformar o PV gratuito numa conta completa.
 const PV_FREE_STICKER_COMMANDS = new Set(['sticker', 's', 'fig', 'f', 'figurinha']);
+const _pvFreeNoticeAt = new Map();
+const PV_FREE_NOTICE_MS = 24 * 60 * 60 * 1000;
+const FREE_PV_AURA_LIMIT = 10;
+const _freePvAuraUsage = new Map();
+
+function deveAvisarPvFree(chave) {
+  const key = String(chave || '');
+  if (!key) return true;
+  const now = Date.now();
+  if (_pvFreeNoticeAt.size > 5000) {
+    for (const [k, at] of _pvFreeNoticeAt) if (now - at > PV_FREE_NOTICE_MS) _pvFreeNoticeAt.delete(k);
+  }
+  if (now - (_pvFreeNoticeAt.get(key) || 0) < PV_FREE_NOTICE_MS) return false;
+  _pvFreeNoticeAt.set(key, now);
+  return true;
+}
+
+async function avisarPvFree(sock, msg, ctx, prefix, noticeKey) {
+  if (!deveAvisarPvFree(noticeKey)) return;
+  const owner = String(config.owner?.number || '').replace(/\D/g, '');
+  await sock.sendMessage(ctx.remoteJid, {
+    text:
+      `🆓 *ACESSO FREE NO PRIVADO*\n\n` +
+      `No PV, contas Free podem criar stickers e usar a AURA em modo assistente por até *${FREE_PV_AURA_LIMIT} perguntas de texto/dia*. Responde a uma foto ou vídeo com *${prefix || config.bot.prefix || '!'}sticker*.\n\n` +
+      `⭐ Para usar todos os comandos, compra o *VIP*.\n` +
+      `🏠 Para activar o bot no teu grupo, adiciona-o e usa o *trial de 7 dias* ou contrata o aluguel.\n` +
+      (owner ? `📲 Contratação: wa.me/${owner}` : ''),
+  }, { quoted: msg }).catch(() => {});
+}
+
+// Um PV moderno pode chegar apenas como LID. Antes de aplicar cobrança ou
+// permissões, resolve-o pelo mapeamento oficial/cached do Baileys, sem supor
+// números a partir do LID. Assim Dono e VIP continuam reconhecidos.
+function diaLuanda() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Luanda', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
+async function consumirCotaAuraFree(user, sender) {
+  const number = userManager.normalizeNumber(sender);
+  const day = diaLuanda();
+  const key = `${number || 'anon'}:${day}`;
+
+  // Em produção, o incremento é atómico: duas mensagens simultâneas (ou
+  // dois workers) não podem transformar o limite 10 em 11. O filtro aceita
+  // a primeira pergunta de um dia novo ou uma cota ainda abaixo do máximo.
+  if (number && User?.db?.readyState === 1) {
+    try {
+      const sameDay = { $eq: [{ $ifNull: ['$freeAuraDate', ''] }, day] };
+      const updated = await User.findOneAndUpdate(
+        {
+          whatsappNumber: number,
+          $expr: {
+            $or: [
+              { $ne: [{ $ifNull: ['$freeAuraDate', ''] }, day] },
+              { $lt: [{ $ifNull: ['$freeAuraUsed', 0] }, FREE_PV_AURA_LIMIT] },
+            ],
+          },
+        },
+        [{
+          $set: {
+            freeAuraDate: day,
+            freeAuraUsed: {
+              $cond: [
+                sameDay,
+                { $add: [{ $ifNull: ['$freeAuraUsed', 0] }, 1] },
+                1,
+              ],
+            },
+          },
+        }],
+        { new: true }
+      ).lean();
+      if (!updated) return { allowed: false, used: FREE_PV_AURA_LIMIT };
+      const used = Math.max(0, Number(updated.freeAuraUsed) || 0);
+      _freePvAuraUsage.set(key, { used });
+      require('./hotCache').forgetUser?.(number);
+      return { allowed: true, used };
+    } catch (error) {
+      // Uma indisponibilidade breve do Mongo não deixa o PV ilimitado: cai
+      // para a cota local até a persistência voltar, sem atrasar a resposta.
+      console.warn('[PV Free] contador persistente indisponível:', error.message?.slice(0, 80));
+    }
+  }
+
+  let entry = _freePvAuraUsage.get(key);
+  if (!entry) {
+    const storedDay = String(user?.freeAuraDate || '');
+    const saved = Number(user?.freeAuraUsed || 0);
+    entry = { used: storedDay === day && Number.isFinite(saved) ? Math.max(0, saved) : 0 };
+  }
+  if (entry.used >= FREE_PV_AURA_LIMIT) return { allowed: false, used: entry.used };
+  entry.used += 1;
+  _freePvAuraUsage.set(key, entry);
+  return { allowed: true, used: entry.used };
+}
+
+async function responderAuraFreeLimitada(sock, msg, ctx, text, user, sender) {
+  const quota = await consumirCotaAuraFree(user, sender);
+  if (!quota.allowed) {
+    // Partilha a mesma chave da conversa com os comandos bloqueados: uma
+    // conta não recebe uma segunda peça comercial por ter atingido a cota.
+    await avisarPvFree(sock, msg, ctx, null, String(ctx?.remoteJid || ctx?.senderLid || sender || 'free-pv'));
+    return;
+  }
+  const auraModes = require('../aura/auraModes');
+  const resposta = await auraModes.assistantRespond(String(text).slice(0, 700), {
+    botName: config.bot?.name || 'DARK BOT', userName: ctx.pushName || 'utilizador',
+    isGroup: false, remoteJid: ctx.remoteJid, senderNumber: sender,
+    isOwner: false, isVip: false, isAdmin: false, prefix: config.bot?.prefix || '!',
+    historyArray: [], groupContext: '', freePvLimited: true,
+  });
+  await sock.sendMessage(ctx.remoteJid, { text: String(resposta || 'Não consegui responder agora. Tenta novamente mais tarde.') }, { quoted: msg });
+}
+
+async function normalizarIdentidadePv(sock, msg, ctx) {
+  const fallback = userManager.normalizeNumber(ctx?.senderNumber);
+  try {
+    const ident = require('../aura/auraIdentidade');
+    const resolved = await ident.identificar(sock, msg, ctx);
+    const numero = userManager.normalizeNumber(resolved?.numero || fallback);
+    if (numero) {
+      ctx.senderNumber = numero;
+      ctx.senderJid = resolved?.jid || `${numero}@s.whatsapp.net`;
+    }
+    if (resolved?.lid) ctx.senderLid = String(resolved.lid);
+    return numero || fallback;
+  } catch { return fallback; }
+}
+
 async function bloquearPvFreeForaSticker(sock, msg, ctx, text) {
   if (ctx?.isGroup || msg?.key?.fromMe) return false;
+  const noticeKey = String(ctx?.remoteJid || ctx?.senderLid || ctx?.senderNumber || 'free-pv');
   try {
-    const normalize = userManager.normalizeNumber;
-    const sender = normalize(ctx?.senderNumber);
+    const sender = await normalizarIdentidadePv(sock, msg, ctx);
     const [extraOwners, ownerNumDB, ownerLid] = await Promise.all([
       botConfigCache.get('owner_numbers', []).catch(() => []),
       botConfigCache.get('owner_number', '').catch(() => ''),
       botConfigCache.get('owner_lid', '').catch(() => ''),
     ]);
-    const ownerNumbers = [config.owner?.number, ownerNumDB]
-      .concat(Array.isArray(extraOwners) ? extraOwners : String(extraOwners || '').split(/[\s,]+/))
-      .map(normalize)
+    const ownerNumbers = (Array.isArray(extraOwners) ? extraOwners : String(extraOwners || '').split(/[\s,]+/))
+      .map(userManager.normalizeNumber)
       .filter(Boolean);
-    const botNumber = normalize(String(sock?.user?.id || '').split(':')[0].split('@')[0]);
-    if (ownerNumbers.includes(sender) ||
-        require('./ownerIdentity').matchesOwnerLid(ctx, msg || {}, ownerLid) ||
-        (botNumber && sender === botNumber)) return false;
+    const ownerFlags = require('./ownerIdentity').resolveOwnerFlags({
+      ctx, msg: msg || {}, sock, config,
+      dbOwnerNum: userManager.normalizeNumber(ownerNumDB), ownerLid, ownerNumbers,
+    });
+    Object.assign(ctx, ownerFlags);
+    if (ownerFlags.isOwner) return false;
 
-    const user = await require('./hotCache').getUser(msg, sender).catch(() => null);
+    let user = await require('./hotCache').getUser(msg, sender).catch(() => null);
+    // Este gate vem antes do normalizador que cria o perfil do remetente.
+    // Criamos o registo Free apenas quando Mongo está disponível para a
+    // contagem sobreviver a reinícios; sem base, a protecção em memória vale.
+    if (!user && sender && User?.db?.readyState === 1) {
+      user = await userManager.identifyByWhatsApp(sender, ctx.pushName).catch(() => null);
+    }
     if (checkIsPremium(user)) return false;
 
     const detected = await prefixEngine.detect(text, ctx.remoteJid).catch(() => null);
     const command = String(detected?.rest || '').trim().split(/\s+/)[0].toLowerCase();
     if (command && PV_FREE_STICKER_COMMANDS.has(command)) return false;
 
-    // Texto livre também não libera AURA, listas ou IA no PV Free. Cada
-    // tentativa recebe a orientação comercial, em vez de um silêncio ambíguo.
-    const owner = String(config.owner?.number || '').replace(/\D/g, '');
-    await sock.sendMessage(ctx.remoteJid, {
-      text:
-        `🆓 *ACESSO FREE NO PRIVADO*\n\n` +
-        `No PV, contas Free usam apenas o criador de stickers. Responde a uma foto ou vídeo com *${detected?.prefix || config.bot.prefix || '!'}sticker*.\n\n` +
-        `⭐ Para usar todos os comandos, compra o *VIP*.\n` +
-        `🏠 Para activar o bot no teu grupo, adiciona-o e usa o *trial de 7 dias* ou contrata o aluguel.\n` +
-        (owner ? `📲 Contratação: wa.me/${owner}` : ''),
-    }, { quoted: msg }).catch(() => {});
+    const perguntaLivre = String(text || '').trim();
+    if (!detected && perguntaLivre && perguntaLivre.length <= 700 && !pareceComando(perguntaLivre) && !hasMediaPayload(msg?.message)) {
+      // Free fala com AURA apenas no modo Assistente: texto, sem comandos,
+      // mídia, automações ou acções de WhatsApp, até 10 perguntas/dia.
+      await responderAuraFreeLimitada(sock, msg, ctx, perguntaLivre, user, sender);
+      return true;
+    }
+
+    // A orientação comercial só é entregue uma vez por conta/24h para não
+    // transformar tentativas repetidas em spam. O gate continua fechado.
+    await avisarPvFree(sock, msg, ctx, detected?.prefix, noticeKey);
     return true;
   } catch {
-    // Falha fechada para Free no PV: nunca abrir AURA/comandos por uma falha
-    // temporária na leitura do perfil; ainda tenta entregar o aviso útil.
-    try {
-      await sock.sendMessage(ctx?.remoteJid, {
-        text: '🆓 *ACESSO FREE NO PRIVADO*\n\nNo PV, contas Free usam apenas a criação de stickers. Para todos os comandos, compra VIP ou aluga o bot para um grupo.',
-      }, { quoted: msg });
-    } catch {}
+    // Falha fechada para Free no PV: não abre AURA/comandos; se possível,
+    // deixa apenas o mesmo aviso comercial com o limitador anti-spam.
+    await avisarPvFree(sock, msg, ctx, null, noticeKey).catch(() => {});
     return true;
   }
 }
