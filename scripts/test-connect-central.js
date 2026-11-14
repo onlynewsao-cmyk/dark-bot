@@ -32,6 +32,8 @@ async function run() {
   const originalSet = botConfigCache.set;
   const originalGetUser = hotCache.getUser;
   const originalDetect = prefixEngine.detect;
+  const originalUserFindOneAndUpdate = User.findOneAndUpdate;
+  const originalDbReadyState = User.db.readyState;
   let user = { role: 'free' };
   botConfigCache.get = async (key, fallback) => ({
     owner_numbers: [],
@@ -76,6 +78,33 @@ async function run() {
     assert.equal(auraFreeCalls.length, 10, 'nenhum comando, mesmo com prefixo errado, consome a cota AURA');
     assert.equal(auraSent.length, 11, 'orientação comercial não repete no mesmo dia');
 
+    // Simula a marca durável quando um processo novo (ou outro worker) vê o
+    // mesmo Free: a chave em memória muda, mas a base impede novo anúncio.
+    let persistedNoticeDate = '';
+    let persistedWrites = 0;
+    User.db.readyState = 1;
+    User.findOneAndUpdate = (filter, update) => ({
+      lean: async () => {
+        persistedWrites++;
+        if (persistedNoticeDate !== filter.freePvNoticeDate?.$ne) {
+          persistedNoticeDate = update.$set.freePvNoticeDate;
+          return { whatsappNumber: filter.whatsappNumber, freePvNoticeDate: persistedNoticeDate };
+        }
+        return null;
+      },
+    });
+    const restartSent = [];
+    const restartSock = { user: { id: '244900000099@s.whatsapp.net' }, sendMessage: async (_jid, payload) => { restartSent.push(payload); return {}; } };
+    const restartMsg = { key: { remoteJid: '244933333333@s.whatsapp.net', fromMe: false } };
+    const restartCtx = { isGroup: false, senderNumber: '244933333333', senderLid: '', remoteJid: restartMsg.key.remoteJid };
+    await handler.bloquearPvFreeForaSticker(restartSock, restartMsg, restartCtx, '!menu');
+    const otherWorkerCtx = { ...restartCtx, remoteJid: '244933333333@lid', senderLid: '555555555555' };
+    await handler.bloquearPvFreeForaSticker(restartSock, { key: { remoteJid: otherWorkerCtx.remoteJid, fromMe: false } }, otherWorkerCtx, '!menu');
+    assert.equal(restartSent.length, 1, 'marca persistida evita anúncio duplicado depois de restart/worker');
+    assert.equal(persistedWrites, 2, 'segundo worker consulta a marca diária persistida');
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+    User.db.readyState = originalDbReadyState;
+
     user = { role: 'premium', premiumUntil: null };
     assert.equal(await handler.bloquearPvFreeForaSticker(pvSock, freeMsg, freeCtx, '!play música'), false, 'VIP mantém acesso completo no PV');
     user = { role: 'free' };
@@ -100,12 +129,15 @@ async function run() {
     botConfigCache.set = originalSet;
     hotCache.getUser = originalGetUser;
     prefixEngine.detect = originalDetect;
+    User.findOneAndUpdate = originalUserFindOneAndUpdate;
+    User.db.readyState = originalDbReadyState;
     if (savedAuraModes) require.cache[auraModesPath] = savedAuraModes;
     else delete require.cache[auraModesPath];
   }
 
   assert.equal(typeof nativeCommands.pvfree, 'function', 'Comando !pvfree deve existir');
   assert(User.schema.path('freeAuraUsed') && User.schema.path('freeAuraDate'), 'cota AURA Free é persistida no perfil');
+  assert(User.schema.path('freePvNoticeDate'), 'aviso comercial Free é persistido no perfil');
 
   const sidebar = fs.readFileSync(path.join(root, 'src/views/partials/sidebar.ejs'), 'utf8');
   const hrefs = [...sidebar.matchAll(/<a\s+href="([^"]+)"/g)].map(m => m[1]);

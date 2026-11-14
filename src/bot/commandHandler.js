@@ -518,7 +518,7 @@ const PV_FREE_NOTICE_MS = 24 * 60 * 60 * 1000;
 const FREE_PV_AURA_LIMIT = 10;
 const _freePvAuraUsage = new Map();
 
-function deveAvisarPvFree(chave) {
+async function deveAvisarPvFree(chave, sender = '') {
   const key = String(chave || '');
   if (!key) return true;
   const now = Date.now();
@@ -526,12 +526,35 @@ function deveAvisarPvFree(chave) {
     for (const [k, at] of _pvFreeNoticeAt) if (now - at > PV_FREE_NOTICE_MS) _pvFreeNoticeAt.delete(k);
   }
   if (now - (_pvFreeNoticeAt.get(key) || 0) < PV_FREE_NOTICE_MS) return false;
+
+  // O mapa local cobre respostas repetidas no mesmo processo; a marca no
+  // perfil cobre reinícios, deploys e mais de um worker. Sem PN verificável
+  // (um LID sem mapeamento), não criamos um número: fica só no mapa local.
+  const number = userManager.normalizeNumber(sender);
+  if (number && User?.db?.readyState === 1) {
+    try {
+      const day = diaLuanda();
+      const updated = await User.findOneAndUpdate(
+        { whatsappNumber: number, freePvNoticeDate: { $ne: day } },
+        { $set: { freePvNoticeDate: day } },
+        { new: true }
+      ).lean();
+      if (!updated) {
+        _pvFreeNoticeAt.set(key, now);
+        return false;
+      }
+      require('./hotCache').forgetUser?.(number);
+    } catch (error) {
+      // Não abre o spam quando Mongo oscila; o limitador local ainda vale.
+      console.warn('[PV Free] aviso persistente indisponível:', error.message?.slice(0, 80));
+    }
+  }
   _pvFreeNoticeAt.set(key, now);
   return true;
 }
 
-async function avisarPvFree(sock, msg, ctx, prefix, noticeKey) {
-  if (!deveAvisarPvFree(noticeKey)) return;
+async function avisarPvFree(sock, msg, ctx, prefix, noticeKey, sender = '') {
+  if (!(await deveAvisarPvFree(noticeKey, sender))) return;
   const owner = String(config.owner?.number || '').replace(/\D/g, '');
   await sock.sendMessage(ctx.remoteJid, {
     text:
@@ -616,7 +639,7 @@ async function responderAuraFreeLimitada(sock, msg, ctx, text, user, sender) {
   if (!quota.allowed) {
     // Partilha a mesma chave da conversa com os comandos bloqueados: uma
     // conta não recebe uma segunda peça comercial por ter atingido a cota.
-    await avisarPvFree(sock, msg, ctx, null, String(ctx?.remoteJid || ctx?.senderLid || sender || 'free-pv'));
+    await avisarPvFree(sock, msg, ctx, null, String(ctx?.remoteJid || ctx?.senderLid || sender || 'free-pv'), sender);
     return;
   }
   const auraModes = require('../aura/auraModes');
@@ -687,12 +710,12 @@ async function bloquearPvFreeForaSticker(sock, msg, ctx, text) {
 
     // A orientação comercial só é entregue uma vez por conta/24h para não
     // transformar tentativas repetidas em spam. O gate continua fechado.
-    await avisarPvFree(sock, msg, ctx, detected?.prefix, noticeKey);
+    await avisarPvFree(sock, msg, ctx, detected?.prefix, noticeKey, sender);
     return true;
   } catch {
     // Falha fechada para Free no PV: não abre AURA/comandos; se possível,
     // deixa apenas o mesmo aviso comercial com o limitador anti-spam.
-    await avisarPvFree(sock, msg, ctx, null, noticeKey).catch(() => {});
+    await avisarPvFree(sock, msg, ctx, null, noticeKey, ctx?.senderNumber).catch(() => {});
     return true;
   }
 }
