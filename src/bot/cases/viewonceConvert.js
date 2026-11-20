@@ -159,7 +159,7 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
 
     // Verifica se é view-once
     if (!isViewOnceMedia(quotedMessage)) {
-      return reply('❌ Essa mensagem não é de *visualização única*!\n\nResponde a uma mensagem com o ícone 👁️ para a revelar.');
+      return reply('❌ Essa mensagem não é de *visualização única*!\n\n*💡 Dica:*\n• `!revelar` → converte view-once 👁️ em normal\n• `!toviewonce` → converte normal em view-once 👁️\n\n_Responde a uma mensagem com o ícone 👁️ para a revelar._');
     }
 
     react('⏳');
