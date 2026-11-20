@@ -4,1091 +4,1055 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dark Bot — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  
-  :root {
-    --bg-primary: #0a0a0f;
-    --bg-secondary: #12121a;
-    --bg-card: #1a1a2e;
-    --accent: #7c3aed;
-    --accent-light: #a78bfa;
-    --accent-glow: rgba(124, 58, 237, 0.4);
-    --text-primary: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --border: rgba(124, 58, 237, 0.2);
-  }
-
-  body {
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    min-height: 100vh;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     BACKGROUND ANIMADO — TEIA/WEB 🕸️
-     ═══════════════════════════════════════════════════════ */
-  #web-canvas {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    opacity: 0.6;
-  }
-
-  .gradient-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-      radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .content {
-    position: relative;
-    z-index: 2;
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     HEADER
-     ═══════════════════════════════════════════════════════ */
-  .header {
-    text-align: center;
-    margin-bottom: 3rem;
-    padding: 2rem;
-    position: relative;
-  }
-
-  .header::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-    border-radius: 50%;
-    animation: pulse-glow 4s ease-in-out infinite;
-    z-index: -1;
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
-    50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.8; }
-  }
-
-  .logo {
-    font-size: 4rem;
-    margin-bottom: 0.5rem;
-    animation: float 3s ease-in-out infinite;
-    filter: drop-shadow(0 0 20px var(--accent-glow));
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-
-  .header h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, var(--accent-light), var(--accent), #c084fc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 0 40px var(--accent-glow);
-    margin-bottom: 0.5rem;
-  }
-
-  .header .subtitle {
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-  }
-
-  .version-badge {
-    display: inline-block;
-    margin-top: 1rem;
-    padding: 0.3rem 1rem;
-    background: linear-gradient(135deg, var(--accent), #9333ea);
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: white;
-    box-shadow: 0 4px 15px var(--accent-glow);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     STATUS BAR
-     ═══════════════════════════════════════════════════════ */
-  .status-bar {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-bottom: 3rem;
-    flex-wrap: wrap;
-  }
-
-  .status-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1.5rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 50px;
-    font-size: 0.9rem;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-  }
-
-  .status-item:hover {
-    border-color: var(--accent);
-    box-shadow: 0 0 20px var(--accent-glow);
-    transform: translateY(-2px);
-  }
-
-  .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    animation: blink 2s ease-in-out infinite;
-  }
-
-  .status-dot.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
-  .status-dot.warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     STATS GRID
-     ═══════════════════════════════════════════════════════ */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 3rem;
-  }
-
-  .stat-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-  }
-
-  .stat-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-light), var(--accent));
-    opacity: 0;
-    transition: opacity 0.3s ease;
-  }
-
-  .stat-card:hover {
-    transform: translateY(-5px);
-    border-color: var(--accent);
-    box-shadow: 0 10px 40px rgba(124, 58, 237, 0.2);
-  }
-
-  .stat-card:hover::before {
-    opacity: 1;
-  }
-
-  .stat-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .stat-value {
-    font-size: 2.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #fff, var(--accent-light));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 0.3rem;
-  }
-
-  .stat-label {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .stat-change {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    margin-top: 0.5rem;
-    font-size: 0.8rem;
-    color: var(--success);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     SECTIONS
-     ═══════════════════════════════════════════════════════ */
-  .section {
-    margin-bottom: 3rem;
-  }
-
-  .section-title {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    color: var(--text-primary);
-  }
-
-  .section-title::before {
-    content: '';
-    width: 4px;
-    height: 24px;
-    background: linear-gradient(180deg, var(--accent), var(--accent-light));
-    border-radius: 2px;
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     COMMAND CARDS
-     ═══════════════════════════════════════════════════════ */
-  .command-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .command-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .command-card::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: conic-gradient(from 0deg, transparent, var(--accent-glow), transparent);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    animation: rotate 4s linear infinite;
-  }
-
-  @keyframes rotate {
-    100% { transform: rotate(360deg); }
-  }
-
-  .command-card:hover {
-    transform: translateY(-3px);
-    border-color: var(--accent);
-    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.15);
-  }
-
-  .command-card:hover::after {
-    opacity: 0.1;
-  }
-
-  .command-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
-    position: relative;
-    z-index: 1;
-  }
-
-  .command-emoji {
-    font-size: 2rem;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(124, 58, 237, 0.1);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-  }
-
-  .command-title {
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .command-count {
-    font-size: 0.8rem;
-    color: var(--accent-light);
-    background: rgba(124, 58, 237, 0.1);
-    padding: 0.2rem 0.6rem;
-    border-radius: 10px;
-    margin-left: auto;
-  }
-
-  .command-desc {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.6;
-    position: relative;
-    z-index: 1;
-  }
-
-  .command-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    position: relative;
-    z-index: 1;
-  }
-
-  .tag {
-    font-size: 0.75rem;
-    padding: 0.3rem 0.8rem;
-    background: rgba(124, 58, 237, 0.1);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--accent-light);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     RPG WORLDS
-     ═══════════════════════════════════════════════════════ */
-  .worlds-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-  }
-
-  .world-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.2rem;
-    text-align: center;
-    transition: all 0.3s ease;
-    cursor: pointer;
-  }
-
-  .world-card:hover {
-    transform: scale(1.05);
-    border-color: var(--accent);
-    box-shadow: 0 5px 20px var(--accent-glow);
-  }
-
-  .world-emoji {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-    display: block;
-  }
-
-  .world-name {
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text-primary);
-    margin-bottom: 0.3rem;
-  }
-
-  .world-level {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     TERMINAL / LOG
-     ═══════════════════════════════════════════════════════ */
-  .terminal {
-    background: #0d0d14;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-  }
-
-  .terminal-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.8rem 1rem;
-    background: rgba(124, 58, 237, 0.05);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .terminal-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-  }
-
-  .terminal-dot.red { background: #ef4444; }
-  .terminal-dot.yellow { background: #f59e0b; }
-  .terminal-dot.green { background: #10b981; }
-
-  .terminal-title {
-    margin-left: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-  }
-
-  .terminal-body {
-    padding: 1.5rem;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 0.85rem;
-    line-height: 1.8;
-    max-height: 300px;
-    overflow-y: auto;
-  }
-
-  .terminal-line {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.3rem;
-    opacity: 0;
-    animation: fadeInLine 0.3s ease forwards;
-  }
-
-  .terminal-line:nth-child(1) { animation-delay: 0.1s; }
-  .terminal-line:nth-child(2) { animation-delay: 0.2s; }
-  .terminal-line:nth-child(3) { animation-delay: 0.3s; }
-  .terminal-line:nth-child(4) { animation-delay: 0.4s; }
-  .terminal-line:nth-child(5) { animation-delay: 0.5s; }
-  .terminal-line:nth-child(6) { animation-delay: 0.6s; }
-  .terminal-line:nth-child(7) { animation-delay: 0.7s; }
-  .terminal-line:nth-child(8) { animation-delay: 0.8s; }
-  .terminal-line:nth-child(9) { animation-delay: 0.9s; }
-  .terminal-line:nth-child(10) { animation-delay: 1.0s; }
-
-  @keyframes fadeInLine {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
-  }
-
-  .terminal-prompt { color: var(--accent-light); }
-  .terminal-success { color: var(--success); }
-  .terminal-info { color: var(--text-secondary); }
-  .terminal-warning { color: var(--warning); }
-  .terminal-accent { color: var(--accent-light); }
-
-  /* ═══════════════════════════════════════════════════════
-     ACTIVITY FEED
-     ═══════════════════════════════════════════════════════ */
-  .activity-feed {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.5rem;
-  }
-
-  .activity-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem 0;
-    border-bottom: 1px solid rgba(124, 58, 237, 0.1);
-    transition: all 0.2s ease;
-  }
-
-  .activity-item:last-child { border-bottom: none; }
-
-  .activity-item:hover {
-    background: rgba(124, 58, 237, 0.05);
-    margin: 0 -1rem;
-    padding: 1rem;
-    border-radius: 8px;
-  }
-
-  .activity-icon {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(124, 58, 237, 0.1);
-    border-radius: 10px;
-    font-size: 1.2rem;
-  }
-
-  .activity-content { flex: 1; }
-
-  .activity-text {
-    font-size: 0.9rem;
-    color: var(--text-primary);
-    margin-bottom: 0.2rem;
-  }
-
-  .activity-time {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     FOOTER
-     ═══════════════════════════════════════════════════════ */
-  .footer {
-    text-align: center;
-    padding: 3rem 0;
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    border-top: 1px solid var(--border);
-    margin-top: 3rem;
-  }
-
-  .footer-logo {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    filter: drop-shadow(0 0 10px var(--accent-glow));
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     RESPONSIVE
-     ═══════════════════════════════════════════════════════ */
-  @media (max-width: 768px) {
-    .content { padding: 1rem; }
-    .header h1 { font-size: 1.8rem; }
-    .logo { font-size: 3rem; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .command-grid { grid-template-columns: 1fr; }
-    .worlds-grid { grid-template-columns: repeat(2, 1fr); }
-    .status-bar { gap: 0.8rem; }
-    .status-item { padding: 0.4rem 1rem; font-size: 0.8rem; }
-  }
-
-  /* ═══════════════════════════════════════════════════════
-     SCROLLBAR
-     ═══════════════════════════════════════════════════════ */
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: var(--bg-primary); }
-  ::-webkit-scrollbar-thumb { 
-    background: var(--accent); 
-    border-radius: 4px;
-  }
-  ::-webkit-scrollbar-thumb:hover { background: var(--accent-light); }
-
-  /* ═══════════════════════════════════════════════════════
-     PARTICLES FLOAT
-     ═══════════════════════════════════════════════════════ */
-  .floating-particle {
-    position: fixed;
-    width: 4px;
-    height: 4px;
-    background: var(--accent);
-    border-radius: 50%;
-    opacity: 0.3;
-    pointer-events: none;
-    animation: float-particle 15s linear infinite;
-  }
-
-  @keyframes float-particle {
-    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
-    10% { opacity: 0.3; }
-    90% { opacity: 0.3; }
-    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
-  }
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#09090b;
+  --bg-card:#111113;
+  --bg-card-hover:#18181b;
+  --border:#27272a;
+  --border-hover:#3f3f46;
+  --text:#fafafa;
+  --text-secondary:#a1a1aa;
+  --text-muted:#71717a;
+  --accent:#a855f7;
+  --accent-light:#c084fc;
+  --accent-dark:#7c3aed;
+  --accent-glow:rgba(168,85,247,0.15);
+  --green:#22c55e;
+  --green-glow:rgba(34,197,94,0.15);
+  --orange:#f59e0b;
+  --red:#ef4444;
+  --blue:#3b82f6;
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.6;
+  overflow-x:hidden;
+  min-height:100vh;
+}
+
+/* ═══════════ BACKGROUND CANVAS ═══════════ */
+#bg-canvas{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  z-index:0;pointer-events:none;
+}
+.bg-gradient{
+  position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%,rgba(168,85,247,0.08),transparent),
+    radial-gradient(ellipse 60% 40% at 80% 50%,rgba(124,58,237,0.05),transparent),
+    radial-gradient(ellipse 60% 40% at 20% 80%,rgba(168,85,247,0.04),transparent);
+}
+.main-content{position:relative;z-index:2}
+
+/* ═══════════ NAV ═══════════ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  background:rgba(9,9,11,0.8);
+  border-bottom:1px solid var(--border);
+  transition:all .3s ease;
+}
+nav.scrolled{background:rgba(9,9,11,0.95)}
+.nav-inner{
+  max-width:1200px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.9rem 1.5rem;
+}
+.nav-brand{
+  display:flex;align-items:center;gap:.6rem;
+  text-decoration:none;color:var(--text);font-weight:700;font-size:1.05rem;
+}
+.nav-brand img{width:28px;height:28px;border-radius:6px}
+.nav-brand .spider{font-size:1.4rem;filter:drop-shadow(0 0 6px var(--accent))}
+.nav-links{display:flex;align-items:center;gap:1.5rem}
+.nav-links a{
+  color:var(--text-secondary);text-decoration:none;font-size:.875rem;
+  font-weight:500;transition:color .2s;
+}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:.5rem 1rem;border-radius:8px;font-size:.8rem;font-weight:600;
+  background:var(--accent-dark);color:#fff;text-decoration:none;
+  transition:all .2s;border:1px solid transparent;
+}
+.nav-cta:hover{background:var(--accent);box-shadow:0 0 20px var(--accent-glow)}
+
+/* ═══════════ HERO ═══════════ */
+.hero{
+  padding:10rem 1.5rem 4rem;
+  text-align:center;
+  max-width:900px;margin:0 auto;
+  position:relative;
+}
+.hero::before{
+  content:'';position:absolute;top:30%;left:50%;transform:translate(-50%,-50%);
+  width:500px;height:500px;
+  background:radial-gradient(circle,rgba(168,85,247,0.06) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.35rem .8rem;border-radius:50px;
+  background:var(--accent-glow);border:1px solid rgba(168,85,247,0.2);
+  font-size:.75rem;font-weight:600;color:var(--accent-light);
+  margin-bottom:1.5rem;
+  animation:fadeInUp .6s ease;
+}
+.hero-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.hero h1{
+  font-size:clamp(2.5rem,6vw,4rem);font-weight:900;
+  line-height:1.1;letter-spacing:-.02em;
+  margin-bottom:1.2rem;
+  background:linear-gradient(180deg,#fff 40%,rgba(255,255,255,.5));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  animation:fadeInUp .6s ease .1s both;
+}
+.hero h1 .accent{
+  background:linear-gradient(135deg,var(--accent-light),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.hero p{
+  font-size:1.15rem;color:var(--text-secondary);
+  max-width:600px;margin:0 auto 2rem;
+  animation:fadeInUp .6s ease .2s both;
+}
+.hero-actions{
+  display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;
+  animation:fadeInUp .6s ease .3s both;
+}
+.btn{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.7rem 1.4rem;border-radius:10px;font-size:.9rem;font-weight:600;
+  text-decoration:none;transition:all .25s;cursor:pointer;border:none;
+}
+.btn-primary{
+  background:var(--accent-dark);color:#fff;
+  box-shadow:0 0 20px rgba(124,58,237,0.2);
+}
+.btn-primary:hover{
+  background:var(--accent);transform:translateY(-1px);
+  box-shadow:0 0 30px rgba(168,85,247,0.3);
+}
+.btn-secondary{
+  background:var(--bg-card);color:var(--text);
+  border:1px solid var(--border);
+}
+.btn-secondary:hover{
+  border-color:var(--border-hover);background:var(--bg-card-hover);
+  transform:translateY(-1px);
+}
+
+@keyframes fadeInUp{
+  from{opacity:0;transform:translateY(20px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes pulse{
+  0%,100%{opacity:1}50%{opacity:.5}
+}
+
+/* ═══════════ STATS BAR ═══════════ */
+.stats-bar{
+  max-width:1200px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:16px;
+  overflow:hidden;
+  animation:fadeInUp .6s ease .4s both;
+}
+.stat{
+  background:var(--bg-card);padding:1.5rem;text-align:center;
+  transition:background .2s;
+}
+.stat:hover{background:var(--bg-card-hover)}
+.stat-value{
+  font-size:2rem;font-weight:800;
+  background:linear-gradient(135deg,#fff,var(--accent-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.stat-label{font-size:.8rem;color:var(--text-muted);margin-top:.3rem;text-transform:uppercase;letter-spacing:.5px}
+
+/* ═══════════ LIVE API DEMO ═══════════ */
+.demo-section{
+  max-width:1200px;margin:4rem auto;padding:0 1.5rem;
+  display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:center;
+}
+.demo-text{animation:fadeInUp .6s ease}
+.demo-text .tag{
+  display:inline-block;padding:.3rem .7rem;border-radius:6px;
+  background:var(--accent-glow);border:1px solid rgba(168,85,247,0.15);
+  font-size:.7rem;font-weight:600;color:var(--accent-light);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:1rem;
+}
+.demo-text h2{
+  font-size:2rem;font-weight:800;margin-bottom:1rem;
+  line-height:1.2;
+}
+.demo-text p{color:var(--text-secondary);font-size:1rem;margin-bottom:1.5rem}
+.demo-text ul{list-style:none;display:flex;flex-direction:column;gap:.6rem}
+.demo-text li{
+  display:flex;align-items:center;gap:.6rem;
+  font-size:.9rem;color:var(--text-secondary);
+}
+.demo-text li code{
+  font-family:'JetBrains Mono',monospace;font-size:.8rem;
+  padding:.15rem .5rem;background:rgba(168,85,247,0.1);
+  border:1px solid rgba(168,85,247,0.15);border-radius:4px;
+  color:var(--accent-light);
+}
+
+.demo-visual{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  overflow:hidden;
+}
+.demo-header{
+  display:flex;align-items:center;gap:.5rem;
+  padding:.7rem 1rem;background:rgba(255,255,255,.02);
+  border-bottom:1px solid var(--border);
+}
+.demo-dot{width:10px;height:10px;border-radius:50%}
+.demo-dot.r{background:#ef4444}.demo-dot.y{background:#f59e0b}.demo-dot.g{background:#22c55e}
+.demo-tab-bar{
+  display:flex;gap:0;margin-left:.8rem;
+  border-bottom:none;
+}
+.demo-tab{
+  padding:.4rem .8rem;font-size:.7rem;font-weight:500;
+  color:var(--text-muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .2s;
+}
+.demo-tab.active{color:var(--accent-light);border-bottom-color:var(--accent)}
+.demo-body{padding:1.2rem}
+.demo-request{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.6rem .8rem;margin-bottom:.8rem;
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:8px;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+}
+.method{
+  padding:.15rem .4rem;border-radius:4px;font-size:.65rem;font-weight:700;
+  text-transform:uppercase;
+}
+.method.get{background:var(--green-glow);color:var(--green)}
+.method.post{background:rgba(59,130,246,0.15);color:var(--blue)}
+.demo-url{color:var(--text-secondary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.demo-status{
+  padding:.15rem .4rem;border-radius:4px;font-size:.65rem;font-weight:700;
+  background:var(--green-glow);color:var(--green);
+}
+.demo-time{font-size:.7rem;color:var(--text-muted)}
+.demo-response{
+  background:#0d0d10;border:1px solid var(--border);border-radius:8px;
+  padding:1rem;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  line-height:1.8;overflow-x:auto;
+}
+.demo-response .key{color:var(--accent-light)}
+.demo-response .str{color:var(--green)}
+.demo-response .num{color:var(--orange)}
+.demo-response .bool{color:var(--blue)}
+
+/* ═══════════ SECTIONS ═══════════ */
+.section{max-width:1200px;margin:5rem auto;padding:0 1.5rem}
+.section-header{text-align:center;margin-bottom:3rem}
+.section-tag{
+  display:inline-block;padding:.3rem .7rem;border-radius:6px;
+  background:var(--accent-glow);border:1px solid rgba(168,85,247,0.15);
+  font-size:.7rem;font-weight:600;color:var(--accent-light);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:.8rem;
+}
+.section-header h2{font-size:2rem;font-weight:800;margin-bottom:.6rem}
+.section-header p{color:var(--text-secondary);max-width:550px;margin:0 auto;font-size:1rem}
+
+/* ═══════════ ENDPOINT CARDS ═══════════ */
+.endpoints-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;
+}
+.endpoint-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  padding:1.3rem;transition:all .3s ease;cursor:default;
+  position:relative;overflow:hidden;
+}
+.endpoint-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(168,85,247,0.03),transparent);
+  opacity:0;transition:opacity .3s;
+}
+.endpoint-card:hover{
+  border-color:var(--border-hover);
+  transform:translateY(-3px);
+  box-shadow:0 10px 40px rgba(0,0,0,.3);
+}
+.endpoint-card:hover::before{opacity:1}
+.endpoint-icon{font-size:1.8rem;margin-bottom:.8rem;display:block}
+.endpoint-card h3{font-size:.95rem;font-weight:700;margin-bottom:.3rem}
+.endpoint-card p{font-size:.8rem;color:var(--text-muted);margin-bottom:.8rem;line-height:1.5}
+.endpoint-card .count{
+  font-size:.7rem;font-weight:700;color:var(--accent-light);
+  padding:.2rem .5rem;background:var(--accent-glow);
+  border-radius:4px;display:inline-block;
+}
+
+/* ═══════════ FEATURE SPLIT ═══════════ */
+.feature-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:3rem;
+  align-items:center;margin-bottom:5rem;
+}
+.feature-row.reverse{direction:rtl}
+.feature-row.reverse > *{direction:ltr}
+.feature-visual{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  padding:1.5rem;
+}
+.feature-text .tag{
+  display:inline-block;padding:.25rem .6rem;border-radius:5px;
+  font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;
+  margin-bottom:.8rem;
+}
+.feature-text .tag.purple{background:var(--accent-glow);color:var(--accent-light);border:1px solid rgba(168,85,247,0.15)}
+.feature-text .tag.green{background:var(--green-glow);color:var(--green);border:1px solid rgba(34,197,94,0.15)}
+.feature-text .tag.blue{background:rgba(59,130,246,0.1);color:var(--blue);border:1px solid rgba(59,130,246,0.15)}
+.feature-text h3{font-size:1.5rem;font-weight:800;margin-bottom:.6rem}
+.feature-text p{color:var(--text-secondary);font-size:.95rem;margin-bottom:1.2rem}
+.feature-list{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+.feature-list li{
+  display:flex;align-items:center;gap:.6rem;
+  font-size:.85rem;color:var(--text-secondary);
+}
+.feature-list li::before{
+  content:'›';color:var(--accent);font-weight:700;font-size:1.1rem;
+}
+.feature-list li code{
+  font-family:'JetBrains Mono',monospace;font-size:.78rem;
+  padding:.1rem .4rem;background:rgba(168,85,247,0.08);
+  border-radius:3px;color:var(--accent-light);
+}
+
+/* ═══════════ RPG WORLDS ═══════════ */
+.worlds-scroll{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1rem;
+}
+.world-tile{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  padding:1.2rem;text-align:center;transition:all .3s;cursor:pointer;
+  position:relative;overflow:hidden;
+}
+.world-tile::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-light));
+  transform:scaleX(0);transition:transform .3s;
+}
+.world-tile:hover{
+  border-color:var(--border-hover);transform:translateY(-4px);
+  box-shadow:0 10px 30px rgba(0,0,0,.3);
+}
+.world-tile:hover::after{transform:scaleX(1)}
+.world-emoji{font-size:2rem;display:block;margin-bottom:.5rem}
+.world-name{font-size:.85rem;font-weight:700;margin-bottom:.2rem}
+.world-lvl{font-size:.7rem;color:var(--text-muted)}
+
+/* ═══════════ INFRASTRUCTURE ═══════════ */
+.infra-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem}
+.infra-card{
+  text-align:center;padding:2rem 1.5rem;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:16px;
+  transition:all .3s;
+}
+.infra-card:hover{border-color:var(--border-hover);transform:translateY(-3px)}
+.infra-icon{
+  width:56px;height:56px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 1rem;font-size:1.5rem;
+  background:var(--accent-glow);border:1px solid rgba(168,85,247,0.15);
+}
+.infra-card h3{font-size:1.1rem;font-weight:700;margin-bottom:.5rem}
+.infra-card p{font-size:.85rem;color:var(--text-muted);line-height:1.6}
+
+/* ═══════════ COUNTER ═══════════ */
+.big-counter{
+  text-align:center;padding:4rem 1.5rem;
+  background:linear-gradient(180deg,transparent,rgba(168,85,247,0.03),transparent);
+}
+.big-counter .label{font-size:.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem}
+.big-counter .number{
+  font-size:clamp(2.5rem,5vw,3.5rem);font-weight:900;
+  background:linear-gradient(135deg,var(--accent-light),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+
+/* ═══════════ ECOSYSTEM ═══════════ */
+.eco-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.2rem}
+.eco-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:14px;
+  overflow:hidden;transition:all .3s;
+}
+.eco-card:hover{border-color:var(--border-hover);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.eco-card-img{
+  height:140px;background:linear-gradient(135deg,rgba(168,85,247,0.1),rgba(124,58,237,0.05));
+  display:flex;align-items:center;justify-content:center;font-size:3rem;
+  border-bottom:1px solid var(--border);
+}
+.eco-card-body{padding:1.2rem}
+.eco-card-body h3{font-size:1rem;font-weight:700;margin-bottom:.4rem}
+.eco-card-body p{font-size:.8rem;color:var(--text-muted);margin-bottom:1rem;line-height:1.5}
+.eco-link{
+  font-size:.8rem;font-weight:600;color:var(--accent-light);
+  text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;
+  transition:gap .2s;
+}
+.eco-link:hover{gap:.5rem}
+
+/* ═══════════ CHANGELOG ═══════════ */
+.changelog-list{display:flex;flex-direction:column;gap:1rem}
+.changelog-item{
+  display:flex;gap:1rem;padding:1rem 1.2rem;
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  transition:all .2s;
+}
+.changelog-item:hover{border-color:var(--border-hover)}
+.changelog-date{
+  font-size:.75rem;color:var(--text-muted);min-width:90px;
+  padding-top:.1rem;
+}
+.changelog-text{font-size:.88rem;color:var(--text-secondary);line-height:1.5}
+
+/* ═══════════ FAQ ═══════════ */
+.faq-list{max-width:700px;margin:0 auto;display:flex;flex-direction:column;gap:.8rem}
+.faq-item{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;transition:border-color .2s;
+}
+.faq-item:hover{border-color:var(--border-hover)}
+.faq-q{
+  padding:1rem 1.2rem;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:.9rem;font-weight:600;
+}
+.faq-q .arrow{
+  transition:transform .3s;color:var(--text-muted);font-size:1.2rem;
+}
+.faq-item.open .faq-q .arrow{transform:rotate(180deg)}
+.faq-a{
+  max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease;
+  padding:0 1.2rem;
+  font-size:.85rem;color:var(--text-muted);line-height:1.7;
+}
+.faq-item.open .faq-a{max-height:200px;padding:0 1.2rem 1rem}
+
+/* ═══════════ CTA ═══════════ */
+.cta-section{
+  text-align:center;padding:5rem 1.5rem;
+  background:linear-gradient(180deg,transparent,rgba(168,85,247,0.04));
+  border-top:1px solid var(--border);
+}
+.cta-section h2{font-size:2rem;font-weight:800;margin-bottom:.8rem}
+.cta-section p{color:var(--text-secondary);margin-bottom:2rem;font-size:1rem}
+.cta-actions{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap}
+
+/* ═══════════ FOOTER ═══════════ */
+footer{
+  border-top:1px solid var(--border);
+  padding:3rem 1.5rem;
+  max-width:1200px;margin:0 auto;
+}
+.footer-top{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  flex-wrap:wrap;gap:2rem;margin-bottom:2rem;
+}
+.footer-brand{display:flex;align-items:center;gap:.6rem;font-weight:700;font-size:1rem}
+.footer-brand .spider{font-size:1.3rem}
+.footer-links{display:flex;gap:3rem;flex-wrap:wrap}
+.footer-col h4{font-size:.8rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.8rem}
+.footer-col a{display:block;font-size:.85rem;color:var(--text-secondary);text-decoration:none;margin-bottom:.5rem;transition:color .2s}
+.footer-col a:hover{color:var(--text)}
+.footer-bottom{
+  padding-top:2rem;border-top:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:.78rem;color:var(--text-muted);flex-wrap:wrap;gap:1rem;
+}
+
+/* ═══════════ RESPONSIVE ═══════════ */
+@media(max-width:768px){
+  .hero{padding:8rem 1rem 3rem}
+  .hero h1{font-size:2rem}
+  .stats-bar{grid-template-columns:repeat(2,1fr)}
+  .demo-section{grid-template-columns:1fr;gap:2rem}
+  .feature-row,.feature-row.reverse{grid-template-columns:1fr;gap:2rem;direction:ltr}
+  .infra-grid{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .footer-top{flex-direction:column}
+}
+
+/* ═══════════ SCROLLBAR ═══════════ */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border-hover)}
 </style>
 </head>
 <body>
 
-<!-- Background Canvas para Teia Animada -->
-<canvas id="web-canvas"></canvas>
-<div class="gradient-overlay"></div>
+<canvas id="bg-canvas"></canvas>
+<div class="bg-gradient"></div>
 
-<!-- Floating Particles -->
-<div class="floating-particle" style="left: 10%; animation-delay: 0s; animation-duration: 12s;"></div>
-<div class="floating-particle" style="left: 25%; animation-delay: 2s; animation-duration: 15s;"></div>
-<div class="floating-particle" style="left: 40%; animation-delay: 4s; animation-duration: 11s;"></div>
-<div class="floating-particle" style="left: 55%; animation-delay: 1s; animation-duration: 14s;"></div>
-<div class="floating-particle" style="left: 70%; animation-delay: 3s; animation-duration: 13s;"></div>
-<div class="floating-particle" style="left: 85%; animation-delay: 5s; animation-duration: 16s;"></div>
-<div class="floating-particle" style="left: 15%; animation-delay: 6s; animation-duration: 10s;"></div>
-<div class="floating-particle" style="left: 60%; animation-delay: 7s; animation-duration: 12s;"></div>
+<div class="main-content">
 
-<div class="content">
-  <!-- ═══════════ HEADER ═══════════ -->
-  <header class="header">
-    <div class="logo">🕷️</div>
-    <h1>DARK BOT</h1>
-    <p class="subtitle">RPG • IA • Automação</p>
-    <span class="version-badge">v11.4 • Estável</span>
-  </header>
-
-  <!-- ═══════════ STATUS BAR ═══════════ -->
-  <div class="status-bar">
-    <div class="status-item">
-      <span class="status-dot online"></span>
-      <span>Online</span>
-    </div>
-    <div class="status-item">
-      <span>⏱️</span>
-      <span id="uptime">0d 0h 0m</span>
-    </div>
-    <div class="status-item">
-      <span>👥</span>
-      <span id="groups">--</span>
-      <span>grupos</span>
-    </div>
-    <div class="status-item">
-      <span>💬</span>
-      <span id="messages">--</span>
-      <span>msgs hoje</span>
+<!-- ═══════════ NAV ═══════════ -->
+<nav id="nav">
+  <div class="nav-inner">
+    <a href="#" class="nav-brand">
+      <span class="spider">🕷️</span>
+      <span>Dark Bot</span>
+    </a>
+    <div class="nav-links">
+      <a href="#endpoints">Comandos</a>
+      <a href="#worlds">Universos</a>
+      <a href="#infra">Infraestrutura</a>
+      <a href="#changelog">Novidades</a>
+      <a href="#faq">FAQ</a>
+      <a href="#start" class="nav-cta">Começar →</a>
     </div>
   </div>
+</nav>
 
-  <!-- ═══════════ STATS GRID ═══════════ -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-icon">🎮</div>
-      <div class="stat-value" id="stat-commands">68+</div>
-      <div class="stat-label">Comandos RPG</div>
-      <div class="stat-change">↑ +4 novos</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🌌</div>
-      <div class="stat-value">8</div>
-      <div class="stat-label">Universos</div>
-      <div class="stat-change">↑ Multi-verso</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">👤</div>
-      <div class="stat-value">40+</div>
-      <div class="stat-label">Personagens</div>
-      <div class="stat-change">↑ Recrutáveis</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">⚔️</div>
-      <div class="stat-value">7</div>
-      <div class="stat-label">Bosses</div>
-      <div class="stat-change">D → SSS</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🗡️</div>
-      <div class="stat-value">20+</div>
-      <div class="stat-label">Armas</div>
-      <div class="stat-change">↑ Equipáveis</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">✨</div>
-      <div class="stat-value">40+</div>
-      <div class="stat-label">Técnicas</div>
-      <div class="stat-change">↑ Aprendíveis</div>
-    </div>
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    <span>v11.4 — Estável</span>
   </div>
-
-  <!-- ═══════════ RPG WORLDS ═══════════ -->
-  <div class="section">
-    <h2 class="section-title">Universos RPG</h2>
-    <div class="worlds-grid">
-      <div class="world-card">
-        <span class="world-emoji">🌀</span>
-        <div class="world-name">Ruptura</div>
-        <div class="world-level">Nível 1+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">🍥</span>
-        <div class="world-name">Naruto</div>
-        <div class="world-level">Nível 1+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">🏴‍☠️</span>
-        <div class="world-name">One Piece</div>
-        <div class="world-level">Nível 5+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">⚔️</span>
-        <div class="world-name">Solo Leveling</div>
-        <div class="world-level">Nível 10+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">👁️</span>
-        <div class="world-name">Jujutsu Kaisen</div>
-        <div class="world-level">Nível 15+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">🐉</span>
-        <div class="world-name">Dragon Ball</div>
-        <div class="world-level">Nível 20+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">👹</span>
-        <div class="world-name">Demon Slayer</div>
-        <div class="world-level">Nível 25+</div>
-      </div>
-      <div class="world-card">
-        <span class="world-emoji">🗡️</span>
-        <div class="world-name">Bleach</div>
-        <div class="world-level">Nível 30+</div>
-      </div>
-    </div>
+  <h1>Um bot. <span class="accent">Todos os comandos.</span></h1>
+  <p>RPG completo com 8 universos, IA integrada, automação de grupos, downloads, sistema de combate interativo e muito mais. Uma instância só, uptime alto e resposta em tempo real.</p>
+  <div class="hero-actions">
+    <a href="#start" class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Começar agora
+    </a>
+    <a href="#endpoints" class="btn btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6M12 9v6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+      Ver comandos
+    </a>
   </div>
+</section>
 
-  <!-- ═══════════ COMMANDS ═══════════ -->
-  <div class="section">
-    <h2 class="section-title">Categorias de Comandos</h2>
-    <div class="command-grid">
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">🎮</div>
-          <div class="command-title">RPG — Motor</div>
-          <span class="command-count">24 cmds</span>
-        </div>
-        <p class="command-desc">Criação de personagem, inventário, perfil, ranking, equipamentos e sistema de níveis.</p>
-        <div class="command-tags">
-          <span class="tag">!criar</span>
-          <span class="tag">!perfil</span>
-          <span class="tag">!inventario</span>
-          <span class="tag">!rank</span>
-        </div>
-      </div>
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">⚔️</div>
-          <div class="command-title">Combate</div>
-          <span class="command-count">12 cmds</span>
-        </div>
-        <p class="command-desc">Combate interativo com botões. Atacar, Defender, Skills e Items em tempo real.</p>
-        <div class="command-tags">
-          <span class="tag">!lutar</span>
-          <span class="tag">!atacar</span>
-          <span class="tag">!defender</span>
-          <span class="tag">!boss</span>
-        </div>
-      </div>
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">🌌</div>
-          <div class="command-title">Multiverso</div>
-          <span class="command-count">16 cmds</span>
-        </div>
-        <p class="command-desc">Recrutamento, treino, gacha com pity system e universo de personagens.</p>
-        <div class="command-tags">
-          <span class="tag">!gacha</span>
-          <span class="tag">!recrutar</span>
-          <span class="tag">!treinar</span>
-          <span class="tag">!pity</span>
-        </div>
-      </div>
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">📅</div>
-          <div class="command-title">Missões Diárias</div>
-          <span class="command-count">8 cmds</span>
-        </div>
-        <p class="command-desc">Recompensas diárias com streak, missões semanais e bónus de consistência.</p>
-        <div class="command-tags">
-          <span class="tag">!diario</span>
-          <span class="tag">!missoes</span>
-          <span class="tag">!streak</span>
-          <span class="tag">!semanal</span>
-        </div>
-      </div>
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">🤝</div>
-          <div class="command-title">Comunidade</div>
-          <span class="command-count">10 cmds</span>
-        </div>
-        <p class="command-desc">Guildas, territórios, trocas e sistema de comércio entre jogadores.</p>
-        <div class="command-tags">
-          <span class="tag">!guilda</span>
-          <span class="tag">!trocar</span>
-          <span class="tag">!territorio</span>
-        </div>
-      </div>
-      <div class="command-card">
-        <div class="command-header">
-          <div class="command-emoji">👁️</div>
-          <div class="command-title">View-Once</div>
-          <span class="command-count">4 cmds</span>
-        </div>
-        <p class="command-desc">Conversão de visualização única. Revelar ou converter para view-once.</p>
-        <div class="command-tags">
-          <span class="tag">!revelar</span>
-          <span class="tag">!toviewonce</span>
-          <span class="tag">!listviewonce</span>
-        </div>
-      </div>
-    </div>
+<!-- ═══════════ STATS ═══════════ -->
+<div class="stats-bar" style="max-width:1000px;margin:-1rem auto 0">
+  <div class="stat">
+    <div class="stat-value" data-count="68">0</div>
+    <div class="stat-label">Comandos RPG</div>
   </div>
-
-  <!-- ═══════════ TERMINAL ═══════════ -->
-  <div class="section">
-    <h2 class="section-title">Log do Sistema</h2>
-    <div class="terminal">
-      <div class="terminal-header">
-        <span class="terminal-dot red"></span>
-        <span class="terminal-dot yellow"></span>
-        <span class="terminal-dot green"></span>
-        <span class="terminal-title">dark-bot — logs</span>
-      </div>
-      <div class="terminal-body" id="terminal-body">
-        <div class="terminal-line"><span class="terminal-prompt">▸</span><span class="terminal-info">[SYSTEM] Dark Bot v11.4 iniciado</span></div>
-        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">MongoDB conectado</span></div>
-        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">WhatsApp Web conectado</span></div>
-        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] 68 comandos registados</span></div>
-        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] 8 universos carregados</span></div>
-        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] Pity system activo (10/50)</span></div>
-        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[COMBAT] Sistema interativo pronto</span></div>
-        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[DAILY] Missões diárias activas</span></div>
-        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">Todos os módulos prontos</span></div>
-        <div class="terminal-line"><span class="terminal-accent">🕷️</span><span class="terminal-accent">Dark Bot a escutar...</span></div>
-      </div>
-    </div>
+  <div class="stat">
+    <div class="stat-value" data-count="8">0</div>
+    <div class="stat-label">Universos</div>
   </div>
-
-  <!-- ═══════════ RECENT ACTIVITY ═══════════ -->
-  <div class="section">
-    <h2 class="section-title">Actividade Recente</h2>
-    <div class="activity-feed">
-      <div class="activity-item">
-        <div class="activity-icon">🎮</div>
-        <div class="activity-content">
-          <div class="activity-text">Combate interativo activado</div>
-          <div class="activity-time">Agora • v11.4</div>
-        </div>
-      </div>
-      <div class="activity-item">
-        <div class="activity-icon">📅</div>
-        <div class="activity-content">
-          <div class="activity-text">Sistema de missões diárias online</div>
-          <div class="activity-time">Agora • v11.4</div>
-        </div>
-      </div>
-      <div class="activity-item">
-        <div class="activity-icon">🔧</div>
-        <div class="activity-content">
-          <div class="activity-text">View-once !revelar corrigido — 4 fallbacks</div>
-          <div class="activity-time">Recente • Fix</div>
-        </div>
-      </div>
-      <div class="activity-item">
-        <div class="activity-icon">🎯</div>
-        <div class="activity-content">
-          <div class="activity-text">Pity system: Lendário aos 10, Mítico aos 50</div>
-          <div class="activity-time">v11.3</div>
-        </div>
-      </div>
-      <div class="activity-item">
-        <div class="activity-icon">💾</div>
-        <div class="activity-content">
-          <div class="activity-text">Cooldowns agora persistentes em MongoDB</div>
-          <div class="activity-time">v11.3</div>
-        </div>
-      </div>
-    </div>
+  <div class="stat">
+    <div class="stat-value">223<span style="font-size:1rem;opacity:.6">/229</span></div>
+    <div class="stat-label">Features Online</div>
   </div>
-
-  <!-- ═══════════ FOOTER ═══════════ -->
-  <footer class="footer">
-    <div class="footer-logo">🕷️</div>
-    <p>Dark Bot • v11.4 • 2026</p>
-    <p style="margin-top: 0.5rem; opacity: 0.6;">Feito com 💜 para a DarkNet</p>
-  </footer>
+  <div class="stat">
+    <div class="stat-value">99.9<span style="font-size:1rem">%</span></div>
+    <div class="stat-label">Uptime</div>
+  </div>
 </div>
 
-<script>
-// ═══════════════════════════════════════════════════════
-// TEIA ANIMADA 🕸️ — Canvas Background
-// ═══════════════════════════════════════════════════════
-const canvas = document.getElementById('web-canvas');
-const ctx = canvas.getContext('2d');
+<!-- ═══════════ LIVE DEMO ═══════════ -->
+<section class="demo-section">
+  <div class="demo-visual">
+    <div class="demo-header">
+      <span class="demo-dot r"></span>
+      <span class="demo-dot y"></span>
+      <span class="demo-dot g"></span>
+      <div class="demo-tab-bar">
+        <div class="demo-tab active">RPG</div>
+        <div class="demo-tab">IA</div>
+        <div class="demo-tab">Downloads</div>
+      </div>
+    </div>
+    <div class="demo-body">
+      <div class="demo-request">
+        <span class="method get">GET</span>
+        <span class="demo-url">/rpg/perfil?user=244947379891</span>
+        <span class="demo-status">200</span>
+        <span class="demo-time">42ms</span>
+      </div>
+      <div class="demo-response">
+<pre>{
+  <span class="key">"status"</span>: <span class="bool">true</span>,
+  <span class="key">"player"</span>: {
+    <span class="key">"nome"</span>: <span class="str">"ShadowKnight"</span>,
+    <span class="key">"rank"</span>: <span class="str">"S"</span>,
+    <span class="key">"nivel"</span>: <span class="num">47</span>,
+    <span class="key">"universo"</span>: <span class="str">"Solo Leveling"</span>,
+    <span class="key">"berries"</span>: <span class="num">184500</span>,
+    <span class="key">"personagens"</span>: <span class="num">23</span>,
+    <span class="key">"vitorias"</span>: <span class="num">156</span>
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+  <div class="demo-text">
+    <span class="tag">Resposta em tempo real</span>
+    <h2>Tudo num formato pronto pra usar.</h2>
+    <p>Comandos organizados, resposta padronizada com status e dados prontos. Sem complicação.</p>
+    <ul>
+      <li><code>!perfil</code> — Ver stats completos do jogador</li>
+      <li><code>!inventario</code> — Itens, armas e equipamentos</li>
+      <li><code>!lutar</code> — Combate interativo com botões</li>
+      <li><code>!gacha</code> — Invocar personagens com pity system</li>
+    </ul>
+  </div>
+</section>
 
-let width, height, nodes, mouse;
+<!-- ═══════════ ENDPOINTS ═══════════ -->
+<section class="section" id="endpoints">
+  <div class="section-header">
+    <span class="section-tag">Comandos</span>
+    <h2>Tudo o que precisas, num lugar só.</h2>
+    <p>Categorias organizadas com documentação e exemplos em cada comando.</p>
+  </div>
+  <div class="endpoints-grid">
+    <div class="endpoint-card">
+      <span class="endpoint-icon">🎮</span>
+      <h3>RPG Core</h3>
+      <p>Criação, perfil, inventário, ranking e sistema de níveis</p>
+      <span class="count">24 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">⚔️</span>
+      <h3>Combate</h3>
+      <p>Batalha interativa, bosses, PvP e sistema de turnos</p>
+      <span class="count">12 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">🌌</span>
+      <h3>Multiverso</h3>
+      <p>Recrutamento, gacha, treino e evolução de personagens</p>
+      <span class="count">16 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">🤖</span>
+      <h3>IA & Aura</h3>
+      <p>Chat inteligente, voz, visão e assistente pessoal</p>
+      <span class="count">18 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">🛡️</span>
+      <h3>Admin & Mod</h3>
+      <p>Anti-link, auto-mod, mute, ban e gestão de grupo</p>
+      <span class="count">15 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">📥</span>
+      <h3>Downloads</h3>
+      <p>TikTok, Instagram, YouTube, Spotify e mais</p>
+      <span class="count">10 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">🎨</span>
+      <h3>Canvas</h3>
+      <p>Stickers, efeitos, montagens e personalização</p>
+      <span class="count">8 comandos</span>
+    </div>
+    <div class="endpoint-card">
+      <span class="endpoint-icon">👁️</span>
+      <h3>View-Once</h3>
+      <p>Converter e revelar visualização única</p>
+      <span class="count">4 comandos</span>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FEATURES SPLIT ═══════════ -->
+<section class="section">
+  <div class="feature-row">
+    <div class="feature-visual">
+      <div class="demo-header">
+        <span class="demo-dot r"></span><span class="demo-dot y"></span><span class="demo-dot g"></span>
+      </div>
+      <div class="demo-body">
+        <div style="text-align:center;padding:2rem 0">
+          <div style="font-size:3rem;margin-bottom:1rem">⚔️</div>
+          <div style="font-weight:700;margin-bottom:.5rem">COMBATE vs Kaido</div>
+          <div style="display:flex;gap:1rem;justify-content:center;margin-top:1.5rem">
+            <span style="padding:.5rem 1rem;background:var(--accent-glow);border:1px solid rgba(168,85,247,0.2);border-radius:8px;font-size:.8rem;color:var(--accent-light)">⚔️ Atacar</span>
+            <span style="padding:.5rem 1rem;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:8px;font-size:.8rem;color:var(--green)">🛡️ Defender</span>
+          </div>
+          <div style="display:flex;gap:1rem;justify-content:center;margin-top:.8rem">
+            <span style="padding:.5rem 1rem;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:.8rem;color:var(--orange)">✨ Skill</span>
+            <span style="padding:.5rem 1rem;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);border-radius:8px;font-size:.8rem;color:var(--blue)">🎒 Item</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-text">
+      <span class="tag purple">Combate Interativo</span>
+      <h3>Batalhas com botões clicáveis.</h3>
+      <p>Sistema de combate por turnos com 4 acções interativas. HP bars visuais, sistema de crítico, multiplicadores de estratégia e log de combate em tempo real.</p>
+      <ul class="feature-list">
+        <li><code>!lutar</code> Inicia combate com boss</li>
+        <li><code>!defender</code> +50% DEF por turno</li>
+        <li><code>!skill</code> +100% dano (custa energia)</li>
+        <li><code>!item</code> Usar poção de cura</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="feature-row reverse">
+    <div class="feature-visual">
+      <div class="demo-header">
+        <span class="demo-dot r"></span><span class="demo-dot y"></span><span class="demo-dot g"></span>
+      </div>
+      <div class="demo-body">
+        <div style="padding:1rem 0">
+          <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem">
+            <span style="font-size:1.5rem">📅</span>
+            <div>
+              <div style="font-weight:700;font-size:.9rem">Missão Diária</div>
+              <div style="font-size:.75rem;color:var(--text-muted)">Streak: 🔥 12 dias</div>
+            </div>
+            <span style="margin-left:auto;font-size:.7rem;padding:.2rem .5rem;background:var(--green-glow);color:var(--green);border-radius:4px;font-weight:700">+60%</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.6rem">
+            <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:rgba(255,255,255,.03);border-radius:8px;font-size:.8rem">
+              <span>✅</span><span style="flex:1">Vencer 3 batalhas</span><span style="color:var(--green);font-size:.75rem">Completa</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:rgba(255,255,255,.03);border-radius:8px;font-size:.8rem">
+              <span>⏳</span><span style="flex:1">Completar 1 quest</span><span style="color:var(--orange);font-size:.75rem">1/1</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:.6rem;padding:.6rem;background:rgba(255,255,255,.03);border-radius:8px;font-size:.8rem">
+              <span>⬜</span><span style="flex:1">Treinar 5 vezes</span><span style="color:var(--text-muted);font-size:.75rem">3/5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="feature-text">
+      <span class="tag green">Missões Diárias</span>
+      <h3>Recompensas que voltam todo dia.</h3>
+      <p>Sistema de streak com bónus progressivo. Missões diárias e semanais com recompensas crescentes. Quanto mais dias seguidos, maior o bónus.</p>
+      <ul class="feature-list">
+        <li><code>!diario</code> Reclamar recompensa diária</li>
+        <li><code>!missoes</code> Ver missões disponíveis</li>
+        <li><code>!streak</code> Progresso de dias seguidos</li>
+        <li>Bónus +5% por dia (max 30 dias = +150%)</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ WORLDS ═══════════ -->
+<section class="section" id="worlds">
+  <div class="section-header">
+    <span class="section-tag">Multiverso</span>
+    <h2>8 universos. Infinitas possibilidades.</h2>
+    <p>Cada universo com personagens, técnicas e bosses exclusivos.</p>
+  </div>
+  <div class="worlds-scroll">
+    <div class="world-tile"><span class="world-emoji">🌀</span><div class="world-name">Ruptura</div><div class="world-lvl">Nv. 1+</div></div>
+    <div class="world-tile"><span class="world-emoji">🍥</span><div class="world-name">Naruto</div><div class="world-lvl">Nv. 1+</div></div>
+    <div class="world-tile"><span class="world-emoji">🏴‍☠️</span><div class="world-name">One Piece</div><div class="world-lvl">Nv. 5+</div></div>
+    <div class="world-tile"><span class="world-emoji">⚔️</span><div class="world-name">Solo Leveling</div><div class="world-lvl">Nv. 10+</div></div>
+    <div class="world-tile"><span class="world-emoji">👁️</span><div class="world-name">Jujutsu Kaisen</div><div class="world-lvl">Nv. 15+</div></div>
+    <div class="world-tile"><span class="world-emoji">🐉</span><div class="world-name">Dragon Ball</div><div class="world-lvl">Nv. 20+</div></div>
+    <div class="world-tile"><span class="world-emoji">👹</span><div class="world-name">Demon Slayer</div><div class="world-lvl">Nv. 25+</div></div>
+    <div class="world-tile"><span class="world-emoji">🗡️</span><div class="world-name">Bleach</div><div class="world-lvl">Nv. 30+</div></div>
+  </div>
+</section>
+
+<!-- ═══════════ INFRASTRUCTURE ═══════════ -->
+<section class="section" id="infra">
+  <div class="section-header">
+    <span class="section-tag">Infraestrutura</span>
+    <h2>Feito pra aguentar.</h2>
+  </div>
+  <div class="infra-grid">
+    <div class="infra-card">
+      <div class="infra-icon">⚡</div>
+      <h3>Rápido</h3>
+      <p>Cache inteligente e MongoDB optimizado. Respostas em milissegundos.</p>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">🔒</div>
+      <h3>Seguro</h3>
+      <p>Cooldowns persistentes, anti-abuso e proteção contra spam em todas as rotas.</p>
+    </div>
+    <div class="infra-card">
+      <div class="infra-icon">🌐</div>
+      <h3>Estável</h3>
+      <p>Uptime de 99.9% com auto-reconexão e monitoramento 24/7.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ BIG COUNTER ═══════════ -->
+<div class="big-counter">
+  <div class="label">Comandos processados</div>
+  <div class="number" id="big-count">2,359,746</div>
+</div>
+
+<!-- ═══════════ ECOSYSTEM ═══════════ -->
+<section class="section">
+  <div class="section-header">
+    <span class="section-tag">Ecossistema</span>
+    <h2>Mais do que um bot.</h2>
+  </div>
+  <div class="eco-grid">
+    <div class="eco-card">
+      <div class="eco-card-img">🤖</div>
+      <div class="eco-card-body">
+        <h3>Aura IA</h3>
+        <p>Assistente pessoal integrada com memória, voz e visão. Aprende com cada grupo.</p>
+        <a href="#" class="eco-link">Conhecer →</a>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="eco-card-img">🛡️</div>
+      <div class="eco-card-body">
+        <h3>DarkShield</h3>
+        <p>Sistema anti-link avançado com detecção inteligente e auto-moderação.</p>
+        <a href="#" class="eco-link">Ver mais →</a>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="eco-card-img">🎮</div>
+      <div class="eco-card-body">
+        <h3>RPG Engine</h3>
+        <p>Motor de RPG completo com 68+ comandos, 8 universos e combate interativo.</p>
+        <a href="#" class="eco-link">Explorar →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CHANGELOG ═══════════ -->
+<section class="section" id="changelog">
+  <div class="section-header">
+    <span class="section-tag">Novidades</span>
+    <h2>O que mudou por aqui.</h2>
+  </div>
+  <div class="changelog-list">
+    <div class="changelog-item">
+      <div class="changelog-date">20 nov 2026</div>
+      <div class="changelog-text">Combate interativo com botões: Atacar, Defender, Skill e Item. HP bars visuais e sistema de crítico.</div>
+    </div>
+    <div class="changelog-item">
+      <div class="changelog-date">20 nov 2026</div>
+      <div class="changelog-text">Sistema de missões diárias com streak e bónus progressivo (+5% por dia).</div>
+    </div>
+    <div class="changelog-item">
+      <div class="changelog-date">20 nov 2026</div>
+      <div class="changelog-text">Pity system no gacha: Lendário garantido aos 10, Mítico aos 50 pulls.</div>
+    </div>
+    <div class="changelog-item">
+      <div class="changelog-date">20 nov 2026</div>
+      <div class="changelog-text">Cooldowns persistentes em MongoDB — sobrevivem a restarts do bot.</div>
+    </div>
+    <div class="changelog-item">
+      <div class="changelog-date">20 nov 2026</div>
+      <div class="changelog-text">Refactoring do engine.js: 51KB → 15KB (-70%). View-once !revelar com 4 fallbacks.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FAQ ═══════════ -->
+<section class="section" id="faq">
+  <div class="section-header">
+    <span class="section-tag">Dúvidas</span>
+    <h2>Perguntas frequentes.</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <div class="faq-q">Posso usar em qualquer grupo?<span class="arrow">▾</span></div>
+      <div class="faq-a">Sim. O bot funciona em grupos e PV. Para grupos, o dono pode ativar/desativar módulos específicos via comandos de configuração.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">O RPG perde progresso quando o bot reinicia?<span class="arrow">▾</span></div>
+      <div class="faq-a">Não. Todos os dados são salvos no MongoDB: perfil, inventário, cooldowns, missões e pity. Tudo persiste entre restarts.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">Como funciona o pity system?<span class="arrow">▾</span></div>
+      <div class="faq-a">A cada 10 pulls sem Lendário, o próximo é garantido. A cada 50 pulls sem Mítico, o próximo é Mítico garantido. Contadores salvos permanentemente.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">O !revelar funciona com qualquer view-once?<span class="arrow">▾</span></div>
+      <div class="faq-a">Sim. Usa 4 fallbacks: Aura saved files, Baileys download, URL directa e download via socket. Funciona com imagens, vídeos e áudio.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CTA ═══════════ -->
+<section class="cta-section" id="start">
+  <h2>Pronto pra começar?</h2>
+  <p>Adiciona o Dark Bot ao teu grupo e activa o RPG em menos de 1 minuto.</p>
+  <div class="cta-actions">
+    <a href="#" class="btn btn-primary">Adicionar ao grupo →</a>
+    <a href="#endpoints" class="btn btn-secondary">Ver todos os comandos</a>
+  </div>
+</section>
+
+<!-- ═══════════ FOOTER ═══════════ -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <div class="footer-brand"><span class="spider">🕷️</span> Dark Bot</div>
+      <p style="color:var(--text-muted);font-size:.8rem;margin-top:.5rem;max-width:250px">Bot WhatsApp profissional com RPG, IA e automação.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>Bot</h4>
+        <a href="#">Comandos</a>
+        <a href="#">Universos</a>
+        <a href="#">Infraestrutura</a>
+        <a href="#">Novidades</a>
+      </div>
+      <div class="footer-col">
+        <h4>RPG</h4>
+        <a href="#">Combate</a>
+        <a href="#">Missões</a>
+        <a href="#">Gacha</a>
+        <a href="#">Rankings</a>
+      </div>
+      <div class="footer-col">
+        <h4>Suporte</h4>
+        <a href="#">FAQ</a>
+        <a href="#">Documentação</a>
+        <a href="#">Contacto</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Dark Bot. Todos os direitos reservados.</span>
+    <span>v11.4 · Feito com 💜 para a DarkNet</span>
+  </div>
+</footer>
+
+</div><!-- /main-content -->
+
+<script>
+// ═══════════ BACKGROUND CANVAS — WEBS/THREADS ═══════════
+const canvas = document.getElementById('bg-canvas');
+const c = canvas.getContext('2d');
+let W, H, nodes = [], mouse = {x: -999, y: -999};
 
 function init() {
-  width = canvas.width = window.innerWidth;
-  height = canvas.height = window.innerHeight;
-  mouse = { x: width / 2, y: height / 2 };
-  
-  // Criar nós da teia
-  const numNodes = Math.floor((width * height) / 15000);
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  const count = Math.min(Math.floor((W * H) / 18000), 80);
   nodes = [];
-  for (let i = 0; i < numNodes; i++) {
+  for (let i = 0; i < count; i++) {
     nodes.push({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      radius: Math.random() * 2 + 1,
-      pulse: Math.random() * Math.PI * 2,
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3,
+      r: Math.random() * 1.5 + .5,
+      p: Math.random() * Math.PI * 2
     });
   }
 }
 
 function draw() {
-  ctx.clearRect(0, 0, width, height);
-  
-  // Actualizar e desenhar nós
+  c.clearRect(0, 0, W, H);
   for (let i = 0; i < nodes.length; i++) {
-    const node = nodes[i];
-    
-    // Movimento
-    node.x += node.vx;
-    node.y += node.vy;
-    node.pulse += 0.02;
-    
-    // Rebater nas bordas
-    if (node.x < 0 || node.x > width) node.vx *= -1;
-    if (node.y < 0 || node.y > height) node.vy *= -1;
-    
-    // Atracção suave ao mouse
-    const dx = mouse.x - node.x;
-    const dy = mouse.y - node.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 200) {
-      node.vx += dx * 0.00005;
-      node.vy += dy * 0.00005;
-    }
-    
-    // Limitar velocidade
-    const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
-    if (speed > 1) {
-      node.vx *= 0.99;
-      node.vy *= 0.99;
-    }
-    
-    // Pulsação
-    const pulseSize = node.radius + Math.sin(node.pulse) * 0.5;
-    
-    // Desenhar nó
-    const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, pulseSize * 3);
-    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.8)');
-    gradient.addColorStop(1, 'rgba(124, 58, 237, 0)');
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, pulseSize * 3, 0, Math.PI * 2);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    
-    ctx.beginPath();
-    ctx.arc(node.x, node.y, pulseSize, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(167, 139, 250, 0.9)';
-    ctx.fill();
-    
-    // Desenhar conexões (teia)
+    const a = nodes[i];
+    a.x += a.vx; a.y += a.vy; a.p += .015;
+    if (a.x < 0 || a.x > W) a.vx *= -1;
+    if (a.y < 0 || a.y > H) a.vy *= -1;
+
+    // mouse attraction
+    const dx = mouse.x - a.x, dy = mouse.y - a.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d < 200) { a.vx += dx * .00003; a.vy += dy * .00003; }
+    const sp = Math.sqrt(a.vx*a.vx + a.vy*a.vy);
+    if (sp > .8) { a.vx *= .98; a.vy *= .98; }
+
+    // draw node
+    const pr = a.r + Math.sin(a.p) * .3;
+    c.beginPath(); c.arc(a.x, a.y, pr, 0, Math.PI*2);
+    c.fillStyle = 'rgba(168,85,247,0.6)'; c.fill();
+
+    // draw connections
     for (let j = i + 1; j < nodes.length; j++) {
-      const other = nodes[j];
-      const dx2 = node.x - other.x;
-      const dy2 = node.y - other.y;
-      const distance = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-      
-      if (distance < 150) {
-        const opacity = (1 - distance / 150) * 0.3;
-        ctx.beginPath();
-        ctx.moveTo(node.x, node.y);
-        ctx.lineTo(other.x, other.y);
-        ctx.strokeStyle = `rgba(124, 58, 237, ${opacity})`;
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+      const b = nodes[j];
+      const ex = a.x - b.x, ey = a.y - b.y;
+      const dist = Math.sqrt(ex*ex + ey*ey);
+      if (dist < 140) {
+        c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(b.x, b.y);
+        c.strokeStyle = `rgba(168,85,247,${(1 - dist/140) * .15})`;
+        c.lineWidth = .5; c.stroke();
       }
     }
-    
-    // Conexão ao mouse
-    if (dist < 180) {
-      const opacity = (1 - dist / 180) * 0.5;
-      ctx.beginPath();
-      ctx.moveTo(node.x, node.y);
-      ctx.lineTo(mouse.x, mouse.y);
-      ctx.strokeStyle = `rgba(167, 139, 250, ${opacity})`;
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
+    // mouse thread
+    if (d < 160) {
+      c.beginPath(); c.moveTo(a.x, a.y); c.lineTo(mouse.x, mouse.y);
+      c.strokeStyle = `rgba(192,132,252,${(1 - d/160) * .25})`;
+      c.lineWidth = .6; c.stroke();
     }
   }
-  
   requestAnimationFrame(draw);
 }
 
-// Mouse tracking
-document.addEventListener('mousemove', (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
+document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+window.addEventListener('resize', init);
+init(); draw();
+
+// ═══════════ NAV SCROLL ═══════════
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 50);
 });
 
-window.addEventListener('resize', init);
-init();
-draw();
-
-// ═══════════════════════════════════════════════════════
-// UPTIME COUNTER
-// ═══════════════════════════════════════════════════════
-const startTime = Date.now();
-function updateUptime() {
-  const elapsed = Date.now() - startTime;
-  const days = Math.floor(elapsed / 86400000);
-  const hours = Math.floor((elapsed % 86400000) / 3600000);
-  const mins = Math.floor((elapsed % 3600000) / 60000);
-  document.getElementById('uptime').textContent = `${days}d ${hours}h ${mins}m`;
-}
-setInterval(updateUptime, 60000);
-updateUptime();
-
-// ═══════════════════════════════════════════════════════
-// ANIMATED COUNTERS
-// ═══════════════════════════════════════════════════════
-function animateValue(element, start, end, duration) {
-  const startTime = performance.now();
-  function update(currentTime) {
-    const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.floor(start + (end - start) * eased);
-    element.textContent = current + (element.dataset.suffix || '');
-    if (progress < 1) requestAnimationFrame(update);
+// ═══════════ COUNT UP ANIMATION ═══════════
+function countUp(el, target) {
+  let start = 0;
+  const duration = 1500;
+  const t0 = performance.now();
+  function step(t) {
+    const p = Math.min((t - t0) / duration, 1);
+    const ease = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.floor(target * ease);
+    if (p < 1) requestAnimationFrame(step);
+    else el.textContent = target;
   }
-  requestAnimationFrame(update);
+  requestAnimationFrame(step);
 }
 
-// Animate stats on load
-document.addEventListener('DOMContentLoaded', () => {
-  const statValues = document.querySelectorAll('.stat-value');
-  statValues.forEach(el => {
-    const text = el.textContent;
-    const num = parseInt(text);
-    if (!isNaN(num)) {
-      const suffix = text.replace(/[0-9]/g, '');
-      el.dataset.suffix = suffix;
-      el.textContent = '0' + suffix;
-      setTimeout(() => animateValue(el, 0, num, 1500), 300);
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const el = e.target;
+      const v = parseInt(el.dataset.count);
+      if (v) countUp(el, v);
+      observer.unobserve(el);
     }
   });
-  
-  // Simulate group/message counts
-  document.getElementById('groups').textContent = Math.floor(Math.random() * 50) + 20;
-  document.getElementById('messages').textContent = Math.floor(Math.random() * 500) + 100;
+});
+document.querySelectorAll('[data-count]').forEach(el => observer.observe(el));
+
+// ═══════════ FAQ TOGGLE ═══════════
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    const item = q.parentElement;
+    document.querySelectorAll('.faq-item.open').forEach(o => { if (o !== item) o.classList.remove('open'); });
+    item.classList.toggle('open');
+  });
+});
+
+// ═══════════ SMOOTH SCROLL ═══════════
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({behavior:'smooth',block:'start'}); }
+  });
 });
 </script>
 </body>
