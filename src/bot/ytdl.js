@@ -33,6 +33,50 @@ const PIPED_PROXY_HOST = 'proxy.piped.private.coffee';
 const PIPED_MAX_BYTES = 50 * 1024 * 1024;
 const videoCompat = require('./videoCompat');
 
+// ═══ VERIFICAÇÃO DE DEPENDÊNCIAS (v12.7) ═══
+// Log de saúde no arranque para diagnóstico rápido
+function checkDownloadDeps() {
+  const deps = {};
+  
+  // yt-dlp
+  try {
+    const r = spawnSync('yt-dlp', ['--version'], { timeout: 5000, stdio: 'pipe' });
+    deps.ytdlp = r.status === 0 ? `✅ v${String(r.stdout).trim()}` : '❌ Não instalado';
+  } catch { deps.ytdlp = '❌ Não encontrado'; }
+  
+  // ffmpeg
+  try {
+    const r = spawnSync('ffmpeg', ['-version'], { timeout: 5000, stdio: 'pipe' });
+    deps.ffmpeg = r.status === 0 ? '✅ Instalado' : '❌ Não instalado';
+  } catch { deps.ffmpeg = '❌ Não encontrado'; }
+  
+  // ffmpeg-static
+  try {
+    const st = require('ffmpeg-static');
+    deps.ffmpegStatic = st && fs.existsSync(st) ? '✅' : '❌ Binário não existe';
+  } catch { deps.ffmpegStatic = '❌ Pacote não instalado'; }
+  
+  // SystemZone API
+  deps.systemZone = `${SZ_URL} (key: ${SZ_KEY === 'freekey' ? 'free' : 'custom'})`;
+  
+  console.log('[YTDLP] ═══ Dependências de Download ═══');
+  console.log(`[YTDLP] yt-dlp:       ${deps.ytdlp}`);
+  console.log(`[YTDLP] ffmpeg:       ${deps.ffmpeg}`);
+  console.log(`[YTDLP] ffmpeg-static:${deps.ffmpegStatic}`);
+  console.log(`[YTDLP] SystemZone:   ${deps.systemZone}`);
+  console.log('[YTDLP] ═══════════════════════════════');
+  
+  if (deps.ytdlp.startsWith('❌') && deps.ffmpegStatic.startsWith('❌')) {
+    console.warn('[YTDLP] ⚠️ NENHUM motor de download disponível!');
+    console.warn('[YTDLP] Instale: pip3 install yt-dlp  OU  npm i ffmpeg-static');
+  }
+  
+  return deps;
+}
+
+// Executar verificação no arranque
+setTimeout(() => checkDownloadDeps(), 2000);
+
 // ─── ffmpeg ──────────────────────────────────────────────────
 let _ffmpeg = null;
 function ffmpegBin() {

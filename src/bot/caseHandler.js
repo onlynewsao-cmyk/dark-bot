@@ -832,10 +832,39 @@ function extractCaseCode(rawText) {
 function wrapSockForCases(sock, msg) {
   if (!sock || typeof sock.sendMessage !== 'function') return sock;
   const orig = sock.sendMessage.bind(sock);
+  
+  // ═══ RATE LIMITER GLOBAL (v12.7) ═══
+  // Impede que um comando envie demasiadas mensagens/stickers em sequência
+  // Isto resolve o bug de +rfig 100 / %react 100 que envia centenas de stickers
+  const MAX_MESSAGES_PER_COMMAND = 5; // max 5 mensagens por comando
+  const RATE_WINDOW_MS = 3000; // janela de 3 segundos
+  let messageCount = 0;
+  let windowStart = Date.now();
+  
   return new Proxy(sock, {
     get(target, prop) {
       if (prop === 'sendMessage') {
         return (jid, content, opts = {}) => {
+          const now = Date.now();
+          // Reset janela se passou o tempo
+          if (now - windowStart > RATE_WINDOW_MS) {
+            messageCount = 0;
+            windowStart = now;
+          }
+          // Bloquear se passou o limite
+          if (messageCount >= MAX_MESSAGES_PER_COMMAND) {
+            console.warn(`[RATE_LIMIT] Comando bloqueado: ${messageCount} msgs em ${RATE_WINDOW_MS}ms (max ${MAX_MESSAGES_PER_COMMAND})`);
+            // Envia aviso apenas uma vez
+            if (messageCount === MAX_MESSAGES_PER_COMMAND) {
+              orig(jid, { 
+                text: `⚠️ *Limite atingido*\n\nO comando tentou enviar demasiadas mensagens (${messageCount}).\n\n_O bot limitou a ${MAX_MESSAGES_PER_COMMAND} mensagens para evitar spam._` 
+              }, opts).catch(() => {});
+            }
+            messageCount++;
+            return Promise.resolve(null);
+          }
+          
+          messageCount++;
           let o = opts || {};
           if (o.quoted && o.quoted.key && !o.quoted.message && msg) {
             o = { ...o, quoted: msg };
