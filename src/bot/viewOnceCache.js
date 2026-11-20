@@ -51,6 +51,10 @@ async function captureMedia(msg) {
     } else if (content.audioMessage || content.pttMessage) {
       tipo = 'audio';
       media = content.audioMessage || content.pttMessage;
+    } else if (content.conversation || content.extendedTextMessage) {
+      // View-once de texto (novidade WhatsApp 2025)
+      tipo = 'text';
+      media = content.conversation ? { text: content.conversation } : content.extendedTextMessage;
     }
 
     if (!tipo || !media) return;

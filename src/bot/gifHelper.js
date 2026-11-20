@@ -552,12 +552,19 @@ async function srcReddit(queries) {
   if (!queries || !queries.length) return [];
   const out = [];
   const subs = REDDIT_SUBS[Math.floor(Math.random() * REDDIT_SUBS.length)];
+  // v12.6: múltiplos User-Agents para evitar bloqueio
+  const userAgents = [
+    REDDIT_UA,
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
+  ];
   // Pega as 2 primeiras queries e faz busca
   await Promise.all(queries.slice(0, 2).map(async (q, i) => {
+    const ua = userAgents[i % userAgents.length];
     try {
       // Reddit search API pública (sem auth)
       const url = `https://www.reddit.com/r/${subs}/search.json?q=${encodeURIComponent(q)}&restrict_sr=on&sort=relevance&t=all&limit=15&raw_json=1`;
-      const d = await withTimeout(mediaHandler.fetchJson(url, { headers: { 'User-Agent': REDDIT_UA } }));
+      const d = await withTimeout(mediaHandler.fetchJson(url, { headers: { 'User-Agent': ua } }));
       const posts = d?.data?.children || [];
       for (const post of posts) {
         const p = post?.data;
@@ -585,7 +592,9 @@ async function srcReddit(queries) {
           out.push({ url: mediaUrl, exact: i === 0, src: 'reddit' });
         }
       }
-    } catch {}
+    } catch (e) {
+      console.log(`[gifHelper] Reddit falhou para "${q}": ${e.message?.slice(0, 50)}`);
+    }
   }));
   return out;
 }
@@ -595,6 +604,7 @@ async function srcReddit(queries) {
 // GIPHY public beta key: funciona sem registo para testes
 // ───────────────────────────────────────────────────────────────
 const GIPHY_BETA_KEY = process.env.GIPHY_BETA_KEY || 'dc6zaTOxFJmzC'; // chave pública histórica
+const TENOR_PUBLIC_KEY = process.env.TENOR_PUBLIC_KEY || 'AIzaSyAyimkuYQYF_F-VALsupq6lKp795pB0XkE'; // key pública para testes
 
 async function srcGiphyGeneric(queries) {
   const key = GIPHY_KEY || GIPHY_BETA_KEY;
@@ -616,15 +626,16 @@ async function srcGiphyGeneric(queries) {
 }
 
 async function srcTenor(queries) {
-  // A Google descontinuou a Tenor API pública; só tenta se houver key e sem filtro.
-  if (!TENOR_KEY) return [];
+  // v12.6: tentar com TENOR_KEY ou TENOR_PUBLIC_KEY como fallback
+  const tenorKey = TENOR_KEY || TENOR_PUBLIC_KEY;
+  if (!tenorKey) return [];
   const out = [];
   // v9.21: queries genéricas (sem prefixo "anime") para conteúdo real
   const genericQueries = queries.map(q => q.replace(/^anime\s+/i, '').trim()).filter(Boolean);
   const allQueries = [...new Set([...genericQueries, ...queries])]; // genéricas primeiro
   await Promise.all(allQueries.slice(0, 3).map(async (q, i) => {
     try {
-      const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${TENOR_KEY}&limit=15&media_filter=tinymp4,mp4,gif&contentfilter=off&random=true`;
+      const url = `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${tenorKey}&limit=15&media_filter=tinymp4,mp4,gif&contentfilter=off&random=true`;
       const d = await withTimeout(mediaHandler.fetchJson(url));
       for (const x of (d?.results || [])) {
         const u = x.media_formats?.tinymp4?.url || x.media_formats?.mp4?.url || x.media_formats?.gif?.url;
@@ -728,14 +739,31 @@ async function bufferToWhatsappMp4(url) {
 async function fetchGifBuffer(query) {
   if (!query) return null;
   const { key, list } = await fetchCandidates(query);
+  
+  console.log(`[gifHelper] 🔍 ${list.length} candidatos para "${query}"`);
+  if (list.length > 0) {
+    console.log(`[gifHelper] 📋 Top 3: ${list.slice(0, 3).map(c => c.url?.slice(0, 60)).join(', ')}`);
+  }
+  
   let tried = 0;
   for (const c of list) {
     if (tried++ >= 4) break;
     try {
+      console.log(`[gifHelper] 📥 Tentando ${c.src || 'unknown'}: ${c.url?.slice(0, 60)}...`);
       const mp4 = await bufferToWhatsappMp4(c.url);
-      if (mp4) { rememberRecent(key, c.url); return mp4; }
-    } catch {}
+      if (mp4) { 
+        console.log(`[gifHelper] ✅ Sucesso com ${c.src}`);
+        rememberRecent(key, c.url); 
+        return mp4; 
+      } else {
+        console.log(`[gifHelper] ❌ Falhou: ${c.src} - buffer inválido`);
+      }
+    } catch (e) {
+      console.log(`[gifHelper] ❌ Erro ${c.src}: ${e.message?.slice(0, 60)}`);
+    }
   }
+  
+  console.log(`[gifHelper] ⚠️ Nenhum GIF válido encontrado`);
   return null;
 }
 
@@ -743,13 +771,20 @@ async function sendWithGif(sock, msg, ctx, text, mentions, query) {
   mentions = mentions || [];
   if (query) {
     try {
-      // v7.50: fetch sem timeout pendurava o comando quando o host de GIFs
-      // estava lento (auditoria pública: azarado/brincalhao/chato...). 6s max.
+      // v12.6: timeout aumentado para 10s, log de falha
+      console.log(`[gifHelper] 🎬 A buscar GIF para: ${query}`);
+      const startTime = Date.now();
+      
       const buf = await Promise.race([
         fetchGifBuffer(query),
-        new Promise(r => setTimeout(() => r(null), Number(process.env.GIF_TIMEOUT_MS || 6000))),
+        new Promise(r => setTimeout(() => {
+          console.log(`[gifHelper] ⏱️ Timeout após ${Date.now() - startTime}ms para: ${query}`);
+          r(null);
+        }, Number(process.env.GIF_TIMEOUT_MS || 10000))),
       ]);
+      
       if (buf) {
+        console.log(`[gifHelper] ✅ GIF recebido (${buf.length} bytes, ${Date.now() - startTime}ms)`);
         return sock.sendMessage(ctx.remoteJid, {
           video: buf,
           gifPlayback: true,
@@ -757,9 +792,14 @@ async function sendWithGif(sock, msg, ctx, text, mentions, query) {
           mentions,
           mimetype: 'video/mp4',
         }, { quoted: msg });
+      } else {
+        console.log(`[gifHelper] ⚠️ Nenhum GIF para: ${query} (${Date.now() - startTime}ms)`);
       }
-    } catch {}
+    } catch (e) {
+      console.log(`[gifHelper] ❌ Erro ao buscar GIF: ${e.message?.slice(0, 100)}`);
+    }
   }
+  console.log(`[gifHelper] 📝 Enviando só texto: ${text.slice(0, 50)}...`);
   return sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
 }
 

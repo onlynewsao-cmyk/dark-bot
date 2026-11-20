@@ -105,8 +105,9 @@ async function extractViewOnceMedia(msg, sock = null) {
   if (!isImage && !isVideo && !isAudio) return null;
 
   const mediaNode = unwrapped.imageMessage || unwrapped.videoMessage || unwrapped.audioMessage;
-  const caption = mediaNode.caption || '';
-  const mimetype = mediaNode.mimetype || (isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : 'audio/ogg');
+  const isText = !!unwrapped.conversation || !!unwrapped.extendedTextMessage;
+  const caption = mediaNode?.caption || unwrapped.conversation || unwrapped.extendedTextMessage?.text || '';
+  const mimetype = mediaNode?.mimetype || (isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : isAudio ? 'audio/ogg' : 'text/plain');
 
   // === FALLBACK 0: CACHE DE MÍDIA (v12.5 - PRIORIDADE MÁXIMA) ===
   // Procura no cache global que captura TODA mídia recebida
@@ -119,19 +120,36 @@ async function extractViewOnceMedia(msg, sock = null) {
     if (chatJid && stanzaId) {
       const cached = viewOnceCache.getFromCache(chatJid, stanzaId);
       
-      if (cached?.buf && cached.buf.length > 100) {
-        console.log('[ViewOnceConvert] ✅✅✅ CACHE HIT! Mídia encontrada no cache global');
-        console.log(`[ViewOnceConvert] Tipo: ${cached.tipo}, Tamanho: ${cached.buf.length} bytes`);
-        return { 
-          buf: cached.buf, 
-          isImage, 
-          isVideo, 
-          isAudio, 
-          caption, 
-          mimetype: cached.mime || mimetype 
-        };
-      } else {
-        console.log('[ViewOnceConvert] ⚠️ Cache MISS - mídia não encontrada no cache');
+      if (cached) {
+        // View-once de texto (sem buf)
+        if (cached.tipo === 'text') {
+          console.log('[ViewOnceConvert] ✅ CACHE HIT - Texto view-once!');
+          return { 
+            buf: null,
+            text: cached.text || caption,
+            isImage: false, 
+            isVideo: false, 
+            isAudio: false,
+            isText: true,
+            caption, 
+            mimetype: 'text/plain'
+          };
+        }
+        
+        if (cached?.buf && cached.buf.length > 100) {
+          console.log('[ViewOnceConvert] ✅✅✅ CACHE HIT! Mídia encontrada no cache global');
+          console.log(`[ViewOnceConvert] Tipo: ${cached.tipo}, Tamanho: ${cached.buf.length} bytes`);
+          return { 
+            buf: cached.buf, 
+            isImage, 
+            isVideo, 
+            isAudio, 
+            caption, 
+            mimetype: cached.mime || mimetype 
+          };
+        } else {
+          console.log('[ViewOnceConvert] ⚠️ Cache MISS - mídia não encontrada no cache');
+        }
       }
     }
   } catch (e) {
@@ -312,17 +330,22 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
         
         if (recentCache.length > 0) {
           const lastCached = recentCache[0];
-          console.log(`[ViewOnceConvert] ✅ Cache global tem ${lastCached.tipo} (${lastCached.buf.length} bytes)`);
+          console.log(`[ViewOnceConvert] ✅ Cache global tem ${lastCached.tipo} (${lastCached.buf?.length || 0} bytes)`);
           
           react('⏳');
           
           const isImage = lastCached.tipo === 'image';
           const isVideo = lastCached.tipo === 'video';
           const isAudio = lastCached.tipo === 'audio';
+          const isText = lastCached.tipo === 'text';
           
           react('✅');
           
-          if (isImage) {
+          if (isText) {
+            await sock.sendMessage(ctx.remoteJid, {
+              text: `🔓 *Texto Revelado*\n\n${lastCached.text || 'Conteúdo de visualização única'}\n\n_↩️ Originalmente era visualização única_`,
+            }, { quoted: m.msg });
+          } else if (isImage) {
             await sock.sendMessage(ctx.remoteJid, {
               image: lastCached.buf,
               caption: `🔓 *Revelada* — visualização única → normal\n\n_Encontrada no cache_`,
@@ -469,7 +492,12 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
       react('✅');
 
       // Re-envia como mensagem NORMAL (sem viewOnce flag)
-      if (media.isImage) {
+      if (media.isText) {
+        // View-once de texto (novidade WhatsApp 2025)
+        await sock.sendMessage(ctx.remoteJid, {
+          text: `🔓 *Texto Revelado*\n\n${media.text || media.caption}\n\n_↩️ Originalmente era visualização única_`,
+        }, { quoted: m.msg });
+      } else if (media.isImage) {
         await sock.sendMessage(ctx.remoteJid, {
           image: media.buf,
           caption: `🔓 *Revelada* — visualização única → normal${media.caption ? `\n\n_${media.caption}_` : ''}`,
