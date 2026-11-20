@@ -121,6 +121,8 @@
     "test:auravozspam": "node scripts/test-aura-voz-spam.js",
     "test:auravontade": "node scripts/test-aura-vontade-cerebro.js",
     "test:cases": "node scripts/test-cases-media.js",
+    "test:rpgcooldown": "node scripts/test-rpg-cooldown.js",
+    "test:rpgpity": "node scripts/test-rpg-pity.js",
     "test:callvoip": "node scripts/test-call-voip.js",
     "test:incoming": "node scripts/test-incoming-cases.js",
     "test:group-entitlement": "node scripts/test-group-entitlement.js",
