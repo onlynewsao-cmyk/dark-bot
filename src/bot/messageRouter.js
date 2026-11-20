@@ -33,14 +33,53 @@ const requestedSlots = Number(globalThis.process.env.ROUTER_MAX_VOO);
 const MAX_VOO = Number.isFinite(requestedSlots) && requestedSlots >= 1 ? Math.min(32, Math.floor(requestedSlots)) : 8;
 let _voando = 0;
 const _fila = [];
+// v9.21: Backpressure — limite máximo de fila + TTL para evitar crescimento
+// ilimitado e mensagens antigas presas atrás de trabalho velho.
+const MAX_FILA = Number(globalThis.process.env.ROUTER_MAX_FILA) || 50;
+const FILA_TTL_MS = Number(globalThis.process.env.ROUTER_FILA_TTL_MS) || 120_000; // 2 min
+let _filaDrops = 0;
 async function _adquirir() {
   if (_voando < MAX_VOO) { _voando++; return; }
-  await new Promise(res => _fila.push(res)); // the released slot transfers to this waiter
+  // Fila cheia — descarta em vez de crescer infinitamente
+  if (_fila.length >= MAX_FILA) {
+    _filaDrops++;
+    if (_filaDrops % 10 === 1) {
+      console.warn(`[Router] Fila cheia (${_fila.length}/${MAX_FILA}), drop #${_filaDrops}. A aumentar ROUTER_MAX_VOO?`);
+    }
+    throw new Error('router_queue_full');
+  }
+  await Promise.race([
+    new Promise((res, rej) => {
+      const entry = { resolve: res, ts: Date.now() };
+      _fila.push(entry);
+      // TTL na fila — se expirar, rejeita e remove
+      entry.timer = setTimeout(() => {
+        const idx = _fila.indexOf(entry);
+        if (idx !== -1) {
+          _fila.splice(idx, 1);
+          _filaDrops++;
+          rej(new Error('router_queue_ttl'));
+        }
+      }, FILA_TTL_MS);
+      if (entry.timer.unref) entry.timer.unref();
+    }),
+  ]);
 }
 function _libertar() {
-  const next = _fila.shift();
-  if (next) next();
+  let next;
+  // Encontra a próxima entrada não-expirada
+  while (_fila.length > 0) {
+    next = _fila.shift();
+    if (next.timer) clearTimeout(next.timer);
+    if (Date.now() - next.ts < FILA_TTL_MS) break;
+    next = null; // expirada, salta
+  }
+  if (next && next.resolve) next.resolve();
   else _voando--;
+}
+/** Estatísticas do router para /health */
+function queueStats() {
+  return { voando: _voando, maxVoo: MAX_VOO, fila: _fila.length, maxFila: MAX_FILA, drops: _filaDrops };
 }
 
 // ── v7.82: dedup de mensagens ─────────────────────────────
@@ -96,7 +135,12 @@ function maskJid(jid = '') {
 async function _tratarUma(bot, batch, raw) {
   if (!raw?.message) return;
   let msg = raw;
-  await _adquirir();
+  try {
+    await _adquirir();
+  } catch (e) {
+    // Fila cheia ou TTL expirado — descarta silenciosamente
+    return;
+  }
   try {
     if (typeof commandHandler.normalizeIncomingMsg === 'function') {
       msg = commandHandler.normalizeIncomingMsg(raw);
@@ -255,4 +299,4 @@ async function process(bot, batch) {
   }));
 }
 
-module.exports = { process, isNoise, maskJid, _vistos };
+module.exports = { process, isNoise, maskJid, _vistos, queueStats };

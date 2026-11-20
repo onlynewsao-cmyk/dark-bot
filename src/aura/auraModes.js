@@ -30,11 +30,13 @@ const MODE_SLEEP = 'sleep';
 
 // Cache em memória: groupJid → { mode, ts }
 // Evita ir ao MongoDB a cada mensagem (o handler corre em TODAS).
-const _cache = new Map();
-const TTL = 5 * 60 * 1000; // 5 min
+// v9.21: LRU cache com limite máximo para evitar memory leak em instalações
+// com muitos grupos e uptime longo.
+const { LRUCache } = require('../bot/lruCache');
+const _cache = new LRUCache({ maxSize: 2000, ttlMs: 5 * 60 * 1000, sweepIntervalMs: 600_000, name: 'auraModes' });
 
 function _fresh(e) {
-  return e && (Date.now() - e.ts) < TTL;
+  return e && (Date.now() - e.ts) < (5 * 60 * 1000);
 }
 
 /** Limpa o cache de um grupo (após mudança de modo). */

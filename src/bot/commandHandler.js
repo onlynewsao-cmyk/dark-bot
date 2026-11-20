@@ -335,15 +335,19 @@ async function isGroupAdminForHandler(sock, ctx) {
 // v6.56: conta mensagens desde a última vez que a AURA falou num chat.
 // Serve para ela não responder a tudo seguido — quem acabou de falar
 // tende a deixar os outros falarem.
-const _msgCount = new Map();
+// v9.21: LRU cache com limite — evita crescimento ilimitado em instalações
+// com muitos grupos e uptime longo.
+const { LRUCache } = require('./lruCache');
+const _msgCount = new LRUCache({ maxSize: 3000, ttlMs: 30 * 60 * 1000, sweepIntervalMs: 600_000, name: 'msgCount' });
 // Proteção global contra rajadas da AURA. O modo PV continua ativo, mas
 // mensagens repetidas/concorrentes não podem gerar spam no WhatsApp.
 // Deduplica somente o mesmo evento/mensagem. Um cooldown por chat de 8s
 // silenciava mensagens legítimas seguidas, sobretudo no PV.
-const _auraReplySeen = new Map();
 const AURA_SEEN_TTL_MS = 10 * 60 * 1000;
+const _auraReplySeen = new LRUCache({ maxSize: 2000, ttlMs: AURA_SEEN_TTL_MS, sweepIntervalMs: 600_000, name: 'auraReplySeen' });
 function _contaMsg(jid) {
-  _msgCount.set(jid, (_msgCount.get(jid) || 0) + 1);
+  const current = _msgCount.get(jid) || 0;
+  _msgCount.set(jid, current + 1);
 }
 function _msgsDesdeAura(jid) {
   return _msgCount.get(jid) || 0;
@@ -2709,14 +2713,11 @@ async function _handleInner(sock, msg, turn) {
   // seguidas. Não interfere com comandos prefixados.
   if (aiActive && _auraMayReply) {
     const _auraKey = `${ctx.remoteJid || 'unknown'}:${msg.key?.id || ''}`;
-    const _nowAura = Date.now();
     // O mesmo evento pode ser emitido duas vezes pelo WhatsApp; mensagens
     // diferentes no mesmo PV/grupo nunca devem bloquear-se entre si.
+    // v9.21: LRU cache trata TTL e limpeza automática
     if (_auraReplySeen.has(_auraKey)) return false;
-    _auraReplySeen.set(_auraKey, _nowAura);
-    if (_auraReplySeen.size > 3000) {
-      for (const [k, ts] of _auraReplySeen) if (_nowAura - ts > AURA_SEEN_TTL_MS) _auraReplySeen.delete(k);
-    }
+    _auraReplySeen.set(_auraKey, Date.now());
     const _sockAntesAura = sock;
     let _historyActive = false;
     const _rememberSent = async text => {

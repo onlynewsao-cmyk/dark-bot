@@ -160,10 +160,12 @@ async function bootstrap() {
   // UptimeRobot deve monitorar esta URL com status 200.
   // Endpoint SEM autenticação, público, resposta rápida.
   // v9.20: métricas detalhadas (providers IA, memória, sessões)
+  // v9.21: queue stats (backpressure) + cache sizes (memory leak detection)
   app.get('/health', (req, res) => {
     const botStatus = getBot(io).getStatus();
     const mem = process.memoryUsage();
     const aiStatus = (() => { try { return require('./bot/ai').providerStatus(); } catch { return {}; } })();
+    const queueStats = (() => { try { return require('./bot/messageRouter').queueStats(); } catch { return {}; } })();
     res.status(200).json({
       status: 'ok',
       bot: botStatus.status,
@@ -174,6 +176,7 @@ async function bootstrap() {
       commands: botStatus.commandCount || 0,
       ai_providers_down: Object.keys(aiStatus).length,
       ai_providers_detail: aiStatus,
+      queue: queueStats,
       memory: {
         heapUsed: Math.round(mem.heapUsed / 1024 / 1024) + 'MB',
         heapTotal: Math.round(mem.heapTotal / 1024 / 1024) + 'MB',
@@ -642,7 +645,20 @@ process.on('unhandledRejection', (reason) => {
   console.error(msg);
   try { require('./bot/liveBroadcaster').emit('bot:log', { level: 'error', message: msg }); } catch (_) {}
 });
+// v9.21: uncaughtException — estado interno pode estar inconsistente.
+// Registar, notificar o dashboard, e sair com código não-zero para o
+// supervisor (Render/Northflank) reiniciar o processo limpo.
+// Sem isto, o Express/health continuam activos mas WhatsApp/AURA podem
+// estar partidos — "zombie process".
+let _uncaughtExitScheduled = false;
 process.on('uncaughtException', (err) => {
-  console.error(`🩹 [uncaughtException] ${String(err?.message || err).slice(0, 200)}\n${String(err?.stack || '').split('\n').slice(1, 3).join('\n')}`);
+  console.error(`🩹 [uncaughtException] ${String(err?.message || err).slice(0, 200)}\n${String(err?.stack || '').split('\n').slice(1, 5).join('\n')}`);
   try { require('./bot/liveBroadcaster').emit('bot:log', { level: 'error', message: `🩹 uncaughtException: ${String(err?.message || err).slice(0, 120)}` }); } catch (_) {}
+  if (!_uncaughtExitScheduled) {
+    _uncaughtExitScheduled = true;
+    console.error('💀 Estado inconsistente — a reiniciar em 5s...');
+    setTimeout(() => {
+      try { process.exit(1); } catch (_) { globalThis.process?.exit?.(1); }
+    }, 5000).unref?.();
+  }
 });

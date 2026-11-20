@@ -256,8 +256,26 @@ class WhatsAppBot {
    */
   _startHealthWatchdog() {
     if (this._healthTimer) return;
+    // v9.21: tracking de quanto tempo está em 'connecting' — se ficar preso
+    // mais de 90s sem evoluir, força reconexão (evita socket zombie).
+    let _connectingSince = 0;
+    const CONNECTING_DEADLINE_MS = 90_000;
     this._healthTimer = setInterval(() => {
       try {
+        // v9.21: Socket preso em 'connecting' sem emitir QR/close
+        if (this.status === 'connecting' && !this._reconnectTimer) {
+          if (!_connectingSince) _connectingSince = Date.now();
+          if (Date.now() - _connectingSince > CONNECTING_DEADLINE_MS) {
+            this.log('warn', `Vigia: preso em 'connecting' há ${Math.round((Date.now() - _connectingSince) / 1000)}s — a forçar reconexão.`);
+            _connectingSince = 0;
+            this.setStatus('disconnected', { reason: 'watchdog-connecting-deadline' });
+            this._scheduleReconnect(2000, 'vigia de conexão pendurada');
+          }
+          return;
+        }
+        // Reset tracking quando sai de 'connecting'
+        if (this.status !== 'connecting') _connectingSince = 0;
+        // v7.x: WebSocket fechado sem evento close
         if (this.status !== 'connected' || this.starting || this._reconnectTimer) return;
         const ws = this.sock?.ws;
         const fechado = ws?.isClosed === true || ws?.readyState === 3;
