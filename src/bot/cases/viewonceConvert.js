@@ -77,6 +77,7 @@ function isViewOnceMedia(message) {
 
 /**
  * Obtém o media buffer e metadados de uma mensagem view-once.
+ * Usa múltiplos fallbacks: 1) Aura saved, 2) Baileys download, 3) Direct URL
  */
 async function extractViewOnceMedia(msg) {
   const message = msg?.message || msg;
@@ -88,26 +89,89 @@ async function extractViewOnceMedia(msg) {
   const isAudio = !!unwrapped.audioMessage;
   if (!isImage && !isVideo && !isAudio) return null;
 
-  // Download via Baileys — usa o msg original com a estrutura completa
+  const mediaNode = unwrapped.imageMessage || unwrapped.videoMessage || unwrapped.audioMessage;
+  const caption = mediaNode.caption || '';
+  const mimetype = mediaNode.mimetype || (isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : 'audio/ogg');
+
+  // === FALLBACK 1: Verificar se o AuraViewOnce já salvou esta mídia ===
+  try {
+    const auraViewOnce = require('../../aura/auraViewOnce');
+    const chatJid = msg?.key?.remoteJid || '';
+    const senderJid = msg?.key?.participant || msg?.key?.remoteJid || '';
+    const senderNumber = senderJid.split('@')[0].split(':')[0] || '';
+    
+    const recent = auraViewOnce.getRecentViewOnce(chatJid, 10);
+    // Procura pelo match (pelo sender number ou pelo mais recente do tipo)
+    const match = recent.find(r => 
+      r.senderNumber === senderNumber && 
+      ((isImage && r.type === 'image') || (isVideo && r.type === 'video') || (isAudio && r.type === 'audio'))
+    ) || (recent.length > 0 ? recent[recent.length - 1] : null);
+    
+    if (match?.filePath) {
+      const fs = require('fs');
+      if (fs.existsSync(match.filePath)) {
+        const buf = fs.readFileSync(match.filePath);
+        if (buf && buf.length > 100) {
+          console.log('[ViewOnceConvert] ✅ Usando mídia salva pelo AuraViewOnce');
+          return { buf, isImage, isVideo, isAudio, caption, mimetype };
+        }
+      }
+    }
+  } catch (e) {
+    console.log('[ViewOnceConvert] AuraViewOnce check failed:', e.message?.slice(0, 80));
+  }
+
+  // === FALLBACK 2: Download via Baileys ===
   let buf = null;
   try {
     buf = await downloadMediaMessage(msg, 'buffer', {});
   } catch (e1) {
+    console.log('[ViewOnceConvert] Baileys download falhou:', e1.message?.slice(0, 100));
     try {
       // Fallback: tenta com a inner message re-wrapped
       const innerMsg = { message: unwrapped, key: msg.key || {} };
       buf = await downloadMediaMessage(innerMsg, 'buffer', {});
     } catch (e2) {
-      return null;
+      console.log('[ViewOnceConvert] Fallback download falhou:', e2.message?.slice(0, 100));
     }
   }
-  if (!buf || buf.length < 100) return null;
+  
+  if (buf && buf.length >= 100) {
+    console.log('[ViewOnceConvert] ✅ Download via Baileys OK');
+    return { buf, isImage, isVideo, isAudio, caption, mimetype };
+  }
 
-  const mediaNode = unwrapped.imageMessage || unwrapped.videoMessage || unwrapped.audioMessage;
-  const caption = mediaNode.caption || '';
-  const mimetype = mediaNode.mimetype || (isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : 'audio/ogg');
+  // === FALLBACK 3: Download directo via URL do mediaMessage ===
+  try {
+    if (mediaNode.url) {
+      const https = require('https');
+      const http = require('http');
+      const client = mediaNode.url.startsWith('https') ? https : http;
+      
+      buf = await new Promise((resolve, reject) => {
+        const req = client.get(mediaNode.url, { 
+          headers: { 'Origin': 'https://web.whatsapp.com' } 
+        }, (res) => {
+          const chunks = [];
+          res.on('data', c => chunks.push(c));
+          res.on('end', () => resolve(Buffer.concat(chunks)));
+          res.on('error', reject);
+        });
+        req.on('error', reject);
+        setTimeout(() => { req.destroy(); reject(new Error('timeout')); }, 10000);
+      });
+      
+      if (buf && buf.length >= 100) {
+        console.log('[ViewOnceConvert] ✅ Download directo via URL OK');
+        return { buf, isImage, isVideo, isAudio, caption, mimetype };
+      }
+    }
+  } catch (e) {
+    console.log('[ViewOnceConvert] URL download falhou:', e.message?.slice(0, 80));
+  }
 
-  return { buf, isImage, isVideo, isAudio, caption, mimetype };
+  console.log('[ViewOnceConvert] ❌ Todos os métodos falharam');
+  return null;
 }
 
 /**
@@ -148,13 +212,80 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
   // !revelar / !salvarviewonce / !verviewonce / !unviewonce
   // Converte view-once → mídia normal (visível e guardável)
   // Uso: Responder a uma mensagem de visualização única com o comando
+  // Ou: Usar sem citar para revelar a última view-once do chat
   // ════════════════════════════════════════════════════════════════════
   registerCase(['revelar', 'salvarviewonce', 'verviewonce', 'unviewonce', 'reveal'], async ({ m, sock, ctx, reply, react }) => {
-    // Precisa de uma mensagem citada (quoted)
+    
+    // ═══ MODO RÁPIDO: Sem citar, revelar a última view-once do chat ═══
     if (!m.quoted?.message) {
-      return reply('👁️ *REVELAR* — Responde a uma mensagem de *visualização única* com este comando para a converter em mídia normal.\n\n_Exemplo: responde à foto de visão única com_ `!revelar`');
+      try {
+        const auraViewOnce = require('../../aura/auraViewOnce');
+        const recent = auraViewOnce.getRecentViewOnce(ctx.remoteJid, 1);
+        
+        if (recent.length === 0) {
+          return reply(
+            '👁️ *REVELAR*\n\n' +
+            'Nenhuma view-once encontrada.\n\n' +
+            '*Usos:*\n' +
+            '• Responde a uma view-once 👁️ com `!revelar`\n' +
+            '• Ou usa `!revelar` logo após receber a view-once\n\n' +
+            '*💡 Dica:*\n' +
+            '• `!revelar` → converte view-once 👁️ em normal\n' +
+            '• `!toviewonce` → converte normal em view-once 👁️'
+          );
+        }
+
+        const lastViewOnce = recent[recent.length - 1];
+        
+        if (!lastViewOnce.filePath) {
+          return reply('❌ A última view-once não foi guardada no disco.');
+        }
+
+        react('⏳');
+        
+        const fs = require('fs');
+        if (!fs.existsSync(lastViewOnce.filePath)) {
+          react('❌');
+          return reply('❌ Ficheiro da view-once não encontrado. Pode ter sido limpo.');
+        }
+
+        const buf = fs.readFileSync(lastViewOnce.filePath);
+        const isImage = lastViewOnce.type === 'image';
+        const isVideo = lastViewOnce.type === 'video';
+        const isAudio = lastViewOnce.type === 'audio';
+        const mimetype = isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : 'audio/ogg';
+        
+        react('✅');
+
+        if (isImage) {
+          await sock.sendMessage(ctx.remoteJid, {
+            image: buf,
+            caption: `🔓 *Revelada* — visualização única → normal${lastViewOnce.caption ? `\n\n_${lastViewOnce.caption}_` : ''}`,
+            mimetype,
+          }, { quoted: m.msg });
+        } else if (isVideo) {
+          await sock.sendMessage(ctx.remoteJid, {
+            video: buf,
+            caption: `🔓 *Revelada* — visualização única → normal${lastViewOnce.caption ? `\n\n_${lastViewOnce.caption}_` : ''}`,
+            mimetype,
+          }, { quoted: m.msg });
+        } else if (isAudio) {
+          await sock.sendMessage(ctx.remoteJid, {
+            audio: buf,
+            mimetype,
+            ptt: false,
+            caption: `🔓 *Revelada* — áudio de visualização única → normal`,
+          }, { quoted: m.msg });
+        }
+
+        return;
+      } catch (e) {
+        console.log('[ViewOnceConvert] Modo rápido falhou:', e.message?.slice(0, 80));
+        return reply('❌ Erro ao revelar a última view-once: ' + (e.message?.slice(0, 80) || 'desconhecido'));
+      }
     }
 
+    // ═══ MODO NORMAL: Revelar a view-once citada ═══
     const quotedMessage = m.quoted.message;
 
     // Verifica se é view-once
@@ -169,7 +300,22 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
       const media = await extractViewOnceMedia(m.quoted.msg || m.quoted);
       if (!media) {
         react('❌');
-        return reply('❌ Não consegui extrair a mídia. Pode ter expirado ou estar corrompida.');
+        // Debug: mostrar estrutura da mensagem para diagnóstico
+        const msgStructure = m.quoted?.message ? Object.keys(m.quoted.message).join(', ') : 'sem message';
+        console.log('[ViewOnceConvert] Mensagem não extraiu. Estrutura:', msgStructure);
+        console.log('[ViewOnceConvert] Keys da quoted.msg:', m.quoted?.msg ? Object.keys(m.quoted.msg).join(', ') : 'sem msg');
+        
+        return reply(
+          '❌ *Não consegui extrair a mídia desta visualização única.*\n\n' +
+          '*Possíveis causas:*\n' +
+          '• A mensagem já foi aberta (expirou)\n' +
+          '• A mídia foi apagada pelo remetente\n' +
+          '• O WhatsApp bloqueou o download\n\n' +
+          '*💡 Dica:*\n' +
+          '• Usa !revelar *imediatamente* após receber a view-once\n' +
+          '• Não abras a visualização única antes de usar o comando\n' +
+          '• Pede ao remetente para enviar novamente'
+        );
       }
 
       react('✅');

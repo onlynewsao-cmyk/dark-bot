@@ -108,6 +108,28 @@ async function onUpsert(sock, m, io) {
     if (isChannel || isStatusFeed) return;
     const msgType = Object.keys(msg.message)[0];
 
+    // ════════════════════════════════════════════════════════════════════
+    // CAPTURA AUTOMÁTICA DE VIEW-ONCE (v12.4)
+    // Salva a mídia IMEDIATAMENTE quando recebe uma view-once
+    // ════════════════════════════════════════════════════════════════════
+    try {
+      const auraViewOnce = require('../aura/auraViewOnce');
+      if (auraViewOnce.isViewOnceMessage(msg.message)) {
+        const ctx = { isOwner: false };
+        const saved = await auraViewOnce.handleViewOnce(sock, msg, ctx).catch(e => {
+          console.warn('[ViewOnce] captura falhou:', e.message?.slice(0, 80));
+          return null;
+        });
+        // Log de sucesso para debug
+        if (saved) {
+          const info = auraViewOnce.getViewOnceInfo(msg);
+          console.log(`[ViewOnce] ✅ Capturado: ${info?.type || 'media'} de ${info?.pushName || 'desconhecido'} em ${remoteJid}`);
+        }
+      }
+    } catch (e) {
+      console.warn('[ViewOnce] require falhou:', e.message?.slice(0, 60));
+    }
+
     // --- LÓGICA ANTI-STATUS ---
     // O cache diz que a regra existe; a licença continua a mandar. Assim um
     // grupo expirado não perde mensagens enquanto aguarda o refresh do cache.
