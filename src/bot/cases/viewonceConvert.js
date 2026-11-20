@@ -65,21 +65,35 @@ function unwrapViewOnce(message) {
  * Detecta se a mensagem (ou a mensagem citada) contém mídia de visualização única.
  */
 function isViewOnceMedia(message) {
+  if (!message || typeof message !== 'object') return false;
   const unwrapped = unwrapViewOnce(message);
   if (!unwrapped) return false;
   const img = unwrapped.imageMessage;
   const vid = unwrapped.videoMessage;
   // Tem viewOnce flag directa OU veio de wrapper viewOnce
   if (img?.viewOnce || vid?.viewOnce) return true;
-  if (message?.viewOnceMessage || message?.viewOnceMessageV2) return true;
+  if (message?.viewOnceMessage || message?.viewOnceMessageV2 || message?.viewOnceMessageV2Extension) return true;
   return false;
 }
 
 /**
- * Obtém o media buffer e metadados de uma mensagem view-once.
- * Usa múltiplos fallbacks: 1) Aura saved, 2) Baileys download, 3) Direct URL
+ * Detecta se a mensagem contém qualquer mídia (imagem/vídeo/áudio), mesmo sem flag viewOnce.
+ * Usado como fallback para when o WhatsApp não preserva a estrutura view-once.
  */
-async function extractViewOnceMedia(msg) {
+function hasAnyMedia(message) {
+  if (!message || typeof message !== 'object') return false;
+  const unwrapped = unwrapViewOnce(message);
+  if (!unwrapped) return false;
+  return !!(unwrapped.imageMessage || unwrapped.videoMessage || unwrapped.audioMessage);
+}
+
+/**
+ * Obtém o media buffer e metadados de uma mensagem view-once.
+ * Usa múltiplos fallbacks: 1) Aura saved, 2) Baileys download, 3) Direct URL, 4) Via sock
+ * @param {Object} msg - Mensagem a extrair
+ * @param {Object} sock - Socket do WhatsApp (opcional, para download)
+ */
+async function extractViewOnceMedia(msg, sock = null) {
   const message = msg?.message || msg;
   const unwrapped = unwrapViewOnce(message);
   if (!unwrapped) return null;
@@ -124,15 +138,31 @@ async function extractViewOnceMedia(msg) {
   // === FALLBACK 2: Download via Baileys ===
   let buf = null;
   try {
+    // Tenta com a mensagem original primeiro
     buf = await downloadMediaMessage(msg, 'buffer', {});
   } catch (e1) {
-    console.log('[ViewOnceConvert] Baileys download falhou:', e1.message?.slice(0, 100));
+    console.log('[ViewOnceConvert] Baileys download com msg original falhou:', e1.message?.slice(0, 100));
     try {
-      // Fallback: tenta com a inner message re-wrapped
-      const innerMsg = { message: unwrapped, key: msg.key || {} };
-      buf = await downloadMediaMessage(innerMsg, 'buffer', {});
+      // Fallback: reconstrói a mensagem com key completa
+      const reconstructed = { 
+        message: message, 
+        key: { 
+          id: msg?.key?.id || '', 
+          remoteJid: msg?.key?.remoteJid || '', 
+          participant: msg?.key?.participant || '',
+          fromMe: msg?.key?.fromMe || false 
+        } 
+      };
+      buf = await downloadMediaMessage(reconstructed, 'buffer', {});
     } catch (e2) {
-      console.log('[ViewOnceConvert] Fallback download falhou:', e2.message?.slice(0, 100));
+      console.log('[ViewOnceConvert] Baileys download com key reconstruída falhou:', e2.message?.slice(0, 100));
+      try {
+        // Fallback 2: tenta com a inner message re-wrapped
+        const innerMsg = { message: unwrapped, key: msg.key || {} };
+        buf = await downloadMediaMessage(innerMsg, 'buffer', {});
+      } catch (e3) {
+        console.log('[ViewOnceConvert] Baileys download com inner message falhou:', e3.message?.slice(0, 100));
+      }
     }
   }
   
@@ -144,30 +174,57 @@ async function extractViewOnceMedia(msg) {
   // === FALLBACK 3: Download directo via URL do mediaMessage ===
   try {
     if (mediaNode.url) {
+      console.log('[ViewOnceConvert] Tentando download directo via URL');
       const https = require('https');
       const http = require('http');
       const client = mediaNode.url.startsWith('https') ? https : http;
       
+      // Headers completos para simular um cliente WhatsApp
+      const headers = {
+        'Origin': 'https://web.whatsapp.com',
+        'Referer': 'https://web.whatsapp.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+      };
+      
       buf = await new Promise((resolve, reject) => {
-        const req = client.get(mediaNode.url, { 
-          headers: { 'Origin': 'https://web.whatsapp.com' } 
-        }, (res) => {
+        const req = client.get(mediaNode.url, { headers }, (res) => {
+          if (res.statusCode !== 200) {
+            console.log('[ViewOnceConvert] URL download status:', res.statusCode);
+            reject(new Error(`HTTP ${res.statusCode}`));
+            return;
+          }
           const chunks = [];
           res.on('data', c => chunks.push(c));
           res.on('end', () => resolve(Buffer.concat(chunks)));
           res.on('error', reject);
         });
         req.on('error', reject);
-        setTimeout(() => { req.destroy(); reject(new Error('timeout')); }, 10000);
+        setTimeout(() => { req.destroy(); reject(new Error('timeout')); }, 15000);
       });
       
       if (buf && buf.length >= 100) {
-        console.log('[ViewOnceConvert] ✅ Download directo via URL OK');
+        console.log('[ViewOnceConvert] ✅ Download directo via URL OK (' + buf.length + ' bytes)');
         return { buf, isImage, isVideo, isAudio, caption, mimetype };
       }
     }
   } catch (e) {
     console.log('[ViewOnceConvert] URL download falhou:', e.message?.slice(0, 80));
+  }
+
+  // === FALLBACK 4: Download via sock (se disponível) ===
+  if (sock) {
+    try {
+      console.log('[ViewOnceConvert] Tentando download via sock');
+      // Tenta usar o downloadMediaMessage com o sock
+      buf = await downloadMediaMessage(msg, 'buffer', {}, sock);
+      if (buf && buf.length >= 100) {
+        console.log('[ViewOnceConvert] ✅ Download via sock OK');
+        return { buf, isImage, isVideo, isAudio, caption, mimetype };
+      }
+    } catch (e) {
+      console.log('[ViewOnceConvert] Download via sock falhou:', e.message?.slice(0, 80));
+    }
   }
 
   console.log('[ViewOnceConvert] ❌ Todos os métodos falharam');
@@ -288,16 +345,36 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
     // ═══ MODO NORMAL: Revelar a view-once citada ═══
     const quotedMessage = m.quoted.message;
 
+    // Log para diagnóstico
+    console.log('[ViewOnceConvert] 🔍 Mensagem citada keys:', Object.keys(quotedMessage || {}));
+    console.log('[ViewOnceConvert] 🔍 Estrutura quoted.msg:', Object.keys(m.quoted.msg || {}));
+    
+    // Tenta desembrulhar para ver a estrutura interna
+    const unwrappedDebug = unwrapViewOnce(quotedMessage);
+    if (unwrappedDebug) {
+      console.log('[ViewOnceConvert] 🔍 Unwrapped keys:', Object.keys(unwrappedDebug));
+      if (unwrappedDebug.imageMessage) console.log('[ViewOnceConvert] 🔍 imageMessage.viewOnce:', unwrappedDebug.imageMessage.viewOnce);
+      if (unwrappedDebug.videoMessage) console.log('[ViewOnceConvert] 🔍 videoMessage.viewOnce:', unwrappedDebug.videoMessage.viewOnce);
+    }
+
     // Verifica se é view-once
-    if (!isViewOnceMedia(quotedMessage)) {
+    const isVO = isViewOnceMedia(quotedMessage);
+    const hasMedia = hasAnyMedia(quotedMessage);
+    
+    if (!isVO && !hasMedia) {
       return reply('❌ Essa mensagem não é de *visualização única*!\n\n*💡 Dica:*\n• `!revelar` → converte view-once 👁️ em normal\n• `!toviewonce` → converte normal em view-once 👁️\n\n_Responde a uma mensagem com o ícone 👁️ para a revelar._');
+    }
+    
+    if (!isVO && hasMedia) {
+      console.log('[ViewOnceConvert] ⚠️ Não é view-once mas tem mídia — tentando extrair assim mesmo');
+      // Continua — pode ser que o WhatsApp não preserve a flag view-once quando citada
     }
 
     react('⏳');
 
     try {
-      // Extrai o buffer da mídia
-      const media = await extractViewOnceMedia(m.quoted.msg || m.quoted);
+      // Extrai o buffer da mídia (passa o sock para download)
+      const media = await extractViewOnceMedia(m.quoted.msg || m.quoted, sock);
       if (!media) {
         react('❌');
         // Debug: mostrar estrutura da mensagem para diagnóstico
