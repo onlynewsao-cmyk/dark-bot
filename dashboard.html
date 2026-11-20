@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dark Bot — Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a2e;
+    --accent: #7c3aed;
+    --accent-light: #a78bfa;
+    --accent-glow: rgba(124, 58, 237, 0.4);
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --border: rgba(124, 58, 237, 0.2);
+  }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     BACKGROUND ANIMADO — TEIA/WEB 🕸️
+     ═══════════════════════════════════════════════════════ */
+  #web-canvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  .gradient-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(ellipse at 20% 20%, rgba(124, 58, 237, 0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .content {
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     HEADER
+     ═══════════════════════════════════════════════════════ */
+  .header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2rem;
+    position: relative;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    border-radius: 50%;
+    animation: pulse-glow 4s ease-in-out infinite;
+    z-index: -1;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.5; }
+    50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.8; }
+  }
+
+  .logo {
+    font-size: 4rem;
+    margin-bottom: 0.5rem;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px var(--accent-glow));
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .header h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent-light), var(--accent), #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 40px var(--accent-glow);
+    margin-bottom: 0.5rem;
+  }
+
+  .header .subtitle {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .version-badge {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.3rem 1rem;
+    background: linear-gradient(135deg, var(--accent), #9333ea);
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 15px var(--accent-glow);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     STATUS BAR
+     ═══════════════════════════════════════════════════════ */
+  .status-bar {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .status-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    font-size: 0.9rem;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+  }
+
+  .status-item:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  .status-dot.online { background: var(--success); box-shadow: 0 0 10px var(--success); }
+  .status-dot.warning { background: var(--warning); box-shadow: 0 0 10px var(--warning); }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     STATS GRID
+     ═══════════════════════════════════════════════════════ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light), var(--accent));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 40px rgba(124, 58, 237, 0.2);
+  }
+
+  .stat-card:hover::before {
+    opacity: 1;
+  }
+
+  .stat-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff, var(--accent-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.3rem;
+  }
+
+  .stat-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .stat-change {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--success);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SECTIONS
+     ═══════════════════════════════════════════════════════ */
+  .section {
+    margin-bottom: 3rem;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .section-title::before {
+    content: '';
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(180deg, var(--accent), var(--accent-light));
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     COMMAND CARDS
+     ═══════════════════════════════════════════════════════ */
+  .command-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .command-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .command-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: conic-gradient(from 0deg, transparent, var(--accent-glow), transparent);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    animation: rotate 4s linear infinite;
+  }
+
+  @keyframes rotate {
+    100% { transform: rotate(360deg); }
+  }
+
+  .command-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 30px rgba(124, 58, 237, 0.15);
+  }
+
+  .command-card:hover::after {
+    opacity: 0.1;
+  }
+
+  .command-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .command-emoji {
+    font-size: 2rem;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(124, 58, 237, 0.1);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .command-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .command-count {
+    font-size: 0.8rem;
+    color: var(--accent-light);
+    background: rgba(124, 58, 237, 0.1);
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    margin-left: auto;
+  }
+
+  .command-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+  }
+
+  .command-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tag {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.8rem;
+    background: rgba(124, 58, 237, 0.1);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--accent-light);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     RPG WORLDS
+     ═══════════════════════════════════════════════════════ */
+  .worlds-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .world-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+  }
+
+  .world-card:hover {
+    transform: scale(1.05);
+    border-color: var(--accent);
+    box-shadow: 0 5px 20px var(--accent-glow);
+  }
+
+  .world-emoji {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  .world-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+  }
+
+  .world-level {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     TERMINAL / LOG
+     ═══════════════════════════════════════════════════════ */
+  .terminal {
+    background: #0d0d14;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1rem;
+    background: rgba(124, 58, 237, 0.05);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .terminal-dot.red { background: #ef4444; }
+  .terminal-dot.yellow { background: #f59e0b; }
+  .terminal-dot.green { background: #10b981; }
+
+  .terminal-title {
+    margin-left: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .terminal-body {
+    padding: 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .terminal-line {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+    opacity: 0;
+    animation: fadeInLine 0.3s ease forwards;
+  }
+
+  .terminal-line:nth-child(1) { animation-delay: 0.1s; }
+  .terminal-line:nth-child(2) { animation-delay: 0.2s; }
+  .terminal-line:nth-child(3) { animation-delay: 0.3s; }
+  .terminal-line:nth-child(4) { animation-delay: 0.4s; }
+  .terminal-line:nth-child(5) { animation-delay: 0.5s; }
+  .terminal-line:nth-child(6) { animation-delay: 0.6s; }
+  .terminal-line:nth-child(7) { animation-delay: 0.7s; }
+  .terminal-line:nth-child(8) { animation-delay: 0.8s; }
+  .terminal-line:nth-child(9) { animation-delay: 0.9s; }
+  .terminal-line:nth-child(10) { animation-delay: 1.0s; }
+
+  @keyframes fadeInLine {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .terminal-prompt { color: var(--accent-light); }
+  .terminal-success { color: var(--success); }
+  .terminal-info { color: var(--text-secondary); }
+  .terminal-warning { color: var(--warning); }
+  .terminal-accent { color: var(--accent-light); }
+
+  /* ═══════════════════════════════════════════════════════
+     ACTIVITY FEED
+     ═══════════════════════════════════════════════════════ */
+  .activity-feed {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(124, 58, 237, 0.1);
+    transition: all 0.2s ease;
+  }
+
+  .activity-item:last-child { border-bottom: none; }
+
+  .activity-item:hover {
+    background: rgba(124, 58, 237, 0.05);
+    margin: 0 -1rem;
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  .activity-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(124, 58, 237, 0.1);
+    border-radius: 10px;
+    font-size: 1.2rem;
+  }
+
+  .activity-content { flex: 1; }
+
+  .activity-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+  }
+
+  .activity-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════ */
+  .footer {
+    text-align: center;
+    padding: 3rem 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border);
+    margin-top: 3rem;
+  }
+
+  .footer-logo {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    filter: drop-shadow(0 0 10px var(--accent-glow));
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .content { padding: 1rem; }
+    .header h1 { font-size: 1.8rem; }
+    .logo { font-size: 3rem; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .command-grid { grid-template-columns: 1fr; }
+    .worlds-grid { grid-template-columns: repeat(2, 1fr); }
+    .status-bar { gap: 0.8rem; }
+    .status-item { padding: 0.4rem 1rem; font-size: 0.8rem; }
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SCROLLBAR
+     ═══════════════════════════════════════════════════════ */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { 
+    background: var(--accent); 
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent-light); }
+
+  /* ═══════════════════════════════════════════════════════
+     PARTICLES FLOAT
+     ═══════════════════════════════════════════════════════ */
+  .floating-particle {
+    position: fixed;
+    width: 4px;
+    height: 4px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0.3;
+    pointer-events: none;
+    animation: float-particle 15s linear infinite;
+  }
+
+  @keyframes float-particle {
+    0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.3; }
+    90% { opacity: 0.3; }
+    100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background Canvas para Teia Animada -->
+<canvas id="web-canvas"></canvas>
+<div class="gradient-overlay"></div>
+
+<!-- Floating Particles -->
+<div class="floating-particle" style="left: 10%; animation-delay: 0s; animation-duration: 12s;"></div>
+<div class="floating-particle" style="left: 25%; animation-delay: 2s; animation-duration: 15s;"></div>
+<div class="floating-particle" style="left: 40%; animation-delay: 4s; animation-duration: 11s;"></div>
+<div class="floating-particle" style="left: 55%; animation-delay: 1s; animation-duration: 14s;"></div>
+<div class="floating-particle" style="left: 70%; animation-delay: 3s; animation-duration: 13s;"></div>
+<div class="floating-particle" style="left: 85%; animation-delay: 5s; animation-duration: 16s;"></div>
+<div class="floating-particle" style="left: 15%; animation-delay: 6s; animation-duration: 10s;"></div>
+<div class="floating-particle" style="left: 60%; animation-delay: 7s; animation-duration: 12s;"></div>
+
+<div class="content">
+  <!-- ═══════════ HEADER ═══════════ -->
+  <header class="header">
+    <div class="logo">🕷️</div>
+    <h1>DARK BOT</h1>
+    <p class="subtitle">RPG • IA • Automação</p>
+    <span class="version-badge">v11.4 • Estável</span>
+  </header>
+
+  <!-- ═══════════ STATUS BAR ═══════════ -->
+  <div class="status-bar">
+    <div class="status-item">
+      <span class="status-dot online"></span>
+      <span>Online</span>
+    </div>
+    <div class="status-item">
+      <span>⏱️</span>
+      <span id="uptime">0d 0h 0m</span>
+    </div>
+    <div class="status-item">
+      <span>👥</span>
+      <span id="groups">--</span>
+      <span>grupos</span>
+    </div>
+    <div class="status-item">
+      <span>💬</span>
+      <span id="messages">--</span>
+      <span>msgs hoje</span>
+    </div>
+  </div>
+
+  <!-- ═══════════ STATS GRID ═══════════ -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">🎮</div>
+      <div class="stat-value" id="stat-commands">68+</div>
+      <div class="stat-label">Comandos RPG</div>
+      <div class="stat-change">↑ +4 novos</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🌌</div>
+      <div class="stat-value">8</div>
+      <div class="stat-label">Universos</div>
+      <div class="stat-change">↑ Multi-verso</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">👤</div>
+      <div class="stat-value">40+</div>
+      <div class="stat-label">Personagens</div>
+      <div class="stat-change">↑ Recrutáveis</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚔️</div>
+      <div class="stat-value">7</div>
+      <div class="stat-label">Bosses</div>
+      <div class="stat-change">D → SSS</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🗡️</div>
+      <div class="stat-value">20+</div>
+      <div class="stat-label">Armas</div>
+      <div class="stat-change">↑ Equipáveis</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✨</div>
+      <div class="stat-value">40+</div>
+      <div class="stat-label">Técnicas</div>
+      <div class="stat-change">↑ Aprendíveis</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RPG WORLDS ═══════════ -->
+  <div class="section">
+    <h2 class="section-title">Universos RPG</h2>
+    <div class="worlds-grid">
+      <div class="world-card">
+        <span class="world-emoji">🌀</span>
+        <div class="world-name">Ruptura</div>
+        <div class="world-level">Nível 1+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">🍥</span>
+        <div class="world-name">Naruto</div>
+        <div class="world-level">Nível 1+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">🏴‍☠️</span>
+        <div class="world-name">One Piece</div>
+        <div class="world-level">Nível 5+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">⚔️</span>
+        <div class="world-name">Solo Leveling</div>
+        <div class="world-level">Nível 10+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">👁️</span>
+        <div class="world-name">Jujutsu Kaisen</div>
+        <div class="world-level">Nível 15+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">🐉</span>
+        <div class="world-name">Dragon Ball</div>
+        <div class="world-level">Nível 20+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">👹</span>
+        <div class="world-name">Demon Slayer</div>
+        <div class="world-level">Nível 25+</div>
+      </div>
+      <div class="world-card">
+        <span class="world-emoji">🗡️</span>
+        <div class="world-name">Bleach</div>
+        <div class="world-level">Nível 30+</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ COMMANDS ═══════════ -->
+  <div class="section">
+    <h2 class="section-title">Categorias de Comandos</h2>
+    <div class="command-grid">
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">🎮</div>
+          <div class="command-title">RPG — Motor</div>
+          <span class="command-count">24 cmds</span>
+        </div>
+        <p class="command-desc">Criação de personagem, inventário, perfil, ranking, equipamentos e sistema de níveis.</p>
+        <div class="command-tags">
+          <span class="tag">!criar</span>
+          <span class="tag">!perfil</span>
+          <span class="tag">!inventario</span>
+          <span class="tag">!rank</span>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">⚔️</div>
+          <div class="command-title">Combate</div>
+          <span class="command-count">12 cmds</span>
+        </div>
+        <p class="command-desc">Combate interativo com botões. Atacar, Defender, Skills e Items em tempo real.</p>
+        <div class="command-tags">
+          <span class="tag">!lutar</span>
+          <span class="tag">!atacar</span>
+          <span class="tag">!defender</span>
+          <span class="tag">!boss</span>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">🌌</div>
+          <div class="command-title">Multiverso</div>
+          <span class="command-count">16 cmds</span>
+        </div>
+        <p class="command-desc">Recrutamento, treino, gacha com pity system e universo de personagens.</p>
+        <div class="command-tags">
+          <span class="tag">!gacha</span>
+          <span class="tag">!recrutar</span>
+          <span class="tag">!treinar</span>
+          <span class="tag">!pity</span>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">📅</div>
+          <div class="command-title">Missões Diárias</div>
+          <span class="command-count">8 cmds</span>
+        </div>
+        <p class="command-desc">Recompensas diárias com streak, missões semanais e bónus de consistência.</p>
+        <div class="command-tags">
+          <span class="tag">!diario</span>
+          <span class="tag">!missoes</span>
+          <span class="tag">!streak</span>
+          <span class="tag">!semanal</span>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">🤝</div>
+          <div class="command-title">Comunidade</div>
+          <span class="command-count">10 cmds</span>
+        </div>
+        <p class="command-desc">Guildas, territórios, trocas e sistema de comércio entre jogadores.</p>
+        <div class="command-tags">
+          <span class="tag">!guilda</span>
+          <span class="tag">!trocar</span>
+          <span class="tag">!territorio</span>
+        </div>
+      </div>
+      <div class="command-card">
+        <div class="command-header">
+          <div class="command-emoji">👁️</div>
+          <div class="command-title">View-Once</div>
+          <span class="command-count">4 cmds</span>
+        </div>
+        <p class="command-desc">Conversão de visualização única. Revelar ou converter para view-once.</p>
+        <div class="command-tags">
+          <span class="tag">!revelar</span>
+          <span class="tag">!toviewonce</span>
+          <span class="tag">!listviewonce</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ TERMINAL ═══════════ -->
+  <div class="section">
+    <h2 class="section-title">Log do Sistema</h2>
+    <div class="terminal">
+      <div class="terminal-header">
+        <span class="terminal-dot red"></span>
+        <span class="terminal-dot yellow"></span>
+        <span class="terminal-dot green"></span>
+        <span class="terminal-title">dark-bot — logs</span>
+      </div>
+      <div class="terminal-body" id="terminal-body">
+        <div class="terminal-line"><span class="terminal-prompt">▸</span><span class="terminal-info">[SYSTEM] Dark Bot v11.4 iniciado</span></div>
+        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">MongoDB conectado</span></div>
+        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">WhatsApp Web conectado</span></div>
+        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] 68 comandos registados</span></div>
+        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] 8 universos carregados</span></div>
+        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[RPG] Pity system activo (10/50)</span></div>
+        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[COMBAT] Sistema interativo pronto</span></div>
+        <div class="terminal-line"><span class="terminal-info">ℹ</span><span class="terminal-info">[DAILY] Missões diárias activas</span></div>
+        <div class="terminal-line"><span class="terminal-success">✓</span><span class="terminal-success">Todos os módulos prontos</span></div>
+        <div class="terminal-line"><span class="terminal-accent">🕷️</span><span class="terminal-accent">Dark Bot a escutar...</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RECENT ACTIVITY ═══════════ -->
+  <div class="section">
+    <h2 class="section-title">Actividade Recente</h2>
+    <div class="activity-feed">
+      <div class="activity-item">
+        <div class="activity-icon">🎮</div>
+        <div class="activity-content">
+          <div class="activity-text">Combate interativo activado</div>
+          <div class="activity-time">Agora • v11.4</div>
+        </div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">📅</div>
+        <div class="activity-content">
+          <div class="activity-text">Sistema de missões diárias online</div>
+          <div class="activity-time">Agora • v11.4</div>
+        </div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">🔧</div>
+        <div class="activity-content">
+          <div class="activity-text">View-once !revelar corrigido — 4 fallbacks</div>
+          <div class="activity-time">Recente • Fix</div>
+        </div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">🎯</div>
+        <div class="activity-content">
+          <div class="activity-text">Pity system: Lendário aos 10, Mítico aos 50</div>
+          <div class="activity-time">v11.3</div>
+        </div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">💾</div>
+        <div class="activity-content">
+          <div class="activity-text">Cooldowns agora persistentes em MongoDB</div>
+          <div class="activity-time">v11.3</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer class="footer">
+    <div class="footer-logo">🕷️</div>
+    <p>Dark Bot • v11.4 • 2026</p>
+    <p style="margin-top: 0.5rem; opacity: 0.6;">Feito com 💜 para a DarkNet</p>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// TEIA ANIMADA 🕸️ — Canvas Background
+// ═══════════════════════════════════════════════════════
+const canvas = document.getElementById('web-canvas');
+const ctx = canvas.getContext('2d');
+
+let width, height, nodes, mouse;
+
+function init() {
+  width = canvas.width = window.innerWidth;
+  height = canvas.height = window.innerHeight;
+  mouse = { x: width / 2, y: height / 2 };
+  
+  // Criar nós da teia
+  const numNodes = Math.floor((width * height) / 15000);
+  nodes = [];
+  for (let i = 0; i < numNodes; i++) {
+    nodes.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      radius: Math.random() * 2 + 1,
+      pulse: Math.random() * Math.PI * 2,
+    });
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, width, height);
+  
+  // Actualizar e desenhar nós
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    
+    // Movimento
+    node.x += node.vx;
+    node.y += node.vy;
+    node.pulse += 0.02;
+    
+    // Rebater nas bordas
+    if (node.x < 0 || node.x > width) node.vx *= -1;
+    if (node.y < 0 || node.y > height) node.vy *= -1;
+    
+    // Atracção suave ao mouse
+    const dx = mouse.x - node.x;
+    const dy = mouse.y - node.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 200) {
+      node.vx += dx * 0.00005;
+      node.vy += dy * 0.00005;
+    }
+    
+    // Limitar velocidade
+    const speed = Math.sqrt(node.vx * node.vx + node.vy * node.vy);
+    if (speed > 1) {
+      node.vx *= 0.99;
+      node.vy *= 0.99;
+    }
+    
+    // Pulsação
+    const pulseSize = node.radius + Math.sin(node.pulse) * 0.5;
+    
+    // Desenhar nó
+    const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, pulseSize * 3);
+    gradient.addColorStop(0, 'rgba(124, 58, 237, 0.8)');
+    gradient.addColorStop(1, 'rgba(124, 58, 237, 0)');
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, pulseSize * 3, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, pulseSize, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(167, 139, 250, 0.9)';
+    ctx.fill();
+    
+    // Desenhar conexões (teia)
+    for (let j = i + 1; j < nodes.length; j++) {
+      const other = nodes[j];
+      const dx2 = node.x - other.x;
+      const dy2 = node.y - other.y;
+      const distance = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+      
+      if (distance < 150) {
+        const opacity = (1 - distance / 150) * 0.3;
+        ctx.beginPath();
+        ctx.moveTo(node.x, node.y);
+        ctx.lineTo(other.x, other.y);
+        ctx.strokeStyle = `rgba(124, 58, 237, ${opacity})`;
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+    }
+    
+    // Conexão ao mouse
+    if (dist < 180) {
+      const opacity = (1 - dist / 180) * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(node.x, node.y);
+      ctx.lineTo(mouse.x, mouse.y);
+      ctx.strokeStyle = `rgba(167, 139, 250, ${opacity})`;
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
+  }
+  
+  requestAnimationFrame(draw);
+}
+
+// Mouse tracking
+document.addEventListener('mousemove', (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+window.addEventListener('resize', init);
+init();
+draw();
+
+// ═══════════════════════════════════════════════════════
+// UPTIME COUNTER
+// ═══════════════════════════════════════════════════════
+const startTime = Date.now();
+function updateUptime() {
+  const elapsed = Date.now() - startTime;
+  const days = Math.floor(elapsed / 86400000);
+  const hours = Math.floor((elapsed % 86400000) / 3600000);
+  const mins = Math.floor((elapsed % 3600000) / 60000);
+  document.getElementById('uptime').textContent = `${days}d ${hours}h ${mins}m`;
+}
+setInterval(updateUptime, 60000);
+updateUptime();
+
+// ═══════════════════════════════════════════════════════
+// ANIMATED COUNTERS
+// ═══════════════════════════════════════════════════════
+function animateValue(element, start, end, duration) {
+  const startTime = performance.now();
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.floor(start + (end - start) * eased);
+    element.textContent = current + (element.dataset.suffix || '');
+    if (progress < 1) requestAnimationFrame(update);
+  }
+  requestAnimationFrame(update);
+}
+
+// Animate stats on load
+document.addEventListener('DOMContentLoaded', () => {
+  const statValues = document.querySelectorAll('.stat-value');
+  statValues.forEach(el => {
+    const text = el.textContent;
+    const num = parseInt(text);
+    if (!isNaN(num)) {
+      const suffix = text.replace(/[0-9]/g, '');
+      el.dataset.suffix = suffix;
+      el.textContent = '0' + suffix;
+      setTimeout(() => animateValue(el, 0, num, 1500), 300);
+    }
+  });
+  
+  // Simulate group/message counts
+  document.getElementById('groups').textContent = Math.floor(Math.random() * 50) + 20;
+  document.getElementById('messages').textContent = Math.floor(Math.random() * 500) + 100;
+});
+</script>
+</body>
+</html>
