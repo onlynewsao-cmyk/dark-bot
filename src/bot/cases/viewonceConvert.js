@@ -27,6 +27,7 @@
 'use strict';
 
 const { downloadMediaMessage } = require('baileys-v6');
+const viewOnceCache = require('../viewOnceCache');
 
 /**
  * Desembrulha view-once / ephemeral / edited para chegar ao media real.
@@ -106,6 +107,36 @@ async function extractViewOnceMedia(msg, sock = null) {
   const mediaNode = unwrapped.imageMessage || unwrapped.videoMessage || unwrapped.audioMessage;
   const caption = mediaNode.caption || '';
   const mimetype = mediaNode.mimetype || (isImage ? 'image/jpeg' : isVideo ? 'video/mp4' : 'audio/ogg');
+
+  // === FALLBACK 0: CACHE DE MÍDIA (v12.5 - PRIORIDADE MÁXIMA) ===
+  // Procura no cache global que captura TODA mídia recebida
+  try {
+    const chatJid = msg?.key?.remoteJid || '';
+    const stanzaId = msg?.key?.id || '';
+    
+    console.log(`[ViewOnceConvert] 🔍 Procurando no cache: chat=${chatJid}, stanza=${stanzaId}`);
+    
+    if (chatJid && stanzaId) {
+      const cached = viewOnceCache.getFromCache(chatJid, stanzaId);
+      
+      if (cached?.buf && cached.buf.length > 100) {
+        console.log('[ViewOnceConvert] ✅✅✅ CACHE HIT! Mídia encontrada no cache global');
+        console.log(`[ViewOnceConvert] Tipo: ${cached.tipo}, Tamanho: ${cached.buf.length} bytes`);
+        return { 
+          buf: cached.buf, 
+          isImage, 
+          isVideo, 
+          isAudio, 
+          caption, 
+          mimetype: cached.mime || mimetype 
+        };
+      } else {
+        console.log('[ViewOnceConvert] ⚠️ Cache MISS - mídia não encontrada no cache');
+      }
+    }
+  } catch (e) {
+    console.log('[ViewOnceConvert] Cache check falhou:', e.message?.slice(0, 80));
+  }
 
   // === FALLBACK 1: Verificar se o AuraViewOnce já salvou esta mídia ===
   try {
@@ -276,6 +307,46 @@ module.exports = function registerViewOnceConvertCases(registerCase) {
     // ═══ MODO RÁPIDO: Sem citar, revelar a última view-once do chat ═══
     if (!m.quoted?.message) {
       try {
+        // PRIMEIRO: procurar no cache global (v12.5)
+        const recentCache = viewOnceCache.getRecentCaptures(ctx.remoteJid, 1);
+        
+        if (recentCache.length > 0) {
+          const lastCached = recentCache[0];
+          console.log(`[ViewOnceConvert] ✅ Cache global tem ${lastCached.tipo} (${lastCached.buf.length} bytes)`);
+          
+          react('⏳');
+          
+          const isImage = lastCached.tipo === 'image';
+          const isVideo = lastCached.tipo === 'video';
+          const isAudio = lastCached.tipo === 'audio';
+          
+          react('✅');
+          
+          if (isImage) {
+            await sock.sendMessage(ctx.remoteJid, {
+              image: lastCached.buf,
+              caption: `🔓 *Revelada* — visualização única → normal\n\n_Encontrada no cache_`,
+              mimetype: lastCached.mime || 'image/jpeg',
+            }, { quoted: m.msg });
+          } else if (isVideo) {
+            await sock.sendMessage(ctx.remoteJid, {
+              video: lastCached.buf,
+              caption: `🔓 *Revelada* — visualização única → normal\n\n_Encontrada no cache_`,
+              mimetype: lastCached.mime || 'video/mp4',
+            }, { quoted: m.msg });
+          } else if (isAudio) {
+            await sock.sendMessage(ctx.remoteJid, {
+              audio: lastCached.buf,
+              mimetype: lastCached.mime || 'audio/ogg',
+              ptt: false,
+              caption: `🔓 *Revelada* — áudio de visualização única → normal`,
+            }, { quoted: m.msg });
+          }
+          
+          return;
+        }
+        
+        // FALLBACK: procurar no auraViewOnce
         const auraViewOnce = require('../../aura/auraViewOnce');
         const recent = auraViewOnce.getRecentViewOnce(ctx.remoteJid, 1);
         

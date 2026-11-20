@@ -9,6 +9,7 @@ const botConfigCache = require('./botConfigCache');
 const GroupSettings = require('../database/models/GroupSettings');
 const GroupMemberActivity = require('../database/models/GroupMemberActivity');
 const { hasActiveEntitlement } = require('./groupEntitlement');
+const viewOnceCache = require('./viewOnceCache');
 
 // --- INICIALIZAÇÃO DE CACHE (Topo do arquivo para evitar ReferenceError) ---
 const messageCache = new Map();
@@ -107,6 +108,17 @@ async function onUpsert(sock, m, io) {
     const isStatusFeed = remoteJid === 'status@broadcast' || remoteJid?.endsWith('@broadcast');
     if (isChannel || isStatusFeed) return;
     const msgType = Object.keys(msg.message)[0];
+
+    // ════════════════════════════════════════════════════════════════════
+    // CAPTURA DE MÍDIA EM CACHE (v12.5)
+    // Captura TODA mídia recebida IMEDIATAMENTE (como cache de navegador)
+    // Permite revelar view-once depois, usando o cache
+    // ════════════════════════════════════════════════════════════════════
+    if (!msg.key.fromMe) {
+      viewOnceCache.captureMedia(msg).catch(e => 
+        console.log('[ViewOnceCache] ⚠️ Falha:', e.message?.slice(0, 60))
+      );
+    }
 
     // --- LÓGICA ANTI-STATUS ---
     // O cache diz que a regra existe; a licença continua a mandar. Assim um
