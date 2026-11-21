@@ -21,7 +21,7 @@ const SEL_PATTERNS = [
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/, /^configanti$/, /^setanti$/, /^antiacao$/, /^antiaccao$/, /^statusgp$/, /^estadogrupo$/, /^gpstatus$/, /^grupostatus$/, /^statusgrupo$/, /^poststatus$/, /^statuspost$/, /^postarstatus$/, /^publicarstatus$/, /^bloquearextras$/, /^bloquearextra$/, /^bloquearstatus$/, /^bloquearvoz$/, /^etiquetas$/, /^etiqueta$/, /^labels$/, /^label$/, /^tags$/, /^tag$/,
+  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/, /^configanti$/, /^setanti$/, /^antiacao$/, /^antiaccao$/, /^statusgp$/, /^estadogrupo$/, /^gpstatus$/, /^grupostatus$/, /^statusgrupo$/, /^poststatus$/, /^statuspost$/, /^postarstatus$/, /^publicarstatus$/, /^bloquearextras$/, /^bloquearextra$/, /^bloquearstatus$/, /^bloquearvoz$/, /^etiquetas$/, /^etiqueta$/, /^labels$/, /^label$/, /^tags$/, /^tag$/, /^etiquetaws$/, /^etiquetawpp$/, /^labelsws$/, /^labelswhatsapp$/, /^minhasetiquetas$/, /^mylabels$/, /^mytags$/, /^etiquetados$/, /^labeled$/, /^tagged$/,
   /^antiraid$/, /^antilinkcanal$/, /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
   /^welcome$/, /^bemvindo$/, /^goodbye$/, /^saida$/, /^boasvindas$/,
   /^autosticker$/, /^autorespostas$/,
@@ -335,7 +335,7 @@ function categorize(cmd) {
     fala:'info', falacall:'info', dizcall:'info', falanacall:'info', pararmusica:'info', paramusica:'info', stopcall:'info',
     desligacall:'info', endcall:'info', terminarchamada:'info', callstatus:'info', callsativas:'info',
     pausa:'info', para:'info', modochamadas:'info', ligarnum:'info', ligarnumero:'info', callnum:'info', desligarptt:'info',
-    antimencao:'admin', antipagamento:'admin', antiinvisivel:'admin', addpalavra:'admin', delpalavra:'admin', palavras:'admin', listapalavras:'admin', proibir:'admin', addproibir:'admin', configanti:'admin', setanti:'admin', antiacao:'admin', antiaccao:'admin', statusgp:'admin', estadogrupo:'admin', gpstatus:'admin', grupostatus:'admin', statusgrupo:'admin', poststatus:'admin', statuspost:'admin', postarstatus:'admin', publicarstatus:'admin', bloquearextras:'admin', bloquearextra:'admin', bloquearstatus:'admin', bloquearvoz:'admin', etiquetas:'admin', etiqueta:'admin', labels:'admin', label:'admin', tags:'admin', tag:'admin',
+    antimencao:'admin', antipagamento:'admin', antiinvisivel:'admin', addpalavra:'admin', delpalavra:'admin', palavras:'admin', listapalavras:'admin', proibir:'admin', addproibir:'admin', configanti:'admin', setanti:'admin', antiacao:'admin', antiaccao:'admin', statusgp:'admin', estadogrupo:'admin', gpstatus:'admin', grupostatus:'admin', statusgrupo:'admin', poststatus:'admin', statuspost:'admin', postarstatus:'admin', publicarstatus:'admin', bloquearextras:'admin', bloquearextra:'admin', bloquearstatus:'admin', bloquearvoz:'admin', etiquetas:'admin', etiqueta:'admin', labels:'admin', label:'admin', tags:'admin', tag:'admin', etiquetaws:'owner', etiquetawpp:'owner', labelsws:'owner', labelswhatsapp:'owner', minhasetiquetas:'owner', mylabels:'owner', mytags:'owner', etiquetados:'owner', labeled:'owner', tagged:'owner',
     diag:'info', diagnostico:'info', 'diagnóstico':'info',
     // AURA (moderação da aura) → ia
     auramod:'ia', aurarpg:'ia', moderar:'ia',
