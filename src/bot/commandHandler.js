@@ -2795,11 +2795,18 @@ async function _handleInner(sock, msg, turn) {
               });
             } catch { ctx.dest = null; }
           }
+          // v13.10: verificar se o remetente é admin do grupo
+          let _ehAdmin = false;
+          if (ctx.isGroup && !isOwner) {
+            try { _ehAdmin = await isGroupAdminForHandler(sock, ctx); } catch {}
+          }
+
           const d = decide.deveResponder({
             texto: text,
             respostaAOutro: _respostaAOutro,
             interacaoConvidada: _interacaoConvidada,
             isOwner,
+            isAdmin: _ehAdmin, // v13.10: AURA sabe quando admin fala
             isGroup: ctx.isGroup,
             mencionada: isBotMentioned || isAuraTrigger,
             respostaAoBot: isReplyToBot,

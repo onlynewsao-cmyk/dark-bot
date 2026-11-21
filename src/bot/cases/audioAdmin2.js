@@ -517,6 +517,7 @@ module.exports = function registerAudioAdmin2(registerCase) {
   }, true);
 
   // ═══ ADMIN: TAG ALL / EVERYONE (v6.39 — com permissão) ═══
+  // v13.10: agora também reage a cada membro um por um com emojis
   registerCase(['everyone', 'all', 'marcarall', 'totag', 'chamar'], async ({ sock, msg, ctx, isOwner }) => {
     if (!await _admGuard(sock, msg, ctx, isOwner, '📢 TAG ALL')) return;
     try {
@@ -525,7 +526,23 @@ module.exports = function registerAudioAdmin2(registerCase) {
       const participants = meta.participants.filter(p => p.id.split('@')[0] !== botNum);
       const mentions = participants.map(p => p.id);
       const text = '📢 *ATENÇÃO!*\n\n' + mentions.map((m, i) => `${i + 1}. @${m.split('@')[0]}`).join('\n');
-      await sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
+      const msgSent = await sock.sendMessage(ctx.remoteJid, { text, mentions }, { quoted: msg });
+
+      // v13.10: Reagir a cada membro um por um com emojis variados
+      const emojis = ['👋', '📢', '⚡', '🔔', '👀', '💬', '🎯', '⭐', '🔥', '💥', '✨', '🎉', '👊', '💪', '🙌'];
+      for (let i = 0; i < mentions.length; i++) {
+        const emoji = emojis[i % emojis.length];
+        // Delay entre reações para não sobrecarregar (500-1500ms aleatório)
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.floor(Math.random() * 1000)));
+        try {
+          await sock.sendMessage(ctx.remoteJid, {
+            react: {
+              text: emoji,
+              key: msgSent.key
+            }
+          });
+        } catch {}
+      }
     } catch (e) { return tReply(sock, msg, ctx, '📢 TAG ALL', [`❌ ${e.message}`]); }
   }, true);
 

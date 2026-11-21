@@ -49,11 +49,13 @@ const MENCIONA_OUTRO = /@\d{6,}/;
 
 /**
  * Decide se a AURA deve responder.
+ * v13.10: adicionado isAdmin — a AURA sabe quando um ADM fala com ela
  *
  * @param {object} o
  * @param {string} o.texto
  * @param {boolean} o.isOwner        é o Dark
  * @param {boolean} o.isGroup
+ * @param {boolean} o.isAdmin        é admin do grupo (v13.10)
  * @param {boolean} o.mencionada     @bot ou nome do bot
  * @param {boolean} o.respostaAoBot  respondeu a uma msg dela
  * @param {boolean} o.temMedia
@@ -64,6 +66,7 @@ const MENCIONA_OUTRO = /@\d{6,}/;
 function deveResponder(o = {}) {
   const {
     texto = '', isOwner = false, isGroup = false,
+    isAdmin = false, // v13.10
     mencionada = false, respostaAoBot = false, temMedia = false,
     pessoasNoGrupo = 0, msgsDesdeUltima = 0, dest = null,
   } = o;
@@ -176,7 +179,41 @@ function deveResponder(o = {}) {
   }
 
   // ── No grupo, de outra pessoa ─────────────────────────────
-  // Sem a chamarem, ela não se mete na conversa dos outros.
+  // v13.10: Se é ADMIN, a AURA responde mais facilmente
+  if (isAdmin) {
+    // Admin fez pergunta ou ordem → responde
+    if (PERGUNTA_DIRECTA.test(t) || ORDEM.test(t) || t.includes('?')) {
+      return { responde: true, motivo: 'pergunta/ordem de admin', chance: 1 };
+    }
+    // Admin saudou/agradeceu/despediu-se → responde
+    if (SAUDACAO_DIRECTA.test(t) || AGRADECE.test(t) || DESPEDIDA.test(t)) {
+      if (SAUDACAO_AO_GRUPO.test(t)) {
+        return { responde: false, motivo: 'saudação de admin ao grupo', chance: 0.3 };
+      }
+      return { responde: true, motivo: 'saudação de admin', chance: 0.9 };
+    }
+    // Admin mandou média → responde
+    if (temMedia) return { responde: true, motivo: 'admin mandou média', chance: 0.8 };
+
+    // Admin fala com outros → raramente se mete
+    if (MENCIONA_OUTRO.test(texto)) {
+      return { responde: false, motivo: 'admin fala com outro', chance: 0.2 };
+    }
+
+    // Comentário solto de admin: responde com mais frequência que membro normal
+    const muitaGente = pessoasNoGrupo > 8;
+    const faladoraDemais = msgsDesdeUltima < 2;
+    let chance = muitaGente ? 0.5 : 0.75; // mais que membro normal (0.35/0.6)
+    if (faladoraDemais) chance *= 0.5;
+
+    return {
+      responde: Math.random() < chance,
+      motivo: 'comentário de admin',
+      chance,
+    };
+  }
+
+  // Membro normal: sem a chamarem, não se mete na conversa dos outros.
   return { responde: false, motivo: 'conversa entre outros', chance: 0 };
 }
 

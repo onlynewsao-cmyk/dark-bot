@@ -414,6 +414,7 @@ module.exports = function registerGroupCases(registerCase) {
 
   // ══════════════════════════════════════════════════════════════════
   // !todos / !all — Marca todos (com @número visível)
+  // v13.10: agora também reage a cada membro um por um com emojis
   // ══════════════════════════════════════════════════════════════════
   registerCase(['todos', 'all', 'everyone', 'marcarall'], async ({ m, sock, ctx, args, isOwner, reply }) => {
     if (!await requireSenderAdmin(sock, ctx, reply)) return;
@@ -427,7 +428,23 @@ module.exports = function registerGroupCases(registerCase) {
       });
       const mentions = participants.map(p => p.id);
       const txt = (args.join(' ') || '📢 Atenção!') + '\n\n' + mentions.map(j => mentionTag(j)).join(' ');
-      await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
+      const msgSent = await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
+
+      // v13.10: Reagir a cada membro um por um com emojis variados
+      const emojis = ['👋', '📢', '⚡', '🔔', '👀', '💬', '🎯', '⭐', '🔥', '💥', '✨', '🎉', '👊', '💪', '🙌'];
+      for (let i = 0; i < mentions.length; i++) {
+        const emoji = emojis[i % emojis.length];
+        // Delay entre reações para não sobrecarregar (500-1500ms aleatório)
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.floor(Math.random() * 1000)));
+        try {
+          await sock.sendMessage(ctx.remoteJid, {
+            react: {
+              text: emoji,
+              key: msgSent.key
+            }
+          });
+        } catch {}
+      }
     } catch (e) { reply('❌ ' + e.message); }
   });
 

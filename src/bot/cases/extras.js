@@ -93,6 +93,7 @@ module.exports = function registerExtraCases(registerCase) {
 
   // ══════════════════════════════════════════════════════════════════════
   // case 'marcar' — menciona todos os membros do grupo
+  // v13.10: agora também reage a cada membro um por um com emojis
   // Alias de !todos mas estilo case
   // ══════════════════════════════════════════════════════════════════════
   registerCase(['marcar', 'tagall', 'chamar'], async ({ m, sock, text, isAdminFn, isOwner }) => {
@@ -103,7 +104,23 @@ module.exports = function registerExtraCases(registerCase) {
       const meta     = await sock.groupMetadata(m.chat);
       const mentions = meta.participants.map(p => p.id);
       const txt      = (text || '📢 Atenção!') + '\n\n' + mentions.map(j => `@${j.split('@')[0]}`).join(' ');
-      await sock.sendMessage(m.chat, { text: txt, mentions }, { quoted: m });
+      const msgSent = await sock.sendMessage(m.chat, { text: txt, mentions }, { quoted: m });
+
+      // v13.10: Reagir a cada membro um por um com emojis variados
+      const emojis = ['👋', '📢', '⚡', '🔔', '👀', '💬', '🎯', '⭐', '🔥', '💥', '✨', '🎉', '👊', '💪', '🙌'];
+      for (let i = 0; i < mentions.length; i++) {
+        const emoji = emojis[i % emojis.length];
+        // Delay entre reações para não sobrecarregar (500-1500ms aleatório)
+        await new Promise(resolve => setTimeout(resolve, 500 + Math.floor(Math.random() * 1000)));
+        try {
+          await sock.sendMessage(m.chat, {
+            react: {
+              text: emoji,
+              key: msgSent.key
+            }
+          });
+        } catch {}
+      }
     } catch (e) {
       m.reply('❌ ' + e.message);
     }
