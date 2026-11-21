@@ -238,6 +238,28 @@ async function _gerarTexto({ chat, modo, resumo }) {
     }
   } catch {}
 
+  // v13.14: Enriquecer com web search — AURA fala com factos reais, não inventados
+  let webInfo = '';
+  try {
+    const webSearch = require('./auraWebSearch');
+    // Extrair tópico principal do resumo
+    const topicoMatch = resumo.match(/(?:falando sobre|discutindo|sobre|tema)\s+([^.!?]{5,40})/i);
+    const topico = topicoMatch?.[1]?.trim() || resumo.split('.').pop()?.trim()?.slice(0, 40);
+    if (topico && topico.length > 3) {
+      // Buscar info real (rápido: só wiki + news)
+      const resultados = await webSearch.searchMaster(topico, { tipo: 'tudo', maxResults: 2 });
+      if (resultados.wikipedia || resultados.noticias?.length) {
+        webInfo = '\n\nINFORMAÇÃO REAL (web search):\n';
+        if (resultados.wikipedia) {
+          webInfo += `📚 ${resultados.wikipedia.titulo}: ${resultados.wikipedia.resumo.slice(0, 200)}\n`;
+        }
+        if (resultados.noticias?.length) {
+          webInfo += `📰 Notícias: ${resultados.noticias.slice(0, 2).map(n => n.titulo).join(' | ')}\n`;
+        }
+      }
+    }
+  } catch {}
+
   let pedido;
   if (modo === 'memoria') {
     pedido =
@@ -257,13 +279,15 @@ async function _gerarTexto({ chat, modo, resumo }) {
   } else if (modo === 'quebrar_silencio') {
     pedido =
       `O grupo "${chat.nome || 'sem nome'}" está em silêncio há um bom tempo. ` +
-      `A última coisa que viste/leste foi:\n${resumo}\n${vidaBlock}\n\n` +
+      `A última coisa que viste/leste foi:\n${resumo}${webInfo}\n${vidaBlock}\n\n` +
       'Intervém com UMA frase curta e natural sobre o assunto (ou muda de tema com leveza), sem inventar uma experiência pessoal. ' +
+      'Se tiveres informação real da web acima, usa-a para enriquecer o comentário. ' +
       'Só menciona que a AURA é automatizada se perguntarem ou se for relevante.';
   } else {
     pedido =
-      `Estás a ler a conversa do grupo "${chat.nome || 'sem nome'}":\n${resumo}\n${vidaBlock}\n\n` +
-      'Participa com UM comentário curto (1-2 frases), como uma assistente virtual com personalidade; responde ao contexto sem fingir ser humana.';
+      `Estás a ler a conversa do grupo "${chat.nome || 'sem nome'}":\n${resumo}${webInfo}\n${vidaBlock}\n\n` +
+      'Participa com UM comentário curto (1-2 frases), como uma assistente virtual com personalidade; responde ao contexto sem fingir ser humana. ' +
+      'Se tiveres informação real da web acima, usa-a para dar um comentário mais rico e informado.';
   }
 
   let sys = '';
