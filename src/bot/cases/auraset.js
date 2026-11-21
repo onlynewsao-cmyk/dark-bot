@@ -125,7 +125,9 @@ module.exports = function registerAuraSetCases(registerCase) {
       return reply(`💾 Esqueci tudo sobre *${num}*. Começamos do zero.`);
     }
 
+    // v13.11: Só o DONO pode acordar/dormir a AURA
     if (sub === 'acorda' || sub === 'acordar') {
+      if (!isOwner) return reply('🔒 Só o *dono* pode acordar a AURA.');
       const modes = require('../../aura/auraModes');
       const r = await modes.invokeAura(ctx.remoteJid, { groupName: ctx.groupName || '', invokedBy: ctx.senderNumber || '' });
       if (!r.ok) return reply('❌ ' + (r.reason || 'Falhou.'));
@@ -133,6 +135,7 @@ module.exports = function registerAuraSetCases(registerCase) {
     }
 
     if (sub === 'dorme' || sub === 'dormir') {
+      if (!isOwner) return reply('🔒 Só o *dono* pode dormir a AURA.');
       const modes = require('../../aura/auraModes');
       const r = await modes.dismissAura(ctx.remoteJid);
       if (!r.ok) return reply('❌ ' + (r.reason || 'Falhou.'));

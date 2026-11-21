@@ -59,10 +59,10 @@ async function getMode(remoteJid, { isGroup = true } = {}) {
   const hit = _cache.get(jid);
   if (_fresh(hit)) return hit.mode;
 
-  // A persona natural da AURA é o modo padrão nos chats. O modo
-  // assistente continua disponível apenas quando o grupo for explicitamente
-  // colocado nesse modo; assim a identidade única não desaparece por padrão.
-  let mode = MODE_AURA;
+  // v13.11: AURA começa DORMINDO por padrão — só o dono pode acordar
+  // Antes: MODE_AURA (acordada por padrão)
+  // Agora: MODE_ASSISTANT (dormindo, só responde se mencionada)
+  let mode = MODE_ASSISTANT;
   try {
     const GroupSettings = require('../database/models/GroupSettings');
 
@@ -79,11 +79,10 @@ async function getMode(remoteJid, { isGroup = true } = {}) {
       gs = await GroupSettings.findOne({ groupJid: jid }).select('auraMode').lean().catch(() => null);
     }
 
+    // v13.11: só acorda se o dono explicitamente invocou
     if (gs?.auraMode === MODE_AURA) mode = MODE_AURA;
-    // v6.93: o sleep tem de passar — sem isto, "aura dorme" era colapsado
-    // para 'assistant' e como o default passou a ser acordada, ela nunca
-    // dormia de verdade.
     else if (gs?.auraMode === MODE_SLEEP) mode = MODE_SLEEP;
+    // Se não tem auraMode definido → MODE_ASSISTANT (dormindo)
   } catch {
     // MongoDB em baixo → mantém o modo seguro (assistente)
     if (hit) return hit.mode; // usa cache expirado como fallback
