@@ -2283,22 +2283,55 @@ async function _handleInner(sock, msg, turn) {
         }
       }
       // ── PUXAR NO OFF / PV ──
+      // v13.13: detecta alvo (@menção) — se ADM diz "@João me puxa no PV",
+      // envia no PV do João, não no do ADM
       else if (directGroupAction === 'chamar_pv') {
         auraAction = async () => {
-          // No pedido do Dono, usa sempre OWNER_NUMBER (PN) e não o
-          // participant @lid do grupo. Era possível a ação ser tratada
-          // e a confirmação aparecer no grupo, mas a mensagem privada
-          // ser enviada para um LID que o cliente não abria.
-          const donoPn = String(config.owner?.number || '').replace(/\D/g, '');
-          const pvJid = isOwner && donoPn
-            ? donoPn + '@s.whatsapp.net'
-            : (ctx.senderJid?.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net');
-          console.log('[Aura PV] envio solicitado para', pvJid.replace(/\d(?=\d{4})/g, '•'));
-          const pvMsg = isOwner
-            ? 'Recebi o teu pedido para continuar a conversa no PV. Sou a AURA, assistente automatizada do DARK BOT. Em que posso ajudar?'
-            : `A AURA, assistente automatizada do DARK BOT, enviou esta mensagem a pedido de ${ctx.pushName}.`;
-          await sock.sendMessage(pvJid, { text: pvMsg });
-          await sock.sendMessage(ctx.remoteJid, { text: '📩 Enviei uma mensagem da AURA para o teu PV.' }, { quoted: msg });
+          // v13.13: verificar se há @menção na mensagem (alvo)
+          let alvoJid = null;
+          let alvoPushName = null;
+          
+          if (allMentioned && allMentioned.length > 0) {
+            // Tem @menção — é para essa pessoa
+            alvoJid = allMentioned[0];
+            // Tentar obter o nome da pessoa mencionada
+            try {
+              const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
+              const p = meta.participants.find(p => p.id === alvoJid);
+              if (p) alvoPushName = p.name || null;
+            } catch {}
+          }
+          
+          // Se não tem @menção, usa o sender (comportamento original)
+          if (!alvoJid) {
+            const donoPn = String(config.owner?.number || '').replace(/\D/g, '');
+            alvoJid = isOwner && donoPn
+              ? donoPn + '@s.whatsapp.net'
+              : (ctx.senderJid?.includes('@') ? ctx.senderJid : ctx.senderNumber + '@s.whatsapp.net');
+          }
+          
+          console.log('[Aura PV] envio solicitado para', alvoJid.replace(/\d(?=\d{4})/g, '•'));
+          
+          // Mensagem diferente se é para o próprio sender ou para outro
+          let pvMsg;
+          let confirmMsg;
+          
+          if (alvoJid === ctx.senderJid || (isOwner && alvoJid === String(config.owner?.number || '').replace(/\D/g, '') + '@s.whatsapp.net')) {
+            // Pedido para si próprio
+            pvMsg = isOwner
+              ? 'Recebi o teu pedido para continuar a conversa no PV. Sou a AURA, assistente automatizada do DARK BOT. Em que posso ajudar?'
+              : `A AURA, assistente automatizada do DARK BOT, enviou esta mensagem a pedido de ${ctx.pushName}.`;
+            confirmMsg = '📩 Enviei uma mensagem da AURA para o teu PV.';
+          } else {
+            // Pedido para OUTRA pessoa
+            pvMsg = `A AURA, assistente automatizada do DARK BOT, enviou esta mensagem a pedido de ${ctx.pushName} (admin/dono do grupo).`;
+            confirmMsg = alvoPushName 
+              ? `📩 Enviei uma mensagem da AURA no PV de *${alvoPushName}* a teu pedido.`
+              : `📩 Enviei uma mensagem da AURA no PV da pessoa mencionada a teu pedido.`;
+          }
+          
+          await sock.sendMessage(alvoJid, { text: pvMsg });
+          await sock.sendMessage(ctx.remoteJid, { text: confirmMsg }, { quoted: msg });
         };
       }
       // ── CRIAR GRUPO ──

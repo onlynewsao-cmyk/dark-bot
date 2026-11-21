@@ -130,10 +130,14 @@ function detectarAcaoDireta(texto) {
   if (/^(?:abre|abrir|destranca|destrancar|desbloqueia|desbloquear)\s*(?:o\s*)?(?:grupo|gp|chat)?(?:[,\s]+(?:por favor|pfv|please))?$/i.test(t)) return 'abrir_grupo';
 
   if (
+    // Primeira pessoa: "me puxa", "chama-me", "me manda"
     /^(?:puxa|chama(?:-me)?|manda|fala|vem)\b.{0,40}\b(?:off|pv|privado)\b/i.test(t) ||
     /^me\s+(?:chama|puxa|manda|fala)\b.{0,40}\b(?:off|pv|privado)\b/i.test(t) ||
     /^quero\s+(?:que\s+)?(?:me\s+)?(?:chame|chama|chamem|puxe|puxa|puxes|mande|manda|mandes|fale|fala|fales)\b.{0,32}\b(?:off|pv|privado)\b/i.test(t) ||
-    /^(?:podes|pode)\s+(?:me\s+)?(?:chamar|puxar|mandar|falar)\b.{0,32}\b(?:off|pv|privado)\b/i.test(t)
+    /^(?:podes|pode)\s+(?:me\s+)?(?:chamar|puxar|mandar|falar)\b.{0,32}\b(?:off|pv|privado)\b/i.test(t) ||
+    // v13.13: Segunda pessoa — "João me puxa", "@alguém vamos no off", "puxa o João"
+    /\b(?:puxa|chama|manda|fala|vamos)\b.{0,20}\b(?:me|o|a|nos)\b.{0,20}\b(?:off|pv|privado)\b/i.test(t) ||
+    /\b(?:vamos|bora|vem)\b.{0,10}\b(?:no|pro|para)\b.{0,10}\b(?:off|pv|privado)\b/i.test(t)
   ) return 'chamar_pv';
 
   return null;
