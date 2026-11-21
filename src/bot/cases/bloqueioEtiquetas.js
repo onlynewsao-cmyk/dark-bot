@@ -69,7 +69,7 @@ module.exports = function registerBloqueioEtiquetasCases(registerCase) {
         return reply('❌ Apenas o *dono do grupo* pode usar este comando.');
       }
 
-      const gs = await GroupSettings.findOne({ groupId: ctx.remoteJid });
+      const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid });
       if (!gs) {
         return reply('❌ Grupo não registado. Use !registrar primeiro.');
       }
@@ -182,7 +182,7 @@ module.exports = function registerBloqueioEtiquetasCases(registerCase) {
         return reply('❌ Apenas o *dono do grupo* pode usar este comando.');
       }
 
-      const gs = await GroupSettings.findOne({ groupId: ctx.remoteJid });
+      const gs = await GroupSettings.findOne({ groupJid: ctx.remoteJid });
       if (!gs) {
         return reply('❌ Grupo não registado. Use !registrar primeiro.');
       }
