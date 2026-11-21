@@ -158,18 +158,19 @@ function deveResponder(o = {}) {
     }
     if (temMedia) return { responde: true, motivo: 'Dark mandou média', chance: 0.9 };
 
-    // O DARK A FALAR COM OUTROS — o problema reportado.
-    // Ela não se mete em tudo. Às vezes só reage, às vezes cala-se.
-    if (MENCIONA_OUTRO.test(texto)) {
-      return { responde: false, motivo: 'o Dark fala com outra pessoa', chance: 0.15 };
+    // v13.12: O DARK A FALAR COM OUTROS — NUNCA avisa, NUNCA interrompe.
+    // A AURA deve ficar em silêncio absoluto. Não mete nariz em conversas
+    // entre o Dono e outras pessoas. Não avisa, não comenta, não reage.
+    if (o.respostaAOutro || MENCIONA_OUTRO.test(texto)) {
+      return { responde: false, motivo: 'Dark fala com outra pessoa — silencio total', chance: 0 };
     }
 
-    // Comentário solto num grupo com gente: ela nem sempre comenta.
-    // Quanto mais gente, menos ela se intromete.
+    // Comentário solto do Dark sem menção a ninguém: responde às vezes,
+    // mas SEMPRE com moderação. Quanto mais gente, menos ela se intromete.
     const muitaGente = pessoasNoGrupo > 8;
     const faladoraDemais = msgsDesdeUltima < 2;   // acabou de falar
-    let chance = muitaGente ? 0.35 : 0.6;
-    if (faladoraDemais) chance *= 0.5;
+    let chance = muitaGente ? 0.25 : 0.4;
+    if (faladoraDemais) chance *= 0.3;
 
     return {
       responde: Math.random() < chance,
@@ -179,7 +180,8 @@ function deveResponder(o = {}) {
   }
 
   // ── No grupo, de outra pessoa ─────────────────────────────
-  // v13.10: Se é ADMIN, a AURA responde mais facilmente
+  // v13.12: Se é ADMIN, a AURA responde mais facilmente
+  // MAS NUNCA avisa ou interrompe quando o admin fala com outros
   if (isAdmin) {
     // Admin fez pergunta ou ordem → responde
     if (PERGUNTA_DIRECTA.test(t) || ORDEM.test(t) || t.includes('?')) {
@@ -195,20 +197,20 @@ function deveResponder(o = {}) {
     // Admin mandou média → responde
     if (temMedia) return { responde: true, motivo: 'admin mandou média', chance: 0.8 };
 
-    // Admin fala com outros → raramente se mete
-    if (MENCIONA_OUTRO.test(texto)) {
-      return { responde: false, motivo: 'admin fala com outro', chance: 0.2 };
+    // v13.12: Admin fala com outros — NUNCA avisa, NUNCA interrompe
+    if (o.respostaAOutro || MENCIONA_OUTRO.test(texto)) {
+      return { responde: false, motivo: 'admin fala com outro — silencio total', chance: 0 };
     }
 
     // Comentário solto de admin: responde com mais frequência que membro normal
     const muitaGente = pessoasNoGrupo > 8;
     const faladoraDemais = msgsDesdeUltima < 2;
-    let chance = muitaGente ? 0.5 : 0.75; // mais que membro normal (0.35/0.6)
-    if (faladoraDemais) chance *= 0.5;
+    let chance = muitaGente ? 0.35 : 0.55;
+    if (faladoraDemais) chance *= 0.3;
 
     return {
       responde: Math.random() < chance,
-      motivo: 'comentário de admin',
+      motivo: 'comentário solto de admin',
       chance,
     };
   }
