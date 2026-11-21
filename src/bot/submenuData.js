@@ -21,7 +21,7 @@ const SEL_PATTERNS = [
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/, /^configanti$/, /^setanti$/, /^antiacao$/, /^antiaccao$/, /^statusgp$/, /^estadogrupo$/, /^gpstatus$/, /^grupostatus$/, /^statusgrupo$/,
+  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/, /^configanti$/, /^setanti$/, /^antiacao$/, /^antiaccao$/, /^statusgp$/, /^estadogrupo$/, /^gpstatus$/, /^grupostatus$/, /^statusgrupo$/, /^testpost$/, /^testepost$/, /^postarteste$/, /^testpublicar$/,
   /^antiraid$/, /^antilinkcanal$/, /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
   /^welcome$/, /^bemvindo$/, /^goodbye$/, /^saida$/, /^boasvindas$/,
   /^autosticker$/, /^autorespostas$/,
