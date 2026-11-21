@@ -164,6 +164,10 @@ const MAPA = [
   // ── v6.80: MÉDIA E IA ───────────────────────────────────────
   [/\b(cria|criar|desenha|desenhar|gera|gerar|imagina)\b[^.?!]{0,20}\b(uma |um )?(imagem|foto|desenho|arte)\b/i, 'imagem', 'depois'],
   [/\b(pesquisa|procura|busca|search)\b[^.?!]{0,15}\b(na net|na internet|no google|sobre)\b/i, 'pesquisar', 'depois'],
+  [/\b(pesquisa|procura|busca|search)\b\s+.{3,60}$/i, 'pesquisar', 'depois'],
+  [/\b(not[ií]cia|news|manchete)\b\s+.{3,60}$/i, 'noticias', 'depois'],
+  [/\b(wiki|wikipedia)\b\s+.{3,60}$/i, 'wiki', 'depois'],
+  [/\b(youtube|yt)\b\s+.{3,60}$/i, 'youtube', 'depois'],
   [/\b(resume|resumir|resumo)\b/i, 'resumir', 'depois'],
 
   // ── v6.80: ADULTO — reversível; o Dark é adulto e sabe o que pede ──
@@ -299,7 +303,7 @@ function porqueNaoFaco(cmd) {
 const LIVRES = new Set([
   'menu', 'ping', 'info', 'perfil', 'saldo', 'daily', 'trabalhar',
   'admins', 'participantes', 'regras', 'dono', 'sticker', 'toimg',
-  'traduzir', 'clima', 'letra', 'calc', 'wikipedia', 'vip',
+  'traduzir', 'clima', 'letra', 'calc', 'wikipedia', 'vip', 'noticias', 'wiki', 'youtube', 'dl',
   // v7.9 Etapa 3: informação inofensiva
   'statusgp', 'statusbot', 'meustatus', 'myvip', 'ca', 'checkativo', 'lider', 'infoff',
 ]);

@@ -14,6 +14,7 @@ module.exports = function registerWebSearchCases(registerCase) {
   // ═══════════════════════════════════════════════════════════════
   // !pesquisa — pesquisa completa
   // ═══════════════════════════════════════════════════════════════
+  // v13.14: também registado como 'pesquisar' para a AURA executar por conversa
   registerCase(['pesquisa', 'pesquisar', 'search', 'buscar', 'procura'],
     async ({ sock, msg, ctx, args, text, prefix, reply }) => {
       const query = text.replace(/^(pesquisa|pesquisar|search|buscar|procura)\s*/i, '').trim();
