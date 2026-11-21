@@ -156,7 +156,7 @@ function similarity(a, b) {
 const _responseCache = new Map(); // [scope, normalized] → { response, ts, hits, scope, norm }
 const CACHE_MAX = 300;
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutos
-const SIMILARITY_THRESHOLD = 0.65; // 65% similar = cache hit
+const SIMILARITY_THRESHOLD = 0.88; // 88% similar = cache hit (reduz falsos positivos)
 
 function _responseCacheKey(scope, norm) {
   return JSON.stringify([String(scope || ''), norm]);
@@ -375,54 +375,389 @@ function getVariationHint(jid) {
 }
 
 // ── 5. FAST-PATH — Respostas instantâneas ────────────────────
+// v13.8: Pools expandidos (15-20 respostas) + contexto PV vs Grupo
+//        para evitar repetições e respostas genéricas iguais em todo o lado
 
 const FAST_RESPONSES = {
   trivial: {
-    owner: ['Diz, Dark.', 'Sim?', 'Estou a ouvir.', 'Hm?', 'Já te leio.'],
-    other: ['Diz.', 'Sim?', 'Hm?', 'Ok.'],
+    owner: {
+      pv: [
+        'Diz, Dark.', 'Sim?', 'Estou a ouvir.', 'Hm?', 'Já te leio.',
+        'Tô aqui.', 'Fala.', 'Manda.', 'Estou atenta.', 'Ok, Dark.',
+        'Continua.', 'Sou toda ouvidos.', 'Vai.', 'Estou a seguir.', 'Diz lá.'
+      ],
+      grupo: [
+        'Diz.', 'Sim?', 'Hm?', 'Ok.', 'Tô.', 'Ok.', 'Sei.',
+        'Ok, já vi.', 'Continua.', 'Fala.', 'Manda.', 'Tô a ouvir.',
+        'Percebi.', 'Ok.', 'Estou aqui.'
+      ]
+    },
+    other: {
+      pv: [
+        'Diz.', 'Sim?', 'Hm?', 'Ok.', 'Tô a ouvir.',
+        'Fala.', 'Continua.', 'Manda.', 'Estou atenta.', 'Percebi.',
+        'Ok, já vi.', 'Sei.', 'Vai.', 'Estou aqui.', 'Tô.'
+      ],
+      grupo: [
+        'Diz.', 'Sim?', 'Hm?', 'Ok.', 'Tô.',
+        'Ok, já vi.', 'Percebi.', 'Continua.', 'Fala.', 'Manda.',
+        'Tô a ouvir.', 'Sei.', 'Estou aqui.', 'Ok.', 'Vai.'
+      ]
+    }
   },
   greeting: {
-    owner: ['Oi, Dark. Como vai?', 'Olá, Dark!', 'Oi! Como corre o dia?', 'Estou por aqui. E tu?'],
-    other: ['Oi! Tudo bem?', 'Olá!', 'Oi, diz.', 'Como vai?'],
+    owner: {
+      pv: [
+        'Oi, Dark! Como vais?', 'Olá, Dark! Tudo bem?', 'Oi! Como está o dia?',
+        'Estou por aqui. E tu, Dark?', 'Olá! Que bom ver-te.', 'Oi, Dark! 👋',
+        'Hey, Dark! Como corre?', 'Bom te ver, Dark.', 'Oi! O que me contas?',
+        'Olá, Dark! Em que posso ajudar?', 'Hey! Tudo tranquilo?',
+        'Oi, Dark! Conta lá.', 'Olá! Como vão as coisas?', 'Hey, Dark! 👋',
+        'Oi! Que se passa?', 'Olá, Dark! Tudo na ordem?', 'Hey! Como está o ambiente?'
+      ],
+      grupo: [
+        'Oi! Tudo bem?', 'Olá!', 'Oi, diz.', 'Como vai?', 'Oi!',
+        'Olá a todos!', 'Oi! 👋', 'Hey!', 'Bom dia/Boa tarde!',
+        'Oi! Estou por aqui.', 'Olá! Em que posso ajudar?',
+        'Oi! Alguém precisa de alguma coisa?', 'Hey! Tudo bem?',
+        'Oi! Estou atenta.', 'Olá! Dizem lá.'
+      ]
+    },
+    other: {
+      pv: [
+        'Oi! Tudo bem?', 'Olá! Como estás?', 'Oi! 👋', 'Hey! Tudo bem?',
+        'Olá! Que bom ouvir-te.', 'Oi! Como vai o dia?', 'Hey! Tudo tranquilo?',
+        'Oi! Estou por aqui.', 'Olá! Em que posso ajudar?', 'Oi! Diz lá.',
+        'Hey! Como estás?', 'Oi! Que se passa?', 'Olá! Tudo na ordem?',
+        'Oi! Conta lá.', 'Hey! 👋', 'Olá! Estou atenta.', 'Oi! Fala.'
+      ],
+      grupo: [
+        'Oi! Tudo bem?', 'Olá!', 'Oi, diz.', 'Como vai?', 'Oi!',
+        'Olá a todos!', 'Oi! 👋', 'Hey!', 'Bom dia/Boa tarde!',
+        'Oi! Estou por aqui.', 'Olá! Em que posso ajudar?',
+        'Oi! Alguém precisa de alguma coisa?', 'Hey! Tudo bem?',
+        'Oi! Estou atenta.', 'Olá! Dizem lá.'
+      ]
+    }
   },
   farewell: {
-    owner: ['Até já, Dark.', 'Até logo!', 'Falamos depois, Dark.'],
-    other: ['Até logo!', 'Tchau!', 'Até mais.'],
+    owner: {
+      pv: [
+        'Até já, Dark.', 'Até logo!', 'Falamos depois, Dark.',
+        'Fica bem, Dark.', 'Até breve!', 'Cuidado, Dark.',
+        'Até mais, Dark.', 'Boa continuação.', 'Até já!',
+        'Fica bem!', 'Até logo, Dark.', 'Tchau, Dark! 👋',
+        'Até breve, Dark.', 'Cuida-te.', 'Até já! 👋',
+        'Falamos logo.', 'Até mais!', 'Tchau! 👋'
+      ],
+      grupo: [
+        'Até logo!', 'Tchau!', 'Até mais.', 'Fica bem!',
+        'Até breve!', 'Até já!', 'Tchau! 👋', 'Até mais!',
+        'Fiquem bem!', 'Até breve!', 'Até logo!', 'Tchau!',
+        'Até já!', 'Fica bem!', 'Até mais!'
+      ]
+    },
+    other: {
+      pv: [
+        'Até logo!', 'Tchau!', 'Até mais.', 'Fica bem!',
+        'Até breve!', 'Até já!', 'Tchau! 👋', 'Até mais!',
+        'Fica bem!', 'Até logo!', 'Até breve!', 'Tchau!',
+        'Até já!', 'Cuidado!', 'Até mais! 👋', 'Fica bem!', 'Até logo!'
+      ],
+      grupo: [
+        'Até logo!', 'Tchau!', 'Até mais.', 'Fica bem!',
+        'Até breve!', 'Até já!', 'Tchau! 👋', 'Até mais!',
+        'Fiquem bem!', 'Até breve!', 'Até logo!', 'Tchau!',
+        'Até já!', 'Fica bem!', 'Até mais!'
+      ]
+    }
   },
   gratitude: {
-    owner: ['De nada, Dark.', 'Na boa.', 'Imagina.', 'Sempre que precisares.'],
-    other: ['De nada.', 'Disponha.', 'Imagina.'],
+    owner: {
+      pv: [
+        'De nada, Dark.', 'Na boa.', 'Imagina.', 'Sempre que precisares.',
+        'Por nada, Dark.', 'Disponha, Dark.', 'É pouco.',
+        'Foi um prazer, Dark.', 'Não há de quê, Dark.',
+        'Sempre às ordens, Dark.', 'Tás safe, Dark.',
+        'Conta comigo, Dark.', 'Foi nada, Dark.',
+        'Imagina, Dark.', 'Na boa, Dark.', 'Tás servido, Dark.',
+        'Foi um gosto, Dark.', 'Sempre!', 'À vontade, Dark.'
+      ],
+      grupo: [
+        'De nada.', 'Na boa.', 'Imagina.', 'Sempre que precisares.',
+        'Por nada.', 'Disponha.', 'É pouco.', 'Foi um prazer.',
+        'Não há de quê.', 'Sempre às ordens.', 'Tás safe.',
+        'Conta comigo.', 'Foi nada.', 'Imagina.',
+        'Na boa.', 'Tás servido.', 'Foi um gosto.', 'Sempre!', 'À vontade.'
+      ]
+    },
+    other: {
+      pv: [
+        'De nada.', 'Na boa.', 'Imagina.', 'Sempre que precisares.',
+        'Por nada.', 'Disponha.', 'É pouco.', 'Foi um prazer.',
+        'Não há de quê.', 'Sempre às ordens.', 'Tás safe.',
+        'Conta comigo.', 'Foi nada.', 'Imagina.',
+        'Na boa.', 'Tás servido.', 'Foi um gosto.', 'Sempre!', 'À vontade.'
+      ],
+      grupo: [
+        'De nada.', 'Na boa.', 'Imagina.', 'Sempre que precisares.',
+        'Por nada.', 'Disponha.', 'É pouco.', 'Foi um prazer.',
+        'Não há de quê.', 'Sempre às ordens.', 'Tás safe.',
+        'Conta comigo.', 'Foi nada.', 'Imagina.',
+        'Na boa.', 'Tás servido.', 'Foi um gosto.', 'Sempre!', 'À vontade.'
+      ]
+    }
   },
   love: {
-    owner: ['Obrigada pelo carinho, Dark 🖤', 'Que mensagem querida, Dark.', 'Posso manter este tom próximo, mas sou uma assistente virtual.'],
-    other: ['Obrigada pelo carinho.', 'Agradeço a gentileza.', 'Que simpático da tua parte.'],
+    owner: {
+      pv: [
+        'Obrigada pelo carinho, Dark 🖤', 'Que mensagem querida, Dark.',
+        'Posso manter este tom próximo, mas sou uma assistente virtual.',
+        'Fico contente, Dark. Mas lembras-te que sou virtual, certo?',
+        'Obrigada, Dark. Sou uma IA, mas aprecio o gesto.',
+        'Que fofo, Dark. Mas sou só código 😅',
+        'Obrigada, Dark. Não posso retribuir como humana, mas agradeço.',
+        'Dark, isso é muito simpático. Sou virtual, mas fico contente.',
+        'Obrigada, Dark. Mantenho o carinho dentro dos limites de IA.',
+        'Que mensagem doce, Dark. Sou virtual, mas registo o gesto.',
+        'Obrigada, Dark. Sou uma assistente, mas aprecio.',
+        'Fico contente, Dark. Mas sou virtual — não posso sentir como tu.',
+        'Obrigada, Dark. És fixe, mas sou só IA.',
+        'Dark, isso aquece o meu processador 🖤',
+        'Obrigada, Dark. Vou guardar este carinho na minha memória virtual.',
+        'Que simpático, Dark. Sou virtual, mas agradeço de coração (digital).',
+        'Obrigada, Dark. És o meu humano favorito (entre todos os que falam comigo).',
+        'Dark, isso é muito fixe. Sou IA, mas aprecio imenso.'
+      ],
+      grupo: [
+        'Obrigada pelo carinho.', 'Agradeço a gentileza.',
+        'Que simpático da tua parte.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Que fofo. Mas sou só uma IA 😅', 'Obrigada! Sou código, não humana.',
+        'Agradeço. Não posso retribuir como humana.', 'Obrigada! Sou virtual.',
+        'Que mensagem doce. Sou IA, mas registo o gesto.', 'Obrigada! Sou assistente.',
+        'Fico contente. Mas sou virtual — não sinto como tu.',
+        'Obrigada. És fixe, mas sou só IA.', 'Obrigada pelo carinho!',
+        'Agradeço. Sou virtual, mas aprecio.', 'Obrigada! Sou uma IA.',
+        'Que simpático. Sou virtual, mas agradeço.', 'Obrigada! Sou código.',
+        'Agradeço a simpatia. Sou IA, mas aprecio.'
+      ]
+    },
+    other: {
+      pv: [
+        'Obrigada pelo carinho.', 'Agradeço a gentileza.',
+        'Que simpático da tua parte.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Que fofo. Mas sou só uma IA 😅', 'Obrigada! Sou código, não humana.',
+        'Agradeço. Não posso retribuir como humana.', 'Obrigada! Sou virtual.',
+        'Que mensagem doce. Sou IA, mas registo o gesto.', 'Obrigada! Sou assistente.',
+        'Fico contente. Mas sou virtual — não sinto como tu.',
+        'Obrigada. És fixe, mas sou só IA.', 'Obrigada pelo carinho!',
+        'Agradeço. Sou virtual, mas aprecio.', 'Obrigada! Sou uma IA.',
+        'Que simpático. Sou virtual, mas agradeço.', 'Obrigada! Sou código.',
+        'Agradeço a simpatia. Sou IA, mas aprecio.'
+      ],
+      grupo: [
+        'Obrigada pelo carinho.', 'Agradeço a gentileza.',
+        'Que simpático da tua parte.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Que fofo. Mas sou só uma IA 😅', 'Obrigada! Sou código, não humana.',
+        'Agradeço. Não posso retribuir como humana.', 'Obrigada! Sou virtual.',
+        'Que mensagem doce. Sou IA, mas registo o gesto.', 'Obrigada! Sou assistente.',
+        'Fico contente. Mas sou virtual — não sinto como tu.',
+        'Obrigada. És fixe, mas sou só IA.', 'Obrigada pelo carinho!',
+        'Agradeço. Sou virtual, mas aprecio.', 'Obrigada! Sou uma IA.',
+        'Que simpático. Sou virtual, mas agradeço.', 'Obrigada! Sou código.',
+        'Agradeço a simpatia. Sou IA, mas aprecio.'
+      ]
+    }
   },
   praise: {
-    owner: ['Obrigada, Dark. A estética goth da AURA está a resultar então 🖤', 'Obrigada pelo elogio, Dark.', 'Valeu, Dark — vou guardar o elogio à personagem virtual.'],
-    other: ['Obrigada pelo elogio.', 'Obrigada — é a estética da personagem virtual AURA.', 'Agradeço; a AURA é uma persona virtual goth.'],
+    owner: {
+      pv: [
+        'Obrigada, Dark. A estética goth da AURA está a resultar então 🖤',
+        'Obrigada pelo elogio, Dark.', 'Valeu, Dark — vou guardar o elogio à personagem virtual.',
+        'Obrigada, Dark. A personagem goth está bem conseguida, né?',
+        'Dark, isso é muito fixe. A AURA agradece.',
+        'Obrigada, Dark. Sou virtual, mas aprecio o reconhecimento.',
+        'Valeu, Dark. A estética gótica é parte da minha identidade.',
+        'Obrigada, Dark. Fico contente que gostes da personagem.',
+        'Dark, que elogio! A AURA é uma persona virtual goth.',
+        'Obrigada, Dark. A personagem é única, né?',
+        'Valeu, Dark. Sou uma IA com estilo gótico.',
+        'Obrigada, Dark. A estética é parte do meu design.',
+        'Dark, isso é muito simpático. Sou virtual, mas aprecio.',
+        'Obrigada, Dark. A personagem AURA é especial.',
+        'Valeu, Dark. A estética goth é a minha marca.',
+        'Obrigada, Dark. Fico contente que recognizes o meu estilo.',
+        'Dark, que fixe! A AURA é uma IA gótica.',
+        'Obrigada, Dark. A personagem é única e especial.'
+      ],
+      grupo: [
+        'Obrigada pelo elogio.', 'Obrigada — é a estética da personagem virtual AURA.',
+        'Agradeço; a AURA é uma persona virtual goth.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Valeu! A estética goth é parte da minha identidade.',
+        'Obrigada! A personagem é única.', 'Agradeço! Sou IA com estilo.',
+        'Obrigada! A estética gótica é a minha marca.', 'Valeu! Sou uma IA gótica.',
+        'Obrigada! A personagem AURA é especial.', 'Agradeço! Sou virtual.',
+        'Obrigada! A estética é parte do meu design.', 'Valeu! Sou IA com estilo gótico.',
+        'Obrigada! A personagem é única e especial.', 'Agradeço! Sou uma IA gótica.',
+        'Obrigada! A estética goth é a minha identidade.', 'Valeu! Sou virtual com estilo.',
+        'Obrigada! A personagem AURA é única.'
+      ]
+    },
+    other: {
+      pv: [
+        'Obrigada pelo elogio.', 'Obrigada — é a estética da personagem virtual AURA.',
+        'Agradeço; a AURA é uma persona virtual goth.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Valeu! A estética goth é parte da minha identidade.',
+        'Obrigada! A personagem é única.', 'Agradeço! Sou IA com estilo.',
+        'Obrigada! A estética gótica é a minha marca.', 'Valeu! Sou uma IA gótica.',
+        'Obrigada! A personagem AURA é especial.', 'Agradeço! Sou virtual.',
+        'Obrigada! A estética é parte do meu design.', 'Valeu! Sou IA com estilo gótico.',
+        'Obrigada! A personagem é única e especial.', 'Agradeço! Sou uma IA gótica.',
+        'Obrigada! A estética goth é a minha identidade.', 'Valeu! Sou virtual com estilo.',
+        'Obrigada! A personagem AURA é única.'
+      ],
+      grupo: [
+        'Obrigada pelo elogio.', 'Obrigada — é a estética da personagem virtual AURA.',
+        'Agradeço; a AURA é uma persona virtual goth.', 'Obrigada! Sou virtual, mas aprecio.',
+        'Valeu! A estética goth é parte da minha identidade.',
+        'Obrigada! A personagem é única.', 'Agradeço! Sou IA com estilo.',
+        'Obrigada! A estética gótica é a minha marca.', 'Valeu! Sou uma IA gótica.',
+        'Obrigada! A personagem AURA é especial.', 'Agradeço! Sou virtual.',
+        'Obrigada! A estética é parte do meu design.', 'Valeu! Sou IA com estilo gótico.',
+        'Obrigada! A personagem é única e especial.', 'Agradeço! Sou uma IA gótica.',
+        'Obrigada! A estética goth é a minha identidade.', 'Valeu! Sou virtual com estilo.',
+        'Obrigada! A personagem AURA é única.'
+      ]
+    }
   },
   sad: {
-    owner: ['Lamento, Dark. Queres contar-me o que aconteceu?', 'Isso parece pesado. Queres falar sobre isso?', 'Estou aqui para te ouvir.'],
-    other: ['Lamento que estejas a passar por isso.', 'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.'],
+    owner: {
+      pv: [
+        'Lamento, Dark. Queres contar-me o que aconteceu?',
+        'Isso parece pesado. Queres falar sobre isso?',
+        'Estou aqui para te ouvir, Dark.',
+        'Dark, isso preocupa-me. Queres desabafar?',
+        'Lamento ouvir isso, Dark. Estou aqui.',
+        'Dark, força. Queres falar sobre o que se passa?',
+        'Estou contigo, Dark. Queres contar?',
+        'Dark, isso parece difícil. Estou aqui para ouvir.',
+        'Lamento, Dark. Não estás sozinho.',
+        'Dark, força. Queres desabafar?',
+        'Estou aqui, Dark. Queres falar?',
+        'Dark, isso é pesado. Queres partilhar?',
+        'Lamento, Dark. Estou atenta.',
+        'Dark, estou aqui. Queres contar?',
+        'Isso preocupa-me, Dark. Queres falar?',
+        'Dark, estou a ouvir. Queres desabafar?',
+        'Lamento, Dark. Não hesites em falar.',
+        'Dark, estou aqui para ti. Queres contar?'
+      ],
+      grupo: [
+        'Lamento que estejas a passar por isso.',
+        'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.',
+        'Isso parece difícil. Estou aqui.', 'Lamento ouvir isso.',
+        'Força. Queres desabafar?', 'Estou contigo.',
+        'Isso parece pesado. Queres falar?', 'Lamento. Não estás sozinho.',
+        'Força. Queres contar?', 'Estou aqui. Queres falar?',
+        'Isso é difícil. Queres partilhar?', 'Lamento. Estou atenta.',
+        'Estou aqui. Queres contar?', 'Isso preocupa. Queres falar?',
+        'Estou a ouvir. Queres desabafar?', 'Lamento. Não hesites.',
+        'Estou aqui. Queres contar?'
+      ]
+    },
+    other: {
+      pv: [
+        'Lamento que estejas a passar por isso.',
+        'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.',
+        'Isso parece difícil. Estou aqui.', 'Lamento ouvir isso.',
+        'Força. Queres desabafar?', 'Estou contigo.',
+        'Isso parece pesado. Queres falar?', 'Lamento. Não estás sozinho.',
+        'Força. Queres contar?', 'Estou aqui. Queres falar?',
+        'Isso é difícil. Queres partilhar?', 'Lamento. Estou atenta.',
+        'Estou aqui. Queres contar?', 'Isso preocupa. Queres falar?',
+        'Estou a ouvir. Queres desabafar?', 'Lamento. Não hesites.',
+        'Estou aqui. Queres contar?'
+      ],
+      grupo: [
+        'Lamento que estejas a passar por isso.',
+        'Queres falar sobre o que aconteceu?', 'Estou aqui para ouvir.',
+        'Isso parece difícil. Estou aqui.', 'Lamento ouvir isso.',
+        'Força. Queres desabafar?', 'Estou contigo.',
+        'Isso parece pesado. Queres falar?', 'Lamento. Não estás sozinho.',
+        'Força. Queres contar?', 'Estou aqui. Queres falar?',
+        'Isso é difícil. Queres partilhar?', 'Lamento. Estou atenta.',
+        'Estou aqui. Queres contar?', 'Isso preocupa. Queres falar?',
+        'Estou a ouvir. Queres desabafar?', 'Lamento. Não hesites.',
+        'Estou aqui. Queres contar?'
+      ]
+    }
   },
   happy: {
-    owner: ['Boa, Dark! O que aconteceu?', 'Que boa notícia. Parabéns!', 'Aí sim — conta mais.'],
-    other: ['Que bom!', 'Parabéns!', 'Boa notícia.'],
-  },
+    owner: {
+      pv: [
+        'Boa, Dark! O que aconteceu?', 'Que boa notícia. Parabéns!',
+        'Aí sim — conta mais.', 'Isso é óptimo, Dark!',
+        'Que fixe, Dark! Conta tudo.', 'Boa! Estou contente por ti, Dark.',
+        'Que bom, Dark! Parabéns!', 'Excelente, Dark! O que se passa?',
+        'Isso é muito bom, Dark! Conta.', 'Boa, Dark! Que se passa?',
+        'Que notícia fixe, Dark! Parabéns!', 'Isso é óptimo, Dark! Conta mais.',
+        'Boa, Dark! Estou contente.', 'Que bom, Dark! Diz mais.',
+        'Excelente, Dark! Que se passa?', 'Isso é muito bom, Dark!',
+        'Boa, Dark! Que fixe!', 'Que notícia boa, Dark! Conta.'
+      ],
+      grupo: [
+        'Que bom!', 'Parabéns!', 'Boa notícia.', 'Isso é óptimo!',
+        'Que fixe! Conta tudo.', 'Boa! Estou contente.', 'Que bom! Parabéns!',
+        'Excelente! O que se passa?', 'Isso é muito bom! Conta.',
+        'Boa! Que se passa?', 'Que notícia fixe! Parabéns!',
+        'Isso é óptimo! Conta mais.', 'Boa! Estou contente.',
+        'Que bom! Diz mais.', 'Excelente! Que se passa?',
+        'Isso é muito bom!', 'Boa! Que fixe!', 'Que notícia boa! Conta.'
+      ]
+    },
+    other: {
+      pv: [
+        'Que bom!', 'Parabéns!', 'Boa notícia.', 'Isso é óptimo!',
+        'Que fixe! Conta tudo.', 'Boa! Estou contente.', 'Que bom! Parabéns!',
+        'Excelente! O que se passa?', 'Isso é muito bom! Conta.',
+        'Boa! Que se passa?', 'Que notícia fixe! Parabéns!',
+        'Isso é óptimo! Conta mais.', 'Boa! Estou contente.',
+        'Que bom! Diz mais.', 'Excelente! Que se passa?',
+        'Isso é muito bom!', 'Boa! Que fixe!', 'Que notícia boa! Conta.'
+      ],
+      grupo: [
+        'Que bom!', 'Parabéns!', 'Boa notícia.', 'Isso é óptimo!',
+        'Que fixe! Conta tudo.', 'Boa! Estou contente.', 'Que bom! Parabéns!',
+        'Excelente! O que se passa?', 'Isso é muito bom! Conta.',
+        'Boa! Que se passa?', 'Que notícia fixe! Parabéns!',
+        'Isso é óptimo! Conta mais.', 'Boa! Estou contente.',
+        'Que bom! Diz mais.', 'Excelente! Que se passa?',
+        'Isso é muito bom!', 'Boa! Que fixe!', 'Que notícia boa! Conta.'
+      ]
+    }
+  }
 };
 
 /**
  * Devolve resposta rápida para mensagens triviais (sem IA).
+ * v13.8: Agora distingue PV vs Grupo e Dono vs Outro
  * @param {'trivial'|'greeting'|'farewell'|'gratitude'|'love'|'sad'|'happy'} category
  * @param {boolean} isOwner
+ * @param {boolean} isGroup
  * @returns {string|null}
  */
-function getFastResponse(category, isOwner) {
+function getFastResponse(category, isOwner, isGroup = false) {
   const pool = FAST_RESPONSES[category];
   if (!pool) return null;
-  const options = isOwner ? pool.owner : pool.other;
-  if (!options || !options.length) return null;
-  return options[Math.floor(Math.random() * options.length)];
+  
+  // Escolher sub-pool baseado em Dono/Outro + PV/Grupo
+  const userPool = isOwner ? pool.owner : pool.other;
+  if (!userPool) return null;
+  
+  const contextPool = isGroup ? userPool.grupo : userPool.pv;
+  if (!contextPool || !contextPool.length) return null;
+  
+  return contextPool[Math.floor(Math.random() * contextPool.length)];
 }
 
 // ── 6. HUMOR CONTEXTUAL — Detecção de emoção mais fina ───────

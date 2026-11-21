@@ -666,7 +666,7 @@ async function auraRespondSmart(text, ctx = {}) {
   if (cls.type === 'trivial' || cls.type === 'greeting' || cls.type === 'farewell') {
     const category = cls.type === 'trivial' ? 'trivial' :
                      cls.type === 'greeting' ? 'greeting' : 'farewell';
-    const fastResp = auraSmart.getFastResponse(category, isOwner);
+    const fastResp = auraSmart.getFastResponse(category, isOwner, isGroup);
     if (fastResp) {
       auraSmart.recordFastPath();
       return fastResp;
@@ -675,7 +675,7 @@ async function auraRespondSmart(text, ctx = {}) {
 
   // Gratidão — fast path
   if (cls.type === 'simple' && /\b(obrigad[oa]|thanks|valeu|vlw)\b/i.test(text)) {
-    const fastResp = auraSmart.getFastResponse('gratitude', isOwner);
+    const fastResp = auraSmart.getFastResponse('gratitude', isOwner, isGroup);
     if (fastResp) {
       auraSmart.recordFastPath();
       return fastResp;
@@ -684,7 +684,7 @@ async function auraRespondSmart(text, ctx = {}) {
 
   // Amor — fast path
   if (cls.type === 'emotional' && cls.emotion === 'love') {
-    const fastResp = auraSmart.getFastResponse('love', isOwner);
+    const fastResp = auraSmart.getFastResponse('love', isOwner, isGroup);
     if (fastResp) {
       auraSmart.recordFastPath();
       return fastResp;
@@ -694,7 +694,7 @@ async function auraRespondSmart(text, ctx = {}) {
   // Elogio curto (incluindo só "Linda") recebe uma resposta natural e
   // concreta; não fica dependente de a IA perceber o turno.
   if (cls.type === 'emotional' && cls.emotion === 'praise') {
-    const fastResp = auraSmart.getFastResponse('praise', isOwner);
+    const fastResp = auraSmart.getFastResponse('praise', isOwner, isGroup);
     if (fastResp) {
       auraSmart.recordFastPath();
       return fastResp;
