@@ -29,9 +29,15 @@ module.exports = function registerCodeFormatCases(registerCase) {
         );
       }
       
-      // Enviar com bloco de código (WhatsApp renderiza nativamente)
-      const textoFormatado = `\`\`\`${lang}\n${codigo}\n\`\`\``;
-      await sock.sendMessage(ctx.remoteJid, { text: textoFormatado }, { quoted: msg });
+      // v13.16: Suporte a múltiplos blocos separados por |||
+      const blocos = codigo.split(/\s*\|\|\|\s*/);
+      const textoFinal = blocos.map((bloco, i) => {
+        const b = bloco.trim();
+        if (!b) return '';
+        return `\`\`\`${lang}\n${b}\n\`\`\``;
+      }).join('\n\n');
+      
+      await sock.sendMessage(ctx.remoteJid, { text: textoFinal }, { quoted: msg });
     }
   );
 
