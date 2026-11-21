@@ -21,7 +21,7 @@ const SEL_PATTERNS = [
   /^antilink$/, /^antispam$/, /^antiflood$/, /^antifigurinha$/,
   /^antidoc$/, /^antiloc$/, /^antiporn$/, /^antitoxic$/,
   /^antidemote$/, /^antistatus$/, /^antibtn$/, /^antipalavra$/,
-  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/,
+  /^antimencao$/, /^antipagamento$/, /^antiinvisivel$/, /^addpalavra$/, /^delpalavra$/, /^palavras$/, /^proibir$/, /^addproibir$/, /^configanti$/, /^setanti$/, /^antiacao$/, /^antiaccao$/,
   /^antiraid$/, /^antilinkcanal$/, /^antilinkgp$/, /^antilinkhard$/, /^antilinksoft$/,
   /^welcome$/, /^bemvindo$/, /^goodbye$/, /^saida$/, /^boasvindas$/,
   /^autosticker$/, /^autorespostas$/,
@@ -335,7 +335,7 @@ function categorize(cmd) {
     fala:'info', falacall:'info', dizcall:'info', falanacall:'info', pararmusica:'info', paramusica:'info', stopcall:'info',
     desligacall:'info', endcall:'info', terminarchamada:'info', callstatus:'info', callsativas:'info',
     pausa:'info', para:'info', modochamadas:'info', ligarnum:'info', ligarnumero:'info', callnum:'info', desligarptt:'info',
-    antimencao:'admin', antipagamento:'admin', antiinvisivel:'admin', addpalavra:'admin', delpalavra:'admin', palavras:'admin', listapalavras:'admin', proibir:'admin', addproibir:'admin',
+    antimencao:'admin', antipagamento:'admin', antiinvisivel:'admin', addpalavra:'admin', delpalavra:'admin', palavras:'admin', listapalavras:'admin', proibir:'admin', addproibir:'admin', configanti:'admin', setanti:'admin', antiacao:'admin', antiaccao:'admin',
     diag:'info', diagnostico:'info', 'diagnóstico':'info',
     // AURA (moderação da aura) → ia
     auramod:'ia', aurarpg:'ia', moderar:'ia',

@@ -45,6 +45,7 @@
 const config = require('../config');
 const GroupSettings = require('../database/models/GroupSettings');
 const { hasActiveEntitlement } = require('./groupEntitlement');
+const antiActions = require('./antiActions');
 
 const MAX_WARNS_PADRAO = 3;
 const WARN_TTL_MS = 30 * 60 * 1000;
@@ -355,31 +356,101 @@ async function check(sock, msg) {
       return true;
     }
 
+    // ════════════════════════════════════════════════════════════════
+    // v13.0: SISTEMA DE ACÇÕES CONFIGURÁVEIS POR ANTI
+    // ════════════════════════════════════════════════════════════════
+    const accao = antiActions.getAction(gs, hit.flag);
     const k = `${remoteJid}:${senderNum}`;
-    const maxWarns = Number(gs.antitiposMaxWarns) || MAX_WARNS_PADRAO;
-    const w = addWarn(k);
 
-    try { require('./liveBroadcaster').antilinkAction?.({ user: senderNum, action: w >= maxWarns ? 'kick' : 'delete', type: hit.flag, group: remoteJid }); } catch {}
+    try { require('./liveBroadcaster').antilinkAction?.({ user: senderNum, action: accao, type: hit.flag, group: remoteJid }); } catch {}
 
-    if (w >= maxWarns) {
-      await sock.sendMessage(remoteJid, {
-        text: `🚫 *DARK ${hit.label}* 🕸️\n\n@${senderNum} removido após ${w} avisos (${hit.motivo}).`,
-        mentions: [senderJid],
-      }).catch(() => {});
-      try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
-      warns.delete(k);
-      return true;
+    switch (accao) {
+      case 'apagar': {
+        // só apaga (feito em cima), sem aviso
+        return true;
+      }
+
+      case 'avisar': {
+        // apaga + avisa (com warns progressivos até kick)
+        const maxWarns = Number(gs.antitiposMaxWarns) || MAX_WARNS_PADRAO;
+        const w = addWarn(k);
+        if (w >= maxWarns) {
+          await sock.sendMessage(remoteJid, {
+            text: `🚫 *DARK ${hit.label}* 🕸️\n\n@${senderNum} removido após ${w} avisos (${hit.motivo}).`,
+            mentions: [senderJid],
+          }).catch(() => {});
+          try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
+          warns.delete(k);
+          return true;
+        }
+        const last = notifyCd.get(k) || 0;
+        if (Date.now() - last > NOTIFY_COOLDOWN_MS && gs.antitiposNotify !== false) {
+          notifyCd.set(k, Date.now());
+          await sock.sendMessage(remoteJid, {
+            text: `⚠️ *DARK ${hit.label}* 🕸️\n\n@${senderNum}, aqui não pode: *${hit.motivo}*.\nAviso *${w}/${maxWarns}*.`,
+            mentions: [senderJid],
+          }).catch(() => {});
+        }
+        return true;
+      }
+
+      case 'kick': {
+        // apaga + kick imediato (ignora warns)
+        await sock.sendMessage(remoteJid, {
+          text: `🚫 *DARK ${hit.label}* 🕸️\n\n@${senderNum} removido imediatamente (${hit.motivo}).`,
+          mentions: [senderJid],
+        }).catch(() => {});
+        try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
+        return true;
+      }
+
+      case 'ban': {
+        // apaga + kick + adiciona à blacklist
+        await sock.sendMessage(remoteJid, {
+          text: `🔒 *DARK ${hit.label}* 🕸️\n\n@${senderNum} banido do grupo (${hit.motivo}).`,
+          mentions: [senderJid],
+        }).catch(() => {});
+        try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
+        try {
+          const blacklist = require('./hotCache').getGroupSettings; // fallback: usar GroupSettings directamente
+          await GroupSettings.updateOne(
+            { groupJid: remoteJid },
+            { $addToSet: { bannedUsers: senderJid } }
+          );
+        } catch {}
+        return true;
+      }
+
+      case 'mute': {
+        // apaga + silencia o utilizador
+        await sock.sendMessage(remoteJid, {
+          text: `🔇 *DARK ${hit.label}* 🕸️\n\n@${senderNum} silenciado (${hit.motivo}).\nTudo o que enviar será apagado automaticamente.`,
+          mentions: [senderJid],
+        }).catch(() => {});
+        try {
+          const muteOps = require('./muteOps');
+          await muteOps.porMute(remoteJid, senderJid, null, 'antitipos');
+        } catch {
+          // fallback: adicionar directamente ao campo mutedUsers
+          await GroupSettings.updateOne(
+            { groupJid: remoteJid },
+            { $addToSet: { mutedUsers: { jid: senderJid, until: null, motivo: 'antitipos', at: new Date() } } }
+          );
+        }
+        return true;
+      }
+
+      default: {
+        // fallback: comportamento antigo
+        const maxWarns = Number(gs.antitiposMaxWarns) || MAX_WARNS_PADRAO;
+        const w = addWarn(k);
+        if (w >= maxWarns) {
+          try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
+          warns.delete(k);
+        }
+        return true;
+      }
     }
-
-    const last = notifyCd.get(k) || 0;
-    if (Date.now() - last > NOTIFY_COOLDOWN_MS && gs.antitiposNotify !== false) {
-      notifyCd.set(k, Date.now());
-      await sock.sendMessage(remoteJid, {
-        text: `⚠️ *DARK ${hit.label}* 🕸️\n\n@${senderNum}, aqui não pode: *${hit.motivo}*.\nAviso *${w}/${maxWarns}*.`,
-        mentions: [senderJid],
-      }).catch(() => {});
-    }
-    return true;
   } catch (e) {
     console.warn('[AntiTipos]', e?.message?.slice(0, 80));
     return false;

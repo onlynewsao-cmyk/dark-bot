@@ -173,6 +173,8 @@ const GroupSettingsSchema = new mongoose.Schema({
   antiporn:       { type: Boolean, default: false },
   antitiposMaxWarns: { type: Number, default: 3 },
   antitiposNotify:   { type: Boolean, default: true },
+  // v13.0: acção por anti (apagar|avisar|kick|ban|mute)
+  antitiposAccoes:   { type: Map, of: String, default: {} },
 
   // ── v7.86 Antis de mídia + AUTO-VISU1 ──────────────────────
   // v7.89 FIX: estavam FORA do schema — o mongoose (strict) apagava-os
