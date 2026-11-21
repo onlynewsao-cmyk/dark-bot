@@ -604,6 +604,45 @@ async function auraRespond(text, ctx = {}) {
 
   systemPrompt += '\n' + require('./auraDialogue').clarificationHint(text);
 
+  // v13.14: Web search para perguntas factuais — AURA nao inventa
+  // Detectar se a pergunta pede informacao real (datas, nomes, noticias, factos)
+  const _perguntaFactua = /\b(quem|quando|onde|qual|quanto|como|porque|por que|o que|que e|quem e|onde fica|quando foi|qual e|noticia|hoje|agora|actual)\b/i.test(text) &&
+    !/\b(acha|achas|pensas|sentes|opinas|gostas|preferes)\b/i.test(text);
+  
+  if (_perguntaFactua && text.length > 5) {
+    try {
+      const webSearch = require('./auraWebSearch');
+      // Extrair query limpa (remover "qual e", "quem e", etc.)
+      const queryLimpa = text
+        .replace(/^(qual e|que e|quem e|onde e|quando e|como e|porque)\s+/i, '')
+        .replace(/\?$/g, '')
+        .trim()
+        .slice(0, 60);
+      
+      if (queryLimpa.length > 2) {
+        const resultados = await webSearch.searchMaster(queryLimpa, { tipo: 'tudo', maxResults: 3 });
+        if (resultados.wikipedia || resultados.noticias?.length || resultados.web?.length) {
+          systemPrompt += '\n\nINFORMACAO REAL DA WEB (usa estes factos, nao inventes):\n';
+          if (resultados.wikipedia) {
+            systemPrompt += `📚 ${resultados.wikipedia.titulo}: ${resultados.wikipedia.resumo.slice(0, 300)}\n`;
+          }
+          if (resultados.noticias?.length) {
+            systemPrompt += '📰 Noticias:\n';
+            for (const n of resultados.noticias.slice(0, 3)) {
+              systemPrompt += `  • ${n.titulo}${n.fonte ? ' (' + n.fonte + ')' : ''}\n`;
+            }
+          }
+          if (resultados.web?.length) {
+            systemPrompt += '🔍 Web:\n';
+            for (const r of resultados.web.slice(0, 2)) {
+              systemPrompt += `  • ${r.titulo}: ${r.snippet.slice(0, 120)}\n`;
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
   // Tentar IA sempre (gera respostas únicas)
   try {
     const reply = await ai.chat(text, systemPrompt, {
