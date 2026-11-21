@@ -663,6 +663,7 @@ async function auraRespondSmart(text, ctx = {}) {
   }
 
   // FAST PATH: mensagens triviais — resposta instantânea sem IA
+  // v13.9: NÃO responder a nonsense/aleatório com FAST PATH (dá bandeira de bot)
   if (cls.type === 'trivial' || cls.type === 'greeting' || cls.type === 'farewell') {
     const category = cls.type === 'trivial' ? 'trivial' :
                      cls.type === 'greeting' ? 'greeting' : 'farewell';
@@ -671,6 +672,15 @@ async function auraRespondSmart(text, ctx = {}) {
       auraSmart.recordFastPath();
       return fastResp;
     }
+  }
+
+  // v13.9: Mensagens nonsense/aleatórias — NÃO responder com FAST PATH
+  // Deixar passar para a IA ou simplesmente ignorar (não dá bandeira)
+  if (cls.type === 'nonsense') {
+    // Opção 1: Ignorar completamente (não responder)
+    // Opção 2: Resposta muito vaga e natural da IA
+    // Por agora: deixar passar para a IA decidir (pode ignorar)
+    // Não fazer return aqui — deixa continuar para a IA
   }
 
   // Gratidão — fast path

@@ -22,6 +22,13 @@ const GREETING_RE = /^(oi|olá|ola|hello|hi|hey|e aí|eai|salve|fala|flw|bom dia
 
 const FAREWELL_RE = /^(tchau|até logo|adeus|falou|flw|até mais|até amanhã|até logo|bye|xau|ate lgo|boa noite\s*$)/i;
 
+// v13.9: detecção de mensagens aleatórias/nonsense (não devem ir ao FAST PATH)
+// Sequências de letras sem sentido, caracteres repetidos, símbolos aleatórios
+const NONSENSE_RE = /^(.{0,2})\1{3,}$|^[a-z]{1,2}([a-z])\1{2,}$|^[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+$/i;
+const RANDOM_CHARS_RE = /^[a-zA-Z]{1,3}([a-zA-Z])\1{2,}$/i; // ex: "aaaa", "bbbbb"
+const SYMBOLS_ONLY_RE = /^[^\w\s]{2,}$/i; // ex: "!!!", "???", "@@@@"
+const GIBBERISH_RE = /^([bcdfghjklmnpqrstvwxyz]{2,}){2,}$/i; // consoantes sem vogais
+
 const LOVE_RE = /\b(amo|amo-?te|te amo|love|gosto de ti|gosto muito|meu amor|meu dark|meu tudo|neném|vida\s*minha|coração)\b/i;
 const PRAISE_RE = /^(?:(?:aura\s*(?:(?:e|eh|esta|ta)\s+)?|tu\s+es\s+|voce\s+e\s+|vc\s+e\s+|es\s+|que\s+)?)(?:linda|lindo|bonita|bonito|perfeita|perfeito|maravilhosa|maravilhoso|incrivel|especial|unica|inteligente|esperta)(?:[.!\s🖤💜💕✨]*)$/i;
 
@@ -71,6 +78,12 @@ function classifyMessage(text) {
   // com uma palavra sem contexto nem deixar que a IA diga que se perdeu.
   if (PRAISE_RE.test(plain) && wordCount <= 8) {
     return { type: 'emotional', confidence: 0.9, emotion: 'praise', isQuestion: false, wordCount };
+  }
+
+  // v13.9: Detectar mensagens aleatórias/nonsense — NÃO vão ao FAST PATH
+  // Estas mensagens não têm significado, então não devemos responder de forma robótica
+  if (NONSENSE_RE.test(tl) || RANDOM_CHARS_RE.test(tl) || SYMBOLS_ONLY_RE.test(tl) || GIBBERISH_RE.test(tl)) {
+    return { type: 'nonsense', confidence: 0.9, emotion: 'neutral', isQuestion: false, wordCount };
   }
 
   // Trivial — resposta instantânea, sem IA
@@ -801,6 +814,11 @@ function detectEmotion(text) {
  */
 function getAdaptivePromptSuffix(classification, topics, jid) {
   let suffix = '';
+
+  // v13.9: Mensagens nonsense/aleatórias — instruir a IA a responder de forma vaga ou ignorar
+  if (classification.type === 'nonsense') {
+    suffix += '\nA mensagem parece aleatória/sem sentido (ex: "aaaa", "!!!", "xyz"). NÃO perguntes o que significa. Responde de forma muito vaga e natural (ex: "🤔", "Hmm?", "...", "Ok?") ou simplesmente ignora se não fizer sentido responder. NÃO dês bandeira de bot.';
+  }
 
   // Se é trivial/simples, pedir resposta curta
   if (classification.type === 'trivial' || classification.type === 'simple') {
