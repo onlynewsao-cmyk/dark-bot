@@ -179,6 +179,69 @@ async function onUpsert(sock, m, io) {
       } catch (e) {}
     }
 
+    // ── v13.5: BLOQUEIO DE STATUS/VOZ/CONVERSA ──────────────
+    // !bloquearextras status on → apaga status/shared stories
+    // !bloquearextras voz on → bloqueia chamadas de voz no grupo
+    // !bloquearextras conversa on → bloqueia início de PV via grupo
+    if (isGroup && await automacaoDeGrupoActiva()) {
+      try {
+        const gs = await require('./hotCache').getGroupSettings(msg, remoteJid);
+        if (gs) {
+          // Bloquear status/stories compartilhados
+          if (gs.bloquearStatus) {
+            const mObj = msg.message || {};
+            const isSharedStatus =
+              msgType === 'groupStatusMessageV2' ||
+              msgType === 'groupStatusMessage' ||
+              mObj.groupStatusMessageV2 ||
+              JSON.stringify(mObj).includes('isGroupStatus') ||
+              JSON.stringify(mObj).includes('statusMention') ||
+              JSON.stringify(mObj).includes('groupStatusMention');
+
+            if (isSharedStatus && !msg.key.fromMe) {
+              const meta = await sock.groupMetadata(remoteJid).catch(() => null);
+              const fromJid = msg.key.participant || msg.participant;
+              const senderParticipant = meta?.participants?.find(p => p.id === fromJid);
+              const isAdmin = senderParticipant?.admin === 'admin' || senderParticipant?.admin === 'superadmin';
+              const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : null;
+              const botIsAdmin = meta?.participants?.find(p => p.id === botJid)?.admin;
+
+              if (!isAdmin && botIsAdmin) {
+                await sock.sendMessage(remoteJid, { delete: msg.key }).catch(() => {});
+                console.log('[BloquearStatus] Status apagado:', fromJid);
+                return;
+              }
+            }
+          }
+
+          // Bloquear convite de chamada de voz
+          if (gs.bloquearVoz) {
+            const isCallOffer = msgType === 'offer' || msgType === 'call_log' ||
+              JSON.stringify(msg.message).includes('call') ||
+              JSON.stringify(msg.message).includes('offer');
+
+            if (isCallOffer && !msg.key.fromMe) {
+              const meta = await sock.groupMetadata(remoteJid).catch(() => null);
+              const fromJid = msg.key.participant || msg.participant;
+              const senderParticipant = meta?.participants?.find(p => p.id === fromJid);
+              const isAdmin = senderParticipant?.admin === 'admin' || senderParticipant?.admin === 'superadmin';
+              const botJid = sock.user?.id ? (sock.user.id.split(':')[0] + '@s.whatsapp.net') : null;
+              const botIsAdmin = meta?.participants?.find(p => p.id === botJid)?.admin;
+
+              if (!isAdmin && botIsAdmin) {
+                await sock.sendMessage(remoteJid, { delete: msg.key }).catch(() => {});
+                await sock.sendMessage(remoteJid, {
+                  text: `⚠️ *@${fromJid.split('@')[0]}* Chamada de voz bloqueada neste grupo.`
+                }).catch(() => {});
+                console.log('[BloquearVoz] Chamada bloqueada:', fromJid);
+                return;
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    }
+
     // Cache em memória
     if (messageCache.size > MAX_CACHE) {
       const firstKey = messageCache.keys().next().value;

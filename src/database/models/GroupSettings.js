@@ -176,6 +176,13 @@ const GroupSettingsSchema = new mongoose.Schema({
   // v13.0: acção por anti (apagar|avisar|kick|ban|mute)
   antitiposAccoes:   { type: Map, of: String, default: {} },
 
+  // ── v13.5: Bloqueio de Status/Conversa + Etiquetas ──────────
+  bloquearStatus:    { type: Boolean, default: false },
+  bloquearVoz:       { type: Boolean, default: false },
+  bloquearConversa:  { type: Boolean, default: false },
+  etiquetasAtivas:   { type: Boolean, default: false },
+  etiquetaBorda:     { type: String, default: 'simples' },
+
   // ── v7.86 Antis de mídia + AUTO-VISU1 ──────────────────────
   // v7.89 FIX: estavam FORA do schema — o mongoose (strict) apagava-os
   // ao gravar, o `!antifoto on` dizia "ON" mas nada persistia e os
