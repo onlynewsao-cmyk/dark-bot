@@ -172,7 +172,10 @@ function temPalavra(texto, lista = []) {
   for (const p of lista) {
     const w = String(p || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
     if (!w) continue;
-    const re = new RegExp(`(^|[^\\p{L}\\p{N}])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'iu');
+    // v12.9: só letras contam como parte da palavra — números, _ e símbolos são separadores
+    // Antes: [^\p{L}\p{N}] → "merda123" bypassava porque 1 é \p{N}
+    // Agora: [^\p{L}] → "merda123" é detectado porque 1 não é letra
+    const re = new RegExp(`(^|[^\\p{L}])${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}]|$)`, 'iu');
     if (re.test(t)) return w;
   }
   return null;

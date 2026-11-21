@@ -497,18 +497,7 @@ module.exports = function registerAdminExtra(registerCase) {
     await reply(`✅ Msg de ban guardada:\n_${gs.banMsg}_`);
   });
 
-  registerCase(['proibir', 'addproibir'], async ({ sock, msg, ctx, args, reply, prefix }) => {
-    if (!await requirePower(sock, ctx, reply)) return;
-    const word = args.join(' ').trim().toLowerCase();
-    if (!word) return reply(`❌ Uso: \`${prefix}proibir palavra\`\nLista: \`${prefix}palavras\``);
-    const gs = await gsUp(ctx.remoteJid);
-    const set = new Set((gs.palavrasProibidas || []).map(w => String(w).toLowerCase()));
-    set.add(word);
-    gs.palavrasProibidas = [...set];
-    gs.antipalavra = true;
-    await gs.save();
-    await reply(`🚫 Palavra proibida: *${word}*\nAnti-palavra: 🟢 ON\nTotal: *${set.size}*`);
-  });
+  // ── anti-palavra unificado em audioAdmin2.js (addpalavra/delpalavra/palavras/proibir) ──
 
   registerCase(['em', 'emojigp', 'setemoji'], async ({ sock, msg, ctx, args, reply, prefix }) => {
     if (!await requirePower(sock, ctx, reply)) return;

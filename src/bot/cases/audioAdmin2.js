@@ -328,8 +328,9 @@ module.exports = function registerAudioAdmin2(registerCase) {
     }, true);
   }
 
-  // ═══ v7.46 — LISTA DO ANTIPALAVRA ═══
-  registerCase(['addpalavra', 'delpalavra', 'palavras', 'listapalavras'], async ({ sock, msg, ctx, args, isOwner, isAdminFn, command }) => {
+  // ═══ v7.46 + v12.9 — LISTA DO ANTIPALAVRA (unificado) ═══
+  // aliases: addpalavra, delpalavra, palavras, listapalavras, proibir, addproibir
+  registerCase(['addpalavra', 'delpalavra', 'palavras', 'listapalavras', 'proibir', 'addproibir'], async ({ sock, msg, ctx, args, isOwner, isAdminFn, command }) => {
     if (!ctx.isGroup) return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', ['❌ Só em grupos']);
     if (!isOwner) {
       let adm = false; try { adm = await isAdminFn(); } catch {}
@@ -338,12 +339,16 @@ module.exports = function registerAudioAdmin2(registerCase) {
     const GroupSettings = require('../../database/models/GroupSettings');
     const cmd = String(command || '').toLowerCase();
     const palavra = args.join(' ').trim().toLowerCase();
+    // v12.9: !proibir / !addproibir = adicionar palavra (compat adminExtra.js)
+    const isAdd = cmd === 'addpalavra' || cmd === 'proibir' || cmd === 'addproibir';
+    const isDel = cmd === 'delpalavra';
+    const isList = cmd === 'palavras' || cmd === 'listapalavras';
     // v7.47: sem palavra cai na lista abaixo (efeito real ao clicar, padrão v7.29)
-    if (cmd === 'addpalavra' && palavra) {
+    if (isAdd && palavra) {
       await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $addToSet: { palavrasProibidas: palavra }, antipalavra: true }, { upsert: true });
-      return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`✅ "${palavra}" adicionada. Antipalavra ligado.`]);
+      return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`✅ "${palavra}" proibida. Antipalavra ligado.`]);
     }
-    if (cmd === 'delpalavra' && palavra) {
+    if (isDel && palavra) {
       await GroupSettings.findOneAndUpdate({ groupJid: ctx.remoteJid }, { $pull: { palavrasProibidas: palavra } });
       return tReply(sock, msg, ctx, '🛡️ ANTI-PALAVRA', [`🗑️ "${palavra}" removida.`]);
     }
