@@ -98,7 +98,8 @@ function analisarMensagem(message) {
     .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g, '')
     .toLowerCase();
   const temLink = REGEX_LINK.test(texto);
-  const temCliqueNaImagem = normalizado.includes('clique na imagem');
+  // v13.17 FIX: apenas padrões claros de divulgação, não frases normais
+  const temCliqueNaImagem = /clique na imagem.*(para|e|pra|agora|já|aqui|nesse|neste|link|site|ver|ganhar|receber)/i.test(texto) || normalizado.includes('clique na imagem para ver');
   if (estado.temPagamentoDisfarcado && (temLink || temCliqueNaImagem)) {
     return { codigo: 'pagamento_com_link', mensagem: 'Pagamento disfarçado com link de divulgação!' };
   }

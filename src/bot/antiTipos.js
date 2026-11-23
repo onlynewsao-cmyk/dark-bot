@@ -295,7 +295,10 @@ async function check(sock, msg) {
 
     const raw = msg.message || {};
     const viewOnce = !!(raw.viewOnceMessage || raw.viewOnceMessageV2 || raw.viewOnceMessageV2Extension || inner(raw).imageMessage?.viewOnce || inner(raw).videoMessage?.viewOnce);
-    let hit = detectar(msg, gs, { viewOnce, senderKnown: true });
+    // v13.17 FIX: senderKnown=false aqui porque neste ponto já passaram as
+    // verificações de dono/admin. Membros normais com view-once devem ser
+    // detectados pelo antiporn.
+    let hit = detectar(msg, gs, { viewOnce, senderKnown: false });
     if (!hit) return false;
     // v7.86: anti-texto não come comandos (!play etc.) — a gestão continua possível
     if (hit.flag === 'antitexto') {
@@ -412,10 +415,10 @@ async function check(sock, msg) {
         }).catch(() => {});
         try { await sock.groupParticipantsUpdate(remoteJid, [senderJid], 'remove'); } catch {}
         try {
-          const blacklist = require('./hotCache').getGroupSettings; // fallback: usar GroupSettings directamente
+          // v13.17 FIX: usar 'blacklist' (campo real do modelo GroupSettings)
           await GroupSettings.updateOne(
             { groupJid: remoteJid },
-            { $addToSet: { bannedUsers: senderJid } }
+            { $addToSet: { blacklist: senderJid, blockedUsers: senderJid } }
           );
         } catch {}
         return true;
@@ -429,7 +432,7 @@ async function check(sock, msg) {
         }).catch(() => {});
         try {
           const muteOps = require('./muteOps');
-          await muteOps.porMute(remoteJid, senderJid, null, 'antitipos');
+          await muteOps.porMute(remoteJid, senderJid, { motivo: 'antitipos' });
         } catch {
           // fallback: adicionar directamente ao campo mutedUsers
           await GroupSettings.updateOne(

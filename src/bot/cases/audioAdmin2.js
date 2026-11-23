@@ -239,10 +239,11 @@ module.exports = function registerAudioAdmin2(registerCase) {
         }
         // v7.46: as variantes do antilink mapeiam para as opções REAIS do antiLink.js
         let upd = { [cmd]: isOn };
-        if (cmd === 'antilinkhard')  upd = isOn ? { antilink: true, antilinkAction: 'kick', antilinkMaxWarns: 1, antilinkMode: 'all_links', antilinkOptOut: false } : { antilinkAction: 'warn', antilinkMaxWarns: 2, antilinkMode: 'smart' };
-        if (cmd === 'antilinksoft')  upd = isOn ? { antilink: true, antilinkAction: 'delete', antilinkMode: 'smart', antilinkOptOut: false } : { antilinkAction: 'warn' };
-        if (cmd === 'antilinkgp')    upd = isOn ? { antilink: true, antilinkMode: 'whatsapp_only', antilinkOptOut: false } : { antilinkMode: 'smart' };
-        if (cmd === 'antilinkcanal') upd = isOn ? { antilink: true, antilinkMode: 'all_links', antilinkOptOut: false } : { antilinkMode: 'smart' };
+        // v13.17 FIX: OFF desliga antilink completamente (antes só mudava modo)
+        if (cmd === 'antilinkhard')  upd = isOn ? { antilink: true, antilinkAction: 'kick', antilinkMaxWarns: 1, antilinkMode: 'all_links', antilinkOptOut: false } : { antilink: false, antilinkAction: 'warn', antilinkMaxWarns: 2, antilinkMode: 'smart', antilinkOptOut: true };
+        if (cmd === 'antilinksoft')  upd = isOn ? { antilink: true, antilinkAction: 'delete', antilinkMode: 'smart', antilinkOptOut: false } : { antilink: false, antilinkAction: 'warn', antilinkOptOut: true };
+        if (cmd === 'antilinkgp')    upd = isOn ? { antilink: true, antilinkMode: 'whatsapp_only', antilinkOptOut: false } : { antilink: false, antilinkMode: 'smart', antilinkOptOut: true };
+        if (cmd === 'antilinkcanal') upd = isOn ? { antilink: true, antilinkMode: 'all_links', antilinkOptOut: false } : { antilink: false, antilinkMode: 'smart', antilinkOptOut: true };
         if (cmd === 'antifigurinha' || cmd === 'antifig') upd = { antifigurinha: isOn, antifig: isOn };
         if (cmd === 'autovisu1') upd = { autoVisu1: isOn };   // v7.89: nome REAL do campo (leitor: antiTipos)
         if (cmd === 'autodl')    upd = { autoDl: isOn };      // v7.89: idem (leitor: autoDl/antiLink)
