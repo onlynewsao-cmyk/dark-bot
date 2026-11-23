@@ -61,7 +61,7 @@ router.get('/', async (req, res) => {
   } catch {}
   if (!plans.length) {
     plans = [
-      { id: 'trial', nome: 'Trial', emoji: '🆓', dias: 7, preco: '' },
+      { id: 'trial', nome: 'Trial', emoji: '🆓', dias: 3, preco: '' },
       { id: 'semanal', nome: 'Semanal', emoji: '⭐', dias: 7, preco: 'A partir de 1.500 Kz' },
       { id: 'mensal', nome: 'Mensal', emoji: '💎', dias: 30, preco: 'A partir de 5.000 Kz' },
       { id: 'trimestral', nome: 'Trimestral', emoji: '🏆', dias: 90, preco: 'A partir de 12.000 Kz' },

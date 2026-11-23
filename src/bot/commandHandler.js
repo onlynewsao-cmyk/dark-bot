@@ -565,7 +565,7 @@ async function avisarPvFree(sock, msg, ctx, prefix, noticeKey, sender = '') {
       `🆓 *ACESSO FREE NO PRIVADO*\n\n` +
       `No PV, contas Free podem criar stickers e usar a AURA em modo assistente por até *${FREE_PV_AURA_LIMIT} perguntas de texto/dia*. Responde a uma foto ou vídeo com *${prefix || config.bot.prefix || '!'}sticker*.\n\n` +
       `⭐ Para usar todos os comandos, compra o *VIP*.\n` +
-      `🏠 Para activar o bot no teu grupo, adiciona-o e usa o *trial de 7 dias* ou contrata o aluguel.\n` +
+      `🏠 Para activar o bot no teu grupo, adiciona-o e usa o *trial de 3 dias* ou contrata o aluguel.\n` +
       (owner ? `📲 Contratação: wa.me/${owner}` : ''),
   }, { quoted: msg }).catch(() => {});
 }
@@ -745,7 +745,7 @@ async function _avisoSemAluguel(sock, msg, ctx) {
         '🔷 O bot não está *ativado* neste grupo.\n' +
         '\n' +
         `Digite *${pfx}alugar* para ver os planos e ativar o ${bName} aqui.\n` +
-        `🆓 Ou *${pfx}trial* para 7 dias grátis.`,
+        `🆓 Ou *${pfx}trial* para 3 dias grátis.`,
     }, { quoted: msg }).catch(() => {});
   } catch (_) {}
 }
@@ -4345,6 +4345,34 @@ Responde com naturalidade e concisão, sem inventar detalhes e sem fingir ser um
       await sock.sendMessage(ctx.remoteJid, { text: modeGate.lockedMessage(gate.mode, prefix) }, { quoted: msg });
       return true;
     }
+  }
+
+  // ── v13.17: AI GATE — comandos de IA só com aluguel/trial activo ──
+  // Membros normais e grupos sem aluguel/trial NÃO podem usar comandos IA.
+  // Dono (isOwner) passa sempre. Admins também precisam de aluguel activo.
+  if (ctx.isGroup && !isOwner) {
+    try {
+      const _submenuData = require('./submenuData');
+      const _cat = typeof _submenuData.categorize === 'function' ? _submenuData.categorize(canonicalCommand) : null;
+      if (_cat === 'ia') {
+        const { hasActiveEntitlement } = require('./groupEntitlement');
+        const _hasEnt = hasActiveEntitlement(groupConfig);
+        if (!_hasEnt) {
+          const _p = prefix || config.bot.prefix || '!';
+          await sock.sendMessage(ctx.remoteJid, {
+            text: `🔒 *COMANDOS DE IA BLOQUEADOS*
+
+Este grupo não tem aluguel ou trial activo.
+
+💎 Aluguel: \`${_p}alugar\`
+🆓 Trial (3 dias): \`${_p}trial\`
+
+Comandos de IA (GPT, Claude, Meta AI, etc.) requerem plano activo.`
+          }, { quoted: msg });
+          return true;
+        }
+      }
+    } catch (_e) { /* se falhar, deixa passar */ }
   }
 
   // O antigo limite de 50 comandos/dia no PV foi substituído pelo acesso

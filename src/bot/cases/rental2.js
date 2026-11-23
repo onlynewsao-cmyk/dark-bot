@@ -73,8 +73,8 @@ async function tReply(sock, msg, ctx, title, lines) {
 // v7.67: preços editáveis pelo dono (!setpreco). Valores iniciais são
 // PLACEHOLDERS — o dono deve ajustar à sua tabela.
 const RENTAL_PLANS = [
-  { id: 'trial', nome: '🆓 TRIAL', dias: 7, kz: 0, brl: 0, emoji: '🆓',
-    desc: '7 dias grátis\n500 cmds/dia\nComandos básicos\nSem IA avançada', cmdsDay: 500 },
+  { id: 'trial', nome: '🆓 TRIAL', dias: 3, kz: 0, brl: 0, emoji: '🆓',
+    desc: '3 dias grátis\n500 cmds/dia\nComandos básicos\nSem IA avançada', cmdsDay: 500 },
   { id: 'semanal', nome: '⭐ SEMANAL', dias: 7, kz: 1500, brl: 5, emoji: '⭐',
     desc: '7 dias\nComandos ilimitados\nDownloads HD\nIA com memória\nSuporte básico', cmdsDay: -1 },
   { id: 'mensal', nome: '💎 MENSAL', dias: 30, kz: 5000, brl: 15, emoji: '💎',
@@ -420,7 +420,7 @@ module.exports = function registerRental2(registerCase) {
       `📋 Estado: ${currentStatus}\n\n` +
       `💎 Ative o ${localConfig.bot.name} no seu grupo:\n\n` +
       RENTAL_PLANS.filter(pl => pl.id !== 'trial').map(planLine).join('\n') +
-      `\n\n🆓 *TRIAL* — 7 dias grátis: *${p}trial*\n\n` +
+      `\n\n🆓 *TRIAL* — 3 dias grátis: *${p}trial*\n\n` +
       `Escolha um plano abaixo 👇`;
     const planRows = RENTAL_PLANS.filter(pl => pl.id !== 'trial').map(pl => ({
       title: `${pl.emoji} ${pl.nome.replace(/^[^\s]+\s/, '')} — ${precoTxt(pl.id, prices)}`.slice(0, 60),
@@ -428,7 +428,7 @@ module.exports = function registerRental2(registerCase) {
       id: `${p}alugar plano:${pl.id}`,
     }));
     planRows.push(
-      { title: '🆓 Trial 7 dias grátis', description: '500 cmds/dia · sem cartão', id: `${p}trial` },
+      { title: '🆓 Trial 3 dias grátis', description: '500 cmds/dia · sem cartão', id: `${p}trial` },
       { title: '📊 Estado do aluguel', description: 'Ver dias restantes', id: `${p}statusalugar` },
     );
     const channelUrl = await require('../identidadeCanal').canalLink();
@@ -514,7 +514,7 @@ module.exports = function registerRental2(registerCase) {
     const rows = [
       { title: '⭐ Planos Premium (VIP)', description: 'Carrossel: 7 / 30 / 90 dias', id: `${p}vip` },
       { title: '🏠 Planos de Aluguel', description: 'Trial, semanal, mensal, trimestral, anual', id: `${p}alugar` },
-      { title: '🆓 Activar Trial (7 dias)', description: 'Grátis, 500 cmds/dia', id: `${p}trial` },
+      { title: '🆓 Activar Trial (3 dias)', description: 'Grátis, 500 cmds/dia', id: `${p}trial` },
       { title: '📊 Estado do Aluguel', description: 'Dias restantes, quem activou', id: `${p}statusalugar` },
       { title: '👤 Meu Perfil / VIP', description: 'Cargo, VIP e limites', id: `${p}perfil` },
       { title: '📲 Falar com o Dono', description: `wa.me/${ownerNum}`, id: `${p}dono` },
@@ -529,7 +529,7 @@ module.exports = function registerRental2(registerCase) {
       `▸ ${p}vip — ver planos premium`,
       `▸ ${p}alugar — ver planos de aluguel`,
       `▸ ${p}alugar 30 · +7 · -3 · =30 — somar/subtrair/definir dias`,
-      `▸ ${p}trial — 7 dias grátis`,
+      `▸ ${p}trial — 3 dias grátis`,
       `▸ ${p}statusalugar — estado do aluguel`,
       '',
       `📲 Dono: wa.me/${ownerNum}`,
@@ -566,7 +566,7 @@ module.exports = function registerRental2(registerCase) {
     if (gs?.trialUsedAt || gs?.trialExpiresAt) {
       return tReply(sock, msg, ctx, '🆓 TRIAL', ['⌛ Este grupo já usou o trial gratuito.', '💎 Usa !alugar para reactivar o bot.']);
     }
-    const trialEnd = new Date(Date.now() + 7 * 86400000);
+    const trialEnd = new Date(Date.now() + 3 * 86400000);
     await GroupSettings.findOneAndUpdate(
       { groupJid: ctx.remoteJid },
       { trialExpiresAt: trialEnd, trialUsedAt: new Date(), isHosted: false, groupName: ctx.groupName || '' },
@@ -574,7 +574,7 @@ module.exports = function registerRental2(registerCase) {
     );
     try { require('../hotCache').forgetGroup(ctx.remoteJid); } catch {} // v7.53: fura o TTL
     return tReply(sock, msg, ctx, '🆓 TRIAL ACTIVADO', [
-      `🆓 *7 dias grátis* activados!`,
+      `🆓 *3 dias grátis* activados!`,
       `📅 Expira: ${trialEnd.toLocaleDateString('pt-PT')}`,
       `📋 500 cmds/dia`,
       '',

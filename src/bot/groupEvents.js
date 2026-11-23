@@ -386,7 +386,7 @@ async function handle(sock, event) {
 }
 
 async function onBotAdded(sock, groupJid, groupName, meta) {
-  const trialDays = 7;
+  const trialDays = 3;
   const trialEnd = new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000);
   let gs = await GroupSettings.findOne({ groupJid }).catch(() => null);
   if (!gs) {
