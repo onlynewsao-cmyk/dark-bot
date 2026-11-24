@@ -125,7 +125,9 @@ module.exports = function registerGroupCases(registerCase) {
     if (!await requireSenderAdmin(sock, ctx, reply)) return;
     try {
       const meta = ctx.groupMeta || await sock.groupMetadata(ctx.remoteJid);
-      const mentions = meta.participants.map(p => p.id);
+      // v13.19 FIX: filtrar o bot das menções (evita que a AURA responda a si própria)
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      const mentions = meta.participants.filter(p => String(p.id || '').split(':')[0].split('@')[0] !== botNum).map(p => p.id);
       const txt = args.join(' ') || '📢';
       await sock.sendMessage(ctx.remoteJid, { text: txt, mentions }, { quoted: m });
     } catch (e) { reply('❌ ' + e.message); }

@@ -1906,7 +1906,15 @@ async function _handleInner(sock, msg, turn) {
 
   const allMentioned = _msgFacts.mentionedJids || [];
   const botIds = [botJid, botNum, botLid].filter(Boolean);
-  const isBotMentioned = allMentioned.some(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver));
+  // v13.19 FIX: detectar menção de grupo (@todos nativo) vs menção directa ao bot
+  // Quando alguém usa @todos, o WhatsApp inclui TODOS os participantes no mentionedJid.
+  // Se há muitas menções (>=5) OU a mensagem é groupMentionedMessage → é menção de grupo.
+  const _raw = msg?.message || {};
+  const _inner = _raw.ephemeralMessage?.message || _raw.viewOnceMessage?.message || _raw.viewOnceMessageV2?.message || _raw;
+  const _ci = _inner.extendedTextMessage?.contextInfo || _inner.imageMessage?.contextInfo || _inner.videoMessage?.contextInfo || {};
+  const isGroupMention = !!_ci.groupMentions?.length || !!_raw.groupMentionedMessage || 
+    (!!_inner.groupMentionedMessage) || allMentioned.length >= 5;
+  const isBotMentioned = !isGroupMention && allMentioned.some(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver));
   const _quotedParticipants = [_msgFacts.citado?.authorJid, _msgFacts.citado?.authorAltJid, _msgFacts.quotedParticipant].filter(Boolean);
   const ctxParticipant = _quotedParticipants.find(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver)) || _quotedParticipants[0] || '';
   const isReplyToBot = !!_msgFacts.citado?.fromMe || _quotedParticipants.some(j => auraCompreensao.sameWhatsAppIdentity(j, botIds, _identityResolver)) ||

@@ -102,7 +102,9 @@ module.exports = function registerExtraCases(registerCase) {
     if (!isAdm) return m.reply('🚫 Só admins.');
     try {
       const meta     = await sock.groupMetadata(m.chat);
-      const mentions = meta.participants.map(p => p.id);
+      // v13.19 FIX: filtrar o bot das menções (evita que a AURA responda a si própria)
+      const botNum = String(sock.user?.id || '').split(':')[0].split('@')[0];
+      const mentions = meta.participants.filter(p => String(p.id || '').split(':')[0].split('@')[0] !== botNum).map(p => p.id);
       const txt      = (text || '📢 Atenção!') + '\n\n' + mentions.map(j => `@${j.split('@')[0]}`).join(' ');
       const msgSent = await sock.sendMessage(m.chat, { text: txt, mentions }, { quoted: m });
 
